@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,11 +7,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
   <div class="container py-4 py-md-5">
 
-    <!-- LOGIN -->
     <section id="screen-login" class="screen active">
       <div class="row justify-content-center">
         <div class="col-lg-6">
@@ -40,26 +37,21 @@
       </div>
     </section>
 
-    <!-- CONFIG -->
+    
     <section id="screen-config" class="screen">
       <div class="row justify-content-center">
-        <div class="col-xl-8">
+        <div class="col-xl-9">
           <div class="card app-card">
             <div class="card-body p-4 p-md-5">
               <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
                 <div>
                   <h2 class="h3 fw-bold mb-1">Configuração da Prova</h2>
-                  <p class="text-muted mb-0">Preencha os dados do candidato e escolha o nível da vaga.</p>
+                  <p class="text-muted mb-0">Selecione o perfil da vaga, o nível e a trilha da avaliação.</p>
                 </div>
                 <button class="btn btn-outline-secondary" onclick="logout()">Sair</button>
               </div>
 
               <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">Nome do candidato</label>
-                  <input id="candidate-name" type="text" class="form-control" placeholder="Ex.: João da Silva">
-                </div>
-
                 <div class="col-md-6">
                   <label class="form-label">Perfil da vaga</label>
                   <select id="candidate-role" class="form-select">
@@ -76,7 +68,7 @@
                   </select>
                 </div>
 
-                <div class="col-md-8">
+                <div class="col-md-6">
                   <label class="form-label">Nível da prova</label>
                   <select id="candidate-level" class="form-select">
                     <option value="">Selecione...</option>
@@ -87,15 +79,82 @@
                   </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-6">
+                  <label class="form-label">Área / Trilha</label>
+                  <select id="candidate-track" class="form-select">
+                    <option value="">Automático</option>
+                    <option value="operacao">Operação</option>
+                    <option value="ti">TI</option>
+                    <option value="rh">RH</option>
+                    <option value="adm">ADM / Gestão</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
                   <label class="form-label">Tempo total (minutos)</label>
                   <input id="candidate-time" type="number" min="5" max="180" class="form-control" value="40">
                 </div>
               </div>
 
+              <div class="mt-4 p-3 bg-light rounded-4 border">
+                <div class="fw-semibold mb-2">Fluxo que será aplicado</div>
+                <div id="flow-preview" class="text-muted small">Selecione a vaga para visualizar a trilha.</div>
+              </div>
+
               <div id="config-alert" class="alert alert-danger d-none mt-4"></div>
 
               <div class="d-flex justify-content-end mt-4">
+                <button class="btn btn-success btn-lg" onclick="proceedToCandidate()">Prosseguir Teste</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-candidate" class="screen">
+      <div class="row justify-content-center">
+        <div class="col-xl-9">
+          <div class="card app-card">
+            <div class="card-body p-4 p-md-5">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+                <div>
+                  <h2 class="h3 fw-bold mb-1">Instruções ao Candidato</h2>
+                  <p class="text-muted mb-0">Confirme os dados antes de iniciar a avaliação.</p>
+                </div>
+                <button class="btn btn-outline-secondary" onclick="backToConfig()">Voltar</button>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Nome do candidato</label>
+                  <input id="candidate-name" type="text" class="form-control" placeholder="Ex.: João da Silva">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Perfil selecionado</label>
+                  <input id="candidate-role-preview" type="text" class="form-control" readonly>
+                </div>
+              </div>
+
+              <div class="mt-4 p-3 bg-light rounded-4 border">
+                <h3 class="h5 fw-bold mb-3">Regras da prova</h3>
+                <ul class="mb-0 rules-list">
+                  <li>Leia com atenção cada questão antes de responder.</li>
+                  <li>As etapas da prova seguem a vaga selecionada pelo RH.</li>
+                  <li>Nas questões de Excel, baixe a planilha, responda e envie o arquivo.</li>
+                  <li>O sistema registra o andamento da prova até o encerramento.</li>
+                </ul>
+              </div>
+
+              <div class="mt-4 p-3 bg-light rounded-4 border">
+                <h3 class="h5 fw-bold mb-3">Etapas e o que será avaliado</h3>
+                <div id="candidate-rules-summary" class="text-muted small"></div>
+              </div>
+
+              <div id="candidate-alert" class="alert alert-danger d-none mt-4"></div>
+
+              <div class="d-flex justify-content-end mt-4 gap-2">
+                <button class="btn btn-outline-secondary" onclick="backToConfig()">Voltar</button>
                 <button class="btn btn-success btn-lg" onclick="startExam()">Iniciar prova</button>
               </div>
             </div>
@@ -104,15 +163,14 @@
       </div>
     </section>
 
-    <!-- EXAM -->
-    <section id="screen-exam" class="screen">
+<section id="screen-exam" class="screen">
       <div class="card app-card">
         <div class="card-body p-4">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
             <div>
               <h2 class="h3 fw-bold mb-1">Prova em andamento</h2>
               <div class="small-muted">
-                Candidato: <strong id="exam-candidate"></strong> | Perfil: <strong id="exam-role"></strong>
+                Candidato: <strong id="exam-candidate"></strong> | Perfil: <strong id="exam-role"></strong> | Trilha: <strong id="exam-track"></strong>
               </div>
             </div>
             <div class="d-flex align-items-center gap-3 flex-wrap">
@@ -132,8 +190,13 @@
           </div>
 
           <div class="question-box mb-4">
-            <h3 id="question-title" class="h5 fw-bold"></h3>
-            <p id="question-description" class="mb-0 text-muted"></p>
+            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+              <div>
+                <h3 id="question-title" class="h5 fw-bold"></h3>
+                <p id="question-description" class="mb-0 text-muted"></p>
+              </div>
+              <div id="question-points" class="question-points"></div>
+            </div>
           </div>
 
           <div id="dynamic-area"></div>
@@ -149,7 +212,6 @@
       </div>
     </section>
 
-    <!-- THANKS -->
     <section id="screen-thanks" class="screen">
       <div class="row justify-content-center">
         <div class="col-xl-8">
@@ -157,7 +219,7 @@
             <div class="card-body p-4 p-md-5 text-center">
               <div class="thanks-icon">✓</div>
               <h2 class="h3 fw-bold">Teste finalizado</h2>
-              <p class="text-muted mb-4">Obrigado por concluir a avaliação. Seus dados foram registrados e serão analisados pelo RH.</p>
+              <p class="text-muted mb-4">O resultado foi calculado conforme a trilha da vaga e já está pronto para revisão do RH.</p>
 
               <div class="d-flex justify-content-center gap-2 flex-wrap mb-4">
                 <button class="btn btn-success btn-lg" onclick="saveResult()">Salvar</button>
@@ -184,74 +246,61 @@
       </div>
     </section>
 
-    <!-- RESULT -->
     <section id="screen-result" class="screen">
       <div class="row justify-content-center">
         <div class="col-xl-10">
           <div class="card app-card">
             <div class="card-body p-4 p-md-5">
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-                <div>
-                  <h2 class="h3 fw-bold mb-1">Resultado da Avaliação</h2>
-                  <p class="text-muted mb-0">Resumo final da prova.</p>
-                </div>
-                <button class="btn btn-outline-secondary no-print" onclick="backToConfig()">Nova prova</button>
-              </div>
 
-              <div class="row g-3 mb-4">
-                <div class="col-md-4">
-                  <div class="result-item">
-                    <div class="text-muted">Candidato</div>
-                    <div id="result-name" class="fw-bold fs-5"></div>
+              <div class="print-page print-page-1">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                  <div>
+                    <h2 class="h3 fw-bold mb-1">Resultado da Avaliação</h2>
+                    <p class="text-muted mb-0">Resumo final da prova.</p>
+                  </div>
+                  <div class="d-flex gap-2 no-print">
+                    <button class="btn btn-primary" onclick="downloadExamPackage()">Baixar prova</button>
+                    <button class="btn btn-outline-secondary" onclick="printResult()">Imprimir</button>
+                    <button class="btn btn-outline-secondary" onclick="backToConfig()">Nova prova</button>
                   </div>
                 </div>
-                <div class="col-md-4">
-                  <div class="result-item">
-                    <div class="text-muted">Perfil</div>
-                    <div id="result-role" class="fw-bold fs-5"></div>
-                  </div>
-                </div>
-                <div class="col-md-4">
-                  <div class="result-item">
-                    <div class="text-muted">Nota final</div>
-                    <div id="result-score" class="fw-bold fs-3 text-success"></div>
-                  </div>
-                </div>
-              </div>
 
-              <div class="mb-4">
-                <h3 class="h5 fw-bold mb-3">Pontuação por etapa</h3>
-                <div id="stage-results" class="row g-3"></div>
-              </div>
+                <div class="row g-3 mb-4">
+                  <div class="col-md-3"><div class="result-item"><div class="text-muted">Candidato</div><div id="result-name" class="fw-bold fs-5"></div></div></div>
+                  <div class="col-md-3"><div class="result-item"><div class="text-muted">Perfil</div><div id="result-role" class="fw-bold fs-5"></div></div></div>
+                  <div class="col-md-3"><div class="result-item"><div class="text-muted">Nível / trilha</div><div id="result-level" class="fw-bold fs-5"></div></div></div>
+                  <div class="col-md-3"><div class="result-item"><div class="text-muted">Nota final</div><div id="result-score" class="fw-bold fs-3 text-success"></div></div></div>
+                </div>
 
-              <div class="mb-4">
-                <h3 class="h5 fw-bold mb-3">Pendências para revisão do RH</h3>
-                <div id="manual-review-box" class="result-item">
-                  <div class="text-muted">Nenhuma pendência.</div>
+                <div class="mb-4">
+                  <h3 class="h5 fw-bold mb-3">Pontuação por etapa</h3>
+                  <div id="stage-results" class="row g-3"></div>
                 </div>
               </div>
 
-              <div class="mb-4">
-                <label class="form-label fw-semibold">Observações do RH</label>
-                <textarea id="rh-notes" class="form-control" rows="4" placeholder="Anotações sobre desempenho, postura, tempo, etc."></textarea>
+              <div class="print-page print-page-2">
+                <div class="mb-4">
+                  <h3 class="h5 fw-bold mb-3">Pendências para revisão do RH</h3>
+                  <div id="manual-review-box" class="result-item"><div class="text-muted">Nenhuma pendência.</div></div>
+                </div>
+
+                <div class="mb-4 print-observation-block">
+                  <h3 class="h5 fw-bold mb-2">Observação do RH</h3>
+                  <p class="text-muted mb-0">Anotações sobre desempenho, postura, tempo, etc.</p>
+                </div>
               </div>
 
-              <div class="d-flex flex-wrap gap-2 justify-content-end no-print">
-                <button class="btn btn-dark" onclick="saveCompleteResult()">Salvar resultado completo</button>
-                <button class="btn btn-outline-primary" onclick="printResult()">Imprimir / Salvar PDF</button>
-                <button class="btn btn-success" onclick="saveResult()">Salvar resultado</button>
-              </div>
             </div>
           </div>
         </div>
       </div>
     </section>
-
   </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="questions.js"></script>
+  <script src="excel-base-data.js"></script>
   <script src="app.js"></script>
 </body>
-
 </html>

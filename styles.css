@@ -1,147 +1,51 @@
 body { background: #f4f6f9; }
-
 .screen { display: none; }
 .screen.active { display: block; }
-
-.app-card {
-  border: none;
-  border-radius: 18px;
-  box-shadow: 0 8px 25px rgba(0,0,0,.08);
-}
-
-.timer-box {
-  font-weight: 700;
-  font-size: 1.1rem;
-  padding: 10px 16px;
-  border-radius: 12px;
-  background: #212529;
-  color: #fff;
-  min-width: 130px;
-  text-align: center;
-}
-
+.app-card { border: none; border-radius: 18px; box-shadow: 0 8px 25px rgba(0,0,0,.08); }
+.timer-box { font-weight: 700; font-size: 1.1rem; padding: 10px 16px; border-radius: 12px; background: #212529; color: #fff; min-width: 130px; text-align: center; }
 .toolbar button { min-width: 42px; }
-
-.word-editor {
-  min-height: 280px;
-  border: 1px solid #ced4da;
-  border-radius: 12px;
-  background: #fff;
-  padding: 16px;
-  outline: none;
-  line-height: 1.5;
-}
-
-.question-box {
-  background: #fff;
-  border-radius: 14px;
-  border: 1px solid #e9ecef;
-  padding: 18px;
-}
-
-.badge-stage {
-  background: #e7f1ff;
-  color: #0d6efd;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-weight: 600;
-}
-
-.result-item {
-  border: 1px solid #e9ecef;
-  border-radius: 14px;
-  padding: 14px;
-  background: #fff;
-}
-
-.small-muted {
-  font-size: .92rem;
-  color: #6c757d;
-}
-
-.thanks-icon {
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #e8fff1;
-  color: #198754;
-  font-size: 2rem;
-  margin: 0 auto 1rem;
-}
-
-.admin-gate {
-  border: 1px dashed #ced4da;
-  border-radius: 14px;
-  padding: 16px;
-  background: #f8f9fa;
-}
-
-.progress-soft {
-  height: 12px;
-  border-radius: 999px;
-}
-
-.excel-card {
-  border: 1px solid #dee2e6;
-  border-radius: 16px;
-  background: #fff;
-  padding: 18px;
-}
-
-.excel-step {
-  background: #f8f9fa;
-  border-radius: 12px;
-  padding: 12px;
-  border: 1px solid #e9ecef;
-}
-
-.excel-upload-box {
-  border: 2px dashed #ced4da;
-  border-radius: 14px;
-  padding: 18px;
-  background: #fcfcfd;
-}
-
-.excel-status-ok {
-  color: #198754;
-  font-weight: 700;
-}
-
-.excel-status-warn {
-  color: #fd7e14;
-  font-weight: 700;
-}
-
-.excel-status-error {
-  color: #dc3545;
-  font-weight: 700;
-}
-
-.muted-list {
-  color: #6c757d;
-  margin-bottom: 0;
-}
-
+.word-editor { min-height: 280px; border: 1px solid #ced4da; border-radius: 12px; background: #fff; padding: 16px; outline: none; line-height: 1.5; }
+.question-box { background: #fff; border-radius: 14px; border: 1px solid #e9ecef; padding: 18px; }
+.badge-stage { background: #e7f1ff; color: #0d6efd; border-radius: 999px; padding: 8px 12px; font-weight: 600; }
+.result-item { border: 1px solid #e9ecef; border-radius: 14px; padding: 14px; background: #fff; }
+.small-muted { font-size: .92rem; color: #6c757d; }
+.thanks-icon { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: #e8fff1; color: #198754; font-size: 2rem; margin: 0 auto 1rem; }
+.admin-gate { border: 1px dashed #ced4da; border-radius: 14px; padding: 16px; background: #f8f9fa; }
+.progress-soft { height: 12px; border-radius: 999px; }
+.excel-card { border: 1px solid #dee2e6; border-radius: 16px; background: #fff; padding: 18px; }
+.excel-step { background: #f8f9fa; border-radius: 12px; padding: 12px; border: 1px solid #e9ecef; }
+.excel-upload-box { border: 2px dashed #ced4da; border-radius: 14px; padding: 18px; background: #fcfcfd; }
+.excel-status-ok { color: #198754; font-weight: 700; }
+.excel-status-warn { color: #fd7e14; font-weight: 700; }
+.excel-status-error { color: #dc3545; font-weight: 700; }
+.muted-list { color: #6c757d; margin-bottom: 0; }
+.upload-hidden-input { display: none; }
+.upload-file-name { display: block; margin-top: 10px; font-size: 0.92rem; color: #495057; word-break: break-word; }
+.print-only { display: none; }
+.print-page { break-inside: avoid; }
+.print-observation-block { padding-top: 8px; }
+.question-points { min-width: 110px; text-align: center; border-radius: 12px; padding: 8px 12px; background: #f8f9fa; border: 1px solid #e9ecef; font-weight: 700; color: #495057; }
+.weight-badge { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #fff8e1; color: #8a6d3b; font-size: .85rem; font-weight: 600; }
+.stage-card-score.good { color: #198754; }
+.stage-card-score.warn { color: #fd7e14; }
+.stage-card-score.bad { color: #dc3545; }
 @media print {
-  #screen-login,
-  #screen-config,
-  #screen-exam,
-  #screen-thanks,
-  .no-print {
-    display: none !important;
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
   }
 
-  #screen-result {
-    display: block !important;
-  }
+  #screen-login, #screen-config, #screen-candidate, #screen-exam, #screen-thanks, .no-print { display: none !important; }
+  #screen-result { display: block !important; }
 
-  body {
-    background: white;
-  }
+  html, body { background: white !important; }
+  body { margin: 0 !important; padding: 0 !important; }
 
-  .app-card {
-    box-shadow: none;
-  }
+  .app-card { box-shadow: none; border-radius: 0; border: none; }
+  .print-page { break-inside: avoid; page-break-inside: avoid; }
+  .print-page-1 { page-break-after: always; break-after: page; padding-bottom: 8mm; }
+  .print-page-2 { page-break-before: always; break-before: page; padding-top: 2mm; }
+  .result-item { break-inside: avoid; page-break-inside: avoid; }
+  .print-observation-block { margin-top: 18px; }
+  #manual-review-box > div, #manual-review-box ul, #manual-review-box li { break-inside: avoid; page-break-inside: avoid; }
 }
