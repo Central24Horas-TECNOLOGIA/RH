@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,6 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <div class="container py-4 py-md-5">
 
@@ -15,7 +17,7 @@
         <div class="col-lg-6">
           <div class="card app-card">
             <div class="card-body p-4 p-md-5">
-              <h1 class="h3 fw-bold mb-2">Portal de Teste do RH</h1>
+              <h1 class="h3 fw-bold mb-2">Portal de Teste - Central 24h Horas</h1>
               <p class="text-muted mb-4">Acesso restrito para recrutadores.</p>
 
               <div class="mb-3">
@@ -30,14 +32,15 @@
 
               <div id="login-alert" class="alert alert-danger d-none"></div>
               <button class="btn btn-primary btn-lg w-100" onclick="doLogin()">Entrar</button>
-              <p class="small text-muted mt-3 mb-0">Demo: usuário <strong>rh</strong> e senha <strong>1234</strong></p>
+              <!--<p class="small text-muted mt-3 mb-0">Demo: usuário <strong>rh</strong> e senha <strong>1234</strong></p>-->
             </div>
           </div>
+          <p class="small text-muted mt-3 mb-0">Powered by <strong>Central 24 horas</strong></p>
         </div>
       </div>
     </section>
 
-    
+
     <section id="screen-config" class="screen">
       <div class="row justify-content-center">
         <div class="col-xl-9">
@@ -130,19 +133,69 @@
                   <label class="form-label">Nome do candidato</label>
                   <input id="candidate-name" type="text" class="form-control" placeholder="Ex.: João da Silva">
                 </div>
-                <div class="col-md-6">
+                <!--<div class="col-md-6">
                   <label class="form-label">Perfil selecionado</label>
                   <input id="candidate-role-preview" type="text" class="form-control" readonly>
-                </div>
+                </div>-->
               </div>
 
               <div class="mt-4 p-3 bg-light rounded-4 border">
-                <h3 class="h5 fw-bold mb-3">Regras da prova</h3>
+                <h3 class="h5 fw-bold mb-3">Regras e orientações da prova</h3>
+
                 <ul class="mb-0 rules-list">
-                  <li>Leia com atenção cada questão antes de responder.</li>
-                  <li>As etapas da prova seguem a vaga selecionada pelo RH.</li>
-                  <li>Nas questões de Excel, baixe a planilha, responda e envie o arquivo.</li>
-                  <li>O sistema registra o andamento da prova até o encerramento.</li>
+
+                  <li>
+                    Leia atentamente cada questão antes de responder. Procure compreender
+                    completamente o enunciado e o contexto apresentado antes de registrar
+                    sua resposta.
+                  </li>
+
+                  <li>
+                    A estrutura da avaliação foi definida previamente pelo setor de RH
+                    e segue o perfil da vaga selecionada. Dessa forma, as etapas e os
+                    conteúdos podem variar conforme o nível da posição em avaliação.
+                  </li>
+
+                  <li>
+                    Algumas etapas podem incluir exercícios práticos, especialmente
+                    relacionados ao uso do Excel. Nesses casos, será disponibilizado
+                    um arquivo de planilha para download contendo os dados necessários
+                    para a realização da atividade.
+                  </li>
+
+                  <li>
+                    Ao realizar exercícios em planilha, faça o download do arquivo,
+                    desenvolva as atividades solicitadas e salve o documento antes
+                    de enviá-lo novamente pelo sistema para validação da etapa.
+                  </li>
+
+                  <li>
+                    Certifique-se de salvar corretamente o arquivo em seu computador
+                    antes de realizar o envio. Recomenda-se não alterar o nome do arquivo
+                    original disponibilizado pelo sistema.
+                  </li>
+
+                  <li>
+                    O sistema registra automaticamente o andamento da prova, incluindo
+                    respostas selecionadas e arquivos enviados, garantindo a integridade
+                    das informações até o encerramento da avaliação.
+                  </li>
+
+                  <li>
+                    Após concluir cada etapa, revise suas respostas sempre que possível
+                    antes de prosseguir para a próxima fase da avaliação.
+                  </li>
+
+                  <li>
+                    Ao finalizar todas as etapas, o sistema registrará o resultado da
+                    avaliação para análise da equipe responsável pelo processo seletivo.
+                  </li>
+
+                  <li>
+                    Caso ocorra qualquer dificuldade técnica durante a prova, informe
+                    imediatamente o responsável pela aplicação do teste para orientação.
+                  </li>
+
                 </ul>
               </div>
 
@@ -163,14 +216,14 @@
       </div>
     </section>
 
-<section id="screen-exam" class="screen">
+    <section id="screen-exam" class="screen">
       <div class="card app-card">
         <div class="card-body p-4">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
             <div>
               <h2 class="h3 fw-bold mb-1">Prova em andamento</h2>
               <div class="small-muted">
-                Candidato: <strong id="exam-candidate"></strong> | Perfil: <strong id="exam-role"></strong> | Trilha: <strong id="exam-track"></strong>
+                Candidato: <strong id="exam-candidate"></strong> <!--| Perfil: <strong id="exam-role"></strong> | Trilha: <strong id="exam-track"></strong> -->
               </div>
             </div>
             <div class="d-flex align-items-center gap-3 flex-wrap">
@@ -266,10 +319,30 @@
                 </div>
 
                 <div class="row g-3 mb-4">
-                  <div class="col-md-3"><div class="result-item"><div class="text-muted">Candidato</div><div id="result-name" class="fw-bold fs-5"></div></div></div>
-                  <div class="col-md-3"><div class="result-item"><div class="text-muted">Perfil</div><div id="result-role" class="fw-bold fs-5"></div></div></div>
-                  <div class="col-md-3"><div class="result-item"><div class="text-muted">Nível / trilha</div><div id="result-level" class="fw-bold fs-5"></div></div></div>
-                  <div class="col-md-3"><div class="result-item"><div class="text-muted">Nota final</div><div id="result-score" class="fw-bold fs-3 text-success"></div></div></div>
+                  <div class="col-md-3">
+                    <div class="result-item">
+                      <div class="text-muted">Candidato</div>
+                      <div id="result-name" class="fw-bold fs-5"></div>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="result-item">
+                      <div class="text-muted">Perfil</div>
+                      <div id="result-role" class="fw-bold fs-5"></div>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="result-item">
+                      <div class="text-muted">Nível / trilha</div>
+                      <div id="result-level" class="fw-bold fs-5"></div>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="result-item">
+                      <div class="text-muted">Nota final</div>
+                      <div id="result-score" class="fw-bold fs-3 text-success"></div>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="mb-4">
@@ -281,7 +354,9 @@
               <div class="print-page print-page-2">
                 <div class="mb-4">
                   <h3 class="h5 fw-bold mb-3">Pendências para revisão do RH</h3>
-                  <div id="manual-review-box" class="result-item"><div class="text-muted">Nenhuma pendência.</div></div>
+                  <div id="manual-review-box" class="result-item">
+                    <div class="text-muted">Nenhuma pendência.</div>
+                  </div>
                 </div>
 
                 <div class="mb-4 print-observation-block">
@@ -303,4 +378,5 @@
   <script src="excel-base-data.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>

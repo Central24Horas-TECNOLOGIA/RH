@@ -29,10 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const suggestedLevel = ROLE_LEVEL_SUGGESTIONS[this.value];
       if (suggestedLevel && levelEl) levelEl.value = suggestedLevel;
       if (this.value === 'Estagiário' && !trackEl.value) trackEl.value = 'ti';
-      if ((this.value === 'Analista' || this.value === 'Outros') && !trackEl.value) trackEl.value = 'adm';
+      if (
+        (this.value === 'Analista' || this.value === 'Outros') &&
+        !trackEl.value
+      )
+        trackEl.value = 'adm';
       if (this.value === 'TI') trackEl.value = 'ti';
       if (this.value === 'Supervisor') trackEl.value = 'operacao';
-      if (this.value === 'Help Desk' || this.value === 'Planejamento') trackEl.value = 'adm';
+      if (this.value === 'Help Desk' || this.value === 'Planejamento')
+        trackEl.value = 'adm';
       updateFlowPreview();
     });
   }
@@ -42,7 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+  document
+    .querySelectorAll('.screen')
+    .forEach((s) => s.classList.remove('active'));
   const target = document.getElementById(id);
   if (target) target.classList.add('active');
 }
@@ -52,7 +59,9 @@ function sanitizeFileName(name) {
 }
 
 function safeUpper(v) {
-  return String(v || '').trim().toUpperCase();
+  return String(v || '')
+    .trim()
+    .toUpperCase();
 }
 
 function stripHtml(html) {
@@ -71,21 +80,37 @@ function countListItemsFromHtml(html) {
   return div.querySelectorAll('li').length;
 }
 
-function scoreResult(score, max, notes = [], pendingManual = false, completedTasks = []) {
+function scoreResult(
+  score,
+  max,
+  notes = [],
+  pendingManual = false,
+  completedTasks = [],
+) {
   return { score, max, notes, pendingManual, completedTasks };
 }
 
-function getSheet(wb, name) { return wb.Sheets[name]; }
+function getSheet(wb, name) {
+  return wb.Sheets[name];
+}
 function cellValue(ws, addr) {
   if (!ws || !ws[addr]) return '';
   if (ws[addr].w !== undefined) return ws[addr].w;
   if (ws[addr].v !== undefined) return ws[addr].v;
   return '';
 }
-function hasComment(ws, addr) { return !!(ws && ws[addr] && ws[addr].c && ws[addr].c.length); }
-function hasAutoFilter(ws) { return !!(ws && ws['!autofilter']); }
-function aoaToSheet(aoa) { return XLSX.utils.aoa_to_sheet(aoa); }
-function appendRows(ws, rows, startCell = 'A1') { XLSX.utils.sheet_add_aoa(ws, rows, { origin: startCell }); }
+function hasComment(ws, addr) {
+  return !!(ws && ws[addr] && ws[addr].c && ws[addr].c.length);
+}
+function hasAutoFilter(ws) {
+  return !!(ws && ws['!autofilter']);
+}
+function aoaToSheet(aoa) {
+  return XLSX.utils.aoa_to_sheet(aoa);
+}
+function appendRows(ws, rows, startCell = 'A1') {
+  XLSX.utils.sheet_add_aoa(ws, rows, { origin: startCell });
+}
 
 function updateFlowPreview() {
   const role = document.getElementById('candidate-role')?.value || '';
@@ -141,7 +166,13 @@ function proceedToCandidate() {
 
   alert.classList.add('d-none');
   const blueprint = resolveExamBlueprint(role, level, track);
-  state.candidate = { ...(state.candidate || {}), role, level, time, track: track || 'automático' };
+  state.candidate = {
+    ...(state.candidate || {}),
+    role,
+    level,
+    time,
+    track: track || 'automático',
+  };
   state.blueprint = blueprint;
 
   const rolePreview = document.getElementById('candidate-role-preview');
@@ -158,10 +189,18 @@ function renderCandidateRules() {
 
 function startExam() {
   const name = document.getElementById('candidate-name').value.trim();
-  const role = state.candidate?.role || document.getElementById('candidate-role').value.trim();
-  const level = state.candidate?.level || document.getElementById('candidate-level').value;
-  const track = state.candidate?.track || document.getElementById('candidate-track').value.trim();
-  const time = parseInt(state.candidate?.time || document.getElementById('candidate-time').value, 10);
+  const role =
+    state.candidate?.role ||
+    document.getElementById('candidate-role').value.trim();
+  const level =
+    state.candidate?.level || document.getElementById('candidate-level').value;
+  const track =
+    state.candidate?.track ||
+    document.getElementById('candidate-track').value.trim();
+  const time = parseInt(
+    state.candidate?.time || document.getElementById('candidate-time').value,
+    10,
+  );
   const alert = document.getElementById('candidate-alert');
 
   if (!name) {
@@ -187,9 +226,12 @@ function startExam() {
   state.stageSummary = [];
   state.manualReviewItems = [];
 
-  document.getElementById('exam-candidate').textContent = name;
-  document.getElementById('exam-role').textContent = role;
-  document.getElementById('exam-track').textContent = blueprint.label;
+  const examCandidateEl = document.getElementById('exam-candidate');
+  const examRoleEl = document.getElementById('exam-role');
+  const examTrackEl = document.getElementById('exam-track');
+  if (examCandidateEl) examCandidateEl.textContent = name;
+  if (examRoleEl) examRoleEl.textContent = role;
+  if (examTrackEl) examTrackEl.textContent = blueprint.label;
 
   clearInterval(state.timerHandle);
   state.timerHandle = setInterval(() => {
@@ -226,12 +268,14 @@ function renderQuestion() {
 
   const progress = ((state.currentIndex + 1) / state.questions.length) * 100;
   document.getElementById('progress-bar').style.width = `${progress}%`;
-  document.getElementById('progress-text').textContent = `Questão ${state.currentIndex + 1} de ${state.questions.length}`;
+  document.getElementById('progress-text').textContent =
+    `Questão ${state.currentIndex + 1} de ${state.questions.length}`;
 
   const prevBtn = document.getElementById('prev-btn');
   const nextBtn = document.getElementById('next-btn');
   prevBtn.disabled = state.currentIndex === 0;
-  nextBtn.textContent = state.currentIndex === state.questions.length - 1 ? 'Finalizar' : 'Próxima';
+  nextBtn.textContent =
+    state.currentIndex === state.questions.length - 1 ? 'Finalizar' : 'Próxima';
 
   const area = document.getElementById('dynamic-area');
   area.innerHTML = '';
@@ -257,7 +301,8 @@ function renderWordQuestion(area) {
     </div>
   `;
   if (state.answers[state.currentIndex]?.content) {
-    document.getElementById('word-editor').innerHTML = state.answers[state.currentIndex].content;
+    document.getElementById('word-editor').innerHTML =
+      state.answers[state.currentIndex].content;
   }
 }
 
@@ -265,12 +310,16 @@ function renderMultipleQuestion(area, q) {
   const selected = state.answers[state.currentIndex]?.selected;
   area.innerHTML = `
     <div class="card border-0 bg-light"><div class="card-body">
-      ${q.options.map((opt, i) => `
+      ${q.options
+        .map(
+          (opt, i) => `
         <div class="form-check mb-3">
           <input class="form-check-input" type="radio" name="mcq" id="opt-${i}" value="${i}" ${selected === i ? 'checked' : ''}>
           <label class="form-check-label" for="opt-${i}">${opt}</label>
         </div>
-      `).join('')}
+      `,
+        )
+        .join('')}
     </div></div>
   `;
 }
@@ -296,7 +345,9 @@ function renderExcelExternalQuestion(area, q) {
           </div>
           <div class="excel-step">
             <h4 class="h6 fw-bold">O que será testado neste arquivo</h4>
-            <ul class="muted-list">${getTaskCapabilities(q.taskId).map((item) => `<li>${item}</li>`).join('')}</ul>
+            <ul class="muted-list">${getTaskCapabilities(q.taskId)
+              .map((item) => `<li>${item}</li>`)
+              .join('')}</ul>
           </div>
         </div>
         <div class="col-lg-5">
@@ -321,20 +372,83 @@ function formatDoc(command) {
 
 function getTaskCapabilities(taskId) {
   const caps = {
-    basic_exam: ['linhas de grade','cópia da tabela para G9','preenchimento de célula','comentário','filtro na tabela','cálculo de total com fórmula'],
-    qualid_exam: ['ordenação por operador','criação da coluna Valor Total','multiplicação de Valor (R$) por Quantidade','PROCV de supervisores','lista de não encontrados a partir de BC255','resumo do supervisor Lula','copiar e colar','filtro por Wesley Nunes','gráfico de colunas agrupadas'],
-    planning_exam: ['CONT.SE','ordenação decrescente','PROCV de status','tabela por DDD','gráfico Pizza 3D','média por zona','percentual','SE / condição lógica','formatação condicional','análise de vendas com PROCV e percentuais'],
-    advanced_exam: ['CONT.SE','ordenação por cidade','PROCV de status','gráfico combinado com eixo secundário','soma do RJ em F10','análise completa de vendas','totais e percentuais'],
+    basic_exam: [
+      'linhas de grade',
+      'cópia da tabela para G9',
+      'preenchimento de célula',
+      'comentário',
+      'filtro na tabela',
+      'cálculo de total com fórmula',
+    ],
+    qualid_exam: [
+      'ordenação por operador',
+      'criação da coluna Valor Total',
+      'multiplicação de Valor (R$) por Quantidade',
+      'PROCV de supervisores',
+      'lista de não encontrados a partir de BC255',
+      'resumo do supervisor Lula',
+      'copiar e colar',
+      'filtro por Wesley Nunes',
+      'gráfico de colunas agrupadas',
+    ],
+    planning_exam: [
+      'CONT.SE',
+      'ordenação decrescente',
+      'PROCV de status',
+      'tabela por DDD',
+      'gráfico Pizza 3D',
+      'média por zona',
+      'percentual',
+      'SE / condição lógica',
+      'formatação condicional',
+      'análise de vendas com PROCV e percentuais',
+    ],
+    advanced_exam: [
+      'CONT.SE',
+      'ordenação por cidade',
+      'PROCV de status',
+      'gráfico combinado com eixo secundário',
+      'soma do RJ em F10',
+      'análise completa de vendas',
+      'totais e percentuais',
+    ],
   };
   return caps[taskId] || ['atividade de planilha externa'];
 }
 
 function getTaskAnswerKey(taskId) {
   const keys = {
-    basic_exam: ['Tabela copiada para G9','Comentário inserido em A11','Filtro aplicado','Totais calculados com fórmula','Itens visuais revisados pelo RH: linhas de grade e cor de preenchimento'],
-    qualid_exam: ['Planilha A em ordem alfabética por Operador','Coluna F com título Valor Total','Valor Total = Valor (R$) x Quantidade','PROCV preenchido na aba PROCV','Operadores não encontrados listados a partir de BC255','Resumo do supervisor Lula criado na aba TAB_DIN','Tabela copiada e filtrada para Wesley Nunes','Gráfico de colunas agrupadas criado com supervisores e março'],
-    planning_exam: ['CONT.SE preenchido por cidade e ordenado','PROCV preenchido na aba Q2.','Tabela por DDD e gráfico Pizza 3D','Percentual e situação por zona','Análise de vendas preenchida com totais e percentuais'],
-    advanced_exam: ['CONT.SE e ordenação por cidade','PROCV preenchido','Gráfico combinado com eixo secundário','Soma do RJ em F10','Análise de vendas completa'],
+    basic_exam: [
+      'Tabela copiada para G9',
+      'Comentário inserido em A11',
+      'Filtro aplicado',
+      'Totais calculados com fórmula',
+      'Itens visuais revisados pelo RH: linhas de grade e cor de preenchimento',
+    ],
+    qualid_exam: [
+      'Planilha A em ordem alfabética por Operador',
+      'Coluna F com título Valor Total',
+      'Valor Total = Valor (R$) x Quantidade',
+      'PROCV preenchido na aba PROCV',
+      'Operadores não encontrados listados a partir de BC255',
+      'Resumo do supervisor Lula criado na aba TAB_DIN',
+      'Tabela copiada e filtrada para Wesley Nunes',
+      'Gráfico de colunas agrupadas criado com supervisores e março',
+    ],
+    planning_exam: [
+      'CONT.SE preenchido por cidade e ordenado',
+      'PROCV preenchido na aba Q2.',
+      'Tabela por DDD e gráfico Pizza 3D',
+      'Percentual e situação por zona',
+      'Análise de vendas preenchida com totais e percentuais',
+    ],
+    advanced_exam: [
+      'CONT.SE e ordenação por cidade',
+      'PROCV preenchido',
+      'Gráfico combinado com eixo secundário',
+      'Soma do RJ em F10',
+      'Análise de vendas completa',
+    ],
   };
   return keys[taskId] || [];
 }
@@ -343,19 +457,43 @@ function captureCurrentAnswer() {
   const q = state.questions[state.currentIndex];
   if (q.type === 'word') {
     const editor = document.getElementById('word-editor');
-    state.answers[state.currentIndex] = { type: 'word', content: editor ? editor.innerHTML : '' };
+    state.answers[state.currentIndex] = {
+      type: 'word',
+      content: editor ? editor.innerHTML : '',
+    };
   }
   if (q.type === 'multiple') {
     const checked = document.querySelector('input[name="mcq"]:checked');
-    state.answers[state.currentIndex] = { type: 'multiple', selected: checked ? parseInt(checked.value, 10) : null };
+    state.answers[state.currentIndex] = {
+      type: 'multiple',
+      selected: checked ? parseInt(checked.value, 10) : null,
+    };
   }
   if (q.type === 'excel_external' && !state.answers[state.currentIndex]) {
-    state.answers[state.currentIndex] = { type: 'excel_external', uploaded: false, validation: null };
+    state.answers[state.currentIndex] = {
+      type: 'excel_external',
+      uploaded: false,
+      validation: null,
+    };
   }
 }
 
-function prevQuestion() { captureCurrentAnswer(); if (state.currentIndex > 0) { state.currentIndex--; renderQuestion(); } }
-function nextQuestion() { captureCurrentAnswer(); if (state.currentIndex < state.questions.length - 1) { state.currentIndex++; renderQuestion(); } else { finishExam(); } }
+function prevQuestion() {
+  captureCurrentAnswer();
+  if (state.currentIndex > 0) {
+    state.currentIndex--;
+    renderQuestion();
+  }
+}
+function nextQuestion() {
+  captureCurrentAnswer();
+  if (state.currentIndex < state.questions.length - 1) {
+    state.currentIndex++;
+    renderQuestion();
+  } else {
+    finishExam();
+  }
+}
 
 function evaluateWord(answer, expected, points) {
   if (!answer || !answer.content) return 0;
@@ -365,25 +503,51 @@ function evaluateWord(answer, expected, points) {
   let score = 0;
   let totalWeight = 0;
   const checks = [
-    expected.titleText ? { ok: upper.includes(expected.titleText.toUpperCase()), weight: 2 } : null,
-    expected.titleBold ? { ok: /<(b|strong)[^>]*>.*?<\/(b|strong)>/is.test(html), weight: 1.5 } : null,
-    expected.titleCenter ? { ok: /text-align:\s*center|align="center"/i.test(html), weight: 1.5 } : null,
-    expected.minTextLength ? { ok: plain.length >= expected.minTextLength, weight: 1.5 } : null,
-    expected.requiresList ? { ok: /<(ul|ol)[^>]*>/i.test(html), weight: 1.5 } : null,
-    expected.minListItems ? { ok: countListItemsFromHtml(html) >= expected.minListItems, weight: 1.5 } : null,
-    expected.anyBold ? { ok: /<(b|strong)[^>]*>.*?<\/(b|strong)>/is.test(html), weight: 1.2 } : null,
-    expected.minSentences ? { ok: countSentences(plain) >= expected.minSentences, weight: 1.3 } : null,
+    expected.titleText
+      ? { ok: upper.includes(expected.titleText.toUpperCase()), weight: 2 }
+      : null,
+    expected.titleBold
+      ? { ok: /<(b|strong)[^>]*>.*?<\/(b|strong)>/is.test(html), weight: 1.5 }
+      : null,
+    expected.titleCenter
+      ? { ok: /text-align:\s*center|align="center"/i.test(html), weight: 1.5 }
+      : null,
+    expected.minTextLength
+      ? { ok: plain.length >= expected.minTextLength, weight: 1.5 }
+      : null,
+    expected.requiresList
+      ? { ok: /<(ul|ol)[^>]*>/i.test(html), weight: 1.5 }
+      : null,
+    expected.minListItems
+      ? {
+          ok: countListItemsFromHtml(html) >= expected.minListItems,
+          weight: 1.5,
+        }
+      : null,
+    expected.anyBold
+      ? { ok: /<(b|strong)[^>]*>.*?<\/(b|strong)>/is.test(html), weight: 1.2 }
+      : null,
+    expected.minSentences
+      ? { ok: countSentences(plain) >= expected.minSentences, weight: 1.3 }
+      : null,
   ].filter(Boolean);
-  checks.forEach((item) => { totalWeight += item.weight; if (item.ok) score += item.weight; });
+  checks.forEach((item) => {
+    totalWeight += item.weight;
+    if (item.ok) score += item.weight;
+  });
   if (!checks.length) return 0;
   return Math.round((score / totalWeight) * points);
 }
-function evaluateMultiple(answer, correctIndex, points) { return answer && answer.selected === correctIndex ? points : 0; }
+function evaluateMultiple(answer, correctIndex, points) {
+  return answer && answer.selected === correctIndex ? points : 0;
+}
 
 function downloadExcelTask(questionIndex) {
   const q = state.questions[questionIndex];
   const task = buildWorkbookForTask(q.taskId, q.title);
-  const filename = sanitizeFileName(`${q.taskId}_${state.candidate?.name || 'candidato'}.xlsx`);
+  const filename = sanitizeFileName(
+    `${q.taskId}_${state.candidate?.name || 'candidato'}.xlsx`,
+  );
   XLSX.writeFile(task.workbook, filename);
 }
 
@@ -401,9 +565,11 @@ function buildWorkbookForTask(taskId, title) {
 function appendBaseDataSheets(wb) {
   if (typeof EXCEL_BASE_DATA === 'undefined') return;
   Object.entries(EXCEL_BASE_DATA).forEach(([sheetName, rows]) => {
-    const safeName = (`Base - ${sheetName}`).slice(0, 31);
+    const safeName = `Base - ${sheetName}`.slice(0, 31);
     if (wb.SheetNames.includes(safeName)) return;
-    const ws = aoaToSheet(rows.map((row) => row.map((cell) => (cell === undefined ? null : cell))));
+    const ws = aoaToSheet(
+      rows.map((row) => row.map((cell) => (cell === undefined ? null : cell))),
+    );
     XLSX.utils.book_append_sheet(wb, ws, safeName);
   });
 }
@@ -411,8 +577,29 @@ function appendBaseDataSheets(wb) {
 function buildBasicWorkbook(wb) {
   const ws = aoaToSheet([]);
   appendRows(ws, [['Teste de conhecimentos de Excel']], 'B7');
-  appendRows(ws, [['Produto','Quantidade','Valor (R$)','Sub Total'],['Processador',2,170,null],['Indira',4,120,null],['Placa mãe',7,250,null],['TOTAL',null,null,null]], 'A9');
-  appendRows(ws, [['1) Insira linhas de grade na planilha acima.'],['2) Copie a planilha acima para a célula G9.'],['3) Coloque o preenchimento Azul claro na célula D9.'],['4) Insira um comentário na célula A11.'],['5) Insira filtro na planilha.'],['6) Calcule o total dos produtos inserindo fórmula.']], 'A17');
+  appendRows(
+    ws,
+    [
+      ['Produto', 'Quantidade', 'Valor (R$)', 'Sub Total'],
+      ['Processador', 2, 170, null],
+      ['Indira', 4, 120, null],
+      ['Placa mãe', 7, 250, null],
+      ['TOTAL', null, null, null],
+    ],
+    'A9',
+  );
+  appendRows(
+    ws,
+    [
+      ['1) Insira linhas de grade na planilha acima.'],
+      ['2) Copie a planilha acima para a célula G9.'],
+      ['3) Coloque o preenchimento Azul claro na célula D9.'],
+      ['4) Insira um comentário na célula A11.'],
+      ['5) Insira filtro na planilha.'],
+      ['6) Calcule o total dos produtos inserindo fórmula.'],
+    ],
+    'A17',
+  );
   XLSX.utils.book_append_sheet(wb, ws, 'Teste de Excel');
   return { workbook: wb };
 }
@@ -420,34 +607,135 @@ function buildBasicWorkbook(wb) {
 function buildQualidWorkbook(wb) {
   const planilhaA = aoaToSheet([]);
   appendRows(planilhaA, QUALID_PLANILHA_A, 'A2');
-  appendRows(planilhaA, [["1) Coloque a tabela em ordem alfabética crescente por 'Operador';"],["2) Insira uma nova coluna à direita de 'Quantidade' e nomeie como 'Valor Total'."],["3) Calcule o 'Valor Total' multiplicando 'Valor (R$)' por 'Quantidade'."],["4) Formate os resultados da mesma forma da coluna 'Valor (R$)'."]], 'A16');
+  appendRows(
+    planilhaA,
+    [
+      ["1) Coloque a tabela em ordem alfabética crescente por 'Operador';"],
+      [
+        "2) Insira uma nova coluna à direita de 'Quantidade' e nomeie como 'Valor Total'.",
+      ],
+      [
+        "3) Calcule o 'Valor Total' multiplicando 'Valor (R$)' por 'Quantidade'.",
+      ],
+      ["4) Formate os resultados da mesma forma da coluna 'Valor (R$)'."],
+    ],
+    'A16',
+  );
   XLSX.utils.book_append_sheet(wb, planilhaA, 'Planilha A');
 
-  const procv = aoaToSheet([['Operador','Supervisor','Resultado do PROCV']]);
-  PROCV_OPERADORES.forEach((nome, i) => appendRows(procv, [[nome,'','']], `A${i + 2}`));
-  appendRows(procv, [['1) Utilize PROCV para localizar os supervisores existentes na Planilha A.'],['2) Liste, a partir da célula BC255, os operadores que não foram encontrados.']], 'A17');
+  const procv = aoaToSheet([['Operador', 'Supervisor', 'Resultado do PROCV']]);
+  PROCV_OPERADORES.forEach((nome, i) =>
+    appendRows(procv, [[nome, '', '']], `A${i + 2}`),
+  );
+  appendRows(
+    procv,
+    [
+      [
+        '1) Utilize PROCV para localizar os supervisores existentes na Planilha A.',
+      ],
+      [
+        '2) Liste, a partir da célula BC255, os operadores que não foram encontrados.',
+      ],
+    ],
+    'A17',
+  );
   XLSX.utils.book_append_sheet(wb, procv, 'PROCV');
 
-  const tabdin = aoaToSheet([['1) Crie abaixo, começando na célula A5, um resumo dos produtos do supervisor Lula, contendo o Valor Total desse supervisor.'],['A tabela será criada a partir da tabela da aba Planilha A.']]);
+  const tabdin = aoaToSheet([
+    [
+      '1) Crie abaixo, começando na célula A5, um resumo dos produtos do supervisor Lula, contendo o Valor Total desse supervisor.',
+    ],
+    ['A tabela será criada a partir da tabela da aba Planilha A.'],
+  ]);
   XLSX.utils.book_append_sheet(wb, tabdin, 'TAB_DIN');
-  const copiar = aoaToSheet([['1) Copie a tabela trabalhada na Planilha A e cole a partir da célula A5. Depois, filtre para exibir apenas Wesley Nunes.']]);
+  const copiar = aoaToSheet([
+    [
+      '1) Copie a tabela trabalhada na Planilha A e cole a partir da célula A5. Depois, filtre para exibir apenas Wesley Nunes.',
+    ],
+  ]);
   XLSX.utils.book_append_sheet(wb, copiar, 'Copiar_Colar');
-  const graf = aoaToSheet([['META (R$)','Jan','Fev','Mar','Abr'],['Angela',5000,2000,6000,5000],['Barack',3200,2500,4700,4000],['Lula',5000,2000,6000,5000],['Tony',2000,1200,3000,3000],[],['1) Crie um gráfico de colunas agrupadas com os supervisores e os valores do mês de março.']]);
+  const graf = aoaToSheet([
+    ['META (R$)', 'Jan', 'Fev', 'Mar', 'Abr'],
+    ['Angela', 5000, 2000, 6000, 5000],
+    ['Barack', 3200, 2500, 4700, 4000],
+    ['Lula', 5000, 2000, 6000, 5000],
+    ['Tony', 2000, 1200, 3000, 3000],
+    [],
+    [
+      '1) Crie um gráfico de colunas agrupadas com os supervisores e os valores do mês de março.',
+    ],
+  ]);
   XLSX.utils.book_append_sheet(wb, graf, 'Gráfico');
   appendBaseDataSheets(wb);
   return { workbook: wb };
 }
 
 function buildPlanningWorkbook(wb) {
-  const q1 = aoaToSheet([['Questão 1.'],['* Utilize CONT.SE para descobrir quantos nomes foram listados para cada cidade abaixo.'],['* Organize em ordem decrescente de acordo com a quantidade de nomes.'],[],['Cidade','Qtde de Nomes'],...CIDADES_CONTSE.map((x) => [x[0], ''])]);
+  const q1 = aoaToSheet([
+    ['Questão 1.'],
+    [
+      '* Utilize CONT.SE para descobrir quantos nomes foram listados para cada cidade abaixo.',
+    ],
+    ['* Organize em ordem decrescente de acordo com a quantidade de nomes.'],
+    [],
+    ['Cidade', 'Qtde de Nomes'],
+    ...CIDADES_CONTSE.map((x) => [x[0], '']),
+  ]);
   XLSX.utils.book_append_sheet(wb, q1, 'Q1.');
-  const q2 = aoaToSheet([['Questão 2.'],['Com base na planilha Dados, utilize PROCV e localize o volume de cada um dos status abaixo.'],[],['Status da Chamada','Volume'],...STATUS_VOLUME.map((x) => [x[0], ''])]);
+  const q2 = aoaToSheet([
+    ['Questão 2.'],
+    [
+      'Com base na planilha Dados, utilize PROCV e localize o volume de cada um dos status abaixo.',
+    ],
+    [],
+    ['Status da Chamada', 'Volume'],
+    ...STATUS_VOLUME.map((x) => [x[0], '']),
+  ]);
   XLSX.utils.book_append_sheet(wb, q2, 'Q2.');
-  const q3 = aoaToSheet([['Questão 3.'],['* Crie uma tabela com todos os DDD e a quantidade de chamadas que cada um recebeu.'],['* Utilizando a tabela criada, insira um gráfico em Pizza 3D.'],['* Título: Controle de Ligação por DDD.'],['* Exibir rótulo em percentual na extremidade externa.']]);
+  const q3 = aoaToSheet([
+    ['Questão 3.'],
+    [
+      '* Crie uma tabela com todos os DDD e a quantidade de chamadas que cada um recebeu.',
+    ],
+    ['* Utilizando a tabela criada, insira um gráfico em Pizza 3D.'],
+    ['* Título: Controle de Ligação por DDD.'],
+    ['* Exibir rótulo em percentual na extremidade externa.'],
+  ]);
   XLSX.utils.book_append_sheet(wb, q3, 'Q3.');
-  const q4 = aoaToSheet([['Questão 4.'],['Calcule a média da quantidade de clientes por zona.'],['Calcule o percentual de cada zona de acordo com o total de clientes.'],['Utilize SE / lógica para identificar a situação de cada zona.'],['Insira formatação condicional de acordo com a situação.'],[],['Zonas','Qtde de Clientes','Percentual','Situação'],...ZONAS.map((x) => [x[0], x[1], '', '']),['Média',''],['',2410]]);
+  const q4 = aoaToSheet([
+    ['Questão 4.'],
+    ['Calcule a média da quantidade de clientes por zona.'],
+    ['Calcule o percentual de cada zona de acordo com o total de clientes.'],
+    ['Utilize SE / lógica para identificar a situação de cada zona.'],
+    ['Insira formatação condicional de acordo com a situação.'],
+    [],
+    ['Zonas', 'Qtde de Clientes', 'Percentual', 'Situação'],
+    ...ZONAS.map((x) => [x[0], x[1], '', '']),
+    ['Média', ''],
+    ['', 2410],
+  ]);
   XLSX.utils.book_append_sheet(wb, q4, 'Q4.');
-  const q5 = aoaToSheet([['Questão 5.'],['Utilizando PROCV localize as informações dos status de venda.'],['Calcule a quantidade não vendida, total de contatos, % de vendido e % não vendido.'],[],['OPERADOR','VENDA ATENDENTE','NÃO ATENDE','CLIENTE INDISPONÍVEL','OCUPADO','FAX','QTDE NÃO VENDIDA','TOTAL DE CONTATOS','% DE VENDIDO','% NÃO VENDIDO'],...VENDAS_OPERADORES.map((x) => [x,'','','','','','','','',''])]);
+  const q5 = aoaToSheet([
+    ['Questão 5.'],
+    ['Utilizando PROCV localize as informações dos status de venda.'],
+    [
+      'Calcule a quantidade não vendida, total de contatos, % de vendido e % não vendido.',
+    ],
+    [],
+    [
+      'OPERADOR',
+      'VENDA ATENDENTE',
+      'NÃO ATENDE',
+      'CLIENTE INDISPONÍVEL',
+      'OCUPADO',
+      'FAX',
+      'QTDE NÃO VENDIDA',
+      'TOTAL DE CONTATOS',
+      '% DE VENDIDO',
+      '% NÃO VENDIDO',
+    ],
+    ...VENDAS_OPERADORES.map((x) => [x, '', '', '', '', '', '', '', '', '']),
+  ]);
   XLSX.utils.book_append_sheet(wb, q5, 'Q5.');
   appendBaseDataSheets(wb);
   return { workbook: wb };
@@ -455,9 +743,22 @@ function buildPlanningWorkbook(wb) {
 
 function buildAdvancedWorkbook(wb) {
   buildPlanningWorkbook(wb);
-  const q6 = aoaToSheet([['Questão 6.'],['Crie um gráfico analítico com colunas para os indicadores gerais e linhas em eixo secundário para Nível de Serviço e % Aban.'],[],...GRAFICO_ANALITICO]);
+  const q6 = aoaToSheet([
+    ['Questão 6.'],
+    [
+      'Crie um gráfico analítico com colunas para os indicadores gerais e linhas em eixo secundário para Nível de Serviço e % Aban.',
+    ],
+    [],
+    ...GRAFICO_ANALITICO,
+  ]);
   XLSX.utils.book_append_sheet(wb, q6, 'Q6.');
-  const q7 = aoaToSheet([['Questão 7: some todos os valores apenas do Estado do RJ e informe o resultado na célula F10.'],[],...MACRO_RJ]);
+  const q7 = aoaToSheet([
+    [
+      'Questão 7: some todos os valores apenas do Estado do RJ e informe o resultado na célula F10.',
+    ],
+    [],
+    ...MACRO_RJ,
+  ]);
   XLSX.utils.book_append_sheet(wb, q7, 'Q7.');
   return { workbook: wb };
 }
@@ -471,15 +772,33 @@ function handleExcelUpload(event, questionIndex) {
     try {
       const arrayBuffer = e.target.result;
       const data = new Uint8Array(arrayBuffer);
-      const wb = XLSX.read(data, { type: 'array', cellFormula: true, cellStyles: true, cellNF: true, cellHTML: false });
+      const wb = XLSX.read(data, {
+        type: 'array',
+        cellFormula: true,
+        cellStyles: true,
+        cellNF: true,
+        cellHTML: false,
+      });
       const result = validateWorkbookForTask(q.taskId, wb, q.points);
       state.answers[questionIndex] = {
-        type: 'excel_external', uploaded: true, filename: file.name, validation: result,
-        statusText: 'Arquivo recebido com sucesso. O RH poderá revisar os itens visuais.', statusClass: 'excel-status-ok', uploadedArrayBuffer: arrayBuffer,
+        type: 'excel_external',
+        uploaded: true,
+        filename: file.name,
+        validation: result,
+        statusText:
+          'Arquivo recebido com sucesso. O RH poderá revisar os itens visuais.',
+        statusClass: 'excel-status-ok',
+        uploadedArrayBuffer: arrayBuffer,
       };
       if (state.currentIndex === questionIndex) renderQuestion();
     } catch (err) {
-      state.answers[questionIndex] = { type: 'excel_external', uploaded: false, validation: null, statusText: 'Não foi possível ler o arquivo enviado.', statusClass: 'excel-status-error' };
+      state.answers[questionIndex] = {
+        type: 'excel_external',
+        uploaded: false,
+        validation: null,
+        statusText: 'Não foi possível ler o arquivo enviado.',
+        statusClass: 'excel-status-error',
+      };
       if (state.currentIndex === questionIndex) renderQuestion();
     }
   };
@@ -496,16 +815,35 @@ function validateWorkbookForTask(taskId, wb, points) {
 
 function validateBasicExam(wb, points) {
   const ws = getSheet(wb, 'Teste de Excel');
-  if (!ws) return scoreResult(0, points, ["Aba 'Teste de Excel' não encontrada."], true);
+  if (!ws)
+    return scoreResult(
+      0,
+      points,
+      ["Aba 'Teste de Excel' não encontrada."],
+      true,
+    );
   const completed = [];
-  const copied = safeUpper(cellValue(ws, 'G9')) === 'PRODUTO' && safeUpper(cellValue(ws, 'G10')) === 'PROCESSADOR';
+  const copied =
+    safeUpper(cellValue(ws, 'G9')) === 'PRODUTO' &&
+    safeUpper(cellValue(ws, 'G10')) === 'PROCESSADOR';
   if (copied) completed.push('Tabela copiada para G9');
   if (hasComment(ws, 'A11')) completed.push('Comentário em A11');
   if (hasAutoFilter(ws)) completed.push('Filtro aplicado');
-  const totalsFilled = cellValue(ws, 'B13') !== '' && cellValue(ws, 'C13') !== '' && cellValue(ws, 'D13') !== '';
+  const totalsFilled =
+    cellValue(ws, 'B13') !== '' &&
+    cellValue(ws, 'C13') !== '' &&
+    cellValue(ws, 'D13') !== '';
   if (totalsFilled) completed.push('Totais preenchidos');
   const score = Math.round((completed.length / 4) * points);
-  return scoreResult(score, points, ['Linhas de grade e preenchimento devem ser revisados manualmente pelo RH.'], true, completed);
+  return scoreResult(
+    score,
+    points,
+    [
+      'Linhas de grade e preenchimento devem ser revisados manualmente pelo RH.',
+    ],
+    true,
+    completed,
+  );
 }
 
 function validateQualidExam(wb, points) {
@@ -518,63 +856,137 @@ function validateQualidExam(wb, points) {
   const graf = getSheet(wb, 'Gráfico');
   if (planA) {
     const sortedOps = [];
-    for (let r = 3; r <= 11; r++) sortedOps.push(String(cellValue(planA, `A${r}`)));
-    const sortedCheck = [...sortedOps].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    if (JSON.stringify(sortedOps) === JSON.stringify(sortedCheck)) completed.push('Planilha A ordenada');
-    if (safeUpper(cellValue(planA, 'F2')) === 'VALOR TOTAL') completed.push('Coluna Valor Total criada');
-    const formulasFilled = Array.from({ length: 9 }, (_, i) => cellValue(planA, `F${i + 3}`) !== '').every(Boolean);
+    for (let r = 3; r <= 11; r++)
+      sortedOps.push(String(cellValue(planA, `A${r}`)));
+    const sortedCheck = [...sortedOps].sort((a, b) =>
+      a.localeCompare(b, 'pt-BR'),
+    );
+    if (JSON.stringify(sortedOps) === JSON.stringify(sortedCheck))
+      completed.push('Planilha A ordenada');
+    if (safeUpper(cellValue(planA, 'F2')) === 'VALOR TOTAL')
+      completed.push('Coluna Valor Total criada');
+    const formulasFilled = Array.from(
+      { length: 9 },
+      (_, i) => cellValue(planA, `F${i + 3}`) !== '',
+    ).every(Boolean);
     if (formulasFilled) completed.push('Valor Total preenchido');
   }
   if (procv) {
-    const procvFilled = Array.from({ length: 13 }, (_, i) => cellValue(procv, `C${i + 2}`) !== '').some(Boolean);
+    const procvFilled = Array.from(
+      { length: 13 },
+      (_, i) => cellValue(procv, `C${i + 2}`) !== '',
+    ).some(Boolean);
     if (procvFilled) completed.push('PROCV preenchido');
-    const missingListed = ['BC255', 'BC256', 'BC257', 'BC258'].some((c) => cellValue(procv, c) !== '');
+    const missingListed = ['BC255', 'BC256', 'BC257', 'BC258'].some(
+      (c) => cellValue(procv, c) !== '',
+    );
     if (missingListed) completed.push('Não encontrados listados em BC255');
   }
   if (tabdin) {
-    const tabdinFilled = ['A5','B5','C5','A6','B6','C6'].some((c) => cellValue(tabdin, c) !== '');
+    const tabdinFilled = ['A5', 'B5', 'C5', 'A6', 'B6', 'C6'].some(
+      (c) => cellValue(tabdin, c) !== '',
+    );
     if (tabdinFilled) completed.push('Resumo do supervisor Lula');
   }
-  if (copiar && safeUpper(cellValue(copiar, 'A5')) === 'OPERADOR') completed.push('Tabela copiada/filtrada');
-  if (graf) { completed.push('Gráfico sinalizado para revisão'); notes.push('O gráfico deve ser revisado visualmente pelo RH.'); }
-  return scoreResult(Math.round((completed.length / 8) * points), points, notes, true, completed);
+  if (copiar && safeUpper(cellValue(copiar, 'A5')) === 'OPERADOR')
+    completed.push('Tabela copiada/filtrada');
+  if (graf) {
+    completed.push('Gráfico sinalizado para revisão');
+    notes.push('O gráfico deve ser revisado visualmente pelo RH.');
+  }
+  return scoreResult(
+    Math.round((completed.length / 8) * points),
+    points,
+    notes,
+    true,
+    completed,
+  );
 }
 
 function validatePlanningExam(wb, points) {
   const completed = [];
   const notes = [];
-  const q1 = getSheet(wb, 'Q1.'); const q2 = getSheet(wb, 'Q2.'); const q3 = getSheet(wb, 'Q3.'); const q4 = getSheet(wb, 'Q4.'); const q5 = getSheet(wb, 'Q5.');
+  const q1 = getSheet(wb, 'Q1.');
+  const q2 = getSheet(wb, 'Q2.');
+  const q3 = getSheet(wb, 'Q3.');
+  const q4 = getSheet(wb, 'Q4.');
+  const q5 = getSheet(wb, 'Q5.');
   if (q1) {
-    const filled = Array.from({ length: 12 }, (_, i) => cellValue(q1, `B${i + 6}`) !== '').filter(Boolean).length >= 8;
+    const filled =
+      Array.from(
+        { length: 12 },
+        (_, i) => cellValue(q1, `B${i + 6}`) !== '',
+      ).filter(Boolean).length >= 8;
     if (filled) completed.push('CONT.SE por cidade preenchido');
   }
   if (q2) {
-    const filled = Array.from({ length: 16 }, (_, i) => cellValue(q2, `B${i + 5}`) !== '').filter(Boolean).length >= 10;
+    const filled =
+      Array.from(
+        { length: 16 },
+        (_, i) => cellValue(q2, `B${i + 5}`) !== '',
+      ).filter(Boolean).length >= 10;
     if (filled) completed.push('PROCV de status preenchido');
   }
-  if (q3) { completed.push('Questão de DDD / gráfico sinalizada'); notes.push('Tabela por DDD e gráfico Pizza 3D devem ser revisados visualmente pelo RH.'); }
+  if (q3) {
+    completed.push('Questão de DDD / gráfico sinalizada');
+    notes.push(
+      'Tabela por DDD e gráfico Pizza 3D devem ser revisados visualmente pelo RH.',
+    );
+  }
   if (q4) {
-    const percentuais = Array.from({ length: 9 }, (_, i) => cellValue(q4, `C${i + 8}`) !== '').filter(Boolean).length >= 6;
-    const situacoes = Array.from({ length: 9 }, (_, i) => cellValue(q4, `D${i + 8}`) !== '').filter(Boolean).length >= 6;
+    const percentuais =
+      Array.from(
+        { length: 9 },
+        (_, i) => cellValue(q4, `C${i + 8}`) !== '',
+      ).filter(Boolean).length >= 6;
+    const situacoes =
+      Array.from(
+        { length: 9 },
+        (_, i) => cellValue(q4, `D${i + 8}`) !== '',
+      ).filter(Boolean).length >= 6;
     if (percentuais) completed.push('Percentuais por zona preenchidos');
     if (situacoes) completed.push('Situação por zona preenchida');
     notes.push('Formatação condicional deve ser revisada visualmente pelo RH.');
   }
   if (q5) {
-    const vendas = Array.from({ length: 13 }, (_, i) => cellValue(q5, `B${i + 6}`) !== '' || cellValue(q5, `H${i + 6}`) !== '').filter(Boolean).length >= 8;
+    const vendas =
+      Array.from(
+        { length: 13 },
+        (_, i) =>
+          cellValue(q5, `B${i + 6}`) !== '' ||
+          cellValue(q5, `H${i + 6}`) !== '',
+      ).filter(Boolean).length >= 8;
     if (vendas) completed.push('Análise de vendas preenchida');
   }
-  return scoreResult(Math.round((completed.length / 6) * points), points, notes, true, completed);
+  return scoreResult(
+    Math.round((completed.length / 6) * points),
+    points,
+    notes,
+    true,
+    completed,
+  );
 }
 
 function validateAdvancedExam(wb, points) {
   const base = validatePlanningExam(wb, points);
-  const q6 = getSheet(wb, 'Q6.'); const q7 = getSheet(wb, 'Q7.');
+  const q6 = getSheet(wb, 'Q6.');
+  const q7 = getSheet(wb, 'Q7.');
   const completed = [...(base.completedTasks || [])];
   const notes = [...(base.notes || [])];
-  if (q6) { completed.push('Gráfico combinado sinalizado para revisão'); notes.push('Gráfico combinado e eixo secundário devem ser revisados visualmente pelo RH.'); }
+  if (q6) {
+    completed.push('Gráfico combinado sinalizado para revisão');
+    notes.push(
+      'Gráfico combinado e eixo secundário devem ser revisados visualmente pelo RH.',
+    );
+  }
   if (q7 && cellValue(q7, 'F10') !== '') completed.push('Soma do RJ em F10');
-  return scoreResult(Math.round((completed.length / 8) * points), points, notes, true, completed);
+  return scoreResult(
+    Math.round((completed.length / 8) * points),
+    points,
+    notes,
+    true,
+    completed,
+  );
 }
 
 function finishExam() {
@@ -585,17 +997,35 @@ function finishExam() {
 
   const results = state.questions.map((q, i) => {
     const ans = state.answers[i];
-    let score = 0; let notes = []; let pendingManual = false; let completedTasks = [];
+    let score = 0;
+    let notes = [];
+    let pendingManual = false;
+    let completedTasks = [];
     if (q.type === 'word') score = evaluateWord(ans, q.expected, q.points);
-    if (q.type === 'multiple') score = evaluateMultiple(ans, q.answer, q.points);
+    if (q.type === 'multiple')
+      score = evaluateMultiple(ans, q.answer, q.points);
     if (q.type === 'excel_external') {
       if (ans && ans.validation) {
-        score = ans.validation.score; notes = ans.validation.notes || []; pendingManual = !!ans.validation.pendingManual; completedTasks = ans.validation.completedTasks || [];
+        score = ans.validation.score;
+        notes = ans.validation.notes || [];
+        pendingManual = !!ans.validation.pendingManual;
+        completedTasks = ans.validation.completedTasks || [];
       } else {
         notes = ['Arquivo não enviado ou não analisado.'];
       }
     }
-    return { stageKey: q.stageKey, stage: q.stage, stageWeight: q.stageWeight, title: q.title, score, max: q.points, notes, pendingManual, completedTasks, answerKey: q.type === 'excel_external' ? getTaskAnswerKey(q.taskId) : [] };
+    return {
+      stageKey: q.stageKey,
+      stage: q.stage,
+      stageWeight: q.stageWeight,
+      title: q.title,
+      score,
+      max: q.points,
+      notes,
+      pendingManual,
+      completedTasks,
+      answerKey: q.type === 'excel_external' ? getTaskAnswerKey(q.taskId) : [],
+    };
   });
 
   state.finalResults = results;
@@ -603,7 +1033,11 @@ function finishExam() {
   state.totalMax = results.reduce((sum, item) => sum + item.max, 0);
   state.manualReviewItems = results.filter((x) => x.pendingManual);
   state.stageSummary = computeStageSummary(results, state.blueprint);
-  state.weightedFinalScore = Number(state.stageSummary.reduce((sum, item) => sum + item.weightedScore, 0).toFixed(2));
+  state.weightedFinalScore = Number(
+    state.stageSummary
+      .reduce((sum, item) => sum + item.weightedScore, 0)
+      .toFixed(2),
+  );
 
   renderResults();
   showScreen('screen-thanks');
@@ -633,13 +1067,17 @@ function computeStageSummary(results, blueprint) {
 function renderResults() {
   document.getElementById('result-name').textContent = state.candidate.name;
   document.getElementById('result-role').textContent = state.candidate.role;
-  document.getElementById('result-level').textContent = `${state.candidate.level} • ${state.blueprint.label}`;
-  document.getElementById('result-score').textContent = state.weightedFinalScore.toFixed(2);
+  document.getElementById('result-level').textContent =
+    `${state.candidate.level} • ${state.blueprint.label}`;
+  document.getElementById('result-score').textContent =
+    state.weightedFinalScore.toFixed(2);
 
   const box = document.getElementById('stage-results');
-  box.innerHTML = state.stageSummary.map((data) => {
-    const cls = data.percent >= 0.7 ? 'good' : data.percent >= 0.4 ? 'warn' : 'bad';
-    return `
+  box.innerHTML = state.stageSummary
+    .map((data) => {
+      const cls =
+        data.percent >= 0.7 ? 'good' : data.percent >= 0.4 ? 'warn' : 'bad';
+      return `
       <div class="col-md-6">
         <div class="result-item h-100">
           <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
@@ -652,35 +1090,50 @@ function renderResults() {
           ${data.pendings ? `<div class="small text-muted mt-2">Pendências de revisão: ${data.pendings}</div>` : ''}
         </div>
       </div>`;
-  }).join('');
+    })
+    .join('');
 
   const manualBox = document.getElementById('manual-review-box');
   if (!state.manualReviewItems.length) {
     manualBox.innerHTML = `<div class="text-muted">Nenhuma pendência.</div>`;
   } else {
-    manualBox.innerHTML = state.manualReviewItems.map((item) => `
+    manualBox.innerHTML = state.manualReviewItems
+      .map(
+        (item) => `
       <div class="mb-4">
         <div><strong>${item.title}</strong></div>
         ${item.completedTasks?.length ? `<div class="small text-muted mt-2"><strong>Resultado automático:</strong></div><ul class="small text-muted">${item.completedTasks.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
         ${item.answerKey?.length ? `<div class="small text-muted mt-2"><strong>Checklist do RH:</strong></div><ul class="small text-muted">${item.answerKey.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
         ${item.notes?.length ? `<div class="small text-muted">${item.notes.join(' | ')}</div>` : ''}
-      </div>`).join('');
+      </div>`,
+      )
+      .join('');
   }
 }
 
 function getQuestionExpectedAnswerText(q) {
-  if (q.type === 'multiple') return q.options && q.options[q.answer] !== undefined ? `Resposta correta: ${q.options[q.answer]}` : 'Resposta correta: não identificada';
+  if (q.type === 'multiple')
+    return q.options && q.options[q.answer] !== undefined
+      ? `Resposta correta: ${q.options[q.answer]}`
+      : 'Resposta correta: não identificada';
   if (q.type === 'word') {
     const expected = [];
-    if (q.expected?.titleText) expected.push(`Título esperado: ${q.expected.titleText}`);
-    if (q.expected?.minTextLength) expected.push(`Texto mínimo: ${q.expected.minTextLength} caracteres`);
-    if (q.expected?.minSentences) expected.push(`Frases mínimas: ${q.expected.minSentences}`);
+    if (q.expected?.titleText)
+      expected.push(`Título esperado: ${q.expected.titleText}`);
+    if (q.expected?.minTextLength)
+      expected.push(`Texto mínimo: ${q.expected.minTextLength} caracteres`);
+    if (q.expected?.minSentences)
+      expected.push(`Frases mínimas: ${q.expected.minSentences}`);
     if (q.expected?.requiresList) expected.push('Deve conter lista');
-    if (q.expected?.minListItems) expected.push(`Itens mínimos na lista: ${q.expected.minListItems}`);
+    if (q.expected?.minListItems)
+      expected.push(`Itens mínimos na lista: ${q.expected.minListItems}`);
     if (q.expected?.titleBold) expected.push('Título em negrito');
     if (q.expected?.titleCenter) expected.push('Título centralizado');
-    if (q.expected?.anyBold) expected.push('Deve conter ao menos um trecho em negrito');
-    return expected.length ? expected.join(' | ') : 'Critérios práticos definidos no sistema.';
+    if (q.expected?.anyBold)
+      expected.push('Deve conter ao menos um trecho em negrito');
+    return expected.length
+      ? expected.join(' | ')
+      : 'Critérios práticos definidos no sistema.';
   }
   if (q.type === 'excel_external') {
     const key = getTaskAnswerKey(q.taskId);
@@ -691,13 +1144,24 @@ function getQuestionExpectedAnswerText(q) {
 
 function getCandidateAnswerText(q, ans) {
   if (!ans) return 'Sem resposta.';
-  if (q.type === 'multiple') return ans.selected === null || ans.selected === undefined ? 'Sem resposta.' : (q.options?.[ans.selected] ?? `Opção ${ans.selected}`);
+  if (q.type === 'multiple')
+    return ans.selected === null || ans.selected === undefined
+      ? 'Sem resposta.'
+      : (q.options?.[ans.selected] ?? `Opção ${ans.selected}`);
   if (q.type === 'word') return stripHtml(ans.content || '') || 'Sem resposta.';
   if (q.type === 'excel_external') {
     const parts = [];
-    parts.push(ans.filename ? `Arquivo enviado: ${ans.filename}` : 'Arquivo não enviado.');
-    if (ans.validation?.completedTasks?.length) parts.push(`Itens detectados: ${ans.validation.completedTasks.join('; ')}`);
-    if (ans.validation?.notes?.length) parts.push(`Observações: ${ans.validation.notes.join('; ')}`);
+    parts.push(
+      ans.filename
+        ? `Arquivo enviado: ${ans.filename}`
+        : 'Arquivo não enviado.',
+    );
+    if (ans.validation?.completedTasks?.length)
+      parts.push(
+        `Itens detectados: ${ans.validation.completedTasks.join('; ')}`,
+      );
+    if (ans.validation?.notes?.length)
+      parts.push(`Observações: ${ans.validation.notes.join('; ')}`);
     return parts.join(' | ');
   }
   return 'Sem resposta.';
@@ -737,11 +1201,17 @@ async function downloadExamPackage() {
   }
 
   const zip = new JSZip();
-  zip.file(`gabarito_${sanitizeFileName(state.candidate.name)}.txt`, buildFullAnswerKeyText());
+  zip.file(
+    `gabarito_${sanitizeFileName(state.candidate.name)}.txt`,
+    buildFullAnswerKeyText(),
+  );
 
   state.answers.forEach((ans, index) => {
     if (ans?.uploadedArrayBuffer && ans?.filename) {
-      zip.file(`excel_respondido_${index + 1}_${sanitizeFileName(ans.filename)}`, ans.uploadedArrayBuffer);
+      zip.file(
+        `excel_respondido_${index + 1}_${sanitizeFileName(ans.filename)}`,
+        ans.uploadedArrayBuffer,
+      );
     }
   });
 
@@ -781,11 +1251,15 @@ function openAdminResult() {
   showScreen('screen-result');
 }
 
-function printResult() { window.print(); }
+function printResult() {
+  window.print();
+}
 
 function backToConfig() {
   const currentScreenCandidate = document.getElementById('screen-candidate');
-  const isCandidateScreen = currentScreenCandidate && currentScreenCandidate.classList.contains('active');
+  const isCandidateScreen =
+    currentScreenCandidate &&
+    currentScreenCandidate.classList.contains('active');
   if (isCandidateScreen) {
     showScreen('screen-config');
     return;
@@ -795,7 +1269,10 @@ function backToConfig() {
   document.getElementById('candidate-level').value = '';
   document.getElementById('candidate-track').value = '';
   document.getElementById('candidate-time').value = '40';
-  document.getElementById('candidate-role-preview').value = '';
+  const candidateRolePreviewEl = document.getElementById(
+    'candidate-role-preview',
+  );
+  if (candidateRolePreviewEl) candidateRolePreviewEl.value = '';
   document.getElementById('admin-pass').value = '';
   document.getElementById('save-alert').classList.add('d-none');
   updateFlowPreview();

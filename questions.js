@@ -213,23 +213,22 @@ const ROLE_LEVEL_SUGGESTIONS = {
 };
 
 const STAGE_LABELS = {
-  word_basic: 'Word (Básico)',
-  word_advanced: 'Word (Avançado)',
-  excel_basic: 'Excel (Básico)',
-  excel_mid: 'Excel (Básico / Médio)',
-  excel_advanced: 'Excel (Avançado)',
-  general_basic: 'Conhecimentos Gerais (Básico)',
-  general_adv_people:
-    'Conhecimentos Gerais (Avançado - Boas Práticas e Gestão de Pessoas)',
-  general_advanced: 'Conhecimentos Gerais (Avançado)',
-  tech_ti_basic: 'Conhecimentos Técnicos (Básicos - TI)',
-  tech_rh_basic: 'Conhecimentos Técnicos (Básicos - RH)',
-  tech_adm_basic: 'Conhecimentos Técnicos (Básicos - ADM e Gestão)',
+  word_basic: 'Word',
+  word_advanced: 'Word',
+  excel_basic: 'Excel',
+  excel_mid: 'Excel',
+  excel_advanced: 'Excel',
+  general_basic: 'Conhecimentos Gerais',
+  general_adv_people: 'Conhecimentos Gerais: Boas Práticas e Gestão de Pessoas',
+  general_advanced: 'Conhecimentos Gerais',
+  tech_ti_basic: 'Conhecimentos Técnicos: TI',
+  tech_rh_basic: 'Conhecimentos Técnicos: RH',
+  tech_adm_basic: 'Conhecimentos Técnicos: Avançado',
   tech_ti_specific: 'Conhecimentos Técnicos Específicos - TI',
   tech_adm_specific: 'Conhecimentos Técnicos Específicos - ADM',
-  writing_logic: 'Avaliação de Escrita / Lógica',
+  writing_logic: 'Avaliação de Escrita e Lógica',
   analysis_eval: 'Avaliação de Análise',
-  tech_logic: 'Avaliação Técnica / Lógica',
+  tech_logic: 'Avaliação Técnica e Lógica',
 };
 function wordBasicPool() {
   return [
