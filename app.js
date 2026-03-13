@@ -1193,30 +1193,80 @@ function buildFullAnswerKeyText() {
 
   return lines.join('\n');
 }
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
 async function downloadExamPackage() {
-  if (typeof JSZip === 'undefined') {
-    alert('Não foi possível gerar o pacote automaticamente neste navegador.');
-    return;
-  }
+  try {
+    if (typeof JSZip === 'undefined') {
+      alert('Não foi possível gerar o pacote automaticamente neste navegador.');
+      return;
+    }
 
-  const zip = new JSZip();
-  zip.file(
-    `gabarito_${sanitizeFileName(state.candidate.name)}.txt`,
-    buildFullAnswerKeyText(),
-  );
+    if (!state?.candidate?.name) {
+      alert('Nome do candidato não encontrado.');
+      return;
+    }
 
-  state.answers.forEach((ans, index) => {
-    if (ans?.uploadedArrayBuffer && ans?.filename) {
-      zip.file(
-        `excel_respondido_${index + 1}_${sanitizeFileName(ans.filename)}`,
-        ans.uploadedArrayBuffer,
+    const zip = new JSZip();
+
+    const answerKeyText = buildFullAnswerKeyText();
+    zip.file(
+      `gabarito_${sanitizeFileName(state.candidate.name)}.txt`,
+      answerKeyText || 'Sem conteúdo de gabarito disponível.',
+    );
+
+    let excelCount = 0;
+
+    state.answers.forEach((ans, index) => {
+      if (!ans) return;
+
+      if (ans.uploadedArrayBuffer && ans.filename) {
+        zip.file(
+          `excel_respondido_${index + 1}_${sanitizeFileName(ans.filename)}`,
+          ans.uploadedArrayBuffer,
+        );
+        excelCount++;
+        return;
+      }
+
+      if (ans.uploadedFile instanceof File) {
+        zip.file(
+          `excel_respondido_${index + 1}_${sanitizeFileName(ans.uploadedFile.name)}`,
+          ans.uploadedFile,
+        );
+        excelCount++;
+      }
+    });
+
+    if (excelCount === 0) {
+      console.warn(
+        'Nenhum arquivo de Excel foi encontrado para incluir no pacote.',
       );
     }
-  });
 
-  const blob = await zip.generateAsync({ type: 'blob' });
-  downloadBlob(`prova_${sanitizeFileName(state.candidate.name)}.zip`, blob);
+    const blob = await zip.generateAsync({ type: 'blob' });
+
+    if (!blob || blob.size === 0) {
+      alert('Não foi possível gerar o arquivo ZIP.');
+      return;
+    }
+
+    downloadBlob(`prova_${sanitizeFileName(state.candidate.name)}.zip`, blob);
+  } catch (error) {
+    console.error('Erro ao gerar pacote da prova:', error);
+    alert('Ocorreu um erro ao baixar o pacote da prova.');
+  }
 }
 
 function saveResult() {
