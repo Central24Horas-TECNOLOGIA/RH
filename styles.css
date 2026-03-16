@@ -74,3 +74,132 @@ body { background: #f4f6f9; }
     padding-top: 2.8rem !important;
   }
 }
+
+.print-only-result { display: none; }
+.print-sheet-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #111;
+  margin-bottom: 16px;
+}
+.print-sheet-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 14px;
+}
+.print-sheet-title-row h1 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 700;
+  color: #222;
+}
+.print-sheet-title-row p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: #666;
+}
+.print-sheet-model-title {
+  font-size: 19px;
+  line-height: 1.08;
+  font-weight: 700;
+  color: #222;
+  max-width: 230px;
+}
+.print-sheet-meta {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+.print-sheet-divider {
+  border-top: 3px solid #333;
+  margin: 12px 0 10px;
+}
+.print-gap-top { margin-top: 18px; }
+.print-sheet-section-title {
+  margin: 0 0 10px;
+  font-size: 24px;
+  line-height: 1.05;
+  font-weight: 700;
+  color: #222;
+}
+.print-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px 34px;
+}
+.print-stage-item {
+  font-size: 13px;
+  color: #222;
+  break-inside: avoid;
+}
+.print-stage-item-title {
+  font-size: 17px;
+  line-height: 1.15;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.print-stage-item-count {
+  color: #666;
+  margin-bottom: 2px;
+}
+.print-stage-item strong {
+  display: block;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.print-manual-box {
+  min-height: 86px;
+  font-size: 13px;
+  color: #222;
+}
+.print-manual-box ul {
+  margin: 6px 0 0 16px;
+  padding: 0;
+}
+.print-manual-box li { margin-bottom: 2px; }
+.print-observation-note {
+  min-height: 64px;
+  font-size: 13px;
+  color: #222;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm 10mm;
+  }
+  body {
+    font-family: Arial, Helvetica, sans-serif !important;
+  }
+  .container,
+  .row,
+  [class*="col-"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .app-card {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  #screen-result .card-body {
+    padding: 0 !important;
+  }
+  #screen-result .print-page {
+    display: none !important;
+  }
+  .print-only-result {
+    display: block !important;
+    color: #222;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

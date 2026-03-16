@@ -1111,6 +1111,48 @@ function renderResults() {
       )
       .join('');
   }
+
+  const printDateEl = document.getElementById('print-generated-at');
+  const printNameEl = document.getElementById('print-name');
+  const printRoleEl = document.getElementById('print-role');
+  const printLevelEl = document.getElementById('print-level');
+  const printScoreEl = document.getElementById('print-score');
+  const printStageBox = document.getElementById('print-stage-results');
+  const printManualBox = document.getElementById('print-manual-review');
+
+  if (printDateEl) printDateEl.textContent = new Date().toLocaleString('pt-BR');
+  if (printNameEl) printNameEl.textContent = state.candidate.name || '';
+  if (printRoleEl) printRoleEl.textContent = state.candidate.role || '';
+  if (printLevelEl) printLevelEl.textContent = `${state.candidate.level} • ${state.blueprint.label}`;
+  if (printScoreEl) printScoreEl.textContent = state.weightedFinalScore.toFixed(2);
+
+  if (printStageBox) {
+    printStageBox.innerHTML = state.stageSummary
+      .map(
+        (data) => `
+        <div class="print-stage-item">
+          <div class="print-stage-item-title">${data.label}</div>
+          <div class="print-stage-item-count">${data.questionCount} itens avaliados</div>
+          <strong>Nota: ${data.rawScore}/${data.rawMax}</strong>
+          <strong>Aproveitamento: ${(data.percent * 100).toFixed(1)}%</strong>
+          <strong>Nota ponderada: ${data.weightedScore.toFixed(2)}</strong>
+        </div>`,
+      )
+      .join('');
+  }
+
+  if (printManualBox) {
+    if (!state.manualReviewItems.length) {
+      printManualBox.innerHTML = 'Nenhuma pendência.';
+    } else {
+      printManualBox.innerHTML = state.manualReviewItems
+        .map(
+          (item) => `
+          <div class="mb-2"><strong>${item.title}</strong>${item.completedTasks?.length ? `<ul>${item.completedTasks.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}${item.answerKey?.length ? `<ul>${item.answerKey.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}${item.notes?.length ? `<div>${item.notes.join(' | ')}</div>` : ''}</div>`,
+        )
+        .join('');
+    }
+  }
 }
 
 function getQuestionExpectedAnswerText(q) {
