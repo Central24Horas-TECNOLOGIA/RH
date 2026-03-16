@@ -617,7 +617,9 @@ function buildQualidWorkbook(wb) {
       [
         "3) Calcule o 'Valor Total' multiplicando 'Valor (R$)' por 'Quantidade'.",
       ],
-      ["4) Formate os resultados da mesma forma da coluna 'Valor (R$)'."],
+      [
+        "4) Formate os resultados da coluna'Valor (R$)' e da coluna 'Valor Total' para o fomrato contábil.",
+      ],
     ],
     'A16',
   );
