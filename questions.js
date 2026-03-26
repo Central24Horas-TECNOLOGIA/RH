@@ -206,6 +206,7 @@ const ROLE_LEVEL_SUGGESTIONS = {
   Estagiário: '2',
   Supervisor: '3',
   'Help Desk': '3',
+  'Control Desk': '3',
   Planejamento: '3',
   TI: '4',
   Analista: '4',
@@ -987,6 +988,19 @@ function excelStageQualid() {
     ),
   ];
 }
+function excelStageMid() {
+  return [
+    excelExternalQ(
+      'excel_mid',
+      STAGE_LABELS.excel_mid,
+      'Teste Prático de Excel',
+      'Baixe a planilha e execute as tarefas do teste prático voltado ao contexto operacional. As atividades incluem ordenar a Planilha A pelo campo Operador, criar a coluna Valor Total, utilizar a função PROCV para localizar supervisores, listar os registros não encontrados a partir da célula BC255, montar o resumo solicitado, aplicar filtro para Wesley Nunes e elaborar um gráfico de colunas agrupadas. O objetivo é avaliar sua capacidade de organização, fórmula e análise em uma rotina de operação.',
+      'qualid_exam',
+      50,
+    ),
+  ];
+}
+
 function excelStagePlanning() {
   return [
     excelExternalQ(
@@ -1713,7 +1727,7 @@ const EXAM_BLUEPRINTS = {
     label: 'Nível 3 — Supervisor',
     stages: [
       { key: 'word_basic', weight: 35, questions: () => wordBasicLevel3Pool() },
-      { key: 'excel_mid', weight: 35, questions: () => excelMidPool() },
+      { key: 'excel_mid', weight: 35, questions: () => excelStageMid() },
       {
         key: 'general_adv_people',
         weight: 30,
@@ -1723,7 +1737,7 @@ const EXAM_BLUEPRINTS = {
   },
   helpdesk: {
     level: '3',
-    label: 'Nível 3 — Help Desk',
+    label: 'Nível 3 — Control Desk',
     stages: [
       { key: 'word_basic', weight: 20, questions: () => wordPoolHelpDesk() },
       {
@@ -1827,7 +1841,8 @@ function resolveExamBlueprint(role, level, track = '') {
       ? EXAM_BLUEPRINTS.estagiario_rh
       : EXAM_BLUEPRINTS.estagiario_ti;
   if (safeRole === 'Supervisor') return EXAM_BLUEPRINTS.supervisor;
-  if (safeRole === 'Help Desk') return EXAM_BLUEPRINTS.helpdesk;
+  if (safeRole === 'Help Desk' || safeRole === 'Control Desk')
+    return EXAM_BLUEPRINTS.helpdesk;
   if (safeRole === 'Planejamento') return EXAM_BLUEPRINTS.planejamento;
   if (safeRole === 'TI') return EXAM_BLUEPRINTS.ti;
   return EXAM_BLUEPRINTS.adm;

@@ -39,7 +39,11 @@ document.addEventListener('DOMContentLoaded', () => {
         trackEl.value = 'adm';
       if (this.value === 'TI') trackEl.value = 'ti';
       if (this.value === 'Supervisor') trackEl.value = 'operacao';
-      if (this.value === 'Help Desk' || this.value === 'Planejamento')
+      if (
+        this.value === 'Help Desk' ||
+        this.value === 'Control Desk' ||
+        this.value === 'Planejamento'
+      )
         trackEl.value = 'adm';
       updateFlowPreview();
     });
@@ -122,6 +126,29 @@ function aoaToSheet(aoa) {
 }
 function appendRows(ws, rows, startCell = 'A1') {
   XLSX.utils.sheet_add_aoa(ws, rows, { origin: startCell });
+}
+
+const EXCEL_TASK_TEMPLATES = {
+  basic_exam: {
+    file: 'exame_basico.xlsx',
+    downloadBaseName: 'exame_basico',
+  },
+  qualid_exam: {
+    file: 'exame_médio.xlsx',
+    downloadBaseName: 'exame_médio',
+  },
+  planning_exam: {
+    file: 'exame_avançado.xlsx',
+    downloadBaseName: 'exame_avançado',
+  },
+  advanced_exam: {
+    file: 'exame_avançado.xlsx',
+    downloadBaseName: 'exame_avançado',
+  },
+};
+
+function getExcelTemplateForTask(taskId) {
+  return EXCEL_TASK_TEMPLATES[taskId] || null;
 }
 
 function updateFlowPreview() {
@@ -718,13 +745,43 @@ function evaluateMultiple(answer, correctIndex, points) {
   return answer && answer.selected === correctIndex ? points : 0;
 }
 
-function downloadExcelTask(questionIndex) {
+async function downloadExcelTask(questionIndex) {
   const q = state.questions[questionIndex];
-  const task = buildWorkbookForTask(q.taskId, q.title);
-  const filename = sanitizeFileName(
-    `${q.taskId}_${state.candidate?.name || 'candidato'}.xlsx`,
+  const template = getExcelTemplateForTask(q.taskId);
+
+  if (!template || !template.file) {
+    alert('Não foi possível localizar o arquivo-base desta etapa.');
+    return;
+  }
+
+  const candidateName = sanitizeFileName(state.candidate?.name || 'candidato');
+  const extensionMatch = String(template.file).match(/\.[^.]+$/);
+  const extension = extensionMatch ? extensionMatch[0] : '.xlsx';
+  const baseName = sanitizeFileName(
+    template.downloadBaseName || String(template.file).replace(/\.[^.]+$/, ''),
   );
-  XLSX.writeFile(task.workbook, filename);
+  const filename = `${baseName}_${candidateName}${extension}`;
+  const templatePath = encodeURI(template.file);
+
+  try {
+    const response = await fetch(templatePath);
+    if (!response.ok) throw new Error(`Falha ao carregar ${template.file}`);
+    const blob = await response.blob();
+    downloadBlob(filename, blob);
+    return;
+  } catch (error) {
+    console.warn(
+      'Falha ao baixar o arquivo-base via fetch. Aplicando fallback.',
+      error,
+    );
+  }
+
+  const a = document.createElement('a');
+  a.href = templatePath;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function buildWorkbookForTask(taskId, title) {
