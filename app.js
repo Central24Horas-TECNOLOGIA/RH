@@ -1,5 +1,7 @@
 const RH_USER = 'rh';
 const RH_PASS = '1234';
+const HISTORY_CSV_KEY = 'rh_exam_history_csv';
+const ANSWER_FILES_KEY = 'rh_exam_answer_files';
 
 const state = {
   logged: false,
@@ -17,6 +19,7 @@ const state = {
   weightedFinalScore: 0,
   stageSummary: [],
   manualReviewItems: [],
+  currentResultId: null,
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -43,6 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (levelEl) levelEl.addEventListener('change', updateFlowPreview);
   if (trackEl) trackEl.addEventListener('change', updateFlowPreview);
+
+  ['history-filter-name', 'history-filter-role', 'history-filter-date'].forEach(
+    (id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', renderHistoryTable);
+    },
+  );
+
+  ensureHistoryCsv();
   updateFlowPreview();
 });
 
@@ -129,6 +141,137 @@ function updateFlowPreview() {
   `;
 }
 
+function ensureHistoryCsv() {
+  const current = localStorage.getItem(HISTORY_CSV_KEY);
+  if (current) return current;
+  const header = [
+    'id_teste',
+    'nome_candidato',
+    'vaga',
+    'nivel',
+    'trilha',
+    'data_iso',
+    'data_exibicao',
+    'pontuacao_final',
+    'status',
+    'tempo_minutos',
+    'arquivo_gabarito',
+  ].join(',');
+  localStorage.setItem(HISTORY_CSV_KEY, header);
+  return header;
+}
+
+function escapeCsvValue(value) {
+  const text = String(value ?? '');
+  if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function parseCsvLine(line) {
+  const values = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      values.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current);
+  return values;
+}
+
+function readHistoryRows() {
+  const csv = ensureHistoryCsv();
+  const lines = csv.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length <= 1) return [];
+
+  const headers = parseCsvLine(lines[0]);
+  return lines.slice(1).map((line) => {
+    const cols = parseCsvLine(line);
+    const row = {};
+    headers.forEach((header, index) => {
+      row[header] = cols[index] ?? '';
+    });
+    return row;
+  });
+}
+
+function saveHistoryRow(row) {
+  const csv = ensureHistoryCsv();
+  const line = [
+    row.id_teste,
+    row.nome_candidato,
+    row.vaga,
+    row.nivel,
+    row.trilha,
+    row.data_iso,
+    row.data_exibicao,
+    row.pontuacao_final,
+    row.status,
+    row.tempo_minutos,
+    row.arquivo_gabarito,
+  ]
+    .map(escapeCsvValue)
+    .join(',');
+  localStorage.setItem(HISTORY_CSV_KEY, `${csv}\n${line}`);
+}
+
+function getAnswerFiles() {
+  return JSON.parse(localStorage.getItem(ANSWER_FILES_KEY) || '{}');
+}
+
+function saveAnswerFile(recordId, payload) {
+  const files = getAnswerFiles();
+  files[recordId] = payload;
+  localStorage.setItem(ANSWER_FILES_KEY, JSON.stringify(files));
+}
+
+function buildResultId() {
+  const now = new Date();
+  const pad = (v) => String(v).padStart(2, '0');
+  return `TESTE-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+function formatDateToInput(dateValue) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function buildAnswerKeyPayload(recordId) {
+  return {
+    id_teste: recordId,
+    candidate: state.candidate,
+    blueprint: state.blueprint,
+    stageSummary: state.stageSummary,
+    totalScore: state.totalScore,
+    totalMax: state.totalMax,
+    weightedFinalScore: state.weightedFinalScore,
+    generatedAt: new Date().toISOString(),
+    textContent: buildFullAnswerKeyText(),
+  };
+}
+
 function doLogin() {
   const user = document.getElementById('login-user')?.value.trim() || '';
   const pass = document.getElementById('login-pass')?.value.trim() || '';
@@ -136,12 +279,44 @@ function doLogin() {
 
   if (user === RH_USER && pass === RH_PASS) {
     state.logged = true;
+    ensureHistoryCsv();
     alertEl?.classList.add('d-none');
-    showScreen('screen-config');
+    showScreen('screen-menu');
   } else if (alertEl) {
     alertEl.textContent = 'Usuário ou senha inválidos.';
     alertEl.classList.remove('d-none');
   }
+}
+
+function resetExamEntryFields() {
+  document.getElementById('candidate-name').value = '';
+  document.getElementById('candidate-role').value = '';
+  document.getElementById('candidate-level').value = '';
+  document.getElementById('candidate-track').value = '';
+  document.getElementById('candidate-time').value = '40';
+  const candidateRolePreviewEl = document.getElementById(
+    'candidate-role-preview',
+  );
+  if (candidateRolePreviewEl) candidateRolePreviewEl.value = '';
+  document.getElementById('admin-pass').value = '';
+  document.getElementById('save-alert').classList.add('d-none');
+  updateFlowPreview();
+}
+
+function startNewTestFlow() {
+  resetExamEntryFields();
+  showScreen('screen-config');
+}
+
+function backToMenu() {
+  clearInterval(state.timerHandle);
+  state.finished = false;
+  showScreen('screen-menu');
+}
+
+function goToHistory() {
+  showScreen('screen-history');
+  renderHistoryTable();
 }
 
 function logout() {
@@ -225,6 +400,7 @@ function startExam() {
   state.weightedFinalScore = 0;
   state.stageSummary = [];
   state.manualReviewItems = [];
+  state.currentResultId = null;
 
   const examCandidateEl = document.getElementById('exam-candidate');
   const examRoleEl = document.getElementById('exam-role');
@@ -1123,8 +1299,10 @@ function renderResults() {
   if (printDateEl) printDateEl.textContent = new Date().toLocaleString('pt-BR');
   if (printNameEl) printNameEl.textContent = state.candidate.name || '';
   if (printRoleEl) printRoleEl.textContent = state.candidate.role || '';
-  if (printLevelEl) printLevelEl.textContent = `${state.candidate.level} • ${state.blueprint.label}`;
-  if (printScoreEl) printScoreEl.textContent = state.weightedFinalScore.toFixed(2);
+  if (printLevelEl)
+    printLevelEl.textContent = `${state.candidate.level} • ${state.blueprint.label}`;
+  if (printScoreEl)
+    printScoreEl.textContent = state.weightedFinalScore.toFixed(2);
 
   if (printStageBox) {
     printStageBox.innerHTML = state.stageSummary
@@ -1314,30 +1492,156 @@ async function downloadExamPackage() {
 }
 
 function saveResult() {
-  const notes = '';
-  const payload = {
-    candidate: state.candidate,
-    blueprint: state.blueprint,
-    results: state.finalResults,
-    stageSummary: state.stageSummary,
-    totalScore: state.totalScore,
-    totalMax: state.totalMax,
-    weightedFinalScore: state.weightedFinalScore,
-    manualReviewItems: state.manualReviewItems,
-    notes,
-    savedAt: new Date().toLocaleString('pt-BR'),
-  };
-  const history = JSON.parse(localStorage.getItem('rh_exam_results') || '[]');
-  history.push(payload);
-  localStorage.setItem('rh_exam_results', JSON.stringify(history));
-  document.getElementById('save-alert').classList.remove('d-none');
+  const alertBox = document.getElementById('save-alert');
+  if (!state?.candidate?.name) {
+    alertBox.textContent =
+      'Não foi possível salvar: candidato não identificado.';
+    alertBox.classList.remove('d-none', 'alert-success');
+    alertBox.classList.add('alert-danger');
+    return;
+  }
+
+  const recordId = state.currentResultId || buildResultId();
+  state.currentResultId = recordId;
+  const now = new Date();
+  const displayDate = now.toLocaleString('pt-BR');
+  const answerFileName = `gabarito_${recordId}.json`;
+
+  saveHistoryRow({
+    id_teste: recordId,
+    nome_candidato: state.candidate.name,
+    vaga: state.candidate.role,
+    nivel: state.candidate.level,
+    trilha: state.blueprint?.label || state.candidate.track || '',
+    data_iso: now.toISOString(),
+    data_exibicao: displayDate,
+    pontuacao_final: state.weightedFinalScore.toFixed(2),
+    status: 'Finalizado',
+    tempo_minutos: state.candidate.time,
+    arquivo_gabarito: answerFileName,
+  });
+
+  saveAnswerFile(recordId, {
+    fileName: answerFileName,
+    content: JSON.stringify(buildAnswerKeyPayload(recordId), null, 2),
+    mimeType: 'application/json',
+    candidateName: state.candidate.name,
+  });
+
+  alertBox.textContent =
+    'Resultado salvo com sucesso no histórico CSV do navegador.';
+  alertBox.classList.remove('d-none', 'alert-danger');
+  alertBox.classList.add('alert-success');
+}
+
+function clearHistoryFilters() {
+  document.getElementById('history-filter-name').value = '';
+  document.getElementById('history-filter-role').value = '';
+  document.getElementById('history-filter-date').value = '';
+  renderHistoryTable();
+}
+
+function renderHistoryTable() {
+  const body = document.getElementById('history-table-body');
+  const alertEl = document.getElementById('history-alert');
+  if (!body || !alertEl) return;
+
+  const nameFilter = safeUpper(
+    document.getElementById('history-filter-name')?.value || '',
+  );
+  const roleFilter = safeUpper(
+    document.getElementById('history-filter-role')?.value || '',
+  );
+  const dateFilter =
+    document.getElementById('history-filter-date')?.value || '';
+
+  const rows = readHistoryRows().sort((a, b) =>
+    a.data_iso < b.data_iso ? 1 : -1,
+  );
+  const filtered = rows.filter((row) => {
+    const matchesName =
+      !nameFilter || safeUpper(row.nome_candidato).includes(nameFilter);
+    const matchesRole = !roleFilter || safeUpper(row.vaga).includes(roleFilter);
+    const matchesDate =
+      !dateFilter || formatDateToInput(row.data_iso) === dateFilter;
+    return matchesName && matchesRole && matchesDate;
+  });
+
+  if (!rows.length) {
+    alertEl.textContent = 'Nenhum resultado salvo até o momento.';
+    alertEl.classList.remove('d-none', 'alert-danger');
+    alertEl.classList.add('alert-info');
+    body.innerHTML =
+      '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum resultado salvo até o momento.</td></tr>';
+    return;
+  }
+
+  alertEl.classList.add('d-none');
+
+  if (!filtered.length) {
+    body.innerHTML =
+      '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum resultado encontrado para os filtros informados.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = filtered
+    .map(
+      (row) => `
+    <tr>
+      <td>${row.id_teste}</td>
+      <td>${row.nome_candidato}</td>
+      <td>${row.vaga}</td>
+      <td>${row.nivel}${row.trilha ? `<div class="small text-muted">${row.trilha}</div>` : ''}</td>
+      <td>${row.data_exibicao}</td>
+      <td>${row.pontuacao_final}</td>
+      <td><span class="badge text-bg-success">${row.status || 'Finalizado'}</span></td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-primary" onclick="downloadHistoryAnswerKey('${row.id_teste}', '${sanitizeFileName(row.nome_candidato)}')">Baixar gabarito</button>
+      </td>
+    </tr>
+  `,
+    )
+    .join('');
+}
+
+function downloadHistoryAnswerKey(recordId, candidateName = 'candidato') {
+  const files = getAnswerFiles();
+  const saved = files[recordId];
+  if (!saved?.content) {
+    alert('O gabarito desse candidato não foi encontrado neste navegador.');
+    return;
+  }
+  const blob = new Blob([saved.content], {
+    type: saved.mimeType || 'application/json',
+  });
+  downloadBlob(
+    saved.fileName || `gabarito_${sanitizeFileName(candidateName)}.json`,
+    blob,
+  );
+}
+
+function downloadCurrentAnswerKey() {
+  if (!state.currentResultId) {
+    alert('Salve o resultado antes de baixar o gabarito individual.');
+    return;
+  }
+  downloadHistoryAnswerKey(
+    state.currentResultId,
+    state.candidate?.name || 'candidato',
+  );
+}
+
+function exportHistoryCsv() {
+  const csv = ensureHistoryCsv();
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob('historico_testes.csv', blob);
 }
 
 function openAdminResult() {
   const pass = document.getElementById('admin-pass').value.trim();
   const alert = document.getElementById('admin-alert');
   if (pass !== RH_PASS) {
-    alert.textContent = 'Senha do RH inválida.';
+    alert.textContent = 'Senha inválida.';
     alert.classList.remove('d-none');
     return;
   }
@@ -1358,17 +1662,6 @@ function backToConfig() {
     showScreen('screen-config');
     return;
   }
-  document.getElementById('candidate-name').value = '';
-  document.getElementById('candidate-role').value = '';
-  document.getElementById('candidate-level').value = '';
-  document.getElementById('candidate-track').value = '';
-  document.getElementById('candidate-time').value = '40';
-  const candidateRolePreviewEl = document.getElementById(
-    'candidate-role-preview',
-  );
-  if (candidateRolePreviewEl) candidateRolePreviewEl.value = '';
-  document.getElementById('admin-pass').value = '';
-  document.getElementById('save-alert').classList.add('d-none');
-  updateFlowPreview();
+  resetExamEntryFields();
   showScreen('screen-config');
 }

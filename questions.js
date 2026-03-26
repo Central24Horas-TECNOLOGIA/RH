@@ -1077,12 +1077,578 @@ function excelMidPool() {
   ];
 }
 
+function wordBasicPoolJovemAprendiz() {
+  return [
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Formatação de comunicado interno',
+      'Durante a rotina do setor, foi percebido que alguns recados importantes estavam sendo passados apenas verbalmente, o que gerou dúvidas entre os colaboradores. Para evitar desencontro de informações, foi solicitado um comunicado simples para reforçar uma orientação à equipe. Escreva o título “COMUNICADO INTERNO” em negrito e centralizado. Em seguida, redija um pequeno texto informando que todos devem conferir os avisos do setor no início do expediente.',
+      {
+        titleText: 'COMUNICADO INTERNO',
+        titleBold: true,
+        titleCenter: true,
+        minTextLength: 45,
+      },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'E-mail corporativo simples',
+      'Você teve um atraso pontual na chegada ao trabalho por causa de um problema no transporte e precisa avisar o supervisor de forma educada e profissional. Redija um e-mail curto informando o ocorrido e dizendo que já está se dirigindo ao local de trabalho.',
+      { minTextLength: 55, minSentences: 2 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Lista de materiais para o primeiro dia',
+      'Um novo colaborador iniciará as atividades no setor e precisa receber uma orientação simples sobre o que deve levar no primeiro dia. Escreva o título “MATERIAIS PARA O PRIMEIRO DIA” e crie uma lista com pelo menos 3 itens contendo materiais ou documentos importantes.',
+      {
+        titleText: 'MATERIAIS PARA O PRIMEIRO DIA',
+        requiresList: true,
+        minListItems: 3,
+      },
+    ),
+  ];
+}
+
+function wordBasicPoolOperador() {
+  return [
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Formatação de comunicado interno',
+      'Durante a troca de turno, foi percebido que alguns registros de atendimento estavam sendo finalizados sem as observações necessárias, o que dificultou o acompanhamento dos casos. Para reforçar essa orientação, foi solicitado um comunicado interno simples para a equipe. Escreva o título “COMUNICADO INTERNO” em negrito e centralizado. Em seguida, redija um pequeno texto orientando que os atendimentos devem ser finalizados com registro claro das informações principais.',
+      {
+        titleText: 'COMUNICADO INTERNO',
+        titleBold: true,
+        titleCenter: true,
+        minTextLength: 45,
+      },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'E-mail corporativo simples',
+      'Durante o atendimento, você identificou um caso que precisa de acompanhamento do supervisor, pois o cliente informou uma divergência que não pode ser resolvida no primeiro contato. Redija um e-mail curto e profissional para o supervisor, resumindo a situação e solicitando orientação sobre a tratativa.',
+      { minTextLength: 55, minSentences: 2 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Lista de pendências do atendimento',
+      'Ao encerrar o turno, você precisa deixar registradas algumas pendências para a próxima equipe dar continuidade aos casos em aberto. Escreva o título “PENDÊNCIAS DO TURNO” e crie uma lista com pelo menos 3 itens contendo exemplos de pendências ou ações que precisam de acompanhamento.',
+      { titleText: 'PENDÊNCIAS DO TURNO', requiresList: true, minListItems: 3 },
+    ),
+  ];
+}
+
+function wordBasicPoolEstagiarioTI() {
+  return [
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Formatação de comunicado interno',
+      'A equipe de TI realizará uma atualização simples em uma ferramenta interna no fim do expediente, e os colaboradores precisam ser avisados com antecedência. Escreva o título “COMUNICADO TÉCNICO” em negrito e centralizado. Em seguida, redija um pequeno texto informando que poderá haver instabilidade temporária durante a atualização e que a equipe será avisada após a normalização.',
+      {
+        titleText: 'COMUNICADO TÉCNICO',
+        titleBold: true,
+        titleCenter: true,
+        minTextLength: 45,
+      },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'E-mail corporativo simples',
+      'Um usuário informou que não consegue acessar uma ferramenta interna e você precisa registrar o caso para acompanhamento do responsável. Redija um e-mail curto e profissional resumindo o problema e informando que a situação está em análise.',
+      { minTextLength: 55, minSentences: 2 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Checklist inicial de suporte',
+      'Antes de iniciar um atendimento técnico simples, é importante realizar algumas verificações básicas para entender o problema com mais clareza. Com base nesse contexto, escreva o título “CHECKLIST INICIAL DE SUPORTE” e crie uma lista com pelo menos 3 itens mostrando verificações que podem ser feitas no começo do atendimento.',
+      {
+        titleText: 'CHECKLIST INICIAL DE SUPORTE',
+        requiresList: true,
+        minListItems: 3,
+      },
+    ),
+  ];
+}
+
+function generalBasicPoolEstagiarioTI() {
+  return [
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Interpretação de situação de trabalho',
+      'Um usuário entra em contato informando que não consegue acessar um sistema utilizado pela empresa e demonstra impaciência porque precisa concluir uma atividade com urgência. Considerando uma postura profissional no atendimento inicial de suporte, qual deve ser sua atitude?',
+      [
+        '(A) Pedir para o usuário aguardar sem registrar nenhuma informação',
+        '(B) Ouvir o relato com calma, coletar as informações básicas e iniciar a análise',
+        '(C) Responder de forma ríspida para mostrar que o problema não é simples',
+        '(D) Encerrar o contato e pedir para o usuário tentar novamente mais tarde',
+      ],
+      1,
+    ),
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Lógica básica',
+      `Durante um período de suporte, foram registrados os seguintes chamados resolvidos:
+9h: 4 chamados
+10h: 6 chamados
+11h: 5 chamados
+
+Considerando as informações apresentadas, quantos chamados foram resolvidos no total nesse período? Caso necessário, você pode utilizar a calculadora do Windows para apoiar o cálculo.`,
+      ['(A) 13', '(B) 14', '(C) 15', '(D) 16'],
+      2,
+    ),
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Comunicação no trabalho',
+      'Durante o repasse de atividades entre integrantes da equipe de TI, é importante registrar de forma clara o que já foi analisado, o que ainda está pendente e quais testes foram realizados. Considerando esse contexto, qual prática ajuda diretamente a evitar retrabalho?',
+      [
+        '(A) Registrar o andamento do chamado com informações objetivas e organizadas',
+        '(B) Passar apenas parte das informações para o próximo responsável descobrir o restante',
+        '(C) Evitar registros para tornar o processo mais rápido',
+        '(D) Informar somente que existe um problema, sem detalhar nada',
+      ],
+      0,
+    ),
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Organização de tarefas',
+      'Durante o expediente, você recebeu três demandas: atender um usuário que está sem acesso ao sistema, responder um e-mail sem urgência e atualizar um documento interno. Considerando a necessidade de priorização adequada, o que deve ser tratado primeiro?',
+      [
+        '(A) Atualizar o documento interno, por ser uma atividade importante',
+        '(B) Responder o e-mail sem urgência para limpar a caixa de entrada',
+        '(C) Atender o usuário sem acesso ao sistema, por gerar impacto mais imediato',
+        '(D) Tratar as demandas em qualquer ordem, pois todas têm o mesmo peso',
+      ],
+      2,
+    ),
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Trabalho em equipe',
+      'Durante a rotina de suporte, um colega novo pediu ajuda para localizar um procedimento técnico já documentado. Considerando uma postura colaborativa e profissional, qual atitude demonstra melhor trabalho em equipe?',
+      [
+        '(A) Ignorar o pedido para não interromper a própria rotina',
+        '(B) Dizer para ele resolver sozinho sem qualquer orientação',
+        '(C) Indicar onde está o procedimento e orientar rapidamente sobre como utilizá-lo',
+        '(D) Mandar que ele aguarde até o fim do dia para buscar ajuda',
+      ],
+      2,
+    ),
+  ];
+}
+
+function writingLogicPoolEstagiarioTI() {
+  return [
+    wordQ(
+      'writing_logic',
+      STAGE_LABELS.writing_logic,
+      'Avaliação de escrita',
+      'Um colaborador informou por mensagem que está com dificuldade para acessar uma ferramenta interna e pediu uma previsão imediata de solução. Nessa situação, é importante responder de forma educada, profissional e objetiva, informando que o caso será analisado sem prometer um prazo antes da validação técnica. Com base nesse contexto, escreva uma resposta curta, cordial e profissional.',
+      { minTextLength: 50, minSentences: 2 },
+    ),
+    mcqQ(
+      'writing_logic',
+      STAGE_LABELS.writing_logic,
+      'Raciocínio lógico',
+      'Durante o acompanhamento da equipe de suporte, foi identificado que cada analista consegue tratar 8 chamados por hora. Considerando uma equipe composta por 3 analistas trabalhando nesse mesmo ritmo ao longo de 2 horas, quantos chamados serão tratados no total nesse período?',
+      ['(A) 32', '(B) 40', '(C) 48', '(D) 56'],
+      2,
+    ),
+  ];
+}
+
+function wordBasicPoolEstagiarioRH() {
+  return [
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Formatação de comunicado interno',
+      'O RH precisa reforçar para os colaboradores a importância de confirmar presença nas entrevistas internas agendadas com antecedência. Escreva o título “COMUNICADO INTERNO” em negrito e centralizado. Em seguida, redija um pequeno texto orientando que a confirmação seja feita dentro do prazo informado para evitar desencontros de agenda.',
+      {
+        titleText: 'COMUNICADO INTERNO',
+        titleBold: true,
+        titleCenter: true,
+        minTextLength: 45,
+      },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'E-mail corporativo simples',
+      'Um candidato enviou o currículo para uma vaga e você precisa responder confirmando o recebimento, informando que o material será analisado pelo RH. Redija um e-mail curto, cordial e profissional.',
+      { minTextLength: 55, minSentences: 2 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Lista de documentos para entrevista',
+      'O RH precisa encaminhar uma orientação simples sobre o que o candidato deve apresentar no dia da entrevista. Escreva o título “DOCUMENTOS PARA A ENTREVISTA” e crie uma lista com pelo menos 3 itens contendo documentos ou informações que o candidato deve levar.',
+      {
+        titleText: 'DOCUMENTOS PARA A ENTREVISTA',
+        requiresList: true,
+        minListItems: 3,
+      },
+    ),
+  ];
+}
+
+function generalBasicPoolEstagiarioRH() {
+  return [
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Interpretação de situação de trabalho',
+      'Um candidato entrou em contato demonstrando ansiedade para saber se seguirá no processo seletivo. Considerando a postura esperada do RH, qual deve ser a atitude inicial mais adequada?',
+      [
+        '(A) Ignorar a mensagem até que todas as etapas sejam finalizadas',
+        '(B) Responder com educação, informar a etapa atual e orientar que novas atualizações serão comunicadas',
+        '(C) Passar informações de outros candidatos para justificar a demora',
+        '(D) Informar uma aprovação sem que o processo tenha sido concluído',
+      ],
+      1,
+    ),
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Lógica básica',
+      `Em um processo seletivo, o RH agendou 5 entrevistas pela manhã, 4 à tarde e 3 no fim do dia.
+
+Considerando as informações apresentadas, quantas entrevistas foram agendadas no total? Caso necessário, você pode utilizar a calculadora do Windows para apoiar o cálculo.`,
+      ['(A) 10', '(B) 11', '(C) 12', '(D) 13'],
+      2,
+    ),
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Comunicação no trabalho',
+      'Durante o andamento de um processo seletivo, diferentes pessoas podem participar das etapas, como RH, gestor solicitante e entrevistadores. Para evitar retrabalho e desencontro de informações, qual prática contribui mais diretamente para uma boa comunicação entre os envolvidos?',
+      [
+        '(A) Registrar o status dos candidatos de forma clara e atualizada',
+        '(B) Informar cada etapa apenas de forma verbal, sem qualquer registro',
+        '(C) Compartilhar dados dos candidatos em grupos sem necessidade',
+        '(D) Atualizar o processo somente ao final de todas as entrevistas',
+      ],
+      0,
+    ),
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Organização de tarefas',
+      'Durante o dia, você recebeu três demandas: confirmar as entrevistas agendadas para hoje, responder um e-mail sem urgência e atualizar uma planilha de acompanhamento semanal. Considerando a necessidade de priorização adequada, o que deve ser tratado primeiro?',
+      [
+        '(A) Atualizar a planilha semanal, por ser uma atividade recorrente',
+        '(B) Responder o e-mail sem urgência para reduzir pendências',
+        '(C) Confirmar as entrevistas agendadas para hoje, por ter impacto imediato no processo',
+        '(D) Tratar qualquer tarefa primeiro, sem necessidade de ordem',
+      ],
+      2,
+    ),
+    mcqQ(
+      'general_basic',
+      STAGE_LABELS.general_basic,
+      'Trabalho em equipe',
+      'Durante o processo seletivo, um colega pediu apoio para localizar rapidamente o status de um candidato já entrevistado. Considerando uma postura colaborativa e profissional, qual atitude demonstra melhor trabalho em equipe?',
+      [
+        '(A) Ignorar o pedido para não interromper a própria rotina',
+        '(B) Informar de forma organizada onde está o registro e compartilhar o status correto',
+        '(C) Dizer para o colega procurar sozinho sem qualquer orientação',
+        '(D) Passar uma informação sem conferir se está correta',
+      ],
+      1,
+    ),
+  ];
+}
+
+function wordPoolHelpDesk() {
+  return [
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'E-mail corporativo simples',
+      'Um sistema interno ficou indisponível por alguns minutos, impactando o trabalho de parte da equipe. Após a normalização, você precisa registrar o ocorrido para o supervisor. Redija um e-mail curto e profissional informando o problema, o impacto percebido e que o acesso já foi restabelecido.',
+      { minTextLength: 55, minSentences: 2 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Estruturação de documento técnico',
+      'No atendimento de Help Desk, é importante manter um passo a passo claro para casos em que o usuário não consegue acessar um sistema. Com base nesse cenário, crie um título apropriado e escreva uma lista com pelo menos 3 ações iniciais de verificação para esse tipo de atendimento.',
+      { requiresList: true, minListItems: 3, minTextLength: 35 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Registro de atendimento',
+      'Após concluir um suporte, é necessário deixar um registro claro para histórico do chamado. Escreva o título “REGISTRO DE ATENDIMENTO” em negrito e centralizado. Em seguida, redija um pequeno texto resumindo o problema reportado, a ação executada e o resultado obtido.',
+      {
+        titleText: 'REGISTRO DE ATENDIMENTO',
+        titleBold: true,
+        titleCenter: true,
+        minSentences: 2,
+        minTextLength: 55,
+      },
+    ),
+  ];
+}
+
+function wordBasicLevel3PoolPlanejamento() {
+  return [
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Redação de comunicado interno',
+      'Foi identificado um ajuste temporário na distribuição das pausas da equipe para melhor equilíbrio da operação em um horário de maior demanda. Para comunicar essa alteração com clareza, escreva o título “AJUSTE OPERACIONAL” em negrito e centralizado. Em seguida, redija um comunicado com pelo menos 2 frases, utilizando linguagem clara, direta e de fácil entendimento.',
+      {
+        titleText: 'AJUSTE OPERACIONAL',
+        titleBold: true,
+        titleCenter: true,
+        minSentences: 2,
+        minTextLength: 55,
+      },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Estruturação de procedimento com lista',
+      'Durante a rotina de planejamento, é importante acompanhar de forma organizada uma fila que apresentou aumento de volume. Com base nesse cenário, crie um título apropriado e escreva uma lista com 3 ações de acompanhamento que ajudem a monitorar esse cenário ao longo do dia.',
+      { requiresList: true, minListItems: 3, minTextLength: 25 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Revisão e formatação de texto',
+      'Durante a análise operacional, o acompanhamento de volume, capacidade e desvios ajuda a manter a rotina mais organizada e facilita decisões ao longo do dia. Considerando esse contexto, escreva um resumo curto sobre a importância do acompanhamento intradiário e destaque pelo menos uma palavra em negrito.',
+      { minTextLength: 55, anyBold: true },
+    ),
+  ];
+}
+
+function techAdmBasicPoolPlanejamento() {
+  return [
+    mcqQ(
+      'tech_adm_basic',
+      STAGE_LABELS.tech_adm_basic,
+      'Controle operacional',
+      'No planejamento de uma operação, definir corretamente o tamanho da equipe é uma etapa essencial para garantir equilíbrio entre demanda e capacidade de atendimento. Para isso, é necessário considerar informações que permitam estimar quantas pessoas serão necessárias ao longo da rotina, evitando tanto sobrecarga quanto ociosidade. Considerando esse contexto, qual informação é indispensável para dimensionar a equipe?',
+      [
+        '(A) Volume esperado de demanda e jornada de trabalho da equipe',
+        '(B) Nome do supervisor responsável pela operação',
+        '(C) Cor do sistema utilizado pela equipe',
+        '(D) Quantidade de cadeiras disponíveis no ambiente',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_adm_basic',
+      STAGE_LABELS.tech_adm_basic,
+      'Indicadores',
+      'No acompanhamento operacional, o planejamento utiliza indicadores para entender se a capacidade da equipe está adequada à demanda recebida. Entre esses indicadores, o TMA costuma ser acompanhado para avaliar principalmente:',
+      [
+        '(A) Tempo médio de atendimento realizado pela operação',
+        '(B) Quantidade de faltas registradas pela equipe',
+        '(C) Número de cadeiras ocupadas no setor',
+        '(D) Tempo médio de almoço dos colaboradores',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_adm_basic',
+      STAGE_LABELS.tech_adm_basic,
+      'Interpretação de situação de trabalho',
+      'Ao acompanhar a operação, você identificou aumento repentino no volume de chamadas e queda do SLA em uma faixa horária específica. Considerando uma análise inicial de planejamento, qual deve ser a primeira leitura mais adequada?',
+      [
+        '(A) Verificar se houve aumento de demanda, redução de capacidade ou desvio de escala naquele período',
+        '(B) Concluir imediatamente que toda a equipe teve baixo desempenho',
+        '(C) Ignorar o horário afetado e observar apenas o consolidado do mês',
+        '(D) Aguardar o fim da semana sem analisar o desvio no momento',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_adm_basic',
+      STAGE_LABELS.tech_adm_basic,
+      'Comunicação no trabalho',
+      'Durante o repasse entre equipes de planejamento, é importante registrar com clareza os desvios observados, as ações aplicadas e os pontos que ainda exigem acompanhamento. Considerando esse contexto, qual prática contribui diretamente para evitar retrabalho?',
+      [
+        '(A) Registrar o status operacional de forma objetiva, com dados e ações realizadas',
+        '(B) Compartilhar apenas uma percepção geral, sem detalhamento',
+        '(C) Deixar as informações para serem lembradas depois, sem registro formal',
+        '(D) Comunicar somente o que já foi resolvido e omitir o restante',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_adm_basic',
+      STAGE_LABELS.tech_adm_basic,
+      'Organização de tarefas',
+      'Durante a rotina de planejamento, você recebeu três demandas: analisar um desvio crítico de escala do dia, responder um e-mail sem urgência e atualizar uma apresentação semanal. Considerando a necessidade de priorização adequada, o que deve ser tratado primeiro?',
+      [
+        '(A) Atualizar a apresentação semanal, por ser uma entrega importante',
+        '(B) Responder o e-mail sem urgência para reduzir pendências',
+        '(C) Analisar o desvio crítico de escala do dia, por ter impacto imediato na operação',
+        '(D) Tratar qualquer uma das tarefas, sem necessidade de ordem',
+      ],
+      2,
+    ),
+  ];
+}
+
+function generalAdvancedPoolTI() {
+  return [
+    mcqQ(
+      'general_advanced',
+      STAGE_LABELS.general_advanced,
+      'Tomada de decisão estratégica',
+      'Ao acompanhar um incidente técnico, foi identificado aumento de lentidão em um sistema crítico, mas ainda sem indisponibilidade total. Ao mesmo tempo, os logs apontam crescimento de erros em um serviço específico. Considerando esse cenário, qual leitura faz mais sentido?',
+      [
+        '(A) O ambiente está normal e não exige acompanhamento',
+        '(B) Existe um sinal de degradação que pode evoluir para indisponibilidade, exigindo análise técnica e monitoramento imediato',
+        '(C) A melhor decisão é ignorar os logs até que o sistema pare totalmente',
+        '(D) O aumento de erros não tem relação com a estabilidade do ambiente',
+      ],
+      1,
+    ),
+    mcqQ(
+      'general_advanced',
+      STAGE_LABELS.general_advanced,
+      'Análise de cenário organizacional',
+      'Uma nova operação será implantada em 15 dias, exigindo planejamento e organização para que o início aconteça de forma estruturada e com o menor risco possível. Antes de avançar para etapas mais visuais ou administrativas, é fundamental validar os pontos que impactam diretamente a viabilidade da operação. Considerando esse contexto, o que deve ser validado primeiro?',
+      [
+        '(A) Volume previsto, jornada da equipe, capacidade operacional e riscos envolvidos',
+        '(B) Apenas o nome do cliente que será atendido',
+        '(C) Somente o layout físico da sala onde a operação ficará',
+        '(D) Somente a definição do uniforme da equipe',
+      ],
+      0,
+    ),
+    mcqQ(
+      'general_advanced',
+      STAGE_LABELS.general_advanced,
+      'Gestão de projetos',
+      'Durante um projeto de implantação, o acompanhamento das etapas depende de marcos bem definidos, pois eles ajudam a organizar o andamento do trabalho e permitem maior controle sobre o que precisa ser entregue. Para que o projeto avance com clareza e responsabilidade, é importante estabelecer referências objetivas ao longo da execução. Nesse contexto, um marco importante é:',
+      [
+        '(A) Não trabalhar com cronograma para manter flexibilidade total',
+        '(B) Definir entregas, responsáveis e prazos de cada etapa',
+        '(C) Evitar registrar decisões para não engessar o projeto',
+        '(D) Alterar o escopo diariamente conforme surgirem novas ideias',
+      ],
+      1,
+    ),
+    mcqQ(
+      'general_advanced',
+      STAGE_LABELS.general_advanced,
+      'Pensamento crítico',
+      'Ao receber um relatório com informações inconsistentes, como divergência de números, ausência de coerência entre indicadores ou dados fora do padrão esperado, é necessário adotar uma postura analítica antes de utilizar esse material em apresentações ou tomadas de decisão. Considerando esse cenário, qual é a melhor conduta?',
+      [
+        '(A) Aceitar o relatório sem realizar validações adicionais',
+        '(B) Cruzar os dados e investigar as divergências antes de seguir com a análise',
+        '(C) Apresentar o conteúdo mesmo com inconsistências, para não atrasar a entrega',
+        '(D) Descartar imediatamente o relatório sem tentar entender a origem do problema',
+      ],
+      1,
+    ),
+    mcqQ(
+      'general_advanced',
+      STAGE_LABELS.general_advanced,
+      'Comunicação estratégica',
+      'Quando ocorre um incidente crítico na operação, a comunicação com a diretoria deve ser objetiva, mas também suficientemente completa para permitir uma compreensão rápida da situação e apoiar a tomada de decisão. Nesse tipo de reporte, é importante ir além da simples descrição do problema e apresentar os elementos essenciais do cenário. Considerando esse contexto, a comunicação deve conter:',
+      [
+        '(A) Somente a informação de que houve um problema na operação',
+        '(B) Contexto do incidente, impacto gerado, plano de ação e próximos passos',
+        '(C) Apenas opiniões gerais, sem necessidade de dados ou direcionamento',
+        '(D) Detalhes secundários e informações sem relação direta com o incidente',
+      ],
+      1,
+    ),
+  ];
+}
+
+function techAdmSpecificPoolAnalista() {
+  return [
+    mcqQ(
+      'tech_adm_specific',
+      STAGE_LABELS.tech_adm_specific,
+      'Gestão de indicadores',
+      'No acompanhamento de uma operação, diferentes indicadores são utilizados para medir desempenho, qualidade e eficiência. Entre eles, existe um indicador específico voltado para entender quanto tempo, em média, cada atendimento leva para ser concluído, sendo bastante utilizado na gestão da rotina operacional. Considerando esse contexto, qual indicador mede o tempo médio de atendimento em uma operação de call center?',
+      ['(A) NPS', '(B) SLA', '(C) TMA', '(D) ABS'],
+      2,
+    ),
+    mcqQ(
+      'tech_adm_specific',
+      STAGE_LABELS.tech_adm_specific,
+      'Análise de produtividade',
+      'Ao acompanhar os resultados de uma rotina analítica, foi identificado atraso recorrente na entrega de relatórios e aumento de divergências nos dados consolidados. Antes de qualquer cobrança direta, qual é a melhor ação inicial?',
+      [
+        '(A) Validar a origem dos dados, o fluxo de atualização e os pontos do processo em que ocorrem as divergências',
+        '(B) Cobrar imediatamente a equipe, sem investigar o contexto',
+        '(C) Suspender o acompanhamento dos relatórios até o cenário melhorar',
+        '(D) Alterar o layout do dashboard para tentar resolver o problema',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_adm_specific',
+      STAGE_LABELS.tech_adm_specific,
+      'Planejamento operacional',
+      'Na implantação de uma nova operação, estimar corretamente a quantidade de profissionais necessários é uma etapa essencial para atender a demanda esperada sem sobrecarregar a equipe ou comprometer o nível de serviço. Para isso, é preciso começar a análise pelos fatores que impactam diretamente o dimensionamento operacional. Considerando esse contexto, para estimar a equipe necessária em uma nova operação, deve-se olhar primeiro para:',
+      [
+        '(A) Volume esperado de atendimentos e SLA alvo da operação',
+        '(B) Nome do cliente atendido',
+        '(C) Modelo de headset que será utilizado pela equipe',
+        '(D) Horário de almoço do gestor responsável',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_adm_specific',
+      STAGE_LABELS.tech_adm_specific,
+      'Gestão de processos',
+      'Quando um processo apresenta retrabalho frequente, atrasos e divergência entre as áreas envolvidas, qual prática tende a ajudar mais diretamente na melhoria do fluxo?',
+      [
+        '(A) Mapear o processo atual, identificar gargalos e definir ajustes com responsáveis claros',
+        '(B) Manter o processo como está e apenas cobrar mais velocidade da equipe',
+        '(C) Eliminar os registros para tornar o fluxo mais rápido',
+        '(D) Alterar as atividades diariamente sem padronização',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_adm_specific',
+      STAGE_LABELS.tech_adm_specific,
+      'Análise de dados',
+      'Na rotina de um analista, dashboards ajudam a acompanhar indicadores, mas não substituem totalmente uma análise crítica. Considerando esse contexto, dashboards são úteis principalmente porque:',
+      [
+        '(A) Organizam a visualização dos dados e ajudam a identificar tendências, desvios e pontos que exigem aprofundamento',
+        '(B) Eliminam a necessidade de validar a base de dados utilizada',
+        '(C) Servem apenas para deixar apresentações mais bonitas',
+        '(D) Tornam desnecessária qualquer investigação complementar',
+      ],
+      0,
+    ),
+  ];
+}
+
 const EXAM_BLUEPRINTS = {
   jovem_aprendiz: {
     level: '1',
     label: 'Nível 1 — Jovem Aprendiz',
     stages: [
-      { key: 'word_basic', weight: 40, questions: () => wordBasicPool() },
+      {
+        key: 'word_basic',
+        weight: 40,
+        questions: () => wordBasicPoolJovemAprendiz(),
+      },
       { key: 'excel_basic', weight: 40, questions: () => excelStageBasic() },
       { key: 'general_basic', weight: 20, questions: () => generalBasicPool() },
     ],
@@ -1091,7 +1657,11 @@ const EXAM_BLUEPRINTS = {
     level: '2',
     label: 'Nível 2 — Operador',
     stages: [
-      { key: 'word_basic', weight: 40, questions: () => wordBasicPool() },
+      {
+        key: 'word_basic',
+        weight: 40,
+        questions: () => wordBasicPoolOperador(),
+      },
       { key: 'excel_basic', weight: 40, questions: () => excelStageQualid() },
       { key: 'general_basic', weight: 20, questions: () => generalBasicPool() },
     ],
@@ -1100,20 +1670,40 @@ const EXAM_BLUEPRINTS = {
     level: '2',
     label: 'Nível 2 — Estagiário (TI)',
     stages: [
-      { key: 'word_basic', weight: 20, questions: () => wordBasicPool() },
+      {
+        key: 'word_basic',
+        weight: 20,
+        questions: () => wordBasicPoolEstagiarioTI(),
+      },
       { key: 'excel_basic', weight: 20, questions: () => excelStageQualid() },
-      { key: 'general_basic', weight: 10, questions: () => generalBasicPool() },
+      {
+        key: 'general_basic',
+        weight: 10,
+        questions: () => generalBasicPoolEstagiarioTI(),
+      },
       { key: 'tech_ti_basic', weight: 40, questions: () => techTiBasicPool() },
-      { key: 'writing_logic', weight: 10, questions: () => writingLogicPool() },
+      {
+        key: 'writing_logic',
+        weight: 10,
+        questions: () => writingLogicPoolEstagiarioTI(),
+      },
     ],
   },
   estagiario_rh: {
     level: '2',
     label: 'Nível 2 — Estagiário (RH)',
     stages: [
-      { key: 'word_basic', weight: 20, questions: () => wordBasicPool() },
+      {
+        key: 'word_basic',
+        weight: 20,
+        questions: () => wordBasicPoolEstagiarioRH(),
+      },
       { key: 'excel_basic', weight: 20, questions: () => excelStageQualid() },
-      { key: 'general_basic', weight: 10, questions: () => generalBasicPool() },
+      {
+        key: 'general_basic',
+        weight: 10,
+        questions: () => generalBasicPoolEstagiarioRH(),
+      },
       { key: 'tech_rh_basic', weight: 40, questions: () => techRhBasicPool() },
       { key: 'writing_logic', weight: 10, questions: () => writingLogicPool() },
     ],
@@ -1131,11 +1721,38 @@ const EXAM_BLUEPRINTS = {
       },
     ],
   },
-  helpdesk_planejamento: {
+  helpdesk: {
     level: '3',
-    label: 'Nível 3 — Help Desk / Planejamento',
+    label: 'Nível 3 — Help Desk',
     stages: [
-      { key: 'word_basic', weight: 20, questions: () => wordBasicLevel3Pool() },
+      { key: 'word_basic', weight: 20, questions: () => wordPoolHelpDesk() },
+      {
+        key: 'excel_advanced',
+        weight: 20,
+        questions: () => excelStagePlanning(),
+      },
+      {
+        key: 'general_basic',
+        weight: 10,
+        questions: () => generalBasicPoolEstagiarioTI(),
+      },
+      {
+        key: 'tech_ti_basic',
+        weight: 40,
+        questions: () => techTiBasicPool(),
+      },
+      { key: 'analysis_eval', weight: 10, questions: () => analysisEvalPool() },
+    ],
+  },
+  planejamento: {
+    level: '3',
+    label: 'Nível 3 — Planejamento',
+    stages: [
+      {
+        key: 'word_basic',
+        weight: 20,
+        questions: () => wordBasicLevel3PoolPlanejamento(),
+      },
       {
         key: 'excel_advanced',
         weight: 20,
@@ -1145,7 +1762,7 @@ const EXAM_BLUEPRINTS = {
       {
         key: 'tech_adm_basic',
         weight: 40,
-        questions: () => techAdmBasicPool(),
+        questions: () => techAdmBasicPoolPlanejamento(),
       },
       { key: 'analysis_eval', weight: 10, questions: () => analysisEvalPool() },
     ],
@@ -1163,7 +1780,7 @@ const EXAM_BLUEPRINTS = {
       {
         key: 'general_advanced',
         weight: 10,
-        questions: () => generalAdvancedPool(),
+        questions: () => generalAdvancedPoolTI(),
       },
       {
         key: 'tech_ti_specific',
@@ -1191,7 +1808,7 @@ const EXAM_BLUEPRINTS = {
       {
         key: 'tech_adm_specific',
         weight: 40,
-        questions: () => techAdmSpecificPool(),
+        questions: () => techAdmSpecificPoolAnalista(),
       },
     ],
   },
@@ -1210,8 +1827,8 @@ function resolveExamBlueprint(role, level, track = '') {
       ? EXAM_BLUEPRINTS.estagiario_rh
       : EXAM_BLUEPRINTS.estagiario_ti;
   if (safeRole === 'Supervisor') return EXAM_BLUEPRINTS.supervisor;
-  if (safeRole === 'Help Desk' || safeRole === 'Planejamento')
-    return EXAM_BLUEPRINTS.helpdesk_planejamento;
+  if (safeRole === 'Help Desk') return EXAM_BLUEPRINTS.helpdesk;
+  if (safeRole === 'Planejamento') return EXAM_BLUEPRINTS.planejamento;
   if (safeRole === 'TI') return EXAM_BLUEPRINTS.ti;
   return EXAM_BLUEPRINTS.adm;
 }

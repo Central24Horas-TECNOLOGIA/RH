@@ -203,3 +203,38 @@ body { background: #f4f6f9; }
     break-inside: avoid;
   }
 }
+
+
+.menu-action-card {
+  border: 1px solid #dee2e6;
+  border-radius: 18px;
+  background: #fff;
+  padding: 24px;
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 8px 25px rgba(0,0,0,.05);
+}
+.menu-action-card:hover {
+  border-color: #0d6efd;
+  background: #f8fbff;
+}
+.menu-action-title {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #212529;
+  margin-bottom: 10px;
+}
+.menu-action-text {
+  display: block;
+  color: #6c757d;
+  line-height: 1.45;
+}
+.history-table th {
+  white-space: nowrap;
+}
+.history-table td {
+  vertical-align: middle;
+}
