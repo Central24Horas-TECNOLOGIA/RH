@@ -39,11 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
         trackEl.value = 'adm';
       if (this.value === 'TI') trackEl.value = 'ti';
       if (this.value === 'Supervisor') trackEl.value = 'operacao';
-      if (
-        this.value === 'Help Desk' ||
-        this.value === 'Control Desk' ||
-        this.value === 'Planejamento'
-      )
+      if (this.value === 'Help Desk' || this.value === 'Planejamento')
         trackEl.value = 'adm';
       updateFlowPreview();
     });
@@ -106,6 +102,23 @@ function scoreResult(
   return { score, max, notes, pendingManual, completedTasks };
 }
 
+function buildChecklistResult(tasks, points, notes = []) {
+  const validTasks = Array.isArray(tasks) ? tasks : [];
+  const total = validTasks.length;
+  const doneCount = validTasks.filter((task) => !!task.done).length;
+  const score = total > 0 ? Math.round((doneCount / total) * points) : 0;
+
+  return {
+    score,
+    max: points,
+    notes,
+    pendingManual: true,
+    completedTasks: validTasks.map(
+      (task) => `${task.done ? '✔️' : '❌'} ${task.label}`,
+    ),
+  };
+}
+
 function getSheet(wb, name) {
   return wb.Sheets[name];
 }
@@ -121,34 +134,43 @@ function hasComment(ws, addr) {
 function hasAutoFilter(ws) {
   return !!(ws && ws['!autofilter']);
 }
+function getCell(ws, addr) {
+  return ws && ws[addr] ? ws[addr] : null;
+}
+function cellHasData(ws, addr) {
+  const cell = getCell(ws, addr);
+  if (!cell) return false;
+  if (cell.f !== undefined && cell.f !== null && String(cell.f).trim() !== '')
+    return true;
+  const value = cellValue(ws, addr);
+  return String(value ?? '').trim() !== '';
+}
+function findHeaderColumn(ws, rowNumber, headerText) {
+  if (!ws || !headerText) return null;
+  const wanted = safeUpper(headerText);
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+  for (let c = range.s.c; c <= range.e.c; c += 1) {
+    const addr = XLSX.utils.encode_cell({ r: rowNumber - 1, c });
+    if (safeUpper(cellValue(ws, addr)) === wanted) {
+      return XLSX.utils.encode_col(c);
+    }
+  }
+  return null;
+}
+function collectColumnValuesUntilBlank(ws, column, startRow, maxRow = 500) {
+  const values = [];
+  for (let row = startRow; row <= maxRow; row += 1) {
+    const value = String(cellValue(ws, `${column}${row}`) || '').trim();
+    if (!value) break;
+    values.push(value);
+  }
+  return values;
+}
 function aoaToSheet(aoa) {
   return XLSX.utils.aoa_to_sheet(aoa);
 }
 function appendRows(ws, rows, startCell = 'A1') {
   XLSX.utils.sheet_add_aoa(ws, rows, { origin: startCell });
-}
-
-const EXCEL_TASK_TEMPLATES = {
-  basic_exam: {
-    file: 'exame_basico.xlsx',
-    downloadBaseName: 'exame_basico',
-  },
-  qualid_exam: {
-    file: 'exame_médio.xlsx',
-    downloadBaseName: 'exame_médio',
-  },
-  planning_exam: {
-    file: 'exame_avançado.xlsx',
-    downloadBaseName: 'exame_avançado',
-  },
-  advanced_exam: {
-    file: 'exame_avançado.xlsx',
-    downloadBaseName: 'exame_avançado',
-  },
-};
-
-function getExcelTemplateForTask(taskId) {
-  return EXCEL_TASK_TEMPLATES[taskId] || null;
 }
 
 function updateFlowPreview() {
@@ -622,11 +644,13 @@ function getTaskCapabilities(taskId) {
 function getTaskAnswerKey(taskId) {
   const keys = {
     basic_exam: [
-      'Tabela copiada para G9',
-      'Comentário inserido em A11',
-      'Filtro aplicado',
-      'Totais calculados com fórmula',
-      'Itens visuais revisados pelo RH: linhas de grade e cor de preenchimento',
+      'Criar coluna Subtotal ao final da tabela',
+      'Calcular Subtotal = Valor do produto × Quantidade',
+      'Formatar Valor Unitário e Subtotal como contábil',
+      'Aplicar à nova coluna o mesmo estilo visual da planilha',
+      'Alterar as cores de A1 e da linha A2',
+      'Aplicar filtro e ordenar do maior para o menor valor unitário',
+      'Criar linha de total e somar Quantidade e Valor R$',
     ],
     qualid_exam: [
       'Planilha A em ordem alfabética por Operador',
@@ -698,11 +722,71 @@ function nextQuestion() {
   }
 }
 
+function hasBoldInHtml(html) {
+  // Detects bold via <b>, <strong>, or inline style font-weight bold/700+
+  if (/<(b|strong)[^>]*>[\s\S]*?<\/(b|strong)>/i.test(html)) return true;
+  if (/font-weight\s*:\s*(bold|[6-9]\d{2}|[1-9]\d{3})/i.test(html)) return true;
+  return false;
+}
+
+function hasCenterInHtml(html) {
+  // Detects centering via text-align style, align attribute, or justifyCenter div
+  if (/text-align\s*:\s*center/i.test(html)) return true;
+  if (/align\s*=\s*["']?center["']?/i.test(html)) return true;
+  if (/<div[^>]*style\s*=\s*["'][^"']*center[^"']*["']/i.test(html))
+    return true;
+  return false;
+}
+
+function titleIsBoldInHtml(html, titleText) {
+  if (!titleText) return false;
+  const escapedTitle = titleText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Check if the title text appears inside a bold tag or bold-styled element
+  const boldTagPattern = new RegExp(
+    '<(b|strong)[^>]*>[\\s\\S]*?' + escapedTitle + '[\\s\\S]*?<\\/(b|strong)>',
+    'i',
+  );
+  if (boldTagPattern.test(html)) return true;
+  // Check if title is in an element with font-weight bold
+  const boldStylePattern = new RegExp(
+    'font-weight\\s*:\\s*(bold|[6-9]\\d{2}|[1-9]\\d{3})[^"\']*["\'][^>]*>[\\s\\S]*?' +
+      escapedTitle,
+    'i',
+  );
+  if (boldStylePattern.test(html)) return true;
+  // Fallback: any bold exists and title text is present
+  return hasBoldInHtml(html);
+}
+
+function titleIsCenteredInHtml(html, titleText) {
+  if (!titleText) return false;
+  // Check if title appears in a centered context
+  const escapedTitle = titleText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const centerPattern = new RegExp(
+    '(text-align\\s*:\\s*center|align\\s*=\\s*["\']?center["\']?)[\\s\\S]{0,300}' +
+      escapedTitle,
+    'i',
+  );
+  if (centerPattern.test(html)) return true;
+  const centerPattern2 = new RegExp(
+    escapedTitle +
+      '[\\s\\S]{0,300}(text-align\\s*:\\s*center|align\\s*=\\s*["\']?center["\']?)',
+    'i',
+  );
+  if (centerPattern2.test(html)) return true;
+  // Fallback: any centering in document and title text present
+  return hasCenterInHtml(html);
+}
+
 function evaluateWord(answer, expected, points) {
   if (!answer || !answer.content) return 0;
   const html = answer.content;
   const plain = stripHtml(html);
   const upper = plain.toUpperCase();
+
+  // If the content is essentially empty, return 0
+  if (plain.trim().length < 5) return 0;
+
   let score = 0;
   let totalWeight = 0;
   const checks = [
@@ -710,36 +794,45 @@ function evaluateWord(answer, expected, points) {
       ? { ok: upper.includes(expected.titleText.toUpperCase()), weight: 2 }
       : null,
     expected.titleBold
-      ? { ok: /<(b|strong)[^>]*>.*?<\/(b|strong)>/is.test(html), weight: 1.5 }
+      ? { ok: titleIsBoldInHtml(html, expected.titleText), weight: 1.5 }
       : null,
     expected.titleCenter
-      ? { ok: /text-align:\s*center|align="center"/i.test(html), weight: 1.5 }
+      ? { ok: titleIsCenteredInHtml(html, expected.titleText), weight: 1.5 }
       : null,
     expected.minTextLength
       ? { ok: plain.length >= expected.minTextLength, weight: 1.5 }
       : null,
     expected.requiresList
-      ? { ok: /<(ul|ol)[^>]*>/i.test(html), weight: 1.5 }
-      : null,
-    expected.minListItems
       ? {
-          ok: countListItemsFromHtml(html) >= expected.minListItems,
+          ok: /<(ul|ol)[^>]*>/i.test(html) || /^\s*[-•*]\s+/m.test(plain),
           weight: 1.5,
         }
       : null,
-    expected.anyBold
-      ? { ok: /<(b|strong)[^>]*>.*?<\/(b|strong)>/is.test(html), weight: 1.2 }
+    expected.minListItems
+      ? {
+          ok:
+            countListItemsFromHtml(html) >= expected.minListItems ||
+            (plain.match(/^\s*[-•*]\s+\S/gm) || []).length >=
+              expected.minListItems,
+          weight: 1.5,
+        }
       : null,
+    expected.anyBold ? { ok: hasBoldInHtml(html), weight: 1.2 } : null,
     expected.minSentences
       ? { ok: countSentences(plain) >= expected.minSentences, weight: 1.3 }
       : null,
   ].filter(Boolean);
+
   checks.forEach((item) => {
     totalWeight += item.weight;
     if (item.ok) score += item.weight;
   });
+
   if (!checks.length) return 0;
-  return Math.round((score / totalWeight) * points);
+
+  // Partial credit: proportional scoring. Minimum 1 point if any text was written.
+  const raw = (score / totalWeight) * points;
+  return Math.max(plain.trim().length >= 5 ? 1 : 0, Math.round(raw));
 }
 function evaluateMultiple(answer, correctIndex, points) {
   return answer && answer.selected === correctIndex ? points : 0;
@@ -747,41 +840,71 @@ function evaluateMultiple(answer, correctIndex, points) {
 
 async function downloadExcelTask(questionIndex) {
   const q = state.questions[questionIndex];
-  const template = getExcelTemplateForTask(q.taskId);
-
-  if (!template || !template.file) {
-    alert('Não foi possível localizar o arquivo-base desta etapa.');
-    return;
-  }
-
   const candidateName = sanitizeFileName(state.candidate?.name || 'candidato');
-  const extensionMatch = String(template.file).match(/\.[^.]+$/);
-  const extension = extensionMatch ? extensionMatch[0] : '.xlsx';
-  const baseName = sanitizeFileName(
-    template.downloadBaseName || String(template.file).replace(/\.[^.]+$/, ''),
-  );
-  const filename = `${baseName}_${candidateName}${extension}`;
-  const templatePath = encodeURI(template.file);
 
   try {
-    const response = await fetch(templatePath);
-    if (!response.ok) throw new Error(`Falha ao carregar ${template.file}`);
-    const blob = await response.blob();
+    const fileInfo = await loadExcelTemplateFile(q.taskId);
+    const filename = sanitizeFileName(
+      `${fileInfo.outputBaseName}_${candidateName}.xlsx`,
+    );
+
+    const blob = new Blob([fileInfo.arrayBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
     downloadBlob(filename, blob);
-    return;
   } catch (error) {
-    console.warn(
-      'Falha ao baixar o arquivo-base via fetch. Aplicando fallback.',
-      error,
+    console.error('Erro ao baixar arquivo-base do Excel:', error);
+    alert(
+      'Não foi possível localizar o arquivo-base da prova de Excel. Verifique se os arquivos .xlsx estão na mesma pasta do sistema.',
+    );
+  }
+}
+
+function getExcelTemplateConfig(taskId) {
+  const map = {
+    basic_exam: {
+      fileName: 'exame_basico.xlsx',
+      outputBaseName: 'exame_basico',
+    },
+    qualid_exam: {
+      fileName: 'exame_medio.xlsx',
+      outputBaseName: 'exame_medio',
+    },
+    planning_exam: {
+      fileName: 'exame_avancado_nvl2.xlsx',
+      outputBaseName: 'exame_avancado_nvl2',
+    },
+    advanced_exam: {
+      fileName: 'exame_avancado.xlsx',
+      outputBaseName: 'exame_avancado',
+    },
+  };
+
+  return map[taskId] || null;
+}
+
+async function loadExcelTemplateFile(taskId) {
+  const config = getExcelTemplateConfig(taskId);
+
+  if (!config) {
+    throw new Error(`Nenhum arquivo-base configurado para o taskId: ${taskId}`);
+  }
+
+  const response = await fetch(config.fileName, { cache: 'no-store' });
+
+  if (!response.ok) {
+    throw new Error(
+      `Falha ao carregar o arquivo-base ${config.fileName}. Status: ${response.status}`,
     );
   }
 
-  const a = document.createElement('a');
-  a.href = templatePath;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  const arrayBuffer = await response.arrayBuffer();
+
+  return {
+    ...config,
+    arrayBuffer,
+  };
 }
 
 function buildWorkbookForTask(taskId, title) {
@@ -1050,178 +1173,644 @@ function validateWorkbookForTask(taskId, wb, points) {
 
 function validateBasicExam(wb, points) {
   const ws = getSheet(wb, 'Teste de Excel');
-  if (!ws)
-    return scoreResult(
-      0,
+
+  if (!ws) {
+    return buildChecklistResult(
+      [
+        { label: 'Coluna Subtotal criada e preenchida', done: false },
+        { label: 'Valor Unitário e Subtotal em formato contábil', done: false },
+        { label: 'Nova coluna com estilo visual aplicado', done: false },
+        { label: 'Cores alteradas em A1 e na linha A2', done: false },
+        {
+          label: 'Filtro aplicado e ordenação por maior valor unitário',
+          done: false,
+        },
+        { label: 'Linha de total criada com soma final', done: false },
+      ],
       points,
       ["Aba 'Teste de Excel' não encontrada."],
-      true,
     );
-  const completed = [];
-  const copied =
-    safeUpper(cellValue(ws, 'G9')) === 'PRODUTO' &&
-    safeUpper(cellValue(ws, 'G10')) === 'PROCESSADOR';
-  if (copied) completed.push('Tabela copiada para G9');
-  if (hasComment(ws, 'A11')) completed.push('Comentário em A11');
-  if (hasAutoFilter(ws)) completed.push('Filtro aplicado');
-  const totalsFilled =
-    cellValue(ws, 'B13') !== '' &&
-    cellValue(ws, 'C13') !== '' &&
-    cellValue(ws, 'D13') !== '';
-  if (totalsFilled) completed.push('Totais preenchidos');
-  const score = Math.round((completed.length / 4) * points);
-  return scoreResult(
-    score,
-    points,
-    [
-      'Linhas de grade e preenchimento devem ser revisados manualmente pelo RH.',
-    ],
-    true,
-    completed,
-  );
+  }
+
+  const notes = [
+    'Formatação visual, cores e estilo devem ser revisados visualmente pelo RH.',
+  ];
+
+  function normalizeHeader(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/[()]/g, '')
+      .trim()
+      .toUpperCase();
+  }
+
+  function getHeaderInfo() {
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:Z50');
+
+    for (let row = range.s.r + 1; row <= Math.min(range.e.r + 1, 20); row++) {
+      let produtoCol = null;
+      let quantidadeCol = null;
+      let valorCol = null;
+      let subtotalCol = null;
+
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const col = XLSX.utils.encode_col(c);
+        const raw = cellValue(ws, `${col}${row}`);
+        const header = normalizeHeader(raw);
+
+        if (header === 'PRODUTO') produtoCol = col;
+        if (header === 'QUANTIDADE') quantidadeCol = col;
+        if (
+          header === 'VALOR UNITARIO R$' ||
+          header === 'VALOR UNITARIO R' ||
+          header === 'VALOR UNITARIO' ||
+          header === 'VALOR R$' ||
+          header === 'VALOR R'
+        ) {
+          valorCol = col;
+        }
+        if (header === 'SUBTOTAL') subtotalCol = col;
+      }
+
+      if (produtoCol && quantidadeCol && valorCol) {
+        return {
+          headerRow: row,
+          produtoCol,
+          quantidadeCol,
+          valorCol,
+          subtotalCol,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function isRowHidden(ws, rowNumber) {
+    return !!(
+      ws &&
+      ws['!rows'] &&
+      ws['!rows'][rowNumber - 1] &&
+      ws['!rows'][rowNumber - 1].hidden
+    );
+  }
+
+  function getDataRows(produtoCol, startRow, maxRows = 100) {
+    const rows = [];
+    for (let r = startRow; r <= startRow + maxRows; r++) {
+      const value = String(cellValue(ws, `${produtoCol}${r}`) || '').trim();
+      if (!value) break;
+      rows.push(r);
+    }
+    return rows;
+  }
+
+  const info = getHeaderInfo();
+
+  if (!info) {
+    return buildChecklistResult(
+      [
+        { label: 'Coluna Subtotal criada e preenchida', done: false },
+        { label: 'Valor Unitário e Subtotal em formato contábil', done: false },
+        { label: 'Nova coluna com estilo visual aplicado', done: false },
+        { label: 'Cores alteradas em A1 e na linha A2', done: false },
+        {
+          label: 'Filtro aplicado e ordenação por maior valor unitário',
+          done: false,
+        },
+        { label: 'Linha de total criada com soma final', done: false },
+      ],
+      points,
+      [
+        'Não foi possível localizar a estrutura principal da tabela na aba Teste de Excel.',
+      ],
+    );
+  }
+
+  const { headerRow, produtoCol, quantidadeCol, valorCol, subtotalCol } = info;
+  const dataStartRow = headerRow + 1;
+  const dataRows = getDataRows(produtoCol, dataStartRow, 100);
+  const lastDataRow = dataRows.length
+    ? dataRows[dataRows.length - 1]
+    : dataStartRow;
+  const totalRow = lastDataRow + 1;
+
+  const subtotalCreated =
+    !!subtotalCol &&
+    normalizeHeader(cellValue(ws, `${subtotalCol}${headerRow}`)) === 'SUBTOTAL';
+
+  const subtotalFilled =
+    subtotalCreated &&
+    dataRows.length > 0 &&
+    dataRows.filter((row) => cellHasData(ws, `${subtotalCol}${row}`)).length >=
+      Math.max(1, dataRows.length - 1);
+
+  const accountingLike =
+    !!subtotalCol &&
+    dataRows.some((row) => {
+      const valorCell = ws[`${valorCol}${row}`];
+      const subtotalCell = ws[`${subtotalCol}${row}`];
+      const valorFmt = String(
+        (valorCell && valorCell.z) || (valorCell && valorCell.w) || '',
+      ).toUpperCase();
+      const subtotalFmt = String(
+        (subtotalCell && subtotalCell.z) ||
+          (subtotalCell && subtotalCell.w) ||
+          '',
+      ).toUpperCase();
+
+      return (
+        valorFmt.includes('R$') ||
+        subtotalFmt.includes('R$') ||
+        valorFmt.includes('#,##0') ||
+        subtotalFmt.includes('#,##0') ||
+        valorFmt.includes('_-') ||
+        subtotalFmt.includes('_-')
+      );
+    });
+
+  const styledNewColumn =
+    !!subtotalCol &&
+    dataRows.length > 0 &&
+    !!ws[`${valorCol}${dataRows[0]}`] &&
+    !!ws[`${subtotalCol}${dataRows[0]}`] &&
+    !!ws[`${valorCol}${dataRows[0]}`].s &&
+    !!ws[`${subtotalCol}${dataRows[0]}`].s;
+
+  const colorsChanged =
+    !!(ws['A1'] && ws['A1'].s) || !!(ws['A2'] && ws['A2'].s);
+
+  const visibleRows = dataRows.filter((row) => !isRowHidden(ws, row));
+  const visibleValues = visibleRows
+    .map((row) => Number(cellValue(ws, `${valorCol}${row}`)))
+    .filter((v) => !Number.isNaN(v));
+
+  let sortedDesc = false;
+  if (visibleValues.length >= 2) {
+    sortedDesc = visibleValues.every((value, index, arr) => {
+      if (index === 0) return true;
+      return arr[index - 1] >= value;
+    });
+  }
+
+  const filterAndSortDone = hasAutoFilter(ws) && sortedDesc;
+
+  const totalLineCreated =
+    dataRows.length > 0 &&
+    (normalizeHeader(cellValue(ws, `${produtoCol}${totalRow}`)).includes(
+      'TOTAL',
+    ) ||
+      cellHasData(ws, `${quantidadeCol}${totalRow}`) ||
+      cellHasData(ws, `${subtotalCol || valorCol}${totalRow}`));
+
+  const tasks = [
+    {
+      label: 'Coluna Subtotal criada e preenchida',
+      done: subtotalCreated && subtotalFilled,
+    },
+    {
+      label: 'Valor Unitário e Subtotal em formato contábil',
+      done: accountingLike,
+    },
+    {
+      label: 'Nova coluna com estilo visual aplicado',
+      done: styledNewColumn,
+    },
+    {
+      label: 'Cores alteradas em A1 e na linha A2',
+      done: colorsChanged,
+    },
+    {
+      label: 'Filtro aplicado e ordenação por maior valor unitário',
+      done: filterAndSortDone,
+    },
+    {
+      label: 'Linha de total criada com soma final',
+      done: totalLineCreated,
+    },
+  ];
+
+  return buildChecklistResult(tasks, points, notes);
+}
+
+function validateAdvancedExam(wb, points) {
+  const base = validatePlanningExam(wb, points);
+  const q6 = getSheetFlex(wb, 'Q6.', 'Q6');
+  const q7 = getSheetFlex(wb, 'Q7.', 'Q7');
+
+  const notes = [...(base.notes || [])];
+  const tasks = (base.completedTasks || []).map((item) => ({
+    label: String(item).replace(/^✔️\s|^❌\s/, ''),
+    done: String(item).startsWith('✔️'),
+  }));
+
+  if (q6) {
+    const chartDataTouched = Array.from({ length: 20 }, (_, i) =>
+      ['J', 'K', 'L', 'M', 'E', 'F', 'G', 'H'].some((col) =>
+        cellHasData(q6, `${col}${i + 1}`),
+      ),
+    ).some(Boolean);
+
+    tasks.push({
+      label: 'Gráfico combinado sinalizado para revisão',
+      done: chartDataTouched || !!q6['!ref'],
+    });
+
+    notes.push(
+      'Gráfico combinado e eixo secundário devem ser revisados visualmente pelo RH.',
+    );
+  } else {
+    tasks.push({
+      label: 'Gráfico combinado sinalizado para revisão',
+      done: false,
+    });
+  }
+
+  tasks.push({
+    label: 'Soma do RJ em F10',
+    done: !!q7 && cellHasData(q7, 'F10'),
+  });
+
+  return buildChecklistResult(tasks, points, notes);
 }
 
 function validateQualidExam(wb, points) {
-  const completed = [];
   const notes = [];
+
+  function getSheetByNames(wbRef, names) {
+    for (const name of names) {
+      const ws = getSheet(wbRef, name);
+      if (ws) return ws;
+    }
+    return null;
+  }
+
+  function isRowHidden(ws, rowNumber) {
+    return !!(
+      ws &&
+      ws['!rows'] &&
+      ws['!rows'][rowNumber - 1] &&
+      ws['!rows'][rowNumber - 1].hidden
+    );
+  }
+
+  function getVisibleValues(ws, col, startRow = 1, endRow = 200) {
+    const values = [];
+    for (let r = startRow; r <= endRow; r++) {
+      const value = String(cellValue(ws, `${col}${r}`) || '').trim();
+      if (!value) continue;
+      if (!isRowHidden(ws, r)) values.push(safeUpper(value));
+    }
+    return values;
+  }
+
+  const q1 = getSheetByNames(wb, ['Q1', 'Q1.']);
+  const q2 = getSheetByNames(wb, ['Q2', 'Q2.']);
+  const q3 = getSheetByNames(wb, ['Q3', 'Q3.']);
+  const q4 = getSheetByNames(wb, ['Q4', 'Q4.']);
+
+  const isNewModel = !!(q1 || q2 || q3 || q4);
+
+  if (isNewModel) {
+    const tasks = [];
+
+    if (q1) {
+      const operators = [];
+      for (let r = 3; r <= 100; r++) {
+        const name = String(cellValue(q1, `A${r}`) || '').trim();
+        if (!name) break;
+        operators.push(name);
+      }
+
+      const sortedCheck =
+        operators.length > 0
+          ? [...operators].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+          : [];
+
+      tasks.push({
+        label: 'Planilha ordenada',
+        done:
+          operators.length > 0 &&
+          JSON.stringify(operators) === JSON.stringify(sortedCheck),
+      });
+
+      tasks.push({
+        label: 'Coluna Valor Total criada',
+        done: safeUpper(cellValue(q1, 'F2')) === 'VALOR TOTAL',
+      });
+
+      tasks.push({
+        label: 'Valor Total preenchido',
+        done:
+          operators.length > 0 &&
+          operators.every((_, i) => cellHasData(q1, `F${i + 3}`)),
+      });
+    } else {
+      tasks.push(
+        { label: 'Planilha ordenada', done: false },
+        { label: 'Coluna Valor Total criada', done: false },
+        { label: 'Valor Total preenchido', done: false },
+      );
+    }
+
+    if (q2) {
+      const visibleOps = getVisibleValues(q2, 'A', 6, 100);
+      tasks.push({
+        label: 'Tabela copiada e filtrada para Wesley Nunes',
+        done:
+          safeUpper(cellValue(q2, 'A5')) === 'OPERADOR' &&
+          hasAutoFilter(q2) &&
+          visibleOps.length === 1 &&
+          visibleOps[0] === 'WESLEY NUNES',
+      });
+    } else {
+      tasks.push({
+        label: 'Tabela copiada e filtrada para Wesley Nunes',
+        done: false,
+      });
+    }
+
+    if (q3) {
+      const visibleSupervisors = getVisibleValues(q3, 'B', 6, 100);
+      tasks.push({
+        label: 'Resumo do supervisor Lula',
+        done:
+          safeUpper(cellValue(q3, 'A5')) === 'OPERADOR' &&
+          hasAutoFilter(q3) &&
+          visibleSupervisors.length >= 1 &&
+          visibleSupervisors.every((name) => name === 'LULA'),
+      });
+    } else {
+      tasks.push({
+        label: 'Resumo do supervisor Lula',
+        done: false,
+      });
+    }
+
+    tasks.push({
+      label: 'Gráfico criado / sinalizado para revisão',
+      done: !!q4,
+    });
+
+    if (q4) {
+      notes.push('O gráfico deve ser revisado visualmente pelo RH.');
+    }
+
+    return buildChecklistResult(tasks, points, notes);
+  }
+
   const planA = getSheet(wb, 'Planilha A');
   const procv = getSheet(wb, 'PROCV');
   const tabdin = getSheet(wb, 'TAB_DIN');
   const copiar = getSheet(wb, 'Copiar_Colar');
   const graf = getSheet(wb, 'Gráfico');
+
+  const tasks = [];
+
   if (planA) {
-    const sortedOps = [];
-    for (let r = 3; r <= 11; r++)
-      sortedOps.push(String(cellValue(planA, `A${r}`)));
-    const sortedCheck = [...sortedOps].sort((a, b) =>
-      a.localeCompare(b, 'pt-BR'),
+    const operatorValues = collectColumnValuesUntilBlank(planA, 'A', 3, 100);
+    const sortedCheck =
+      operatorValues.length > 0
+        ? [...operatorValues].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        : [];
+
+    tasks.push({
+      label: 'Planilha A ordenada',
+      done:
+        operatorValues.length >= 3 &&
+        JSON.stringify(operatorValues) === JSON.stringify(sortedCheck),
+    });
+
+    tasks.push({
+      label: 'Coluna Valor Total criada',
+      done: safeUpper(cellValue(planA, 'F2')) === 'VALOR TOTAL',
+    });
+
+    tasks.push({
+      label: 'Valor Total preenchido',
+      done:
+        operatorValues.length > 0 &&
+        operatorValues.every((_, i) => cellHasData(planA, `F${i + 3}`)),
+    });
+  } else {
+    tasks.push(
+      { label: 'Planilha A ordenada', done: false },
+      { label: 'Coluna Valor Total criada', done: false },
+      { label: 'Valor Total preenchido', done: false },
     );
-    if (JSON.stringify(sortedOps) === JSON.stringify(sortedCheck))
-      completed.push('Planilha A ordenada');
-    if (safeUpper(cellValue(planA, 'F2')) === 'VALOR TOTAL')
-      completed.push('Coluna Valor Total criada');
-    const formulasFilled = Array.from(
-      { length: 9 },
-      (_, i) => cellValue(planA, `F${i + 3}`) !== '',
-    ).every(Boolean);
-    if (formulasFilled) completed.push('Valor Total preenchido');
   }
-  if (procv) {
-    const procvFilled = Array.from(
-      { length: 13 },
-      (_, i) => cellValue(procv, `C${i + 2}`) !== '',
-    ).some(Boolean);
-    if (procvFilled) completed.push('PROCV preenchido');
-    const missingListed = ['BC255', 'BC256', 'BC257', 'BC258'].some(
-      (c) => cellValue(procv, c) !== '',
-    );
-    if (missingListed) completed.push('Não encontrados listados em BC255');
-  }
-  if (tabdin) {
-    const tabdinFilled = ['A5', 'B5', 'C5', 'A6', 'B6', 'C6'].some(
-      (c) => cellValue(tabdin, c) !== '',
-    );
-    if (tabdinFilled) completed.push('Resumo do supervisor Lula');
-  }
-  if (copiar && safeUpper(cellValue(copiar, 'A5')) === 'OPERADOR')
-    completed.push('Tabela copiada/filtrada');
+
+  tasks.push({
+    label: 'PROCV preenchido',
+    done:
+      !!procv &&
+      Array.from({ length: 13 }, (_, i) =>
+        cellHasData(procv, `C${i + 2}`),
+      ).some(Boolean),
+  });
+
+  tasks.push({
+    label: 'Não encontrados listados em BC255',
+    done:
+      !!procv &&
+      ['BC255', 'BC256', 'BC257', 'BC258'].some((c) => cellHasData(procv, c)),
+  });
+
+  tasks.push({
+    label: 'Resumo do supervisor Lula',
+    done:
+      !!tabdin &&
+      ['A5', 'B5', 'C5', 'A6', 'B6', 'C6'].some((c) => cellHasData(tabdin, c)),
+  });
+
+  tasks.push({
+    label: 'Tabela copiada/filtrada',
+    done: !!copiar && safeUpper(cellValue(copiar, 'A5')) === 'OPERADOR',
+  });
+
+  tasks.push({
+    label: 'Gráfico criado / sinalizado para revisão',
+    done: !!graf,
+  });
+
   if (graf) {
-    completed.push('Gráfico sinalizado para revisão');
     notes.push('O gráfico deve ser revisado visualmente pelo RH.');
   }
-  return scoreResult(
-    Math.round((completed.length / 8) * points),
-    points,
-    notes,
-    true,
-    completed,
-  );
+
+  return buildChecklistResult(tasks, points, notes);
+}
+
+function getSheetFlex(wb, ...names) {
+  for (const name of names) {
+    const ws = wb.Sheets[name];
+    if (ws) return ws;
+  }
+  return null;
 }
 
 function validatePlanningExam(wb, points) {
-  const completed = [];
   const notes = [];
-  const q1 = getSheet(wb, 'Q1.');
-  const q2 = getSheet(wb, 'Q2.');
-  const q3 = getSheet(wb, 'Q3.');
-  const q4 = getSheet(wb, 'Q4.');
-  const q5 = getSheet(wb, 'Q5.');
+  const q1 = getSheetFlex(wb, 'Q1.', 'Q1');
+  const q2 = getSheetFlex(wb, 'Q2.', 'Q2');
+  const q3 = getSheetFlex(wb, 'Q3.', 'Q3');
+  const q4 = getSheetFlex(wb, 'Q4.', 'Q4');
+  const q5 = getSheetFlex(wb, 'Q5.', 'Q5');
+
+  const tasks = [];
+
   if (q1) {
-    const filled =
-      Array.from(
-        { length: 12 },
-        (_, i) => cellValue(q1, `B${i + 6}`) !== '',
-      ).filter(Boolean).length >= 8;
-    if (filled) completed.push('CONT.SE por cidade preenchido');
+    const filledAt6 = Array.from({ length: 12 }, (_, i) =>
+      cellHasData(q1, `B${i + 6}`),
+    ).filter(Boolean).length;
+    const filledAt5 = Array.from({ length: 12 }, (_, i) =>
+      cellHasData(q1, `B${i + 5}`),
+    ).filter(Boolean).length;
+    const filled = Math.max(filledAt6, filledAt5);
+
+    tasks.push({
+      label: 'CONT.SE por cidade preenchido',
+      done: filled >= 6,
+    });
+  } else {
+    tasks.push({
+      label: 'CONT.SE por cidade preenchido',
+      done: false,
+    });
   }
+
   if (q2) {
-    const filled =
-      Array.from(
-        { length: 16 },
-        (_, i) => cellValue(q2, `B${i + 5}`) !== '',
-      ).filter(Boolean).length >= 10;
-    if (filled) completed.push('PROCV de status preenchido');
+    const filledAt5 = Array.from({ length: 16 }, (_, i) =>
+      cellHasData(q2, `B${i + 5}`),
+    ).filter(Boolean).length;
+    const filledAt4 = Array.from({ length: 16 }, (_, i) =>
+      cellHasData(q2, `B${i + 4}`),
+    ).filter(Boolean).length;
+    const filled = Math.max(filledAt5, filledAt4);
+
+    tasks.push({
+      label: 'PROCV de status preenchido',
+      done: filled >= 8,
+    });
+  } else {
+    tasks.push({
+      label: 'PROCV de status preenchido',
+      done: false,
+    });
   }
+
   if (q3) {
-    completed.push('Questão de DDD / gráfico sinalizada');
+    const dddTableCreated = Array.from(
+      { length: 60 },
+      (_, i) =>
+        cellHasData(q3, `A${i + 5}`) ||
+        cellHasData(q3, `B${i + 5}`) ||
+        cellHasData(q3, `C${i + 5}`) ||
+        cellHasData(q3, `D${i + 5}`),
+    ).some(Boolean);
+
+    tasks.push({
+      label: 'Tabela por DDD criada',
+      done: dddTableCreated,
+    });
+
     notes.push(
-      'Tabela por DDD e gráfico Pizza 3D devem ser revisados visualmente pelo RH.',
+      'Gráfico Pizza 3D, título e rótulos devem ser revisados visualmente pelo RH.',
+    );
+  } else {
+    tasks.push({
+      label: 'Tabela por DDD criada',
+      done: false,
+    });
+  }
+
+  if (q4) {
+    const percentuais = Array.from({ length: 9 }, (_, i) =>
+      cellHasData(q4, `C${i + 8}`),
+    ).filter(Boolean).length;
+    const situacoes = Array.from({ length: 9 }, (_, i) =>
+      cellHasData(q4, `D${i + 8}`),
+    ).filter(Boolean).length;
+
+    tasks.push({
+      label: 'Percentuais por zona preenchidos',
+      done: percentuais >= 6,
+    });
+
+    tasks.push({
+      label: 'Situação por zona preenchida',
+      done: situacoes >= 6,
+    });
+
+    notes.push('Formatação condicional deve ser revisada visualmente pelo RH.');
+  } else {
+    tasks.push(
+      { label: 'Percentuais por zona preenchidos', done: false },
+      { label: 'Situação por zona preenchida', done: false },
     );
   }
-  if (q4) {
-    const percentuais =
-      Array.from(
-        { length: 9 },
-        (_, i) => cellValue(q4, `C${i + 8}`) !== '',
-      ).filter(Boolean).length >= 6;
-    const situacoes =
-      Array.from(
-        { length: 9 },
-        (_, i) => cellValue(q4, `D${i + 8}`) !== '',
-      ).filter(Boolean).length >= 6;
-    if (percentuais) completed.push('Percentuais por zona preenchidos');
-    if (situacoes) completed.push('Situação por zona preenchida');
-    notes.push('Formatação condicional deve ser revisada visualmente pelo RH.');
-  }
+
   if (q5) {
-    const vendas =
-      Array.from(
-        { length: 13 },
-        (_, i) =>
-          cellValue(q5, `B${i + 6}`) !== '' ||
-          cellValue(q5, `H${i + 6}`) !== '',
-      ).filter(Boolean).length >= 8;
-    if (vendas) completed.push('Análise de vendas preenchida');
+    const vendas = Array.from({ length: 13 }, (_, i) => i + 6).filter((row) =>
+      ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].some((col) =>
+        cellHasData(q5, `${col}${row}`),
+      ),
+    ).length;
+
+    tasks.push({
+      label: 'Análise de vendas preenchida',
+      done: vendas >= 8,
+    });
+  } else {
+    tasks.push({
+      label: 'Análise de vendas preenchida',
+      done: false,
+    });
   }
-  return scoreResult(
-    Math.round((completed.length / 6) * points),
-    points,
-    notes,
-    true,
-    completed,
-  );
+
+  return buildChecklistResult(tasks, points, notes);
 }
 
 function validateAdvancedExam(wb, points) {
   const base = validatePlanningExam(wb, points);
-  const q6 = getSheet(wb, 'Q6.');
-  const q7 = getSheet(wb, 'Q7.');
-  const completed = [...(base.completedTasks || [])];
+  const q6 = getSheetFlex(wb, 'Q6.', 'Q6');
+  const q7 = getSheetFlex(wb, 'Q7.', 'Q7');
+
   const notes = [...(base.notes || [])];
+  const tasks = (base.completedTasks || []).map((item) => ({
+    label: String(item).replace(/^✔️\s|^❌\s/, ''),
+    done: String(item).startsWith('✔️'),
+  }));
+
   if (q6) {
-    completed.push('Gráfico combinado sinalizado para revisão');
+    const chartDataTouched = Array.from({ length: 20 }, (_, i) =>
+      ['J', 'K', 'L', 'M', 'E', 'F', 'G', 'H'].some((col) =>
+        cellHasData(q6, `${col}${i + 1}`),
+      ),
+    ).some(Boolean);
+
+    tasks.push({
+      label: 'Gráfico combinado sinalizado para revisão',
+      done: chartDataTouched || !!q6['!ref'],
+    });
+
     notes.push(
       'Gráfico combinado e eixo secundário devem ser revisados visualmente pelo RH.',
     );
+  } else {
+    tasks.push({
+      label: 'Gráfico combinado sinalizado para revisão',
+      done: false,
+    });
   }
-  if (q7 && cellValue(q7, 'F10') !== '') completed.push('Soma do RJ em F10');
-  return scoreResult(
-    Math.round((completed.length / 8) * points),
-    points,
-    notes,
-    true,
-    completed,
-  );
+
+  tasks.push({
+    label: 'Soma do RJ em F10',
+    done: !!q7 && cellHasData(q7, 'F10'),
+  });
+
+  return buildChecklistResult(tasks, points, notes);
 }
 
 function finishExam() {
