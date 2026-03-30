@@ -10,39 +10,89 @@
 </head>
 
 <body>
-  <div class="container py-4 py-md-5">
 
-    <section id="screen-login" class="screen active">
-      <div class="row justify-content-center">
-        <div class="col-lg-6">
-          <div class="card app-card">
-            <div class="card-body p-4 p-md-5 login-card-body">
-              <img src="logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="login-logo">
 
-              <h1 class="h3 fw-bold mb-2">Portal de Teste</h1>
-              <p class="text-muted mb-4">Acesso restrito para recrutadores.</p>
+  <section id="screen-menu" class="screen">
+    <div class="rh-panel-screen">
+      <div class="rh-shell-header">
+        <div class="rh-shell-brand">
+          <img src="logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-shell-brand-logo">
+        </div>
 
-              <div class="mb-3">
-                <label class="form-label">Usuário</label>
-                <input id="login-user" type="text" class="form-control form-control-lg" placeholder="Digite o usuário">
-              </div>
-
-              <div class="mb-4">
-                <label class="form-label">Senha</label>
-                <input id="login-pass" type="password" class="form-control form-control-lg" placeholder="Digite a senha">
-              </div>
-
-              <div id="login-alert" class="alert alert-danger d-none"></div>
-              <button class="btn btn-primary btn-lg w-100" onclick="doLogin()">Entrar</button>
-              <!--<p class="small text-muted mt-3 mb-0">Demo: usuário <strong>rh</strong> e senha <strong>1234</strong></p>-->
-            </div>
-          </div>
-          <p class="small text-muted mt-3 mb-0">Powered by <strong>Central 24 horas</strong></p>
+        <div class="rh-shell-toolbar">
+          <button class="btn btn-primary rh-header-action" onclick="startNewTestFlow()">Iniciar teste</button>
+          <button class="btn btn-outline-secondary" onclick="logout()">Sair</button>
         </div>
       </div>
-    </section>
 
+      <div class="rh-shell-subtitle">Centro de Testes - Central 24 horas</div>
 
+      <div class="rh-shell-body">
+        <aside class="rh-shell-sidebar">
+          <!--<button class="btn rh-side-nav-btn is-active" type="button" onclick="backToMenu()">Gerenciamento de testes</button>-->
+          <button class="btn rh-side-nav-btn" type="button" onclick="goToHistory()">Histórico</button>
+        </aside>
+
+        <main class="rh-content-panel">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+            <div>
+              <h2 class="h4 fw-bold mb-1">Últimas Provas</h2>
+              <p class="text-muted mb-0">Visualize rapidamente os últimos testes registrados no navegador.</p>
+            </div>
+          </div>
+
+          <div id="menu-recent-empty" class="alert alert-info d-none">Nenhuma prova salva até o momento.</div>
+          <div id="menu-recent-list" class="rh-recent-grid"></div>
+
+          <div id="recent-test-details-overlay" class="rh-details-overlay d-none" onclick="handleRecentDetailsOverlayClick(event)">
+            <div class="rh-details-dialog" role="dialog" aria-modal="true" aria-labelledby="recent-test-details-title">
+              <div class="rh-details-header">
+                <div>
+                  <h3 id="recent-test-details-title" class="rh-details-title">Detalhes da prova</h3>
+                  <p class="rh-details-subtitle mb-0">Informações completas registradas até o momento.</p>
+                </div>
+                <!--<button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeRecentTestDetails()">Fechar</button>-->
+              </div>
+
+              <div id="recent-test-details-body" class="rh-details-body"></div>
+
+              <div class="rh-details-footer">
+                <div class="rh-details-footer-actions">
+                  <button type="button" class="btn btn-outline-primary mr-2" id="recent-test-download-btn" onclick="downloadRecentTestAnswerKey()" disabled>Baixar gabarito</button>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="closeRecentTestDetails()">Voltar para a tela inicial</button>
+              </div>
+            </div>
+          </div>
+
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-login" class="screen active">
+    <div class="rh-login-page">
+      <div class="rh-login-panel">
+        <img src="logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-login-panel-logo">
+
+        <div class="mb-3">
+          <label class="form-label rh-login-label">Login</label>
+          <input id="login-user" type="text" class="form-control rh-login-input" placeholder="Digite o usuário">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label rh-login-label">Senha</label>
+          <input id="login-pass" type="password" class="form-control rh-login-input" placeholder="Digite a senha">
+        </div>
+
+        <div id="login-alert" class="alert alert-danger d-none mb-3"></div>
+
+        <button class="btn rh-login-btn w-100" onclick="doLogin()">Entrar</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="container py-4 py-md-5">
     <section id="screen-menu" class="screen">
       <div class="row justify-content-center">
         <div class="col-xl-9">
@@ -77,66 +127,81 @@
     </section>
 
     <section id="screen-history" class="screen">
-      <div class="row justify-content-center">
-        <div class="col-xl-11">
-          <div class="card app-card">
-            <div class="card-body p-4 p-md-5">
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-                <div>
-                  <h2 class="h3 fw-bold mb-1">Consultar resultados</h2>
-                  <p class="text-muted mb-0">Filtre o histórico por nome do candidato, vaga ou data da prova.</p>
-                </div>
-                <div class="d-flex gap-2 flex-wrap">
-                  <button class="btn btn-outline-secondary" onclick="backToMenu()">Voltar ao menu</button>
-                  <button class="btn btn-outline-primary" onclick="exportHistoryCsv()">Baixar CSV</button>
-                </div>
+      <div class="rh-panel-screen">
+        <div class="rh-shell-header">
+          <div class="rh-shell-brand">
+            <img src="logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-shell-brand-logo">
+            <div class="rh-shell-brand-text">Logo.C24h</div>
+          </div>
+
+          <div class="rh-shell-toolbar">
+            <button class="btn btn-primary rh-header-action" onclick="startNewTestFlow()">Iniciar teste</button>
+            <button class="btn btn-outline-secondary" onclick="logout()">Sair</button>
+          </div>
+        </div>
+
+        <div class="rh-shell-subtitle">CRM. 24H</div>
+
+        <div class="rh-shell-body">
+          <aside class="rh-shell-sidebar">
+            <button class="btn rh-side-nav-btn" type="button" onclick="backToMenu()">Gerenciamento de testes</button>
+            <button class="btn rh-side-nav-btn is-active" type="button" onclick="goToHistory()">Histórico</button>
+          </aside>
+
+          <main class="rh-content-panel">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+              <div>
+                <h2 class="h4 fw-bold mb-1">Histórico</h2>
+                <p class="text-muted mb-0">Pesquise provas salvas por nome, vaga ou data.</p>
               </div>
+              <button class="btn btn-outline-secondary" onclick="backToMenu()">Voltar ao menu</button>
+            </div>
 
-              <div class="row g-3 mb-3">
-                <div class="col-md-4">
-                  <label class="form-label">Nome do candidato</label>
-                  <input id="history-filter-name" type="text" class="form-control" placeholder="Digite o nome">
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Vaga</label>
-                  <input id="history-filter-role" type="text" class="form-control" placeholder="Digite a vaga">
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Data da prova</label>
-                  <input id="history-filter-date" type="date" class="form-control">
-                </div>
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label">Nome do candidato</label>
+                <input id="history-filter-name" type="text" class="form-control" placeholder="Digite o nome">
               </div>
-
-              <div class="d-flex gap-2 flex-wrap mb-3">
-                <button class="btn btn-primary" onclick="renderHistoryTable()">Pesquisar</button>
-                <button class="btn btn-outline-secondary" onclick="clearHistoryFilters()">Limpar</button>
+              <div class="col-md-4">
+                <label class="form-label">Vaga</label>
+                <input id="history-filter-role" type="text" class="form-control" placeholder="Digite a vaga">
               </div>
-
-              <div id="history-alert" class="alert alert-info d-none"></div>
-
-              <div class="table-responsive">
-                <table class="table table-hover align-middle history-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Candidato</th>
-                      <th>Vaga</th>
-                      <th>Nível</th>
-                      <th>Data</th>
-                      <th>Nota</th>
-                      <th>Status</th>
-                      <th class="text-end">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody id="history-table-body">
-                    <tr>
-                      <td colspan="8" class="text-center text-muted py-4">Nenhum resultado salvo até o momento.</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div class="col-md-4">
+                <label class="form-label">Data da prova</label>
+                <input id="history-filter-date" type="date" class="form-control">
               </div>
             </div>
-          </div>
+
+            <div class="d-flex gap-2 flex-wrap mb-3">
+              <button class="btn btn-primary" onclick="renderHistoryTable()">Pesquisar</button>
+              <button class="btn btn-outline-secondary" onclick="clearHistoryFilters()">Limpar</button>
+              <button class="btn btn-outline-primary" onclick="exportHistoryCsv()">Baixar CSV</button>
+            </div>
+
+            <div id="history-alert" class="alert alert-info d-none"></div>
+
+            <div class="table-responsive rh-history-table-wrap">
+              <table class="table table-hover align-middle history-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Candidato</th>
+                    <th>Vaga</th>
+                    <th>Nível</th>
+                    <th>Data</th>
+                    <th>Nota</th>
+                    <th>Status</th>
+                    <th class="text-end">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="history-table-body">
+                  <tr>
+                    <td colspan="8" class="text-center text-muted py-4">Nenhum resultado salvo até o momento.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </main>
         </div>
       </div>
     </section>
@@ -151,7 +216,10 @@
                   <h2 class="h3 fw-bold mb-1">Configuração da Prova</h2>
                   <p class="text-muted mb-0">Selecione o perfil da vaga, o nível e a trilha da avaliação.</p>
                 </div>
-                <button class="btn btn-outline-secondary" onclick="logout()">Sair</button>
+                <div class="d-flex gap-2 flex-wrap justify-content-end">
+                  <button class="btn btn-outline-secondary" onclick="backToMenu()">Voltar ao menu</button>
+                  <button class="btn btn-outline-secondary" onclick="logout()">Sair</button>
+                </div>
               </div>
 
               <div class="row g-3">
@@ -206,7 +274,8 @@
 
               <div id="config-alert" class="alert alert-danger d-none mt-4"></div>
 
-              <div class="d-flex justify-content-end mt-4">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4">
+                <button class="btn btn-outline-secondary" onclick="backToMenu()">Voltar ao menu</button>
                 <button class="btn btn-success btn-lg" onclick="proceedToCandidate()">Prosseguir Teste</button>
               </div>
             </div>

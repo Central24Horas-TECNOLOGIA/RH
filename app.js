@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ensureHistoryCsv();
   updateFlowPreview();
+  renderMenuRecentTests();
 });
 
 function showScreen(id) {
@@ -64,6 +65,9 @@ function showScreen(id) {
     .forEach((s) => s.classList.remove('active'));
   const target = document.getElementById(id);
   if (target) target.classList.add('active');
+
+  if (id === 'screen-menu') renderMenuRecentTests();
+  if (id === 'screen-history') renderHistoryTable();
 }
 
 function sanitizeFileName(name) {
@@ -294,6 +298,222 @@ function saveAnswerFile(recordId, payload) {
   localStorage.setItem(ANSWER_FILES_KEY, JSON.stringify(files));
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeRecentStatus(row) {
+  const files = getAnswerFiles();
+  const saved = files[row?.id_teste];
+  const rawStatus = String(row?.status || '').trim();
+  if (rawStatus) return rawStatus;
+  return saved?.content ? 'Finalizado' : 'Não salvo';
+}
+
+function getRecentStatusClass(status) {
+  const normalized = safeUpper(status).normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (normalized.includes('FINALIZADO')) return 'is-finished';
+  if (normalized.includes('NAO SALVO')) return 'is-unsaved';
+  return 'is-neutral';
+}
+
+function renderMenuRecentTests() {
+  const list = document.getElementById('menu-recent-list');
+  const empty = document.getElementById('menu-recent-empty');
+  if (!list) return;
+
+  const rows = readHistoryRows()
+    .sort((a, b) => (a.data_iso < b.data_iso ? 1 : -1))
+    .slice(0, 6);
+
+  if (!rows.length) {
+    list.innerHTML = '';
+    if (empty) empty.classList.remove('d-none');
+    return;
+  }
+
+  if (empty) empty.classList.add('d-none');
+
+  list.innerHTML = rows
+    .map((row) => {
+      const status = normalizeRecentStatus(row);
+      const statusClass = getRecentStatusClass(status);
+      return `
+        <button type="button" class="rh-recent-card btn text-start" onclick="openRecentTestDetails('${row.id_teste}')">
+          <div class="rh-recent-card-top">
+            <span class="rh-recent-name">${escapeHtml(row.nome_candidato || 'Sem nome')}</span>
+            <span class="rh-recent-date">${escapeHtml(row.data_exibicao || '-')}</span>
+          </div>
+          <div class="rh-recent-card-bottom">
+            <span class="rh-recent-role">${escapeHtml(row.vaga || '-')}</span>
+            <span class="rh-status-pill ${statusClass}">${escapeHtml(status)}</span>
+          </div>
+        </button>
+      `;
+    })
+    .join('');
+}
+
+function openRecentTestDetails(recordId) {
+  const overlay = document.getElementById('recent-test-details-overlay');
+  const title = document.getElementById('recent-test-details-title');
+  const body = document.getElementById('recent-test-details-body');
+  const downloadBtn = document.getElementById('recent-test-download-btn');
+  if (!overlay || !title || !body) return;
+
+  const row = readHistoryRows().find((item) => item.id_teste === recordId);
+  if (!row) {
+    body.innerHTML =
+      '<div class="alert alert-danger mb-0">Não foi possível localizar os dados desta prova.</div>';
+    title.textContent = 'Detalhes da prova';
+    if (downloadBtn) downloadBtn.disabled = true;
+    overlay.classList.remove('d-none');
+    return;
+  }
+
+  const savedFiles = getAnswerFiles();
+  const saved = savedFiles[recordId];
+  let payload = null;
+
+  if (saved?.content) {
+    try {
+      payload = JSON.parse(saved.content);
+    } catch (error) {
+      console.error('Erro ao ler detalhes salvos da prova:', error);
+    }
+  }
+
+  const candidate = payload?.candidate || {};
+  const stageSummary = Array.isArray(payload?.stageSummary)
+    ? payload.stageSummary
+    : [];
+  const fullLog = payload?.textContent || '';
+  const status = normalizeRecentStatus(row);
+  const statusClass = getRecentStatusClass(status);
+  const stageCardsHtml = stageSummary.length
+    ? `
+        <div class="rh-detail-stage-grid">
+          ${stageSummary
+            .map(
+              (stage) => `
+                <div class="rh-detail-stage-card">
+                  <div class="rh-detail-stage-top">
+                    <div class="rh-detail-stage-name">${escapeHtml(stage.label || '-')}</div>
+                    <span class="rh-detail-stage-weight">Peso ${escapeHtml(stage.weight ?? '-')}%</span>
+                  </div>
+                  <div class="rh-detail-stage-score">${escapeHtml(stage.rawScore ?? 0)}/${escapeHtml(stage.rawMax ?? 0)}</div>
+                  <div class="rh-detail-stage-meta">
+                    Aproveitamento: ${escapeHtml(((stage.percent || 0) * 100).toFixed ? ((stage.percent || 0) * 100).toFixed(1) : '0.0')}%<br>
+                    Nota ponderada: ${escapeHtml((stage.weightedScore ?? 0).toFixed ? stage.weightedScore.toFixed(2) : (stage.weightedScore ?? '0.00'))}<br>
+                    Itens avaliados: ${escapeHtml(stage.questionCount ?? 0)}${stage.pendings ? `<br>Pendências de revisão: ${escapeHtml(stage.pendings)}` : ''}
+                  </div>
+                </div>
+              `,
+            )
+            .join('')}
+        </div>
+      `
+    : '<div class="alert alert-warning mb-0">As notas por etapa não foram encontradas neste registro.</div>';
+
+  title.textContent = `Detalhes da prova • ${row.nome_candidato || 'Candidato'}`;
+
+  body.innerHTML = `
+    <section class="rh-details-section">
+      <h4 class="rh-details-section-title">Resumo geral</h4>
+      <div class="rh-details-grid">
+        <div class="rh-detail-card">
+          <span class="rh-detail-label">Candidato</span>
+          <span class="rh-detail-value">${escapeHtml(candidate.name || row.nome_candidato || '-')}</span>
+        </div>
+        <div class="rh-detail-card">
+          <span class="rh-detail-label">Vaga</span>
+          <span class="rh-detail-value">${escapeHtml(candidate.role || row.vaga || '-')}</span>
+        </div>
+        <div class="rh-detail-card">
+          <span class="rh-detail-label">Nível</span>
+          <span class="rh-detail-value">${escapeHtml(candidate.level || row.nivel || '-')}</span>
+        </div>
+        <div class="rh-detail-card">
+          <span class="rh-detail-label">Status</span>
+          <span class="rh-status-pill ${statusClass}">${escapeHtml(status)}</span>
+        </div>
+        <div class="rh-detail-card">
+          <span class="rh-detail-label">Data</span>
+          <span class="rh-detail-value">${escapeHtml(row.data_exibicao || '-')}</span>
+        </div>
+        <div class="rh-detail-card">
+          <span class="rh-detail-label">Trilha</span>
+          <span class="rh-detail-value">${escapeHtml(payload?.blueprint?.label || row.trilha || '-')}</span>
+        </div>
+        <div class="rh-detail-card">
+          <span class="rh-detail-label">Nota final</span>
+          <span class="rh-detail-value">${escapeHtml(row.pontuacao_final || (payload?.weightedFinalScore ?? '-'))}</span>
+        </div>
+        <div class="rh-detail-card">
+          <span class="rh-detail-label">Tempo</span>
+          <span class="rh-detail-value">${escapeHtml(row.tempo_minutos ? `${row.tempo_minutos} min` : '-')}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="rh-details-section">
+      <h4 class="rh-details-section-title">Notas por etapa</h4>
+      ${stageCardsHtml}
+    </section>
+
+    <section class="rh-details-section">
+      <h4 class="rh-details-section-title">Registro completo</h4>
+      ${fullLog ? `<pre class="rh-detail-log">${escapeHtml(fullLog)}</pre>` : '<div class="alert alert-warning mb-0">Os detalhes completos desta prova não foram encontrados no navegador.</div>'}
+    </section>
+  `;
+
+  if (downloadBtn) {
+    downloadBtn.disabled = !saved?.content;
+    downloadBtn.setAttribute('data-record-id', recordId);
+    downloadBtn.setAttribute(
+      'data-candidate-name',
+      sanitizeFileName(candidate.name || row.nome_candidato || 'candidato'),
+    );
+  }
+
+  overlay.classList.remove('d-none');
+}
+function closeRecentTestDetails() {
+  const overlay = document.getElementById('recent-test-details-overlay');
+  const body = document.getElementById('recent-test-details-body');
+  const downloadBtn = document.getElementById('recent-test-download-btn');
+  if (body) body.innerHTML = '';
+  if (downloadBtn) {
+    downloadBtn.disabled = true;
+    downloadBtn.removeAttribute('data-record-id');
+    downloadBtn.removeAttribute('data-candidate-name');
+  }
+  if (overlay) overlay.classList.add('d-none');
+}
+
+function handleRecentDetailsOverlayClick(event) {
+  if (event.target?.id === 'recent-test-details-overlay') {
+    closeRecentTestDetails();
+  }
+}
+function downloadRecentTestAnswerKey() {
+  const downloadBtn = document.getElementById('recent-test-download-btn');
+  const recordId = downloadBtn?.getAttribute('data-record-id') || '';
+  const candidateName =
+    downloadBtn?.getAttribute('data-candidate-name') || 'candidato';
+
+  if (!recordId) {
+    alert('Nenhum gabarito foi associado a este registro.');
+    return;
+  }
+
+  downloadHistoryAnswerKey(recordId, candidateName);
+}
 function buildResultId() {
   const now = new Date();
   const pad = (v) => String(v).padStart(2, '0');
