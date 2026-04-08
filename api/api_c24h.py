@@ -9,8 +9,14 @@ conn_str = (
 
 try:
     conn = pyodbc.connect(conn_str)
-    print("Conexão com Access realizada com sucesso.")
+    cursor = conn.cursor()
+
+    print("Campos da tabela gabaritos:")
+    for col in cursor.columns(table='gabaritos'):
+        print("-", col.column_name)
+
     conn.close()
+
 except Exception as e:
-    print("Erro ao conectar no Access:")
+    print("Erro:")
     print(e)

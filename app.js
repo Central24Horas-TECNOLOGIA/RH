@@ -2,6 +2,7 @@ const RH_USER = 'rh';
 const RH_PASS = '1234';
 const HISTORY_CSV_KEY = 'rh_exam_history_csv';
 const ANSWER_FILES_KEY = 'rh_exam_answer_files';
+const API_BASE_URL = 'http://127.0.0.1:8000';
 
 const state = {
   logged: false,
@@ -54,7 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
     },
   );
 
-  ensureHistoryCsv();
+  ensureHistoryCsv().catch((error) => {
+    console.error('Erro ao inicializar histórico compartilhado:', error);
+  });
   updateFlowPreview();
   renderMenuRecentTests();
 });
@@ -194,25 +197,11 @@ function updateFlowPreview() {
   `;
 }
 
-function ensureHistoryCsv() {
-  const current = localStorage.getItem(HISTORY_CSV_KEY);
-  if (current) return current;
-  const header = [
-    'id_teste',
-    'nome_candidato',
-    'vaga',
-    'nivel',
-    'trilha',
-    'data_iso',
-    'data_exibicao',
-    'pontuacao_final',
-    'status',
-    'tempo_minutos',
-    'arquivo_gabarito',
-  ].join(',');
-  localStorage.setItem(HISTORY_CSV_KEY, header);
-  return header;
-}
+const APPS_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbwutRScD_OqqcnZFIPOQ9Yrl6vbkPe2QnMQnC6y5n3w/exec';
+
+let historyCache = null;
+let answerFilesCache = null;
 
 function escapeCsvValue(value) {
   const text = String(value ?? '');
@@ -252,50 +241,83 @@ function parseCsvLine(line) {
   return values;
 }
 
-function readHistoryRows() {
-  const csv = ensureHistoryCsv();
-  const lines = csv.split(/\r?\n/).filter((line) => line.trim());
-  if (lines.length <= 1) return [];
+async function ensureHistoryCsv() {
+  return 'ok';
+}
 
-  const headers = parseCsvLine(lines[0]);
-  return lines.slice(1).map((line) => {
-    const cols = parseCsvLine(line);
-    const row = {};
-    headers.forEach((header, index) => {
-      row[header] = cols[index] ?? '';
-    });
-    return row;
+async function readHistoryRows() {
+  const response = await fetch(`${API_BASE_URL}/history`, {
+    method: 'GET',
+    cache: 'no-store',
   });
+
+  if (!response.ok) {
+    throw new Error(`Falha ao carregar histórico. Status: ${response.status}`);
+  }
+
+  const rows = await response.json();
+
+  if (!Array.isArray(rows)) return [];
+
+  return rows.filter(
+    (row) =>
+      row &&
+      typeof row === 'object' &&
+      (row.id_teste || row.nome_candidato || row.vaga || row.data_iso),
+  );
 }
 
-function saveHistoryRow(row) {
-  const csv = ensureHistoryCsv();
-  const line = [
-    row.id_teste,
-    row.nome_candidato,
-    row.vaga,
-    row.nivel,
-    row.trilha,
-    row.data_iso,
-    row.data_exibicao,
-    row.pontuacao_final,
-    row.status,
-    row.tempo_minutos,
-    row.arquivo_gabarito,
-  ]
-    .map(escapeCsvValue)
-    .join(',');
-  localStorage.setItem(HISTORY_CSV_KEY, `${csv}\n${line}`);
+async function saveHistoryRow(row) {
+  const response = await fetch(`${API_BASE_URL}/history`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(row),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao salvar histórico: ${errorText}`);
+  }
+
+  historyCache = null;
 }
 
-function getAnswerFiles() {
-  return JSON.parse(localStorage.getItem(ANSWER_FILES_KEY) || '{}');
+async function getAnswerFiles() {
+  if (answerFilesCache) return answerFilesCache;
+
+  const response = await fetch(`${API_BASE_URL}/answer-files`, {
+    method: 'GET',
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Falha ao carregar gabaritos. Status: ${response.status}`);
+  }
+
+  answerFilesCache = await response.json();
+  return answerFilesCache || {};
 }
 
-function saveAnswerFile(recordId, payload) {
-  const files = getAnswerFiles();
-  files[recordId] = payload;
-  localStorage.setItem(ANSWER_FILES_KEY, JSON.stringify(files));
+async function saveAnswerFile(recordId, payload) {
+  const response = await fetch(`${API_BASE_URL}/answer-files`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      recordId,
+      payload,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao salvar gabarito: ${errorText}`);
+  }
+
+  answerFilesCache = null;
 }
 
 function escapeHtml(value) {
@@ -307,8 +329,8 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function normalizeRecentStatus(row) {
-  const files = getAnswerFiles();
+async function normalizeRecentStatus(row) {
+  const files = await getAnswerFiles();
   const saved = files[row?.id_teste];
   const rawStatus = String(row?.status || '').trim();
   if (rawStatus) return rawStatus;
@@ -322,51 +344,60 @@ function getRecentStatusClass(status) {
   return 'is-neutral';
 }
 
-function renderMenuRecentTests() {
+async function renderMenuRecentTests() {
   const list = document.getElementById('menu-recent-list');
   const empty = document.getElementById('menu-recent-empty');
   if (!list) return;
 
-  const rows = readHistoryRows()
-    .sort((a, b) => (a.data_iso < b.data_iso ? 1 : -1))
-    .slice(0, 6);
+  try {
+    const rows = (await readHistoryRows())
+      .sort((a, b) => (a.data_iso < b.data_iso ? 1 : -1))
+      .slice(0, 6);
 
-  if (!rows.length) {
+    if (!rows.length) {
+      list.innerHTML = '';
+      if (empty) empty.classList.remove('d-none');
+      return;
+    }
+
+    if (empty) empty.classList.add('d-none');
+
+    const cards = await Promise.all(
+      rows.map(async (row) => {
+        const status = await normalizeRecentStatus(row);
+        const statusClass = getRecentStatusClass(status);
+        return `
+          <button type="button" class="rh-recent-card btn text-start" onclick="openRecentTestDetails('${row.id_teste}')">
+            <div class="rh-recent-card-top">
+              <span class="rh-recent-name">${escapeHtml(row.nome_candidato || 'Sem nome')}</span>
+              <span class="rh-recent-date">${escapeHtml(row.data_exibicao || '-')}</span>
+            </div>
+            <div class="rh-recent-card-bottom">
+              <span class="rh-recent-role">${escapeHtml(row.vaga || '-')}</span>
+              <span class="rh-status-pill ${statusClass}">${escapeHtml(status)}</span>
+            </div>
+          </button>
+        `;
+      }),
+    );
+
+    list.innerHTML = cards.join('');
+  } catch (error) {
+    console.error('Erro ao renderizar últimos testes:', error);
     list.innerHTML = '';
     if (empty) empty.classList.remove('d-none');
-    return;
   }
-
-  if (empty) empty.classList.add('d-none');
-
-  list.innerHTML = rows
-    .map((row) => {
-      const status = normalizeRecentStatus(row);
-      const statusClass = getRecentStatusClass(status);
-      return `
-        <button type="button" class="rh-recent-card btn text-start" onclick="openRecentTestDetails('${row.id_teste}')">
-          <div class="rh-recent-card-top">
-            <span class="rh-recent-name">${escapeHtml(row.nome_candidato || 'Sem nome')}</span>
-            <span class="rh-recent-date">${escapeHtml(row.data_exibicao || '-')}</span>
-          </div>
-          <div class="rh-recent-card-bottom">
-            <span class="rh-recent-role">${escapeHtml(row.vaga || '-')}</span>
-            <span class="rh-status-pill ${statusClass}">${escapeHtml(status)}</span>
-          </div>
-        </button>
-      `;
-    })
-    .join('');
 }
 
-function openRecentTestDetails(recordId) {
+async function openRecentTestDetails(recordId) {
   const overlay = document.getElementById('recent-test-details-overlay');
   const title = document.getElementById('recent-test-details-title');
   const body = document.getElementById('recent-test-details-body');
   const downloadBtn = document.getElementById('recent-test-download-btn');
   if (!overlay || !title || !body) return;
 
-  const row = readHistoryRows().find((item) => item.id_teste === recordId);
+  const rows = await readHistoryRows();
+  const row = rows.find((item) => item.id_teste === recordId);
   if (!row) {
     body.innerHTML =
       '<div class="alert alert-danger mb-0">Não foi possível localizar os dados desta prova.</div>';
@@ -376,7 +407,7 @@ function openRecentTestDetails(recordId) {
     return;
   }
 
-  const savedFiles = getAnswerFiles();
+  const savedFiles = await getAnswerFiles();
   const saved = savedFiles[recordId];
   let payload = null;
 
@@ -393,7 +424,7 @@ function openRecentTestDetails(recordId) {
     ? payload.stageSummary
     : [];
   const fullLog = payload?.textContent || '';
-  const status = normalizeRecentStatus(row);
+  const status = await normalizeRecentStatus(row);
   const statusClass = getRecentStatusClass(status);
   const stageCardsHtml = stageSummary.length
     ? `
@@ -541,16 +572,25 @@ function buildAnswerKeyPayload(recordId) {
   };
 }
 
-function doLogin() {
+async function doLogin() {
   const user = document.getElementById('login-user')?.value.trim() || '';
   const pass = document.getElementById('login-pass')?.value.trim() || '';
   const alertEl = document.getElementById('login-alert');
 
   if (user === RH_USER && pass === RH_PASS) {
-    state.logged = true;
-    ensureHistoryCsv();
-    alertEl?.classList.add('d-none');
-    showScreen('screen-menu');
+    try {
+      state.logged = true;
+      await ensureHistoryCsv();
+      alertEl?.classList.add('d-none');
+      showScreen('screen-menu');
+    } catch (error) {
+      console.error(error);
+      if (alertEl) {
+        alertEl.textContent =
+          'Login realizado, mas não foi possível acessar o histórico no servidor.';
+        alertEl.classList.remove('d-none');
+      }
+    }
   } else if (alertEl) {
     alertEl.textContent = 'Usuário ou senha inválidos.';
     alertEl.classList.remove('d-none');
@@ -595,7 +635,7 @@ function logout() {
   showScreen('screen-login');
 }
 
-function proceedToCandidate() {
+async function proceedToCandidate() {
   const role = document.getElementById('candidate-role').value.trim();
   const level = document.getElementById('candidate-level').value;
   const track = document.getElementById('candidate-track').value.trim();
@@ -631,7 +671,7 @@ function renderCandidateRules() {
   box.innerHTML = `<ul class="candidate-summary-list">${state.blueprint.stages.map((stage) => `<li><strong>${STAGE_LABELS[stage.key]}</strong>: serão avaliados os conteúdos previstos para esta etapa da vaga.</li>`).join('')}</ul>`;
 }
 
-function startExam() {
+async function startExam() {
   const name = document.getElementById('candidate-name').value.trim();
   const role =
     state.candidate?.role ||
@@ -741,7 +781,7 @@ function renderWordQuestion(area) {
           <button class="btn btn-outline-secondary" onclick="formatDoc('justifyCenter')">Centro</button>
           <button class="btn btn-outline-secondary" onclick="formatDoc('insertUnorderedList')">• Lista</button>
         </div>
-        <div id="word-editor" class="word-editor" contenteditable="true" spellcheck="false"></div>
+                <div id="word-editor" class="word-editor" contenteditable="true" spellcheck="false"></div>
       </div>
     </div>
   `;
@@ -943,14 +983,12 @@ function nextQuestion() {
 }
 
 function hasBoldInHtml(html) {
-  // Detects bold via <b>, <strong>, or inline style font-weight bold/700+
   if (/<(b|strong)[^>]*>[\s\S]*?<\/(b|strong)>/i.test(html)) return true;
   if (/font-weight\s*:\s*(bold|[6-9]\d{2}|[1-9]\d{3})/i.test(html)) return true;
   return false;
 }
 
 function hasCenterInHtml(html) {
-  // Detects centering via text-align style, align attribute, or justifyCenter div
   if (/text-align\s*:\s*center/i.test(html)) return true;
   if (/align\s*=\s*["']?center["']?/i.test(html)) return true;
   if (/<div[^>]*style\s*=\s*["'][^"']*center[^"']*["']/i.test(html))
@@ -961,26 +999,24 @@ function hasCenterInHtml(html) {
 function titleIsBoldInHtml(html, titleText) {
   if (!titleText) return false;
   const escapedTitle = titleText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Check if the title text appears inside a bold tag or bold-styled element
   const boldTagPattern = new RegExp(
     '<(b|strong)[^>]*>[\\s\\S]*?' + escapedTitle + '[\\s\\S]*?<\\/(b|strong)>',
     'i',
   );
   if (boldTagPattern.test(html)) return true;
-  // Check if title is in an element with font-weight bold
+
   const boldStylePattern = new RegExp(
     'font-weight\\s*:\\s*(bold|[6-9]\\d{2}|[1-9]\\d{3})[^"\']*["\'][^>]*>[\\s\\S]*?' +
       escapedTitle,
     'i',
   );
   if (boldStylePattern.test(html)) return true;
-  // Fallback: any bold exists and title text is present
+
   return hasBoldInHtml(html);
 }
 
 function titleIsCenteredInHtml(html, titleText) {
   if (!titleText) return false;
-  // Check if title appears in a centered context
   const escapedTitle = titleText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const centerPattern = new RegExp(
     '(text-align\\s*:\\s*center|align\\s*=\\s*["\']?center["\']?)[\\s\\S]{0,300}' +
@@ -994,7 +1030,6 @@ function titleIsCenteredInHtml(html, titleText) {
     'i',
   );
   if (centerPattern2.test(html)) return true;
-  // Fallback: any centering in document and title text present
   return hasCenterInHtml(html);
 }
 
@@ -1004,7 +1039,6 @@ function evaluateWord(answer, expected, points) {
   const plain = stripHtml(html);
   const upper = plain.toUpperCase();
 
-  // If the content is essentially empty, return 0
   if (plain.trim().length < 5) return 0;
 
   let score = 0;
@@ -1050,7 +1084,6 @@ function evaluateWord(answer, expected, points) {
 
   if (!checks.length) return 0;
 
-  // Partial credit: proportional scoring. Minimum 1 point if any text was written.
   const raw = (score / totalWeight) * points;
   return Math.max(plain.trim().length >= 5 ? 1 : 0, Math.round(raw));
 }
@@ -1247,7 +1280,6 @@ function buildQualidWorkbook(wb) {
   appendBaseDataSheets(wb);
   return { workbook: wb };
 }
-
 function buildPlanningWorkbook(wb) {
   const q1 = aoaToSheet([
     ['Questão 1.'],
@@ -1576,7 +1608,6 @@ function validateBasicExam(wb, points) {
   }
 
   const filterAndSortDone = hasAutoFilter(ws) && sortedDesc;
-
   const totalLineCreated =
     dataRows.length > 0 &&
     (normalizeHeader(cellValue(ws, `${produtoCol}${totalRow}`)).includes(
@@ -1861,7 +1892,6 @@ function validateQualidExam(wb, points) {
 
   return buildChecklistResult(tasks, points, notes);
 }
-
 function getSheetFlex(wb, ...names) {
   for (const name of names) {
     const ws = wb.Sheets[name];
@@ -2107,7 +2137,6 @@ function computeStageSummary(results, blueprint) {
     };
   });
 }
-
 function renderResults() {
   document.getElementById('result-name').textContent = state.candidate.name;
   document.getElementById('result-role').textContent = state.candidate.role;
@@ -2357,8 +2386,10 @@ async function downloadExamPackage() {
   }
 }
 
-function saveResult() {
+async function saveResult() {
   const alertBox = document.getElementById('save-alert');
+  if (!alertBox) return;
+
   if (!state?.candidate?.name) {
     alertBox.textContent =
       'Não foi possível salvar: candidato não identificado.';
@@ -2373,31 +2404,39 @@ function saveResult() {
   const displayDate = now.toLocaleString('pt-BR');
   const answerFileName = `gabarito_${recordId}.json`;
 
-  saveHistoryRow({
-    id_teste: recordId,
-    nome_candidato: state.candidate.name,
-    vaga: state.candidate.role,
-    nivel: state.candidate.level,
-    trilha: state.blueprint?.label || state.candidate.track || '',
-    data_iso: now.toISOString(),
-    data_exibicao: displayDate,
-    pontuacao_final: state.weightedFinalScore.toFixed(2),
-    status: 'Finalizado',
-    tempo_minutos: state.candidate.time,
-    arquivo_gabarito: answerFileName,
-  });
+  try {
+    await saveHistoryRow({
+      id_teste: recordId,
+      nome_candidato: state.candidate.name,
+      vaga: state.candidate.role,
+      nivel: state.candidate.level,
+      trilha: state.blueprint?.label || state.candidate.track || '',
+      data_iso: now.toISOString(),
+      data_exibicao: displayDate,
+      pontuacao_final: Number(state.weightedFinalScore || 0).toFixed(2),
+      status: 'Finalizado',
+      tempo_minutos: state.candidate.time,
+      arquivo_gabarito: answerFileName,
+    });
 
-  saveAnswerFile(recordId, {
-    fileName: answerFileName,
-    content: JSON.stringify(buildAnswerKeyPayload(recordId), null, 2),
-    mimeType: 'application/json',
-    candidateName: state.candidate.name,
-  });
+    await saveAnswerFile(recordId, {
+      fileName: answerFileName,
+      content: JSON.stringify(buildAnswerKeyPayload(recordId), null, 2),
+      mimeType: 'application/json',
+      candidateName: state.candidate.name,
+    });
 
-  alertBox.textContent =
-    'Resultado salvo com sucesso no histórico CSV do navegador.';
-  alertBox.classList.remove('d-none', 'alert-danger');
-  alertBox.classList.add('alert-success');
+    alertBox.textContent =
+      'Resultado salvo com sucesso no histórico compartilhado do servidor.';
+    alertBox.classList.remove('d-none', 'alert-danger');
+    alertBox.classList.add('alert-success');
+  } catch (error) {
+    console.error(error);
+    alertBox.textContent =
+      'Não foi possível salvar no histórico compartilhado do servidor.';
+    alertBox.classList.remove('d-none', 'alert-success');
+    alertBox.classList.add('alert-danger');
+  }
 }
 
 function clearHistoryFilters() {
@@ -2407,7 +2446,7 @@ function clearHistoryFilters() {
   renderHistoryTable();
 }
 
-function renderHistoryTable() {
+async function renderHistoryTable() {
   const body = document.getElementById('history-table-body');
   const alertEl = document.getElementById('history-alert');
   if (!body || !alertEl) return;
@@ -2421,69 +2460,89 @@ function renderHistoryTable() {
   const dateFilter =
     document.getElementById('history-filter-date')?.value || '';
 
-  const rows = readHistoryRows().sort((a, b) =>
-    a.data_iso < b.data_iso ? 1 : -1,
-  );
-  const filtered = rows.filter((row) => {
-    const matchesName =
-      !nameFilter || safeUpper(row.nome_candidato).includes(nameFilter);
-    const matchesRole = !roleFilter || safeUpper(row.vaga).includes(roleFilter);
-    const matchesDate =
-      !dateFilter || formatDateToInput(row.data_iso) === dateFilter;
-    return matchesName && matchesRole && matchesDate;
-  });
+  try {
+    const rows = (await readHistoryRows()).sort((a, b) =>
+      a.data_iso < b.data_iso ? 1 : -1,
+    );
 
-  if (!rows.length) {
-    alertEl.textContent = 'Nenhum resultado salvo até o momento.';
-    alertEl.classList.remove('d-none', 'alert-danger');
-    alertEl.classList.add('alert-info');
+    const filtered = rows.filter((row) => {
+      const matchesName =
+        !nameFilter || safeUpper(row.nome_candidato).includes(nameFilter);
+      const matchesRole =
+        !roleFilter || safeUpper(row.vaga).includes(roleFilter);
+      const matchesDate =
+        !dateFilter || formatDateToInput(row.data_iso) === dateFilter;
+      return matchesName && matchesRole && matchesDate;
+    });
+
+    if (!rows.length) {
+      alertEl.textContent = 'Nenhum resultado salvo até o momento.';
+      alertEl.classList.remove('d-none', 'alert-danger');
+      alertEl.classList.add('alert-info');
+      body.innerHTML =
+        '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum resultado salvo até o momento.</td></tr>';
+      return;
+    }
+
+    alertEl.classList.add('d-none');
+
+    if (!filtered.length) {
+      body.innerHTML =
+        '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum resultado encontrado para os filtros informados.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = filtered
+      .map(
+        (row) => `
+      <tr>
+        <td>${row.id_teste}</td>
+        <td>${row.nome_candidato}</td>
+        <td>${row.vaga}</td>
+        <td>${row.nivel}${row.trilha ? `<div class="small text-muted">${row.trilha}</div>` : ''}</td>
+        <td>${row.data_exibicao}</td>
+        <td>${row.pontuacao_final}</td>
+        <td><span class="badge text-bg-success">${row.status || 'Finalizado'}</span></td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-primary" onclick="downloadHistoryAnswerKey('${row.id_teste}', '${sanitizeFileName(row.nome_candidato)}')">Baixar gabarito</button>
+        </td>
+      </tr>
+    `,
+      )
+      .join('');
+  } catch (error) {
+    console.error(error);
+    alertEl.textContent =
+      'Não foi possível carregar o histórico compartilhado do servidor.';
+    alertEl.classList.remove('d-none', 'alert-info');
+    alertEl.classList.add('alert-danger');
     body.innerHTML =
-      '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum resultado salvo até o momento.</td></tr>';
-    return;
+      '<tr><td colspan="8" class="text-center text-danger py-4">Erro ao carregar histórico.</td></tr>';
   }
-
-  alertEl.classList.add('d-none');
-
-  if (!filtered.length) {
-    body.innerHTML =
-      '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum resultado encontrado para os filtros informados.</td></tr>';
-    return;
-  }
-
-  body.innerHTML = filtered
-    .map(
-      (row) => `
-    <tr>
-      <td>${row.id_teste}</td>
-      <td>${row.nome_candidato}</td>
-      <td>${row.vaga}</td>
-      <td>${row.nivel}${row.trilha ? `<div class="small text-muted">${row.trilha}</div>` : ''}</td>
-      <td>${row.data_exibicao}</td>
-      <td>${row.pontuacao_final}</td>
-      <td><span class="badge text-bg-success">${row.status || 'Finalizado'}</span></td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-primary" onclick="downloadHistoryAnswerKey('${row.id_teste}', '${sanitizeFileName(row.nome_candidato)}')">Baixar gabarito</button>
-      </td>
-    </tr>
-  `,
-    )
-    .join('');
 }
 
-function downloadHistoryAnswerKey(recordId, candidateName = 'candidato') {
-  const files = getAnswerFiles();
-  const saved = files[recordId];
-  if (!saved?.content) {
-    alert('O gabarito desse candidato não foi encontrado neste navegador.');
-    return;
+async function downloadHistoryAnswerKey(recordId, candidateName = 'candidato') {
+  try {
+    const files = await getAnswerFiles();
+    const saved = files[recordId];
+
+    if (!saved?.content) {
+      alert('O gabarito desse candidato não foi encontrado no servidor.');
+      return;
+    }
+
+    const blob = new Blob([saved.content], {
+      type: saved.mimeType || 'application/json',
+    });
+
+    downloadBlob(
+      saved.fileName || `gabarito_${sanitizeFileName(candidateName)}.json`,
+      blob,
+    );
+  } catch (error) {
+    console.error(error);
+    alert('Não foi possível baixar o gabarito compartilhado.');
   }
-  const blob = new Blob([saved.content], {
-    type: saved.mimeType || 'application/json',
-  });
-  downloadBlob(
-    saved.fileName || `gabarito_${sanitizeFileName(candidateName)}.json`,
-    blob,
-  );
 }
 
 function downloadCurrentAnswerKey() {
@@ -2497,10 +2556,15 @@ function downloadCurrentAnswerKey() {
   );
 }
 
-function exportHistoryCsv() {
-  const csv = ensureHistoryCsv();
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob('historico_testes.csv', blob);
+async function exportHistoryCsv() {
+  try {
+    const csv = await ensureHistoryCsv();
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob('historico_testes.csv', blob);
+  } catch (error) {
+    console.error(error);
+    alert('Não foi possível exportar o histórico do servidor.');
+  }
 }
 
 function openAdminResult() {
