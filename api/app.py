@@ -27,6 +27,17 @@ def get_connection():
     return pyodbc.connect(CONN_STR)
 
 
+def get_gabaritos_payload_column(cursor):
+    columns = [col.column_name for col in cursor.columns(table='gabaritos')]
+    for name in ('payload_json', 'playlaod_json'):
+        if name in columns:
+            return name
+    raise HTTPException(
+        status_code=500,
+        detail=f"Coluna de payload não encontrada na tabela gabaritos. Colunas disponíveis: {columns}",
+    )
+
+
 @app.get("/")
 def root():
     return {
@@ -91,14 +102,15 @@ def get_answer_files():
     try:
         conn = get_connection()
         cursor = conn.cursor()
+        payload_column = get_gabaritos_payload_column(cursor)
 
-        cursor.execute("SELECT * FROM gabaritos")
+        cursor.execute(f"SELECT record_id, {payload_column} FROM gabaritos")
         rows = cursor.fetchall()
 
         result = {}
         for row in rows:
-            result[str(row[1])] = {
-                "content": row[2]
+            result[str(row[0])] = {
+                "content": row[1]
             }
 
         conn.close()
@@ -106,7 +118,6 @@ def get_answer_files():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/history")
 def save_history(row: dict):
@@ -169,18 +180,19 @@ def save_answer_file(data: dict):
 
         conn = get_connection()
         cursor = conn.cursor()
+        payload_column = get_gabaritos_payload_column(cursor)
 
         cursor.execute("SELECT COUNT(*) FROM gabaritos WHERE record_id = ?", (record_id,))
         exists = cursor.fetchone()[0]
 
         if exists:
             cursor.execute(
-                "UPDATE gabaritos SET payload_json = ? WHERE record_id = ?",
+                f"UPDATE gabaritos SET {payload_column} = ? WHERE record_id = ?",
                 (payload_text, record_id)
             )
         else:
             cursor.execute(
-                "INSERT INTO gabaritos (record_id, payload_json) VALUES (?, ?)",
+                f"INSERT INTO gabaritos (record_id, {payload_column}) VALUES (?, ?)",
                 (record_id, payload_text)
             )
 

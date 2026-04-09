@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Teste Central 24 horas</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="style/styles.css">
 </head>
 
 <body>
@@ -17,7 +17,7 @@
       <div class="rh-shell-header">
         <div class="rh-shell-brand">
           <button type="button" class="btn p-0 border-0 bg-transparent" onclick="backToMenu()" aria-label="Voltar para a página principal">
-            <img src="logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-shell-brand-logo">
+            <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-shell-brand-logo">
           </button>
         </div>
 
@@ -45,7 +45,6 @@
 
           <div id="menu-recent-empty" class="alert alert-info d-none">Nenhuma prova salva até o momento.</div>
           <div id="menu-recent-list" class="rh-recent-grid"></div>
-
           <div id="recent-test-details-overlay" class="rh-details-overlay d-none" onclick="handleRecentDetailsOverlayClick(event)">
             <div class="rh-details-dialog" role="dialog" aria-modal="true" aria-labelledby="recent-test-details-title">
               <div class="rh-details-header">
@@ -53,14 +52,14 @@
                   <h3 id="recent-test-details-title" class="rh-details-title">Detalhes da prova</h3>
                   <p class="rh-details-subtitle mb-0">Informações completas registradas até o momento.</p>
                 </div>
-                <!--<button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeRecentTestDetails()">Fechar</button>-->
+                <button type="button" class="btn rh-details-close-btn" onclick="closeRecentTestDetails()" aria-label="Fechar detalhes da prova">X</button>
               </div>
 
               <div id="recent-test-details-body" class="rh-details-body"></div>
 
               <div class="rh-details-footer">
                 <div class="rh-details-footer-actions">
-                  <button type="button" class="btn btn-outline-primary mr-2" id="recent-test-download-btn" onclick="downloadRecentTestAnswerKey()" disabled>Baixar gabarito</button>
+                  <button type="button" class="btn btn-outline-primary" id="recent-test-download-btn" onclick="downloadRecentTestPackage()" disabled>Baixar prova</button>
                 </div>
                 <button type="button" class="btn btn-primary" onclick="closeRecentTestDetails()">Voltar para a tela inicial</button>
               </div>
@@ -75,7 +74,7 @@
   <section id="screen-login" class="screen active">
     <div class="rh-login-page">
       <div class="rh-login-panel">
-        <img src="logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-login-panel-logo">
+        <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-login-panel-logo">
 
         <div class="mb-3">
           <label class="form-label rh-login-label">Login</label>
@@ -95,6 +94,7 @@
   </section>
 
   <div class="container py-4 py-md-5">
+    <!-- 
     <section id="screen-menu" class="screen">
       <div class="row justify-content-center">
         <div class="col-xl-9">
@@ -126,14 +126,14 @@
           </div>
         </div>
       </div>
-    </section>
+    </section>-->
 
     <section id="screen-history" class="screen">
       <div class="rh-panel-screen">
         <div class="rh-shell-header">
           <div class="rh-shell-brand">
             <button type="button" class="btn p-0 border-0 bg-transparent" onclick="backToMenu()" aria-label="Voltar para a página principal">
-              <img src="logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-shell-brand-logo">
+              <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-shell-brand-logo">
             </button>
           </div>
 
@@ -204,6 +204,8 @@
                 </tbody>
               </table>
             </div>
+            <div id="history-pagination" class="d-flex justify-content-center gap-2 flex-wrap mt-3"></div>
+
           </main>
         </div>
       </div>
@@ -447,7 +449,7 @@
               <p class="text-muted mb-4">Sua avaliação foi concluída com sucesso. As respostas já foram processadas conforme a trilha selecionada e o material está pronto para conferência do RH. Antes de encerrar esta etapa, clique em <strong>Salvar</strong> para registrar o resultado e garantir que ele fique disponível para consulta posterior.</p>
 
               <div class="d-flex justify-content-center gap-2 flex-wrap mb-4">
-                <button class="btn btn-success btn-lg" onclick="saveResult()">Salvar</button>
+                <button class="btn btn-success btn-lg" onclick="saveExamResult()">Salvar</button>
               </div>
 
               <div id="save-alert" class="alert alert-success d-none">Resultado salvo com sucesso no navegador.</div>
@@ -484,11 +486,11 @@
                     <p class="text-muted mb-0">Resumo final da prova.</p>
                   </div>
                   <div class="d-flex gap-2 no-print">
-                    <button class="btn btn-primary" onclick="downloadCurrentAnswerKey()">Baixar gabarito</button>
                     <button class="btn btn-primary" onclick="downloadExamPackage()">Baixar prova</button>
                     <button class="btn btn-outline-secondary" onclick="printResult()">Imprimir</button>
                     <button class="btn btn-outline-secondary" onclick="backToMenu()">Menu principal</button>
                   </div>
+
                 </div>
 
                 <div class="row g-3 mb-4">
@@ -584,7 +586,7 @@
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="questions.js"></script>
-  <script src="excel-base-data.js"></script>
+  <script src="Exames/excel-base-data.js"></script>
   <script src="app.js"></script>
 </body>
 

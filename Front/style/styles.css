@@ -499,6 +499,13 @@ body { background: #f4f6f9; overflow: auto;}
   border-bottom: 1px solid #ececec;
 }
 
+.rh-details-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .rh-details-footer {
   border-bottom: none;
   border-top: 1px solid #ececec;
@@ -525,6 +532,23 @@ body { background: #f4f6f9; overflow: auto;}
 
 .rh-details-subtitle {
   color: #6c757d;
+}
+
+.rh-details-close-btn {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  background: #fff;
+  color: #495057;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rh-details-close-btn:hover {
+  background: #f8f9fa;
+  color: #212529;
 }
 
 .rh-details-body {

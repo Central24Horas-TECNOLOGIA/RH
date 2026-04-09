@@ -1,7 +1,7 @@
 const RH_USER = 'rh';
 const RH_PASS = '1234';
-const HISTORY_CSV_KEY = 'rh_exam_history_csv';
-const ANSWER_FILES_KEY = 'rh_exam_answer_files';
+//const HISTORY_CSV_KEY = 'rh_exam_history_csv';
+//const ANSWER_FILES_KEY = 'rh_exam_answer_files';
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
 const state = {
@@ -21,6 +21,12 @@ const state = {
   stageSummary: [],
   manualReviewItems: [],
   currentResultId: null,
+
+  recentPage: 1,
+  recentPageSize: 6,
+
+  historyPage: 1,
+  historyPageSize: 10,
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -30,18 +36,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (roleEl) {
     roleEl.addEventListener('change', function () {
-      const suggestedLevel = ROLE_LEVEL_SUGGESTIONS[this.value];
-      if (suggestedLevel && levelEl) levelEl.value = suggestedLevel;
-      if (this.value === 'Estagiário' && !trackEl.value) trackEl.value = 'ti';
-      if (
-        (this.value === 'Analista' || this.value === 'Outros') &&
-        !trackEl.value
-      )
-        trackEl.value = 'adm';
-      if (this.value === 'TI') trackEl.value = 'ti';
-      if (this.value === 'Supervisor') trackEl.value = 'operacao';
-      if (this.value === 'Help Desk' || this.value === 'Planejamento')
-        trackEl.value = 'adm';
+      const role = (this.value || '').trim();
+
+      const levelMap = {
+        'Jovem Aprendiz': '1',
+        Operador: '2',
+        Estagiário: '2',
+        Supervisor: '3',
+        'Help Desk': '3',
+        Planejamento: '3',
+        TI: '4',
+        Analista: '4',
+        Outros: '4',
+      };
+
+      const trackMap = {
+        Estagiário: 'ti',
+        Analista: 'adm',
+        Outros: 'adm',
+        TI: 'ti',
+        Supervisor: 'operacao',
+        'Help Desk': 'adm',
+        Planejamento: 'adm',
+      };
+
+      if (levelEl && levelMap[role]) {
+        levelEl.value = levelMap[role];
+        levelEl.dispatchEvent(new Event('change'));
+      }
+
+      if (trackEl && trackMap[role]) {
+        trackEl.value = trackMap[role];
+        trackEl.dispatchEvent(new Event('change'));
+      }
+
       updateFlowPreview();
     });
   }
@@ -51,7 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
   ['history-filter-name', 'history-filter-role', 'history-filter-date'].forEach(
     (id) => {
       const el = document.getElementById(id);
-      if (el) el.addEventListener('input', renderHistoryTable);
+      if (el) {
+        el.addEventListener('input', () => {
+          state.historyPage = 1;
+          renderHistoryTable();
+        });
+      }
     },
   );
 
@@ -203,6 +236,75 @@ const APPS_SCRIPT_URL =
 let historyCache = null;
 let answerFilesCache = null;
 
+function openAdminResult() {
+  const pass = document.getElementById('admin-pass').value.trim();
+  const alert = document.getElementById('admin-alert');
+
+  if (pass !== RH_PASS) {
+    alert.textContent = 'Senha inválida.';
+    alert.classList.remove('d-none');
+    return;
+  }
+
+  alert.classList.add('d-none');
+  showScreen('screen-result');
+}
+
+function printResult() {
+  window.print();
+}
+
+function backToConfig() {
+  const currentScreenCandidate = document.getElementById('screen-candidate');
+  const isCandidateScreen =
+    currentScreenCandidate &&
+    currentScreenCandidate.classList.contains('active');
+
+  if (isCandidateScreen) {
+    showScreen('screen-config');
+    return;
+  }
+
+  resetExamEntryFields();
+  showScreen('screen-config');
+}
+
+function downloadCurrentAnswerKey() {
+  if (!state.currentResultId) {
+    alert('Salve o resultado antes de baixar o gabarito individual.');
+    return;
+  }
+
+  downloadHistoryAnswerKey(
+    state.currentResultId,
+    state.candidate?.name || 'candidato',
+  );
+}
+
+async function exportHistoryCsv() {
+  try {
+    const csv = await ensureHistoryCsv();
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob('historico_testes.csv', blob);
+  } catch (error) {
+    console.error(error);
+    alert('Não foi possível exportar o histórico do servidor.');
+  }
+}
+
+function clearHistoryFilters() {
+  const nameEl = document.getElementById('history-filter-name');
+  const roleEl = document.getElementById('history-filter-role');
+  const dateEl = document.getElementById('history-filter-date');
+
+  if (nameEl) nameEl.value = '';
+  if (roleEl) roleEl.value = '';
+  if (dateEl) dateEl.value = '';
+
+  state.historyPage = 1;
+  renderHistoryTable();
+}
+
 function escapeCsvValue(value) {
   const text = String(value ?? '');
   if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
@@ -291,7 +393,6 @@ async function getAnswerFiles() {
     method: 'GET',
     cache: 'no-store',
   });
-
   if (!response.ok) {
     throw new Error(`Falha ao carregar gabaritos. Status: ${response.status}`);
   }
@@ -344,15 +445,77 @@ function getRecentStatusClass(status) {
   return 'is-neutral';
 }
 
+function getPagedItems(items, currentPage, pageSize) {
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const start = (safePage - 1) * pageSize;
+  const end = start + pageSize;
+
+  return {
+    items: items.slice(start, end),
+    totalItems,
+    totalPages,
+    currentPage: safePage,
+  };
+}
+
+function buildPaginationHtml(currentPage, totalPages, onClickFnName) {
+  if (totalPages <= 1) return '';
+
+  let html = '';
+
+  html += `
+    <button type="button" class="btn btn-outline-secondary btn-sm" ${currentPage === 1 ? 'disabled' : ''} onclick="${onClickFnName}(${currentPage - 1})">
+      Anterior
+    </button>
+  `;
+
+  for (let page = 1; page <= totalPages; page += 1) {
+    html += `
+      <button type="button" class="btn btn-sm ${page === currentPage ? 'btn-primary' : 'btn-outline-primary'}" onclick="${onClickFnName}(${page})">
+        ${page}
+      </button>
+    `;
+  }
+
+  html += `
+    <button type="button" class="btn btn-outline-secondary btn-sm" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onClickFnName}(${currentPage + 1})">
+      Próxima
+    </button>
+  `;
+
+  return html;
+}
+
+function goToRecentPage(page) {
+  state.recentPage = page;
+  renderMenuRecentTests();
+}
+
+function goToHistoryPage(page) {
+  state.historyPage = page;
+  renderHistoryTable();
+}
+
+async function getAnswerFilesSafe() {
+  try {
+    return await getAnswerFiles();
+  } catch (error) {
+    console.warn('Não foi possível carregar os gabaritos detalhados:', error);
+    return {};
+  }
+}
+
 async function renderMenuRecentTests() {
   const list = document.getElementById('menu-recent-list');
   const empty = document.getElementById('menu-recent-empty');
   if (!list) return;
 
   try {
-    const rows = (await readHistoryRows())
-      .sort((a, b) => (a.data_iso < b.data_iso ? 1 : -1))
-      .slice(0, 6);
+    const rows = (await readHistoryRows()).sort((a, b) =>
+      a.data_iso < b.data_iso ? 1 : -1,
+    );
 
     if (!rows.length) {
       list.innerHTML = '';
@@ -362,12 +525,19 @@ async function renderMenuRecentTests() {
 
     if (empty) empty.classList.add('d-none');
 
+    const files = await getAnswerFilesSafe();
+    const recentItems = rows.slice(0, state.recentPageSize);
+
     const cards = await Promise.all(
-      rows.map(async (row) => {
-        const status = await normalizeRecentStatus(row);
+      recentItems.map(async (row) => {
+        const saved = files[row?.id_teste];
+        const rawStatus = String(row?.status || '').trim();
+        const status =
+          rawStatus || (saved?.content ? 'Finalizado' : 'Finalizado');
         const statusClass = getRecentStatusClass(status);
+
         return `
-          <button type="button" class="rh-recent-card btn text-start" onclick="openRecentTestDetails('${row.id_teste}')">
+          <button type="button" class="rh-recent-card btn text-start" data-record-id="${escapeHtml(row.id_teste)}">
             <div class="rh-recent-card-top">
               <span class="rh-recent-name">${escapeHtml(row.nome_candidato || 'Sem nome')}</span>
               <span class="rh-recent-date">${escapeHtml(row.data_exibicao || '-')}</span>
@@ -382,6 +552,12 @@ async function renderMenuRecentTests() {
     );
 
     list.innerHTML = cards.join('');
+    list.querySelectorAll('[data-record-id]').forEach((card) => {
+      card.addEventListener('click', () => {
+        const recordId = card.getAttribute('data-record-id');
+        if (recordId) openRecentTestDetails(recordId);
+      });
+    });
   } catch (error) {
     console.error('Erro ao renderizar últimos testes:', error);
     list.innerHTML = '';
@@ -407,7 +583,7 @@ async function openRecentTestDetails(recordId) {
     return;
   }
 
-  const savedFiles = await getAnswerFiles();
+  const savedFiles = await getAnswerFilesSafe();
   const saved = savedFiles[recordId];
   let payload = null;
 
@@ -428,29 +604,32 @@ async function openRecentTestDetails(recordId) {
   const statusClass = getRecentStatusClass(status);
   const stageCardsHtml = stageSummary.length
     ? `
-        <div class="rh-detail-stage-grid">
-          ${stageSummary
-            .map(
-              (stage) => `
-                <div class="rh-detail-stage-card">
-                  <div class="rh-detail-stage-top">
-                    <div class="rh-detail-stage-name">${escapeHtml(stage.label || '-')}</div>
-                    <span class="rh-detail-stage-weight">Peso ${escapeHtml(stage.weight ?? '-')}%</span>
-                  </div>
-                  <div class="rh-detail-stage-score">${escapeHtml(stage.rawScore ?? 0)}/${escapeHtml(stage.rawMax ?? 0)}</div>
-                  <div class="rh-detail-stage-meta">
-                    Aproveitamento: ${escapeHtml(((stage.percent || 0) * 100).toFixed ? ((stage.percent || 0) * 100).toFixed(1) : '0.0')}%<br>
-                    Nota ponderada: ${escapeHtml((stage.weightedScore ?? 0).toFixed ? stage.weightedScore.toFixed(2) : (stage.weightedScore ?? '0.00'))}<br>
-                    Itens avaliados: ${escapeHtml(stage.questionCount ?? 0)}${stage.pendings ? `<br>Pendências de revisão: ${escapeHtml(stage.pendings)}` : ''}
-                  </div>
+      <div class="rh-detail-stage-grid">
+        ${stageSummary
+          .map(
+            (stage) => `
+              <div class="rh-detail-stage-card">
+                <div class="rh-detail-stage-top">
+                  <div class="rh-detail-stage-name">${escapeHtml(stage.label || '-')}</div>
+                  <span class="rh-detail-stage-weight">Peso ${escapeHtml(stage.weight ?? '-')}%</span>
                 </div>
-              `,
-            )
-            .join('')}
-        </div>
-      `
-    : '<div class="alert alert-warning mb-0">As notas por etapa não foram encontradas neste registro.</div>';
-
+                <div class="rh-detail-stage-score">${escapeHtml(stage.rawScore ?? 0)}/${escapeHtml(stage.rawMax ?? 0)}</div>
+                <div class="rh-detail-stage-meta">
+                  Aproveitamento: ${escapeHtml(((stage.percent || 0) * 100).toFixed(1))}%<br>
+                  Nota ponderada: ${escapeHtml(Number(stage.weightedScore || 0).toFixed(1))}<br>
+                  Itens avaliados: ${escapeHtml(stage.questionCount ?? 0)}${stage.pendings ? `<br>Pendências de revisão: ${escapeHtml(stage.pendings)}` : ''}
+                </div>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    `
+    : `
+      <div class="alert alert-secondary mb-0">
+        Este candidato possui apenas o resumo salvo no histórico. As notas detalhadas por etapa não foram registradas nesta prova.
+      </div>
+    `;
   title.textContent = `Detalhes da prova • ${row.nome_candidato || 'Candidato'}`;
 
   body.innerHTML = `
@@ -481,10 +660,10 @@ async function openRecentTestDetails(recordId) {
           <span class="rh-detail-label">Trilha</span>
           <span class="rh-detail-value">${escapeHtml(payload?.blueprint?.label || row.trilha || '-')}</span>
         </div>
-        <div class="rh-detail-card">
-          <span class="rh-detail-label">Nota final</span>
-          <span class="rh-detail-value">${escapeHtml(row.pontuacao_final || (payload?.weightedFinalScore ?? '-'))}</span>
-        </div>
+       <div class="rh-detail-card">
+  <span class="rh-detail-label">Nota final</span>
+  <span class="rh-detail-value">${escapeHtml(formatDetailScore(row.pontuacao_final, payload?.weightedFinalScore))}</span>
+</div>
         <div class="rh-detail-card">
           <span class="rh-detail-label">Tempo</span>
           <span class="rh-detail-value">${escapeHtml(row.tempo_minutos ? `${row.tempo_minutos} min` : '-')}</span>
@@ -498,9 +677,17 @@ async function openRecentTestDetails(recordId) {
     </section>
 
     <section class="rh-details-section">
-      <h4 class="rh-details-section-title">Registro completo</h4>
-      ${fullLog ? `<pre class="rh-detail-log">${escapeHtml(fullLog)}</pre>` : '<div class="alert alert-warning mb-0">Os detalhes completos desta prova não foram encontrados no navegador.</div>'}
-    </section>
+  <h4 class="rh-details-section-title">Registro completo</h4>
+  ${
+    fullLog
+      ? `<pre class="rh-detail-log">${escapeHtml(fullLog)}</pre>`
+      : `
+        <div class="alert alert-secondary mb-0">
+          Esta prova não possui gabarito detalhado salvo para consulta. Apenas o resumo geral foi encontrado no histórico.
+        </div>
+      `
+  }
+</section>
   `;
 
   if (downloadBtn) {
@@ -532,19 +719,21 @@ function handleRecentDetailsOverlayClick(event) {
     closeRecentTestDetails();
   }
 }
-function downloadRecentTestAnswerKey() {
+
+function downloadRecentTestPackage() {
   const downloadBtn = document.getElementById('recent-test-download-btn');
   const recordId = downloadBtn?.getAttribute('data-record-id') || '';
   const candidateName =
     downloadBtn?.getAttribute('data-candidate-name') || 'candidato';
 
   if (!recordId) {
-    alert('Nenhum gabarito foi associado a este registro.');
+    alert('Nenhuma prova foi associada a este registro.');
     return;
   }
 
-  downloadHistoryAnswerKey(recordId, candidateName);
+  downloadHistoryExamPackage(recordId, candidateName);
 }
+
 function buildResultId() {
   const now = new Date();
   const pad = (v) => String(v).padStart(2, '0');
@@ -558,7 +747,81 @@ function formatDateToInput(dateValue) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function formatDetailScore(rowScore, payloadScore) {
+  const rawValue =
+    rowScore !== undefined && rowScore !== null && rowScore !== ''
+      ? rowScore
+      : payloadScore;
+
+  if (rawValue === undefined || rawValue === null || rawValue === '') {
+    return '-';
+  }
+
+  const text = String(rawValue).trim();
+
+  if (/^\d+,\d+$/.test(text)) {
+    return text;
+  }
+
+  const numeric = Number(text.replace(',', '.'));
+
+  if (!Number.isNaN(numeric)) {
+    return numeric.toLocaleString('pt-BR', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+  }
+
+  return text;
+}
+
+function arrayBufferToBase64(buffer) {
+  if (!buffer) return '';
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
+function base64ToUint8Array(base64) {
+  if (!base64) return null;
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
 function buildAnswerKeyPayload(recordId) {
+  const uploadedFiles = state.questions
+    .map((q, index) => {
+      const answer = state.answers[index];
+      if (
+        q.type !== 'excel_external' ||
+        !answer?.uploadedArrayBuffer ||
+        !answer?.filename
+      ) {
+        return null;
+      }
+
+      return {
+        questionIndex: index,
+        taskId: q.taskId || '',
+        filename: answer.filename,
+        contentBase64: arrayBufferToBase64(answer.uploadedArrayBuffer),
+      };
+    })
+    .filter(Boolean);
+
   return {
     id_teste: recordId,
     candidate: state.candidate,
@@ -569,6 +832,7 @@ function buildAnswerKeyPayload(recordId) {
     weightedFinalScore: state.weightedFinalScore,
     generatedAt: new Date().toISOString(),
     textContent: buildFullAnswerKeyText(),
+    uploadedFiles,
   };
 }
 
@@ -808,7 +1072,6 @@ function renderMultipleQuestion(area, q) {
     </div></div>
   `;
 }
-
 function renderExcelExternalQuestion(area, q) {
   const ans = state.answers[state.currentIndex] || {};
   const uploadId = `excel-file-input-${state.currentIndex}`;
@@ -1040,7 +1303,6 @@ function evaluateWord(answer, expected, points) {
   const upper = plain.toUpperCase();
 
   if (plain.trim().length < 5) return 0;
-
   let score = 0;
   let totalWeight = 0;
   const checks = [
@@ -1115,21 +1377,23 @@ async function downloadExcelTask(questionIndex) {
 }
 
 function getExcelTemplateConfig(taskId) {
+  const EXAMS_FOLDER = 'Exames';
+
   const map = {
     basic_exam: {
-      fileName: 'exame_basico.xlsx',
+      fileName: `${EXAMS_FOLDER}/exame_basico.xlsx`,
       outputBaseName: 'exame_basico',
     },
     qualid_exam: {
-      fileName: 'exame_medio.xlsx',
+      fileName: `${EXAMS_FOLDER}/exame_medio.xlsx`,
       outputBaseName: 'exame_medio',
     },
     planning_exam: {
-      fileName: 'exame_avancado_nvl2.xlsx',
+      fileName: `${EXAMS_FOLDER}/exame_avancado_nvl2.xlsx`,
       outputBaseName: 'exame_avancado_nvl2',
     },
     advanced_exam: {
-      fileName: 'exame_avancado.xlsx',
+      fileName: `${EXAMS_FOLDER}/exame_avancado.xlsx`,
       outputBaseName: 'exame_avancado',
     },
   };
@@ -1565,56 +1829,62 @@ function validateBasicExam(wb, points) {
       const valorCell = ws[`${valorCol}${row}`];
       const subtotalCell = ws[`${subtotalCol}${row}`];
       const valorFmt = String(
-        (valorCell && valorCell.z) || (valorCell && valorCell.w) || '',
+        valorCell?.z || valorCell?.w || valorCell?.s?.numFmt || '',
       ).toUpperCase();
       const subtotalFmt = String(
-        (subtotalCell && subtotalCell.z) ||
-          (subtotalCell && subtotalCell.w) ||
-          '',
+        subtotalCell?.z || subtotalCell?.w || subtotalCell?.s?.numFmt || '',
       ).toUpperCase();
-
       return (
-        valorFmt.includes('R$') ||
-        subtotalFmt.includes('R$') ||
-        valorFmt.includes('#,##0') ||
-        subtotalFmt.includes('#,##0') ||
-        valorFmt.includes('_-') ||
-        subtotalFmt.includes('_-')
+        /R\$|_-\*|[$]/.test(valorFmt) ||
+        /R\$|_-\*|[$]/.test(subtotalFmt) ||
+        /\d,\d{2}/.test(String(valorCell?.w || '')) ||
+        /\d,\d{2}/.test(String(subtotalCell?.w || ''))
       );
     });
 
-  const styledNewColumn =
+  const styleApplied =
     !!subtotalCol &&
-    dataRows.length > 0 &&
-    !!ws[`${valorCol}${dataRows[0]}`] &&
-    !!ws[`${subtotalCol}${dataRows[0]}`] &&
-    !!ws[`${valorCol}${dataRows[0]}`].s &&
-    !!ws[`${subtotalCol}${dataRows[0]}`].s;
-
-  const colorsChanged =
-    !!(ws['A1'] && ws['A1'].s) || !!(ws['A2'] && ws['A2'].s);
-
-  const visibleRows = dataRows.filter((row) => !isRowHidden(ws, row));
-  const visibleValues = visibleRows
-    .map((row) => Number(cellValue(ws, `${valorCol}${row}`)))
-    .filter((v) => !Number.isNaN(v));
-
-  let sortedDesc = false;
-  if (visibleValues.length >= 2) {
-    sortedDesc = visibleValues.every((value, index, arr) => {
-      if (index === 0) return true;
-      return arr[index - 1] >= value;
+    dataRows.some((row) => {
+      const baseCell = ws[`${valorCol}${row}`];
+      const targetCell = ws[`${subtotalCol}${row}`];
+      return !!(baseCell && targetCell);
     });
+
+  const colorChanged =
+    !!ws['A1'] ||
+    !!ws[`${produtoCol}${headerRow}`] ||
+    !!ws[`${quantidadeCol}${headerRow}`];
+
+  let sortedDescending = false;
+  if (hasAutoFilter(ws)) {
+    const visibleRows = dataRows.filter((row) => !isRowHidden(ws, row));
+    const referenceRows = visibleRows.length ? visibleRows : dataRows;
+    const values = referenceRows
+      .map((row) => {
+        const raw = cellValue(ws, `${valorCol}${row}`);
+        const num = Number(
+          String(raw)
+            .replace(/[^\d,.-]/g, '')
+            .replace(',', '.'),
+        );
+        return Number.isNaN(num) ? null : num;
+      })
+      .filter((num) => num !== null);
+
+    if (values.length >= 2) {
+      sortedDescending = values.every(
+        (value, index) => index === 0 || values[index - 1] >= value,
+      );
+    } else {
+      sortedDescending = true;
+    }
   }
 
-  const filterAndSortDone = hasAutoFilter(ws) && sortedDesc;
-  const totalLineCreated =
-    dataRows.length > 0 &&
-    (normalizeHeader(cellValue(ws, `${produtoCol}${totalRow}`)).includes(
-      'TOTAL',
-    ) ||
-      cellHasData(ws, `${quantidadeCol}${totalRow}`) ||
-      cellHasData(ws, `${subtotalCol || valorCol}${totalRow}`));
+  const totalLabel = safeUpper(
+    cellValue(ws, `${produtoCol}${totalRow}`),
+  ).includes('TOTAL');
+  const totalQuantity = cellHasData(ws, `${quantidadeCol}${totalRow}`);
+  const totalValue = cellHasData(ws, `${subtotalCol || valorCol}${totalRow}`);
 
   const tasks = [
     {
@@ -1627,437 +1897,197 @@ function validateBasicExam(wb, points) {
     },
     {
       label: 'Nova coluna com estilo visual aplicado',
-      done: styledNewColumn,
+      done: styleApplied,
     },
     {
       label: 'Cores alteradas em A1 e na linha A2',
-      done: colorsChanged,
+      done: colorChanged,
     },
     {
       label: 'Filtro aplicado e ordenação por maior valor unitário',
-      done: filterAndSortDone,
+      done: hasAutoFilter(ws) && sortedDescending,
     },
     {
       label: 'Linha de total criada com soma final',
-      done: totalLineCreated,
+      done: totalLabel && (totalQuantity || totalValue),
     },
   ];
 
   return buildChecklistResult(tasks, points, notes);
 }
 
-function validateAdvancedExam(wb, points) {
-  const base = validatePlanningExam(wb, points);
-  const q6 = getSheetFlex(wb, 'Q6.', 'Q6');
-  const q7 = getSheetFlex(wb, 'Q7.', 'Q7');
-
-  const notes = [...(base.notes || [])];
-  const tasks = (base.completedTasks || []).map((item) => ({
-    label: String(item).replace(/^✔️\s|^❌\s/, ''),
-    done: String(item).startsWith('✔️'),
-  }));
-
-  if (q6) {
-    const chartDataTouched = Array.from({ length: 20 }, (_, i) =>
-      ['J', 'K', 'L', 'M', 'E', 'F', 'G', 'H'].some((col) =>
-        cellHasData(q6, `${col}${i + 1}`),
-      ),
-    ).some(Boolean);
-
-    tasks.push({
-      label: 'Gráfico combinado sinalizado para revisão',
-      done: chartDataTouched || !!q6['!ref'],
-    });
-
-    notes.push(
-      'Gráfico combinado e eixo secundário devem ser revisados visualmente pelo RH.',
-    );
-  } else {
-    tasks.push({
-      label: 'Gráfico combinado sinalizado para revisão',
-      done: false,
-    });
-  }
-
-  tasks.push({
-    label: 'Soma do RJ em F10',
-    done: !!q7 && cellHasData(q7, 'F10'),
-  });
-
-  return buildChecklistResult(tasks, points, notes);
-}
-
 function validateQualidExam(wb, points) {
-  const notes = [];
+  const tasks = [];
+  const notes = [
+    'Itens visuais, gráfico e alguns posicionamentos podem precisar de revisão manual do RH.',
+  ];
 
-  function getSheetByNames(wbRef, names) {
-    for (const name of names) {
-      const ws = getSheet(wbRef, name);
-      if (ws) return ws;
-    }
-    return null;
-  }
-
-  function isRowHidden(ws, rowNumber) {
-    return !!(
-      ws &&
-      ws['!rows'] &&
-      ws['!rows'][rowNumber - 1] &&
-      ws['!rows'][rowNumber - 1].hidden
-    );
-  }
-
-  function getVisibleValues(ws, col, startRow = 1, endRow = 200) {
-    const values = [];
-    for (let r = startRow; r <= endRow; r++) {
-      const value = String(cellValue(ws, `${col}${r}`) || '').trim();
-      if (!value) continue;
-      if (!isRowHidden(ws, r)) values.push(safeUpper(value));
-    }
-    return values;
-  }
-
-  const q1 = getSheetByNames(wb, ['Q1', 'Q1.']);
-  const q2 = getSheetByNames(wb, ['Q2', 'Q2.']);
-  const q3 = getSheetByNames(wb, ['Q3', 'Q3.']);
-  const q4 = getSheetByNames(wb, ['Q4', 'Q4.']);
-
-  const isNewModel = !!(q1 || q2 || q3 || q4);
-
-  if (isNewModel) {
-    const tasks = [];
-
-    if (q1) {
-      const operators = [];
-      for (let r = 3; r <= 100; r++) {
-        const name = String(cellValue(q1, `A${r}`) || '').trim();
-        if (!name) break;
-        operators.push(name);
-      }
-
-      const sortedCheck =
-        operators.length > 0
-          ? [...operators].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-          : [];
-
-      tasks.push({
-        label: 'Planilha ordenada',
-        done:
-          operators.length > 0 &&
-          JSON.stringify(operators) === JSON.stringify(sortedCheck),
-      });
-
-      tasks.push({
-        label: 'Coluna Valor Total criada',
-        done: safeUpper(cellValue(q1, 'F2')) === 'VALOR TOTAL',
-      });
-
-      tasks.push({
-        label: 'Valor Total preenchido',
-        done:
-          operators.length > 0 &&
-          operators.every((_, i) => cellHasData(q1, `F${i + 3}`)),
-      });
-    } else {
-      tasks.push(
-        { label: 'Planilha ordenada', done: false },
-        { label: 'Coluna Valor Total criada', done: false },
-        { label: 'Valor Total preenchido', done: false },
-      );
-    }
-
-    if (q2) {
-      const visibleOps = getVisibleValues(q2, 'A', 6, 100);
-      tasks.push({
-        label: 'Tabela copiada e filtrada para Wesley Nunes',
-        done:
-          safeUpper(cellValue(q2, 'A5')) === 'OPERADOR' &&
-          hasAutoFilter(q2) &&
-          visibleOps.length === 1 &&
-          visibleOps[0] === 'WESLEY NUNES',
-      });
-    } else {
-      tasks.push({
-        label: 'Tabela copiada e filtrada para Wesley Nunes',
-        done: false,
-      });
-    }
-
-    if (q3) {
-      const visibleSupervisors = getVisibleValues(q3, 'B', 6, 100);
-      tasks.push({
-        label: 'Resumo do supervisor Lula',
-        done:
-          safeUpper(cellValue(q3, 'A5')) === 'OPERADOR' &&
-          hasAutoFilter(q3) &&
-          visibleSupervisors.length >= 1 &&
-          visibleSupervisors.every((name) => name === 'LULA'),
-      });
-    } else {
-      tasks.push({
-        label: 'Resumo do supervisor Lula',
-        done: false,
-      });
-    }
-
-    tasks.push({
-      label: 'Gráfico criado / sinalizado para revisão',
-      done: !!q4,
-    });
-
-    if (q4) {
-      notes.push('O gráfico deve ser revisado visualmente pelo RH.');
-    }
-
-    return buildChecklistResult(tasks, points, notes);
-  }
-
-  const planA = getSheet(wb, 'Planilha A');
+  const planilhaA = getSheet(wb, 'Planilha A');
   const procv = getSheet(wb, 'PROCV');
   const tabdin = getSheet(wb, 'TAB_DIN');
-  const copiar = getSheet(wb, 'Copiar_Colar');
-  const graf = getSheet(wb, 'Gráfico');
+  const copiarColar = getSheet(wb, 'Copiar_Colar');
+  const grafico = getSheet(wb, 'Gráfico');
 
-  const tasks = [];
-
-  if (planA) {
-    const operatorValues = collectColumnValuesUntilBlank(planA, 'A', 3, 100);
-    const sortedCheck =
-      operatorValues.length > 0
-        ? [...operatorValues].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-        : [];
-
-    tasks.push({
-      label: 'Planilha A ordenada',
-      done:
-        operatorValues.length >= 3 &&
-        JSON.stringify(operatorValues) === JSON.stringify(sortedCheck),
-    });
-
-    tasks.push({
-      label: 'Coluna Valor Total criada',
-      done: safeUpper(cellValue(planA, 'F2')) === 'VALOR TOTAL',
-    });
-
-    tasks.push({
-      label: 'Valor Total preenchido',
-      done:
-        operatorValues.length > 0 &&
-        operatorValues.every((_, i) => cellHasData(planA, `F${i + 3}`)),
-    });
-  } else {
-    tasks.push(
-      { label: 'Planilha A ordenada', done: false },
-      { label: 'Coluna Valor Total criada', done: false },
-      { label: 'Valor Total preenchido', done: false },
-    );
-  }
+  const sortedOperators = collectColumnValuesUntilBlank(
+    planilhaA,
+    'A',
+    3,
+  ).filter((v) => !safeUpper(v).includes('OPERADOR'));
+  const isSorted =
+    sortedOperators.length > 1
+      ? sortedOperators.every(
+          (value, index) =>
+            index === 0 ||
+            safeUpper(sortedOperators[index - 1]) <= safeUpper(value),
+        )
+      : false;
 
   tasks.push({
-    label: 'PROCV preenchido',
-    done:
-      !!procv &&
-      Array.from({ length: 13 }, (_, i) =>
-        cellHasData(procv, `C${i + 2}`),
-      ).some(Boolean),
+    label: 'Planilha A em ordem alfabética por Operador',
+    done: isSorted,
   });
 
+  const valorTotalHeader =
+    safeUpper(cellValue(planilhaA, 'F2')) === 'VALOR TOTAL';
+  const valorTotalCalculated = ['F3', 'F4', 'F5', 'F6', 'F7', 'F8'].some(
+    (addr) => cellHasData(planilhaA, addr),
+  );
   tasks.push({
-    label: 'Não encontrados listados em BC255',
-    done:
-      !!procv &&
-      ['BC255', 'BC256', 'BC257', 'BC258'].some((c) => cellHasData(procv, c)),
+    label: 'Coluna F com título Valor Total',
+    done: valorTotalHeader,
   });
-
   tasks.push({
-    label: 'Resumo do supervisor Lula',
-    done:
-      !!tabdin &&
-      ['A5', 'B5', 'C5', 'A6', 'B6', 'C6'].some((c) => cellHasData(tabdin, c)),
+    label: 'Valor Total = Valor (R$) x Quantidade',
+    done: valorTotalCalculated,
   });
 
+  const procvResults = ['C2', 'C3', 'C4', 'C5', 'C6', 'C7'].filter((addr) =>
+    cellHasData(procv, addr),
+  ).length;
   tasks.push({
-    label: 'Tabela copiada/filtrada',
-    done: !!copiar && safeUpper(cellValue(copiar, 'A5')) === 'OPERADOR',
+    label: 'PROCV preenchido na aba PROCV',
+    done: procvResults >= 4,
   });
 
+  const notFoundList =
+    cellHasData(procv, 'BC255') ||
+    cellHasData(procv, 'BD255') ||
+    cellHasData(procv, 'BC256');
   tasks.push({
-    label: 'Gráfico criado / sinalizado para revisão',
-    done: !!graf,
+    label: 'Operadores não encontrados listados a partir de BC255',
+    done: notFoundList,
   });
 
-  if (graf) {
-    notes.push('O gráfico deve ser revisado visualmente pelo RH.');
-  }
+  const tabdinSummary =
+    cellHasData(tabdin, 'A5') ||
+    cellHasData(tabdin, 'B5') ||
+    cellHasData(tabdin, 'C5') ||
+    cellHasData(tabdin, 'D5');
+  tasks.push({
+    label: 'Resumo do supervisor Lula criado na aba TAB_DIN',
+    done: tabdinSummary,
+  });
+
+  const copiedTable =
+    cellHasData(copiarColar, 'A5') &&
+    cellHasData(copiarColar, 'B5') &&
+    hasAutoFilter(copiarColar);
+  tasks.push({
+    label: 'Tabela copiada e filtrada para Wesley Nunes',
+    done: copiedTable,
+  });
+  const hasGraphData =
+    cellHasData(grafico, 'A2') &&
+    cellHasData(grafico, 'D2') &&
+    (grafico['!images'] || grafico['!drawings'] || grafico['!charts']);
+  tasks.push({
+    label: 'Gráfico de colunas agrupadas criado com supervisores e março',
+    done: !!hasGraphData,
+  });
 
   return buildChecklistResult(tasks, points, notes);
-}
-function getSheetFlex(wb, ...names) {
-  for (const name of names) {
-    const ws = wb.Sheets[name];
-    if (ws) return ws;
-  }
-  return null;
 }
 
 function validatePlanningExam(wb, points) {
-  const notes = [];
-  const q1 = getSheetFlex(wb, 'Q1.', 'Q1');
-  const q2 = getSheetFlex(wb, 'Q2.', 'Q2');
-  const q3 = getSheetFlex(wb, 'Q3.', 'Q3');
-  const q4 = getSheetFlex(wb, 'Q4.', 'Q4');
-  const q5 = getSheetFlex(wb, 'Q5.', 'Q5');
-
   const tasks = [];
+  const notes = [
+    'Gráficos, formatação condicional e parte visual devem ser validados manualmente pelo RH.',
+  ];
 
-  if (q1) {
-    const filledAt6 = Array.from({ length: 12 }, (_, i) =>
-      cellHasData(q1, `B${i + 6}`),
-    ).filter(Boolean).length;
-    const filledAt5 = Array.from({ length: 12 }, (_, i) =>
-      cellHasData(q1, `B${i + 5}`),
-    ).filter(Boolean).length;
-    const filled = Math.max(filledAt6, filledAt5);
+  const q1 = getSheet(wb, 'Q1.');
+  const q2 = getSheet(wb, 'Q2.');
+  const q3 = getSheet(wb, 'Q3.');
+  const q4 = getSheet(wb, 'Q4.');
+  const q5 = getSheet(wb, 'Q5.');
 
-    tasks.push({
-      label: 'CONT.SE por cidade preenchido',
-      done: filled >= 6,
-    });
-  } else {
-    tasks.push({
-      label: 'CONT.SE por cidade preenchido',
-      done: false,
-    });
-  }
+  const q1Done =
+    ['B6', 'B7', 'B8', 'B9', 'B10'].filter((addr) => cellHasData(q1, addr))
+      .length >= 3;
+  tasks.push({
+    label: 'CONT.SE preenchido por cidade e ordenado',
+    done: q1Done,
+  });
 
-  if (q2) {
-    const filledAt5 = Array.from({ length: 16 }, (_, i) =>
-      cellHasData(q2, `B${i + 5}`),
-    ).filter(Boolean).length;
-    const filledAt4 = Array.from({ length: 16 }, (_, i) =>
-      cellHasData(q2, `B${i + 4}`),
-    ).filter(Boolean).length;
-    const filled = Math.max(filledAt5, filledAt4);
+  const q2Done =
+    ['B4', 'B5', 'B6', 'B7', 'B8'].filter((addr) => cellHasData(q2, addr))
+      .length >= 3;
+  tasks.push({
+    label: 'PROCV preenchido na aba Q2.',
+    done: q2Done,
+  });
 
-    tasks.push({
-      label: 'PROCV de status preenchido',
-      done: filled >= 8,
-    });
-  } else {
-    tasks.push({
-      label: 'PROCV de status preenchido',
-      done: false,
-    });
-  }
+  const q3Done =
+    cellHasData(q3, 'A5') ||
+    cellHasData(q3, 'B5') ||
+    q3['!images'] ||
+    q3['!drawings'] ||
+    q3['!charts'];
+  tasks.push({
+    label: 'Tabela por DDD e gráfico Pizza 3D',
+    done: !!q3Done,
+  });
 
-  if (q3) {
-    const dddTableCreated = Array.from(
-      { length: 60 },
-      (_, i) =>
-        cellHasData(q3, `A${i + 5}`) ||
-        cellHasData(q3, `B${i + 5}`) ||
-        cellHasData(q3, `C${i + 5}`) ||
-        cellHasData(q3, `D${i + 5}`),
-    ).some(Boolean);
+  const q4Done =
+    ['C7', 'C8', 'C9', 'D7', 'D8', 'D9'].filter((addr) => cellHasData(q4, addr))
+      .length >= 4;
+  tasks.push({
+    label: 'Percentual e situação por zona',
+    done: q4Done,
+  });
 
-    tasks.push({
-      label: 'Tabela por DDD criada',
-      done: dddTableCreated,
-    });
-
-    notes.push(
-      'Gráfico Pizza 3D, título e rótulos devem ser revisados visualmente pelo RH.',
-    );
-  } else {
-    tasks.push({
-      label: 'Tabela por DDD criada',
-      done: false,
-    });
-  }
-
-  if (q4) {
-    const percentuais = Array.from({ length: 9 }, (_, i) =>
-      cellHasData(q4, `C${i + 8}`),
-    ).filter(Boolean).length;
-    const situacoes = Array.from({ length: 9 }, (_, i) =>
-      cellHasData(q4, `D${i + 8}`),
-    ).filter(Boolean).length;
-
-    tasks.push({
-      label: 'Percentuais por zona preenchidos',
-      done: percentuais >= 6,
-    });
-
-    tasks.push({
-      label: 'Situação por zona preenchida',
-      done: situacoes >= 6,
-    });
-
-    notes.push('Formatação condicional deve ser revisada visualmente pelo RH.');
-  } else {
-    tasks.push(
-      { label: 'Percentuais por zona preenchidos', done: false },
-      { label: 'Situação por zona preenchida', done: false },
-    );
-  }
-
-  if (q5) {
-    const vendas = Array.from({ length: 13 }, (_, i) => i + 6).filter((row) =>
-      ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].some((col) =>
-        cellHasData(q5, `${col}${row}`),
-      ),
-    ).length;
-
-    tasks.push({
-      label: 'Análise de vendas preenchida',
-      done: vendas >= 8,
-    });
-  } else {
-    tasks.push({
-      label: 'Análise de vendas preenchida',
-      done: false,
-    });
-  }
+  const q5Done =
+    ['G5', 'H5', 'I5', 'J5', 'G6', 'H6', 'I6', 'J6'].filter((addr) =>
+      cellHasData(q5, addr),
+    ).length >= 4;
+  tasks.push({
+    label: 'Análise de vendas preenchida com totais e percentuais',
+    done: q5Done,
+  });
 
   return buildChecklistResult(tasks, points, notes);
 }
 
 function validateAdvancedExam(wb, points) {
   const base = validatePlanningExam(wb, points);
-  const q6 = getSheetFlex(wb, 'Q6.', 'Q6');
-  const q7 = getSheetFlex(wb, 'Q7.', 'Q7');
+  const tasks = base.completedTasks.map((item) => {
+    const cleaned = item.replace(/^[✔️❌]\s*/, '');
+    return {
+      label: cleaned,
+      done: item.startsWith('✔️'),
+    };
+  });
+  const notes = Array.isArray(base.notes) ? [...base.notes] : [];
 
-  const notes = [...(base.notes || [])];
-  const tasks = (base.completedTasks || []).map((item) => ({
-    label: String(item).replace(/^✔️\s|^❌\s/, ''),
-    done: String(item).startsWith('✔️'),
-  }));
-
-  if (q6) {
-    const chartDataTouched = Array.from({ length: 20 }, (_, i) =>
-      ['J', 'K', 'L', 'M', 'E', 'F', 'G', 'H'].some((col) =>
-        cellHasData(q6, `${col}${i + 1}`),
-      ),
-    ).some(Boolean);
-
-    tasks.push({
-      label: 'Gráfico combinado sinalizado para revisão',
-      done: chartDataTouched || !!q6['!ref'],
-    });
-
-    notes.push(
-      'Gráfico combinado e eixo secundário devem ser revisados visualmente pelo RH.',
-    );
-  } else {
-    tasks.push({
-      label: 'Gráfico combinado sinalizado para revisão',
-      done: false,
-    });
-  }
+  const q6 = getSheet(wb, 'Q6.');
+  const q7 = getSheet(wb, 'Q7.');
 
   tasks.push({
+    label: 'Gráfico combinado com eixo secundário',
+    done: !!(q6 && (q6['!images'] || q6['!drawings'] || q6['!charts'])),
+  });
+  tasks.push({
     label: 'Soma do RJ em F10',
-    done: !!q7 && cellHasData(q7, 'F10'),
+    done: cellHasData(q7, 'F10'),
   });
 
   return buildChecklistResult(tasks, points, notes);
@@ -2065,78 +2095,115 @@ function validateAdvancedExam(wb, points) {
 
 function finishExam() {
   if (state.finished) return;
-  captureCurrentAnswer();
-  clearInterval(state.timerHandle);
   state.finished = true;
+  clearInterval(state.timerHandle);
+  captureCurrentAnswer();
 
-  const results = state.questions.map((q, i) => {
-    const ans = state.answers[i];
-    let score = 0;
-    let notes = [];
-    let pendingManual = false;
-    let completedTasks = [];
-    if (q.type === 'word') score = evaluateWord(ans, q.expected, q.points);
-    if (q.type === 'multiple')
-      score = evaluateMultiple(ans, q.answer, q.points);
-    if (q.type === 'excel_external') {
-      if (ans && ans.validation) {
-        score = ans.validation.score;
-        notes = ans.validation.notes || [];
-        pendingManual = !!ans.validation.pendingManual;
-        completedTasks = ans.validation.completedTasks || [];
+  const results = [];
+  let totalScore = 0;
+  let totalMax = 0;
+
+  state.questions.forEach((q, idx) => {
+    const ans = state.answers[idx];
+    let result;
+
+    if (q.type === 'word') {
+      const score = evaluateWord(ans, q.expected, q.points);
+      result = scoreResult(score, q.points, [], false);
+    } else if (q.type === 'multiple') {
+      const score = evaluateMultiple(ans, q.correctIndex, q.points);
+      result = scoreResult(score, q.points, [], false);
+    } else if (q.type === 'excel_external') {
+      if (!ans || !ans.uploaded || !ans.validation) {
+        result = scoreResult(
+          0,
+          q.points,
+          ['Arquivo não enviado ou inválido.'],
+          true,
+          [],
+        );
       } else {
-        notes = ['Arquivo não enviado ou não analisado.'];
+        result = {
+          score: ans.validation.score,
+          max: ans.validation.max,
+          notes: ans.validation.notes || [],
+          pendingManual: !!ans.validation.pendingManual,
+          completedTasks: ans.validation.completedTasks || [],
+        };
       }
+    } else {
+      result = scoreResult(0, q.points, ['Tipo de questão não suportado.']);
     }
-    return {
-      stageKey: q.stageKey,
-      stage: q.stage,
-      stageWeight: q.stageWeight,
-      title: q.title,
-      score,
-      max: q.points,
-      notes,
-      pendingManual,
-      completedTasks,
-      answerKey: q.type === 'excel_external' ? getTaskAnswerKey(q.taskId) : [],
-    };
+
+    results.push(result);
+    totalScore += result.score;
+    totalMax += result.max;
   });
 
   state.finalResults = results;
-  state.totalScore = results.reduce((sum, item) => sum + item.score, 0);
-  state.totalMax = results.reduce((sum, item) => sum + item.max, 0);
-  state.manualReviewItems = results.filter((x) => x.pendingManual);
-  state.stageSummary = computeStageSummary(results, state.blueprint);
-  state.weightedFinalScore = Number(
-    state.stageSummary
-      .reduce((sum, item) => sum + item.weightedScore, 0)
-      .toFixed(2),
-  );
+  state.totalScore = totalScore;
+  state.totalMax = totalMax;
+
+  const grouped = {};
+
+  state.questions.forEach((q, idx) => {
+    const stageKey = q.stageKey || 'geral';
+    if (!grouped[stageKey]) {
+      const stageConfig = state.blueprint.stages.find(
+        (s) => s.key === stageKey,
+      );
+      grouped[stageKey] = {
+        key: stageKey,
+        label: STAGE_LABELS[stageKey] || q.stage || 'Etapa',
+        weight: stageConfig?.weight || 0,
+        rawScore: 0,
+        rawMax: 0,
+        questionCount: 0,
+        pendings: 0,
+      };
+    }
+    grouped[stageKey].rawScore += results[idx].score;
+    grouped[stageKey].rawMax += results[idx].max;
+    grouped[stageKey].questionCount += 1;
+    if (results[idx].pendingManual) grouped[stageKey].pendings += 1;
+  });
+
+  const stageSummary = Object.values(grouped).map((stage) => {
+    const percent = stage.rawMax ? stage.rawScore / stage.rawMax : 0;
+    const stageScore = percent * 10;
+
+    return {
+      ...stage,
+      percent,
+      weightedScore: stageScore,
+    };
+  });
+
+  const averageFinalScore =
+    stageSummary.length > 0
+      ? stageSummary.reduce((sum, stage) => {
+          const stagePercent = stage.rawMax
+            ? (stage.rawScore / stage.rawMax) * 10
+            : 0;
+          return sum + stagePercent;
+        }, 0) / stageSummary.length
+      : 0;
+
+  state.stageSummary = stageSummary;
+  state.weightedFinalScore = averageFinalScore;
+  state.manualReviewItems = state.questions
+    .map((q, idx) => ({
+      q,
+      idx,
+      result: results[idx],
+      answer: state.answers[idx],
+    }))
+    .filter((item) => item.result.pendingManual);
 
   renderResults();
   showScreen('screen-thanks');
 }
 
-function computeStageSummary(results, blueprint) {
-  return blueprint.stages.map((stage) => {
-    const stageResults = results.filter((r) => r.stageKey === stage.key);
-    const rawScore = stageResults.reduce((s, x) => s + x.score, 0);
-    const rawMax = stageResults.reduce((s, x) => s + x.max, 0);
-    const percent = rawMax ? rawScore / rawMax : 0;
-    const weightedScore = percent * stage.weight * 0.1;
-    return {
-      key: stage.key,
-      label: STAGE_LABELS[stage.key],
-      weight: stage.weight,
-      rawScore,
-      rawMax,
-      percent,
-      weightedScore,
-      questionCount: stageResults.length,
-      pendings: stageResults.filter((x) => x.pendingManual).length,
-    };
-  });
-}
 function renderResults() {
   document.getElementById('result-name').textContent = state.candidate.name;
   document.getElementById('result-role').textContent = state.candidate.role;
@@ -2159,7 +2226,10 @@ function renderResults() {
           </div>
           <div class="fw-bold">${data.questionCount} item(ns) avaliados</div>
           <div class="mt-2 stage-card-score ${cls} fs-5">${data.rawScore}/${data.rawMax}</div>
-          <div class="small text-muted mt-1">Aproveitamento: ${(data.percent * 100).toFixed(1)}% • Nota ponderada: ${data.weightedScore.toFixed(2)}</div>
+          <div class="small text-muted mt-1">
+            Aproveitamento: ${(data.percent * 100).toFixed(1)}% •
+            Nota ponderada: ${data.weightedScore.toFixed(2)}
+          </div>
           ${data.pendings ? `<div class="small text-muted mt-2">Pendências de revisão: ${data.pendings}</div>` : ''}
         </div>
       </div>`;
@@ -2174,10 +2244,24 @@ function renderResults() {
       .map(
         (item) => `
       <div class="mb-4">
-        <div><strong>${item.title}</strong></div>
-        ${item.completedTasks?.length ? `<div class="small text-muted mt-2"><strong>Resultado automático:</strong></div><ul class="small text-muted">${item.completedTasks.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
-        ${item.answerKey?.length ? `<div class="small text-muted mt-2"><strong>Checklist do RH:</strong></div><ul class="small text-muted">${item.answerKey.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
-        ${item.notes?.length ? `<div class="small text-muted">${item.notes.join(' | ')}</div>` : ''}
+        <div><strong>${item.title || item.q?.title || 'Item para revisão'}</strong></div>
+        ${
+          item.completedTasks?.length
+            ? `<div class="small text-muted mt-2"><strong>Resultado automático:</strong></div>
+               <ul class="small text-muted">${item.completedTasks.map((x) => `<li>${x}</li>`).join('')}</ul>`
+            : ''
+        }
+        ${
+          item.answerKey?.length
+            ? `<div class="small text-muted mt-2"><strong>Checklist do RH:</strong></div>
+               <ul class="small text-muted">${item.answerKey.map((x) => `<li>${x}</li>`).join('')}</ul>`
+            : ''
+        }
+        ${
+          item.notes?.length
+            ? `<div class="small text-muted">${item.notes.join(' | ')}</div>`
+            : ''
+        }
       </div>`,
       )
       .join('');
@@ -2191,63 +2275,74 @@ function renderResults() {
   const printStageBox = document.getElementById('print-stage-results');
   const printManualBox = document.getElementById('print-manual-review');
 
-  if (printDateEl) printDateEl.textContent = new Date().toLocaleString('pt-BR');
-  if (printNameEl) printNameEl.textContent = state.candidate.name || '';
-  if (printRoleEl) printRoleEl.textContent = state.candidate.role || '';
-  if (printLevelEl)
+  if (printDateEl) {
+    printDateEl.textContent = new Date().toLocaleString('pt-BR');
+  }
+  if (printNameEl) printNameEl.textContent = state.candidate.name;
+  if (printRoleEl) printRoleEl.textContent = state.candidate.role;
+  if (printLevelEl) {
     printLevelEl.textContent = `${state.candidate.level} • ${state.blueprint.label}`;
-  if (printScoreEl)
+  }
+  if (printScoreEl) {
     printScoreEl.textContent = state.weightedFinalScore.toFixed(2);
+  }
 
   if (printStageBox) {
     printStageBox.innerHTML = state.stageSummary
       .map(
         (data) => `
-        <div class="print-stage-item">
-          <div class="print-stage-item-title">${data.label}</div>
-          <div class="print-stage-item-count">${data.questionCount} itens avaliados</div>
-          <strong>Nota: ${data.rawScore}/${data.rawMax}</strong>
-          <strong>Aproveitamento: ${(data.percent * 100).toFixed(1)}%</strong>
-          <strong>Nota ponderada: ${data.weightedScore.toFixed(2)}</strong>
-        </div>`,
+          <div class="print-stage-card">
+            <div class="print-stage-title">${data.label}</div>
+            <div class="print-stage-score">${data.rawScore}/${data.rawMax}</div>
+            <div class="print-stage-meta">
+              Peso: ${data.weight}%<br>
+              Aproveitamento: ${(data.percent * 100).toFixed(1)}%<br>
+              Nota ponderada: ${data.weightedScore.toFixed(2)}
+            </div>
+          </div>
+        `,
       )
       .join('');
   }
 
   if (printManualBox) {
-    if (!state.manualReviewItems.length) {
-      printManualBox.innerHTML = 'Nenhuma pendência.';
-    } else {
-      printManualBox.innerHTML = state.manualReviewItems
-        .map(
-          (item) => `
-          <div class="mb-2"><strong>${item.title}</strong>${item.completedTasks?.length ? `<ul>${item.completedTasks.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}${item.answerKey?.length ? `<ul>${item.answerKey.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}${item.notes?.length ? `<div>${item.notes.join(' | ')}</div>` : ''}</div>`,
-        )
-        .join('');
-    }
+    printManualBox.innerHTML = state.manualReviewItems.length
+      ? state.manualReviewItems
+          .map(
+            (item) => `
+              <div class="mb-3">
+                <strong>${item.title || item.q?.title || 'Item para revisão'}</strong>
+                ${item.notes?.length ? `<div class="small text-muted">${item.notes.join(' | ')}</div>` : ''}
+              </div>
+            `,
+          )
+          .join('')
+      : '<div>Nenhuma pendência.</div>';
   }
 }
 
 function getQuestionExpectedAnswerText(q) {
-  if (q.type === 'multiple')
-    return q.options && q.options[q.answer] !== undefined
-      ? `Resposta correta: ${q.options[q.answer]}`
-      : 'Resposta correta: não identificada';
+  if (q.type === 'multiple') {
+    return (
+      q.options?.[q.correctIndex] ?? 'Resposta objetiva definida no sistema.'
+    );
+  }
   if (q.type === 'word') {
     const expected = [];
     if (q.expected?.titleText)
       expected.push(`Título esperado: ${q.expected.titleText}`);
-    if (q.expected?.minTextLength)
-      expected.push(`Texto mínimo: ${q.expected.minTextLength} caracteres`);
-    if (q.expected?.minSentences)
-      expected.push(`Frases mínimas: ${q.expected.minSentences}`);
-    if (q.expected?.requiresList) expected.push('Deve conter lista');
-    if (q.expected?.minListItems)
-      expected.push(`Itens mínimos na lista: ${q.expected.minListItems}`);
     if (q.expected?.titleBold) expected.push('Título em negrito');
     if (q.expected?.titleCenter) expected.push('Título centralizado');
-    if (q.expected?.anyBold)
-      expected.push('Deve conter ao menos um trecho em negrito');
+    if (q.expected?.minTextLength)
+      expected.push(
+        `Texto com no mínimo ${q.expected.minTextLength} caracteres`,
+      );
+    if (q.expected?.minSentences)
+      expected.push(`Texto com pelo menos ${q.expected.minSentences} frases`);
+    if (q.expected?.requiresList) expected.push('Uso de lista');
+    if (q.expected?.minListItems)
+      expected.push(`Lista com ao menos ${q.expected.minListItems} itens`);
+    if (q.expected?.anyBold) expected.push('Uso de negrito no conteúdo');
     return expected.length
       ? expected.join(' | ')
       : 'Critérios práticos definidos no sistema.';
@@ -2334,190 +2429,111 @@ async function downloadExamPackage() {
       alert('Nome do candidato não encontrado.');
       return;
     }
-
     const zip = new JSZip();
-
-    const answerKeyText = buildFullAnswerKeyText();
-    zip.file(
-      `gabarito_${sanitizeFileName(state.candidate.name)}.txt`,
-      answerKeyText || 'Sem conteúdo de gabarito disponível.',
+    const baseName = sanitizeFileName(
+      `${state.candidate.name}_${state.candidate.role || 'prova'}`,
     );
 
-    let excelCount = 0;
+    zip.file(`gabarito_${baseName}.txt`, buildFullAnswerKeyText());
 
-    state.answers.forEach((ans, index) => {
-      if (!ans) return;
-
-      if (ans.uploadedArrayBuffer && ans.filename) {
+    for (let i = 0; i < state.questions.length; i += 1) {
+      const q = state.questions[i];
+      const ans = state.answers[i];
+      if (
+        q.type === 'excel_external' &&
+        ans?.uploadedArrayBuffer &&
+        ans?.filename
+      ) {
         zip.file(
-          `excel_respondido_${index + 1}_${sanitizeFileName(ans.filename)}`,
+          `excel_respondido_${sanitizeFileName(ans.filename)}`,
           ans.uploadedArrayBuffer,
         );
-        excelCount++;
-        return;
       }
-
-      if (ans.uploadedFile instanceof File) {
-        zip.file(
-          `excel_respondido_${index + 1}_${sanitizeFileName(ans.uploadedFile.name)}`,
-          ans.uploadedFile,
-        );
-        excelCount++;
-      }
-    });
-
-    if (excelCount === 0) {
-      console.warn(
-        'Nenhum arquivo de Excel foi encontrado para incluir no pacote.',
-      );
     }
 
     const blob = await zip.generateAsync({ type: 'blob' });
-
-    if (!blob || blob.size === 0) {
-      alert('Não foi possível gerar o arquivo ZIP.');
-      return;
-    }
-
-    downloadBlob(`prova_${sanitizeFileName(state.candidate.name)}.zip`, blob);
+    downloadBlob(`prova_${baseName}.zip`, blob);
   } catch (error) {
     console.error('Erro ao gerar pacote da prova:', error);
-    alert('Ocorreu um erro ao baixar o pacote da prova.');
+    alert('Não foi possível gerar o pacote da prova.');
   }
 }
 
-async function saveResult() {
-  const alertBox = document.getElementById('save-alert');
-  if (!alertBox) return;
-
-  if (!state?.candidate?.name) {
-    alertBox.textContent =
-      'Não foi possível salvar: candidato não identificado.';
-    alertBox.classList.remove('d-none', 'alert-success');
-    alertBox.classList.add('alert-danger');
-    return;
-  }
-
-  const recordId = state.currentResultId || buildResultId();
-  state.currentResultId = recordId;
-  const now = new Date();
-  const displayDate = now.toLocaleString('pt-BR');
-  const answerFileName = `gabarito_${recordId}.json`;
+async function saveExamResult() {
+  const alertEl = document.getElementById('save-alert');
 
   try {
-    await saveHistoryRow({
+    const recordId = state.currentResultId || buildResultId();
+    const now = new Date();
+
+    const row = {
       id_teste: recordId,
       nome_candidato: state.candidate.name,
       vaga: state.candidate.role,
       nivel: state.candidate.level,
-      trilha: state.blueprint?.label || state.candidate.track || '',
-      data_iso: now.toISOString(),
-      data_exibicao: displayDate,
-      pontuacao_final: Number(state.weightedFinalScore || 0).toFixed(2),
-      status: 'Finalizado',
+      trilha: state.blueprint.label,
+      pontuacao_final: state.weightedFinalScore.toFixed(1).replace('.', ','),
+      pontuacao_bruta: `${state.totalScore}/${state.totalMax}`,
       tempo_minutos: state.candidate.time,
-      arquivo_gabarito: answerFileName,
-    });
+      data_iso: now.toISOString(),
+      data_exibicao: now.toLocaleString('pt-BR'),
+      status: 'Finalizado',
+    };
 
-    await saveAnswerFile(recordId, {
-      fileName: answerFileName,
-      content: JSON.stringify(buildAnswerKeyPayload(recordId), null, 2),
-      mimeType: 'application/json',
-      candidateName: state.candidate.name,
-    });
+    await saveHistoryRow(row);
+    state.currentResultId = recordId;
+    state.recentPage = 1;
+    renderMenuRecentTests();
 
-    alertBox.textContent =
-      'Resultado salvo com sucesso no histórico compartilhado do servidor.';
-    alertBox.classList.remove('d-none', 'alert-danger');
-    alertBox.classList.add('alert-success');
-  } catch (error) {
-    console.error(error);
-    alertBox.textContent =
-      'Não foi possível salvar no histórico compartilhado do servidor.';
-    alertBox.classList.remove('d-none', 'alert-success');
-    alertBox.classList.add('alert-danger');
-  }
-}
+    let answerFileSaved = true;
+    let answerFileError = null;
 
-function clearHistoryFilters() {
-  document.getElementById('history-filter-name').value = '';
-  document.getElementById('history-filter-role').value = '';
-  document.getElementById('history-filter-date').value = '';
-  renderHistoryTable();
-}
-
-async function renderHistoryTable() {
-  const body = document.getElementById('history-table-body');
-  const alertEl = document.getElementById('history-alert');
-  if (!body || !alertEl) return;
-
-  const nameFilter = safeUpper(
-    document.getElementById('history-filter-name')?.value || '',
-  );
-  const roleFilter = safeUpper(
-    document.getElementById('history-filter-role')?.value || '',
-  );
-  const dateFilter =
-    document.getElementById('history-filter-date')?.value || '';
-
-  try {
-    const rows = (await readHistoryRows()).sort((a, b) =>
-      a.data_iso < b.data_iso ? 1 : -1,
-    );
-
-    const filtered = rows.filter((row) => {
-      const matchesName =
-        !nameFilter || safeUpper(row.nome_candidato).includes(nameFilter);
-      const matchesRole =
-        !roleFilter || safeUpper(row.vaga).includes(roleFilter);
-      const matchesDate =
-        !dateFilter || formatDateToInput(row.data_iso) === dateFilter;
-      return matchesName && matchesRole && matchesDate;
-    });
-
-    if (!rows.length) {
-      alertEl.textContent = 'Nenhum resultado salvo até o momento.';
-      alertEl.classList.remove('d-none', 'alert-danger');
-      alertEl.classList.add('alert-info');
-      body.innerHTML =
-        '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum resultado salvo até o momento.</td></tr>';
-      return;
+    try {
+      await saveAnswerFile(recordId, buildAnswerKeyPayload(recordId));
+    } catch (error) {
+      answerFileSaved = false;
+      answerFileError = error;
+      console.error('Erro ao salvar gabarito:', error);
     }
 
-    alertEl.classList.add('d-none');
+    if (alertEl) {
+      alertEl.classList.remove(
+        'd-none',
+        'alert-danger',
+        'alert-warning',
+        'alert-info',
+        'alert-success',
+      );
 
-    if (!filtered.length) {
-      body.innerHTML =
-        '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum resultado encontrado para os filtros informados.</td></tr>';
-      return;
+      if (answerFileSaved) {
+        alertEl.textContent = 'Resultado salvo com sucesso.';
+        alertEl.classList.add('alert-success');
+      } else {
+        alertEl.textContent =
+          'Resultado salvo com sucesso, mas o gabarito detalhado não foi salvo no servidor.';
+        alertEl.classList.add('alert-warning');
+      }
     }
 
-    body.innerHTML = filtered
-      .map(
-        (row) => `
-      <tr>
-        <td>${row.id_teste}</td>
-        <td>${row.nome_candidato}</td>
-        <td>${row.vaga}</td>
-        <td>${row.nivel}${row.trilha ? `<div class="small text-muted">${row.trilha}</div>` : ''}</td>
-        <td>${row.data_exibicao}</td>
-        <td>${row.pontuacao_final}</td>
-        <td><span class="badge text-bg-success">${row.status || 'Finalizado'}</span></td>
-        <td class="text-end">
-          <button class="btn btn-sm btn-outline-primary" onclick="downloadHistoryAnswerKey('${row.id_teste}', '${sanitizeFileName(row.nome_candidato)}')">Baixar gabarito</button>
-        </td>
-      </tr>
-    `,
-      )
-      .join('');
+    renderMenuRecentTests();
+
+    if (answerFileError) {
+      return;
+    }
   } catch (error) {
-    console.error(error);
-    alertEl.textContent =
-      'Não foi possível carregar o histórico compartilhado do servidor.';
-    alertEl.classList.remove('d-none', 'alert-info');
-    alertEl.classList.add('alert-danger');
-    body.innerHTML =
-      '<tr><td colspan="8" class="text-center text-danger py-4">Erro ao carregar histórico.</td></tr>';
+    console.error('Erro ao salvar prova:', error);
+
+    if (alertEl) {
+      alertEl.textContent =
+        'Não foi possível salvar a prova no servidor. Verifique a API.';
+      alertEl.classList.remove(
+        'd-none',
+        'alert-success',
+        'alert-warning',
+        'alert-info',
+      );
+      alertEl.classList.add('alert-danger');
+    }
   }
 }
 
@@ -2527,71 +2543,179 @@ async function downloadHistoryAnswerKey(recordId, candidateName = 'candidato') {
     const saved = files[recordId];
 
     if (!saved?.content) {
-      alert('O gabarito desse candidato não foi encontrado no servidor.');
+      alert('Gabarito não encontrado para este registro.');
       return;
     }
 
-    const blob = new Blob([saved.content], {
-      type: saved.mimeType || 'application/json',
-    });
-
+    const blob = new Blob([saved.content], { type: 'application/json' });
     downloadBlob(
-      saved.fileName || `gabarito_${sanitizeFileName(candidateName)}.json`,
+      `gabarito_${sanitizeFileName(candidateName)}_${sanitizeFileName(recordId)}.json`,
       blob,
     );
   } catch (error) {
-    console.error(error);
-    alert('Não foi possível baixar o gabarito compartilhado.');
+    console.error('Erro ao baixar gabarito salvo:', error);
+    alert('Não foi possível baixar o gabarito.');
   }
 }
 
-function downloadCurrentAnswerKey() {
-  if (!state.currentResultId) {
-    alert('Salve o resultado antes de baixar o gabarito individual.');
-    return;
-  }
-  downloadHistoryAnswerKey(
-    state.currentResultId,
-    state.candidate?.name || 'candidato',
-  );
-}
-
-async function exportHistoryCsv() {
+async function downloadHistoryExamPackage(
+  recordId,
+  candidateName = 'candidato',
+) {
   try {
-    const csv = await ensureHistoryCsv();
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    downloadBlob('historico_testes.csv', blob);
+    if (typeof JSZip === 'undefined') {
+      alert('Não foi possível gerar o pacote automaticamente neste navegador.');
+      return;
+    }
+
+    const files = await getAnswerFiles();
+    const saved = files[recordId];
+
+    if (!saved?.content) {
+      alert('Prova não encontrada para este registro.');
+      return;
+    }
+
+    let payload = null;
+    try {
+      payload = JSON.parse(saved.content);
+    } catch (error) {
+      console.warn(
+        'Não foi possível interpretar o conteúdo salvo da prova:',
+        error,
+      );
+    }
+
+    const zip = new JSZip();
+    const safeCandidateName = sanitizeFileName(candidateName);
+    const safeRecordId = sanitizeFileName(recordId);
+    const baseName = `${safeCandidateName}_${safeRecordId}`;
+    const textContent = payload?.textContent || saved.content;
+
+    zip.file(`gabarito_${baseName}.txt`, textContent);
+    zip.file(
+      `dados_${baseName}.json`,
+      JSON.stringify(payload || saved, null, 2),
+    );
+
+    if (Array.isArray(payload?.uploadedFiles)) {
+      payload.uploadedFiles.forEach((file) => {
+        if (!file?.filename || !file?.contentBase64) return;
+        const bytes = base64ToUint8Array(file.contentBase64);
+        if (!bytes) return;
+
+        zip.file(`excel_respondido_${sanitizeFileName(file.filename)}`, bytes);
+      });
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(`prova_${baseName}.zip`, blob);
   } catch (error) {
-    console.error(error);
-    alert('Não foi possível exportar o histórico do servidor.');
+    console.error('Erro ao baixar pacote da prova salva:', error);
+    alert('Não foi possível baixar a prova.');
   }
 }
 
-function openAdminResult() {
-  const pass = document.getElementById('admin-pass').value.trim();
-  const alert = document.getElementById('admin-alert');
-  if (pass !== RH_PASS) {
-    alert.textContent = 'Senha inválida.';
-    alert.classList.remove('d-none');
-    return;
-  }
-  alert.classList.add('d-none');
-  showScreen('screen-result');
-}
+async function renderHistoryTable() {
+  const tableBody = document.getElementById('history-table-body');
+  const pagination = document.getElementById('history-pagination');
+  if (!tableBody) return;
 
-function printResult() {
-  window.print();
-}
+  try {
+    const rows = await readHistoryRows();
 
-function backToConfig() {
-  const currentScreenCandidate = document.getElementById('screen-candidate');
-  const isCandidateScreen =
-    currentScreenCandidate &&
-    currentScreenCandidate.classList.contains('active');
-  if (isCandidateScreen) {
-    showScreen('screen-config');
-    return;
+    const nameFilter =
+      document
+        .getElementById('history-filter-name')
+        ?.value.trim()
+        .toLowerCase() || '';
+    const roleFilter =
+      document
+        .getElementById('history-filter-role')
+        ?.value.trim()
+        .toLowerCase() || '';
+    const dateFilter =
+      document.getElementById('history-filter-date')?.value || '';
+
+    const filtered = rows
+      .filter((row) => {
+        const matchName =
+          !nameFilter ||
+          String(row.nome_candidato || '')
+            .toLowerCase()
+            .includes(nameFilter);
+
+        const matchRole =
+          !roleFilter ||
+          String(row.vaga || '')
+            .toLowerCase()
+            .includes(roleFilter);
+
+        const matchDate =
+          !dateFilter ||
+          formatDateToInput(row.data_iso || row.data_exibicao) === dateFilter;
+
+        return matchName && matchRole && matchDate;
+      })
+      .sort((a, b) => (a.data_iso < b.data_iso ? 1 : -1));
+
+    if (!filtered.length) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">
+            Nenhum registro encontrado.
+          </td>
+        </tr>
+      `;
+      if (pagination) pagination.innerHTML = '';
+      return;
+    }
+
+    const paged = getPagedItems(
+      filtered,
+      state.historyPage,
+      state.historyPageSize,
+    );
+    state.historyPage = paged.currentPage;
+
+    tableBody.innerHTML = paged.items
+      .map(
+        (row) => `
+          <tr>
+            <td>${escapeHtml(row.id_teste || '-')}</td>
+            <td>${escapeHtml(row.nome_candidato || '-')}</td>
+            <td>${escapeHtml(row.vaga || '-')}</td>
+            <td>${escapeHtml(row.nivel || '-')}</td>
+            <td>${escapeHtml(row.data_exibicao || '-')}</td>
+            <td>${escapeHtml(formatDetailScore(row.pontuacao_final || '-', ''))}</td>
+            <td>${escapeHtml(row.status || 'Finalizado')}</td>
+            <td>
+              <div class="d-flex gap-2 flex-wrap justify-content-end">
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openRecentTestDetails('${row.id_teste}')">Detalhes</button>
+                <button type="button" class="btn btn-sm btn-outline-success" onclick="downloadHistoryExamPackage('${row.id_teste}', '${sanitizeFileName(row.nome_candidato || 'candidato')}')">Baixar prova</button>
+              </div>
+            </td>
+          </tr>
+        `,
+      )
+      .join('');
+
+    if (pagination) {
+      pagination.innerHTML = buildPaginationHtml(
+        paged.currentPage,
+        paged.totalPages,
+        'goToHistoryPage',
+      );
+    }
+  } catch (error) {
+    console.error('Erro ao renderizar histórico:', error);
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="8" class="text-center text-danger py-4">
+          Não foi possível carregar o histórico.
+        </td>
+      </tr>
+    `;
+    if (pagination) pagination.innerHTML = '';
   }
-  resetExamEntryFields();
-  showScreen('screen-config');
 }
