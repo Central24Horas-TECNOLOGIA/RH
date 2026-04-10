@@ -633,9 +633,23 @@ async function openRecentTestDetails(recordId) {
   }
 
   const candidate = payload?.candidate || {};
+
+  let historyStageSummary = [];
+  if (row?.etapas_json) {
+    try {
+      const parsedStages = JSON.parse(row.etapas_json);
+      if (Array.isArray(parsedStages)) {
+        historyStageSummary = parsedStages;
+      }
+    } catch (error) {
+      console.warn('Erro ao interpretar etapas_json do histórico:', error);
+    }
+  }
+
   const stageSummary = Array.isArray(payload?.stageSummary)
     ? payload.stageSummary
-    : [];
+    : historyStageSummary;
+
   const fullLog = payload?.textContent || '';
   const status = await normalizeRecentStatus(row);
   const statusClass = getRecentStatusClass(status);
@@ -2528,6 +2542,7 @@ async function saveExamResult() {
       data_iso: now.toISOString(),
       data_exibicao: now.toLocaleString('pt-BR'),
       status: 'Finalizado',
+      etapas_json: JSON.stringify(state.stageSummary || []),
     };
 
     await saveHistoryRow(row);

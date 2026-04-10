@@ -68,20 +68,21 @@ def get_history():
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT
-                id_teste,
-                nome_candidato,
-                vaga,
-                nivel,
-                trilha,
-                data_iso,
-                data_exibicao,
-                pontuacao_final,
-                status,
-                tempo_minutos,
-                arquivo_gabarito
-            FROM historico_provas
-        """)
+                    SELECT
+                        id_teste,
+                        nome_candidato,
+                        vaga,
+                        nivel,
+                        trilha,
+                        data_iso,
+                        data_exibicao,
+                        pontuacao_final,
+                        status,
+                        tempo_minutos,
+                        arquivo_gabarito,
+                        etapas_json
+                    FROM historico_provas
+                """)
 
         columns = [column[0] for column in cursor.description]
         rows = cursor.fetchall()
@@ -126,22 +127,23 @@ def save_history(row: dict):
         cursor = conn.cursor()
 
         sql = """
-        INSERT INTO historico_provas
-        (
-            id_teste,
-            nome_candidato,
-            vaga,
-            nivel,
-            trilha,
-            data_iso,
-            data_exibicao,
-            pontuacao_final,
-            status,
-            tempo_minutos,
-            arquivo_gabarito
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
+               INSERT INTO historico_provas
+               (
+                   id_teste,
+                   nome_candidato,
+                   vaga,
+                   nivel,
+                   trilha,
+                   data_iso,
+                   data_exibicao,
+                   pontuacao_final,
+                   status,
+                   tempo_minutos,
+                   arquivo_gabarito,
+                   etapas_json
+               )
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               """
 
         values = (
             row.get("id_teste", ""),
@@ -155,6 +157,7 @@ def save_history(row: dict):
             row.get("status", ""),
             row.get("tempo_minutos", 0),
             row.get("arquivo_gabarito", ""),
+            row.get("etapas_json", ""),
         )
 
         cursor.execute(sql, values)
