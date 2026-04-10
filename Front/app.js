@@ -1,4 +1,4 @@
-const RH_USER = 'rh';
+﻿const RH_USER = 'rh';
 const RH_PASS = '1234';
 //const HISTORY_CSV_KEY = 'rh_exam_history_csv';
 //const ANSWER_FILES_KEY = 'rh_exam_answer_files';
@@ -21,6 +21,7 @@ const state = {
   stageSummary: [],
   manualReviewItems: [],
   currentResultId: null,
+  rhObservation: '',
 
   recentPage: 1,
   recentPageSize: 6,
@@ -29,7 +30,7 @@ const state = {
   historyPageSize: 10,
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const roleEl = document.getElementById('candidate-role');
   const levelEl = document.getElementById('candidate-level');
   const trackEl = document.getElementById('candidate-track');
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Estagiário: '2',
         Supervisor: '3',
         'Help Desk': '3',
+        'Control Desk': '3',
         Planejamento: '3',
         TI: '4',
         Analista: '4',
@@ -57,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         TI: 'ti',
         Supervisor: 'operacao',
         'Help Desk': 'adm',
+        'Control Desk': 'adm',
         Planejamento: 'adm',
       };
 
@@ -73,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateFlowPreview();
     });
   }
+
   if (levelEl) levelEl.addEventListener('change', updateFlowPreview);
   if (trackEl) trackEl.addEventListener('change', updateFlowPreview);
 
@@ -88,11 +92,13 @@ document.addEventListener('DOMContentLoaded', () => {
     },
   );
 
-  ensureHistoryCsv().catch((error) => {
+  try {
+    await ensureHistoryCsv();
+  } catch (error) {
     console.error('Erro ao inicializar histórico compartilhado:', error);
-  });
+  }
+
   updateFlowPreview();
-  renderMenuRecentTests();
 });
 
 function showScreen(id) {
@@ -252,6 +258,19 @@ function openAdminResult() {
 
 function printResult() {
   window.print();
+}
+
+function handleRhObservationChange() {
+  const input = document.getElementById('rh-observation-input');
+  const printBox = document.getElementById('print-rh-observation');
+  const value = (input?.value || '').trim();
+
+  state.rhObservation = value;
+
+  if (printBox) {
+    printBox.textContent =
+      value || 'Anotações sobre desempenho, postura, tempo, etc.';
+  }
 }
 
 function backToConfig() {
@@ -537,17 +556,35 @@ async function renderMenuRecentTests() {
         const statusClass = getRecentStatusClass(status);
 
         return `
-          <button type="button" class="rh-recent-card btn text-start" data-record-id="${escapeHtml(row.id_teste)}">
-            <div class="rh-recent-card-top">
-              <span class="rh-recent-name">${escapeHtml(row.nome_candidato || 'Sem nome')}</span>
-              <span class="rh-recent-date">${escapeHtml(row.data_exibicao || '-')}</span>
-            </div>
-            <div class="rh-recent-card-bottom">
-              <span class="rh-recent-role">${escapeHtml(row.vaga || '-')}</span>
-              <span class="rh-status-pill ${statusClass}">${escapeHtml(status)}</span>
-            </div>
-          </button>
-        `;
+  <button type="button" class="rh-recent-card btn text-start" data-record-id="${escapeHtml(row.id_teste)}">
+    <div class="rh-recent-avatar-wrap">
+      <img
+        src="style/avatar-candidato.png"
+        alt="Foto de perfil do candidato"
+        class="rh-recent-avatar"
+      >  
+    </div>
+
+    <div class="rh-recent-card-top">
+      <!--<div class="rh-recent-top-left">
+      
+      </div>-->
+
+      <div class="rh-recent-top-right">
+        <span class="rh-recent-score-label">NOTA</span>
+        <span class="rh-recent-score">${escapeHtml(formatDetailScore(row.pontuacao_final, saved?.weightedFinalScore || row?.weightedFinalScore || '0,0'))}</span>
+       
+      </div>
+    </div>
+    <span class="rh-recent-name">${escapeHtml(row.nome_candidato || 'Sem nome')}</span>
+    <span class="rh-recent-date">${escapeHtml(row.data_exibicao || '-')}</span>
+    <div class="rh-recent-card-bottom">
+    
+      <span class="rh-recent-role">${escapeHtml(row.vaga || '-')}</span>
+      <span class="rh-status-pill ${statusClass}">${escapeHtml(status)}</span>
+    </div>
+  </button>
+`;
       }),
     );
 
@@ -830,6 +867,7 @@ function buildAnswerKeyPayload(recordId) {
     totalScore: state.totalScore,
     totalMax: state.totalMax,
     weightedFinalScore: state.weightedFinalScore,
+    rhObservation: state.rhObservation || '',
     generatedAt: new Date().toISOString(),
     textContent: buildFullAnswerKeyText(),
     uploadedFiles,
@@ -974,6 +1012,7 @@ async function startExam() {
   state.stageSummary = [];
   state.manualReviewItems = [];
   state.currentResultId = null;
+  state.rhObservation = '';
 
   const examCandidateEl = document.getElementById('exam-candidate');
   const examRoleEl = document.getElementById('exam-role');
@@ -1064,7 +1103,10 @@ function renderMultipleQuestion(area, q) {
           (opt, i) => `
         <div class="form-check mb-3">
           <input class="form-check-input" type="radio" name="mcq" id="opt-${i}" value="${i}" ${selected === i ? 'checked' : ''}>
-          <label class="form-check-label" for="opt-${i}">${opt}</label>
+          <label class="form-check-label" for="opt-${i}">
+            <span class="exam-option-letter">${String.fromCharCode(65 + i)}</span>
+            <span class="exam-option-text">${opt}</span>
+          </label>
         </div>
       `,
         )
@@ -2219,7 +2261,7 @@ function renderResults() {
         data.percent >= 0.7 ? 'good' : data.percent >= 0.4 ? 'warn' : 'bad';
       return `
       <div class="col-md-6">
-        <div class="result-item h-100">
+        <div class="result-item h-100 rh-stage-result-card" style="--stage-progress:${Math.max(8, Math.min(100, data.percent * 100))}%">
           <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
             <div class="text-muted">${data.label}</div>
             <span class="weight-badge">Peso ${data.weight}%</span>
@@ -2267,6 +2309,7 @@ function renderResults() {
       .join('');
   }
 
+  const rhObservationInput = document.getElementById('rh-observation-input');
   const printDateEl = document.getElementById('print-generated-at');
   const printNameEl = document.getElementById('print-name');
   const printRoleEl = document.getElementById('print-role');
@@ -2274,9 +2317,15 @@ function renderResults() {
   const printScoreEl = document.getElementById('print-score');
   const printStageBox = document.getElementById('print-stage-results');
   const printManualBox = document.getElementById('print-manual-review');
+  const printRhObservationEl = document.getElementById('print-rh-observation');
+  if (rhObservationInput) {
+    rhObservationInput.value = state.rhObservation || '';
+  }
 
-  if (printDateEl) {
-    printDateEl.textContent = new Date().toLocaleString('pt-BR');
+  if (printRhObservationEl) {
+    printRhObservationEl.textContent =
+      (state.rhObservation || '').trim() ||
+      'Anotações sobre desempenho, postura, tempo, etc.';
   }
   if (printNameEl) printNameEl.textContent = state.candidate.name;
   if (printRoleEl) printRoleEl.textContent = state.candidate.role;
@@ -2386,6 +2435,7 @@ function buildFullAnswerKeyText() {
     `Nível: ${state.candidate.level}`,
     `Nota final: ${state.weightedFinalScore?.toFixed ? state.weightedFinalScore.toFixed(2) : state.totalScore}/${state.totalMax}`,
     `Data: ${new Date().toLocaleString('pt-BR')}`,
+    `Observações do RH: ${(state.rhObservation || '').trim() || 'Nenhuma observação registrada.'}`,
     '',
     '=== GABARITO COMPLETO ===',
   ];

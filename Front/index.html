@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
@@ -6,45 +6,86 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Teste Central 24 horas</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style/styles.css">
+
 </head>
 
 <body>
 
 
   <section id="screen-menu" class="screen">
-    <div class="rh-panel-screen">
-      <div class="rh-shell-header">
-        <div class="rh-shell-brand">
-          <button type="button" class="btn p-0 border-0 bg-transparent" onclick="backToMenu()" aria-label="Voltar para a página principal">
-            <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-shell-brand-logo">
+    <div class="rh-modern-shell">
+      <aside class="rh-modern-sidebar">
+        <div class="rh-modern-sidebar-brand">
+          <button type="button" class="rh-modern-logo-btn" onclick="backToMenu()" aria-label="Voltar para a página principal">
+            <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-modern-logo">
           </button>
+          <div>
+            <div class="rh-modern-brand-title">Central 24 Horas</div>
+            <div class="rh-modern-brand-subtitle">Centro de testes</div>
+          </div>
         </div>
 
-        <div class="rh-shell-toolbar">
-          <button class="btn btn-primary rh-header-action" onclick="startNewTestFlow()">Iniciar teste</button>
-          <button class="btn btn-outline-secondary" onclick="logout()">Sair</button>
-        </div>
-      </div>
+        <nav class="rh-modern-nav">
+          <button class="rh-modern-nav-btn" type="button" onclick="backToMenu()">
+            <span class="material-symbols-outlined">assignment_turned_in</span>
+            <span>Gerenciamento</span>
+          </button>
+          <button class="rh-modern-nav-btn" type="button" onclick="goToHistory()">
+            <span class="material-symbols-outlined">history</span>
+            <span>Histórico</span>
+          </button>
+        </nav>
 
-      <div class="rh-shell-subtitle">Centro de Testes - C24H</div>
+        <button class="rh-modern-cta-btn" type="button" onclick="startNewTestFlow()">
+          <span class="material-symbols-outlined">play_circle</span>
+          <span>Iniciar teste</span>
+        </button>
+      </aside>
 
-      <div class="rh-shell-body">
-        <aside class="rh-shell-sidebar">
-          <!--<button class="btn rh-side-nav-btn is-active" type="button" onclick="backToMenu()">Gerenciamento de testes</button>-->
-          <button class="btn rh-side-nav-btn" type="button" onclick="goToHistory()">Histórico</button>
-        </aside>
-
-        <main class="rh-content-panel">
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-            <div>
-              <h2 class="h4 fw-bold mb-1">Últimas Provas</h2>
-              <p class="text-muted mb-0">Visualize rapidamente os últimos testes registrados no navegador.</p>
+      <div class="rh-modern-main">
+        <header class="rh-modern-topbar">
+          <div class="rh-modern-topbar-left">
+            <button type="button" class="rh-modern-mobile-logo" onclick="backToMenu()" aria-label="Voltar para a página principal">
+              <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-modern-topbar-logo">
+            </button>
+            <div class="rh-modern-search-shell">
+              <span class="material-symbols-outlined">search</span>
+              <input type="text" placeholder="Pesquisar provas salvas" aria-label="Pesquisar provas salvas" readonly>
             </div>
           </div>
 
-          <div id="menu-recent-empty" class="alert alert-info d-none">Nenhuma prova salva até o momento.</div>
-          <div id="menu-recent-list" class="rh-recent-grid"></div>
+          <div class="rh-modern-topbar-actions">
+            <button class="btn btn-primary rh-modern-primary-btn" onclick="startNewTestFlow()">Iniciar teste</button>
+            <button class="btn btn-outline-secondary rh-modern-secondary-btn" onclick="logout()">Sair</button>
+          </div>
+        </header>
+
+        <main class="rh-modern-page">
+          <section class="rh-modern-pagehead">
+            <div>
+              <p class="rh-modern-kicker">Centro de Testes - C24H</p>
+              <h2 class="rh-modern-title">Últimas Provas</h2>
+              <p class="rh-modern-description">Visualize rapidamente os seis testes mais recentes salvos no sistema.</p>
+            </div>
+          </section>
+
+          <div id="menu-recent-empty" class="rh-inline-alert d-none">Nenhuma prova salva até o momento.</div>
+          <div id="menu-recent-list" class="rh-recent-grid rh-modern-recent-grid"></div>
+
+          <button type="button" class="rh-modern-history-panel" onclick="goToHistory()">
+            <div class="rh-modern-history-panel-icon">
+              <span class="material-symbols-outlined">analytics</span>
+            </div>
+            <div>
+              <strong>Ver histórico completo</strong>
+              <span>Acesse os resultados paginados e filtre por candidato, vaga ou data.</span>
+            </div>
+            <span class="material-symbols-outlined">arrow_forward</span>
+          </button>
+
           <div id="recent-test-details-overlay" class="rh-details-overlay d-none" onclick="handleRecentDetailsOverlayClick(event)">
             <div class="rh-details-dialog" role="dialog" aria-modal="true" aria-labelledby="recent-test-details-title">
               <div class="rh-details-header">
@@ -65,7 +106,6 @@
               </div>
             </div>
           </div>
-
         </main>
       </div>
     </div>
@@ -93,10 +133,10 @@
     </div>
   </section>
 
-  <div class="container py-4 py-md-5">
+  <div class="app-stage-container">
     <!-- 
     <section id="screen-menu" class="screen">
-      <div class="row justify-content-center">
+      <div class="row justify-content-center rh-screen-shell-row">
         <div class="col-xl-9">
           <div class="card app-card">
             <div class="card-body p-4 p-md-5">
@@ -129,108 +169,149 @@
     </section>-->
 
     <section id="screen-history" class="screen">
-      <div class="rh-panel-screen">
-        <div class="rh-shell-header">
-          <div class="rh-shell-brand">
-            <button type="button" class="btn p-0 border-0 bg-transparent" onclick="backToMenu()" aria-label="Voltar para a página principal">
-              <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-shell-brand-logo">
+      <div class="rh-modern-shell rh-modern-shell-history">
+        <aside class="rh-modern-sidebar">
+          <div class="rh-modern-sidebar-brand">
+            <button type="button" class="rh-modern-logo-btn" onclick="backToMenu()" aria-label="Voltar para a página principal">
+              <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-modern-logo">
             </button>
+            <div>
+              <div class="rh-modern-brand-title">Central 24 Horas</div>
+              <div class="rh-modern-brand-subtitle">Admin Console</div>
+            </div>
           </div>
 
-          <div class="rh-shell-toolbar">
-            <button class="btn btn-primary rh-header-action" onclick="startNewTestFlow()">Iniciar teste</button>
-            <button class="btn btn-outline-secondary" onclick="logout()">Sair</button>
-          </div>
-        </div>
+          <nav class="rh-modern-nav">
+            <button class="rh-modern-nav-btn" type="button" onclick="backToMenu()">
+              <span class="material-symbols-outlined">assignment_turned_in</span>
+              <span>Gerenciamento</span>
+            </button>
+            <button class="rh-modern-nav-btn is-active" type="button" onclick="goToHistory()">
+              <span class="material-symbols-outlined">history</span>
+              <span>Histórico</span>
+            </button>
+          </nav>
 
-        <div class="rh-shell-subtitle">CRM. 24H</div>
+          <button class="rh-modern-cta-btn" type="button" onclick="startNewTestFlow()">
+            <span class="material-symbols-outlined">add</span>
+            <span>Novo exame</span>
+          </button>
+        </aside>
 
-        <div class="rh-shell-body">
-          <aside class="rh-shell-sidebar">
-            <button class="btn rh-side-nav-btn" type="button" onclick="backToMenu()">Gerenciamento de testes</button>
-            <button class="btn rh-side-nav-btn is-active" type="button" onclick="goToHistory()">Histórico</button>
-          </aside>
+        <div class="rh-modern-main">
+          <header class="rh-modern-topbar">
+            <div class="rh-modern-topbar-left">
+              <button type="button" class="rh-modern-mobile-logo" onclick="backToMenu()" aria-label="Voltar para a página principal">
+                <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-modern-topbar-logo">
+              </button>
+              <div class="rh-modern-search-shell">
+                <span class="material-symbols-outlined">search</span>
+                <input type="text" placeholder="Pesquisar no histórico" aria-label="Pesquisar no histórico" readonly>
+              </div>
+            </div>
 
-          <main class="rh-content-panel">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+            <div class="rh-modern-topbar-actions">
+              <button class="btn btn-primary rh-modern-primary-btn" onclick="startNewTestFlow()">Iniciar teste</button>
+              <button class="btn btn-outline-secondary rh-modern-secondary-btn" onclick="logout()">Sair</button>
+            </div>
+          </header>
+
+          <main class="rh-modern-page">
+            <section class="rh-modern-pagehead rh-modern-pagehead-history">
               <div>
-                <h2 class="h4 fw-bold mb-1">Histórico</h2>
-                <p class="text-muted mb-0">Pesquise provas salvas por nome, vaga ou data.</p>
+                <p class="rh-modern-kicker">Console • Histórico de exames</p>
+                <h2 class="rh-modern-title">Histórico</h2>
+                <p class="rh-modern-description">Consulte provas salvas por candidato, vaga e data, com paginação de 10 resultados por página.</p>
               </div>
-              <button class="btn btn-outline-secondary" onclick="backToMenu()">Voltar ao menu</button>
-            </div>
+              <button class="btn btn-outline-primary rh-modern-export-btn" onclick="exportHistoryCsv()">
+                <span class="material-symbols-outlined">download</span>
+                <span>Exportar CSV</span>
+              </button>
+            </section>
 
-            <div class="row g-3 mb-3">
-              <div class="col-md-4">
-                <label class="form-label">Nome do candidato</label>
-                <input id="history-filter-name" type="text" class="form-control" placeholder="Digite o nome">
+            <section class="rh-modern-filter-card">
+              <div class="rh-modern-filter-grid">
+                <div class="rh-modern-filter-field">
+                  <label for="history-filter-name">Candidato</label>
+                  <div class="rh-modern-input-shell">
+                    <span class="material-symbols-outlined">person_search</span>
+                    <input id="history-filter-name" type="text" class="form-control" placeholder="Pesquisar por nome...">
+                  </div>
+                </div>
+                <div class="rh-modern-filter-field">
+                  <label for="history-filter-role">Cargo / vaga</label>
+                  <div class="rh-modern-input-shell">
+                    <span class="material-symbols-outlined">work</span>
+                    <input id="history-filter-role" type="text" class="form-control" placeholder="Pesquisar por vaga...">
+                  </div>
+                </div>
+                <div class="rh-modern-filter-field">
+                  <label for="history-filter-date">Data</label>
+                  <div class="rh-modern-input-shell">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                    <input id="history-filter-date" type="date" class="form-control">
+                  </div>
+                </div>
+                <div class="rh-modern-filter-actions">
+                  <button class="btn btn-primary rh-modern-primary-btn w-100" onclick="renderHistoryTable()">Filtrar resultados</button>
+                  <button class="btn btn-outline-secondary rh-modern-icon-btn" onclick="clearHistoryFilters()" aria-label="Limpar filtros">
+                    <span class="material-symbols-outlined">filter_list_off</span>
+                  </button>
+                </div>
               </div>
-              <div class="col-md-4">
-                <label class="form-label">Vaga</label>
-                <input id="history-filter-role" type="text" class="form-control" placeholder="Digite a vaga">
+            </section>
+
+            <div id="history-alert" class="rh-inline-alert d-none"></div>
+
+            <section class="rh-modern-table-card">
+              <div class="table-responsive rh-history-table-wrap">
+                <table class="table align-middle history-table rh-modern-history-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Candidato</th>
+                      <th>Vaga</th>
+                      <th>Nível</th>
+                      <th>Data</th>
+                      <th>Nota</th>
+                      <th>Status</th>
+                      <th class="text-end">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="history-table-body">
+                    <tr>
+                      <td colspan="8" class="text-center text-muted py-4">Nenhum resultado salvo até o momento.</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <div class="col-md-4">
-                <label class="form-label">Data da prova</label>
-                <input id="history-filter-date" type="date" class="form-control">
-              </div>
-            </div>
-
-            <div class="d-flex gap-2 flex-wrap mb-3">
-              <button class="btn btn-primary" onclick="renderHistoryTable()">Pesquisar</button>
-              <button class="btn btn-outline-secondary" onclick="clearHistoryFilters()">Limpar</button>
-              <button class="btn btn-outline-primary" onclick="exportHistoryCsv()">Baixar CSV</button>
-            </div>
-
-            <div id="history-alert" class="alert alert-info d-none"></div>
-
-            <div class="table-responsive rh-history-table-wrap">
-              <table class="table table-hover align-middle history-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Candidato</th>
-                    <th>Vaga</th>
-                    <th>Nível</th>
-                    <th>Data</th>
-                    <th>Nota</th>
-                    <th>Status</th>
-                    <th class="text-end">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="history-table-body">
-                  <tr>
-                    <td colspan="8" class="text-center text-muted py-4">Nenhum resultado salvo até o momento.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div id="history-pagination" class="d-flex justify-content-center gap-2 flex-wrap mt-3"></div>
-
+              <div id="history-pagination" class="d-flex justify-content-center gap-2 flex-wrap mt-4"></div>
+            </section>
           </main>
         </div>
       </div>
     </section>
 
     <section id="screen-config" class="screen">
-      <div class="row justify-content-center">
-        <div class="col-xl-9">
-          <div class="card app-card">
+      <div class="row justify-content-center rh-screen-shell-row">
+        <div class="col-xl-10">
+          <div class="card app-card rh-flow-card">
             <div class="card-body p-4 p-md-5">
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+              <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
                 <div>
                   <h2 class="h3 fw-bold mb-1">Configuração da Prova</h2>
-                  <p class="text-muted mb-0">Selecione o perfil da vaga, o nível e a trilha da avaliação.</p>
+                  <p class="text-muted mb-0">Selecione o perfil da vaga, o nível e a trilha da avaliação para prosseguir.</p>
                 </div>
                 <div class="d-flex gap-2 flex-wrap justify-content-end">
-                  <button class="btn btn-outline-secondary" onclick="backToMenu()">Voltar ao menu</button>
-                  <button class="btn btn-outline-secondary" onclick="logout()">Sair</button>
+                  <button class="btn btn-outline-secondary rh-soft-btn" onclick="backToMenu()">Voltar ao menu</button>
+                  <button class="btn btn-outline-secondary rh-soft-btn" onclick="logout()">Sair</button>
                 </div>
               </div>
 
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="form-label">Perfil da vaga</label>
-                  <select id="candidate-role" class="form-select">
+                  <select id="candidate-role" class="form-select rh-flow-input">
                     <option value="">Selecione...</option>
                     <option>Jovem Aprendiz</option>
                     <option>Operador</option>
@@ -246,7 +327,7 @@
 
                 <div class="col-md-6">
                   <label class="form-label">Nível da prova</label>
-                  <select id="candidate-level" class="form-select">
+                  <select id="candidate-level" class="form-select rh-flow-input">
                     <option value="">Selecione...</option>
                     <option value="1">Nível 1 - Jovem Aprendiz</option>
                     <option value="2">Nível 2 - Operador / Estagiário</option>
@@ -257,7 +338,7 @@
 
                 <div class="col-md-6">
                   <label class="form-label">Área / Trilha</label>
-                  <select id="candidate-track" class="form-select">
+                  <select id="candidate-track" class="form-select rh-flow-input">
                     <option value="">Automático</option>
                     <option value="operacao">Operação</option>
                     <option value="ti">TI</option>
@@ -268,20 +349,25 @@
 
                 <div class="col-md-6">
                   <label class="form-label">Tempo total (minutos)</label>
-                  <input id="candidate-time" type="number" min="5" max="180" class="form-control" value="40">
+                  <input id="candidate-time" type="number" min="5" max="180" class="form-control rh-flow-input" value="40">
                 </div>
               </div>
 
-              <div class="mt-4 p-3 bg-light rounded-4 border">
-                <div class="fw-semibold mb-2">Fluxo que será aplicado</div>
-                <div id="flow-preview" class="text-muted small">Selecione a vaga para visualizar a trilha.</div>
+              <div class="rh-flow-preview mt-4">
+                <div class="rh-flow-preview-icon">
+                  <span class="material-symbols-outlined">info</span>
+                </div>
+                <div>
+                  <div class="fw-semibold mb-1">Fluxo que será aplicado</div>
+                  <div id="flow-preview" class="text-muted small">Selecione a vaga para visualizar a trilha.</div>
+                </div>
               </div>
 
               <div id="config-alert" class="alert alert-danger d-none mt-4"></div>
 
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4">
-                <button class="btn btn-outline-secondary" onclick="backToMenu()">Voltar ao menu</button>
-                <button class="btn btn-success btn-lg" onclick="proceedToCandidate()">Prosseguir Teste</button>
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-4 pt-3 border-top">
+                <button class="btn btn-outline-secondary rh-soft-btn" onclick="backToMenu()">Voltar ao menu</button>
+                <button class="btn btn-success btn-lg rh-primary-cta" onclick="proceedToCandidate()">Prosseguir Teste</button>
               </div>
             </div>
           </div>
@@ -291,98 +377,63 @@
 
     <section id="screen-candidate" class="screen">
       <div class="row justify-content-center">
-        <div class="col-xl-9">
-          <div class="card app-card">
+        <div class="col-xl-10">
+          <div class="card app-card rh-flow-card">
             <div class="card-body p-4 p-md-5">
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+              <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
                 <div>
                   <h2 class="h3 fw-bold mb-1">Instruções ao Candidato</h2>
-                  <p class="text-muted mb-0">Confirme os dados antes de iniciar a avaliação.</p>
+                  <p class="text-muted mb-0">Por favor, preencha seus dados e leia atentamente as instruções abaixo antes de iniciar.</p>
                 </div>
-                <button class="btn btn-outline-secondary" onclick="backToConfig()">Voltar</button>
+                <button class="btn btn-outline-secondary rh-soft-btn" onclick="backToConfig()">Voltar</button>
               </div>
 
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">Nome completo do candidato</label>
-                  <input id="candidate-name" type="text" class="form-control" placeholder="Ex.: João da Silva">
+              <div class="row g-4 align-items-start">
+                <div class="col-lg-4">
+                  <div class="rh-candidate-side-card mb-3">
+                    <label class="form-label small text-uppercase fw-bold text-muted mb-2">Identificação</label>
+                    <div class="rh-candidate-name-shell">
+                      <input id="candidate-name" type="text" class="form-control rh-flow-input" placeholder="Ex.: João da Silva">
+                      <span class="material-symbols-outlined">badge</span>
+                    </div>
+                  </div>
+
+                  <div class="rh-candidate-side-card rh-candidate-summary-card">
+                    <h3 class="h6 fw-bold mb-3">Etapas e o que será avaliado</h3>
+                    <div id="candidate-rules-summary" class="text-muted small"></div>
+                  </div>
                 </div>
-                <!--<div class="col-md-6">
-                  <label class="form-label">Perfil selecionado</label>
-                  <input id="candidate-role-preview" type="text" class="form-control" readonly>
-                </div>-->
-              </div>
 
-              <div class="mt-4 p-3 bg-light rounded-4 border">
-                <h3 class="h5 fw-bold mb-3">Regras e orientações da prova</h3>
+                <div class="col-lg-8">
+                  <div class="rh-candidate-main-card">
+                    <h3 class="h5 fw-bold mb-3">Regras e orientações da prova</h3>
 
-                <ul class="mb-0 rules-list">
-
-                  <li>
-                    Leia atentamente cada questão antes de responder. Procure compreender
-                    completamente o enunciado e o contexto apresentado antes de registrar
-                    sua resposta.
-                  </li>
-
-                  <li>
-                    A estrutura da avaliação foi definida previamente pelo setor de RH
-                    e segue o perfil da vaga selecionada. Dessa forma, as etapas e os
-                    conteúdos podem variar conforme o nível da posição em avaliação.
-                  </li>
-
-                  <li>
-                    Algumas etapas podem incluir exercícios práticos, especialmente
-                    relacionados ao uso do Excel. Nesses casos, será disponibilizado
-                    um arquivo de planilha para download contendo os dados necessários
-                    para a realização da atividade.
-                  </li>
-
-                  <li>
-                    Ao realizar exercícios em planilha, faça o download do arquivo,
-                    desenvolva as atividades solicitadas e salve o documento antes
-                    de enviá-lo novamente pelo sistema para validação da etapa.
-                  </li>
-
-                  <li>
-                    Certifique-se de salvar corretamente o arquivo em seu computador
-                    antes de realizar o envio. Recomenda-se não alterar o nome do arquivo
-                    original disponibilizado pelo sistema.
-                  </li>
-
-                  <li>
-                    O sistema registra automaticamente o andamento da prova, incluindo
-                    respostas selecionadas e arquivos enviados, garantindo a integridade
-                    das informações até o encerramento da avaliação.
-                  </li>
-
-                  <li>
-                    Após concluir cada etapa, revise suas respostas sempre que possível
-                    antes de prosseguir para a próxima fase da avaliação.
-                  </li>
-
-                  <li>
-                    Ao finalizar todas as etapas, o sistema registrará o resultado da
-                    avaliação para análise da equipe responsável pelo processo seletivo.
-                  </li>
-
-                  <li>
-                    Caso ocorra qualquer dificuldade técnica durante a prova, informe
-                    imediatamente o responsável pela aplicação do teste para orientação.
-                  </li>
-
-                </ul>
-              </div>
-
-              <div class="mt-4 p-3 bg-light rounded-4 border">
-                <h3 class="h5 fw-bold mb-3">Etapas e o que será avaliado</h3>
-                <div id="candidate-rules-summary" class="text-muted small"></div>
+                    <ul class="mb-0 rules-list">
+                      <li>Leia atentamente cada questão antes de responder. Procure compreender completamente o enunciado e o contexto apresentado antes de registrar sua resposta.</li>
+                      <li>A estrutura da avaliação foi definida previamente pelo setor de RH e segue o perfil da vaga selecionada. Dessa forma, as etapas e os conteúdos podem variar conforme o nível da posição em avaliação.</li>
+                      <li>Algumas etapas podem incluir exercícios práticos, especialmente relacionados ao uso do Excel. Nesses casos, será disponibilizado um arquivo de planilha para download contendo os dados necessários para a realização da atividade.</li>
+                      <li>Ao realizar exercícios em planilha, faça o download do arquivo, desenvolva as atividades solicitadas e salve o documento antes de enviá-lo novamente pelo sistema para validação da etapa.</li>
+                      <li>Certifique-se de salvar corretamente o arquivo em seu computador antes de realizar o envio. Recomenda-se não alterar o nome do arquivo original disponibilizado pelo sistema.</li>
+                      <li>O sistema registra automaticamente o andamento da prova, incluindo respostas selecionadas e arquivos enviados, garantindo a integridade das informações até o encerramento da avaliação.</li>
+                      <li>Após concluir cada etapa, revise suas respostas sempre que possível antes de prosseguir para a próxima fase da avaliação.</li>
+                      <li>Ao finalizar todas as etapas, o sistema registrará o resultado da avaliação para análise da equipe responsável pelo processo seletivo.</li>
+                      <li>Caso ocorra qualquer dificuldade técnica durante a prova, informe imediatamente o responsável pela aplicação do teste para orientação.</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
 
               <div id="candidate-alert" class="alert alert-danger d-none mt-4"></div>
 
-              <div class="d-flex justify-content-end mt-4 gap-2">
-                <button class="btn btn-outline-secondary" onclick="backToConfig()">Voltar</button>
-                <button class="btn btn-success btn-lg" onclick="startExam()">Iniciar prova</button>
+              <div class="rh-candidate-footer mt-4">
+                <div class="rh-candidate-disclaimer">
+                  <span class="material-symbols-outlined">info</span>
+                  <span>Ao clicar em iniciar, você declara que leu e concorda com todos os termos e regras citados acima.</span>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                  <button class="btn btn-outline-secondary rh-soft-btn" onclick="backToConfig()">Voltar</button>
+                  <button class="btn btn-success btn-lg rh-primary-cta" onclick="startExam()">Iniciar prova</button>
+                </div>
               </div>
             </div>
           </div>
@@ -391,159 +442,218 @@
     </section>
 
     <section id="screen-exam" class="screen">
-      <div class="card app-card">
-        <div class="card-body p-4">
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-            <div>
-              <h2 class="h3 fw-bold mb-1">Prova em andamento</h2>
-              <div class="small-muted">
-                Candidato: <strong id="exam-candidate"></strong> <!--| Perfil: <strong id="exam-role"></strong> | Trilha: <strong id="exam-track"></strong> -->
+      <div class="exam-screen-shell">
+        <header class="exam-screen-header">
+          <div class="exam-screen-header-inner">
+            <div class="exam-screen-brand">
+              <img src="style/logo-central24-crop.jpg" alt="Central 24 Horas" class="exam-screen-logo">
+              <div class="exam-screen-brand-copy">
+                <span class="exam-screen-caption">Prova em andamento</span>
+                <div class="exam-screen-candidate">Candidato: <strong id="exam-candidate"></strong></div>
+                <span id="exam-role" class="d-none"></span>
+                <span id="exam-track" class="d-none"></span>
               </div>
             </div>
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-              <span id="stage-badge" class="badge-stage">Etapa</span>
-              <div id="timer" class="timer-box">00:00</div>
-            </div>
-          </div>
 
-          <div class="mb-3">
-            <div class="d-flex justify-content-between mb-2">
-              <span class="fw-semibold">Progresso</span>
-              <span id="progress-text" class="text-muted">Questão 1</span>
-            </div>
-            <div class="progress progress-soft">
-              <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
-            </div>
-          </div>
-
-          <div class="question-box mb-4">
-            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-              <div>
-                <h3 id="question-title" class="h5 fw-bold"></h3>
-                <p id="question-description" class="mb-0 text-muted"></p>
+            <div class="exam-screen-toolbar">
+              <span id="stage-badge" class="exam-stage-badge">Etapa</span>
+              <div class="exam-timer-shell">
+                <span class="material-symbols-outlined">timer</span>
+                <div id="timer">00:00</div>
               </div>
-              <!-- <div id="question-points" class="question-points"></div>-->
             </div>
           </div>
-
-          <div id="dynamic-area"></div>
-
-          <div class="d-flex justify-content-between mt-4 gap-2 flex-wrap">
-            <button id="prev-btn" class="btn btn-outline-secondary" onclick="prevQuestion()">Voltar</button>
-            <div class="d-flex gap-2">
-              <button class="btn btn-outline-danger" onclick="finishExam()">Encerrar agora</button>
-              <button id="next-btn" class="btn btn-primary" onclick="nextQuestion()">Próxima</button>
-            </div>
+          <div class="exam-progress-track">
+            <div id="progress-bar" class="exam-progress-fill" style="width: 0%"></div>
           </div>
+        </header>
+
+        <div class="exam-screen-content">
+          <div class="exam-question-card">
+            <span id="progress-text" class="exam-question-kicker">Questão 1</span>
+            <h3 id="question-title" class="exam-question-title"></h3>
+            <p id="question-description" class="exam-question-description"></p>
+            <div id="question-points" class="question-points d-none"></div>
+          </div>
+
+          <div id="dynamic-area" class="exam-dynamic-area"></div>
         </div>
+
+        <footer class="exam-screen-footer">
+          <div class="exam-screen-footer-actions">
+            <button id="prev-btn" class="btn exam-nav-btn exam-nav-btn-secondary" onclick="prevQuestion()">Anterior</button>
+            <button type="button" class="btn exam-nav-btn exam-nav-btn-ghost" disabled>Revisar depois</button>
+          </div>
+
+          <div class="exam-screen-footer-actions">
+            <button type="button" class="btn exam-nav-btn exam-nav-btn-danger" onclick="finishExam()">Encerrar agora</button>
+            <button id="next-btn" class="btn exam-nav-btn exam-nav-btn-primary" onclick="nextQuestion()">Próxima</button>
+          </div>
+        </footer>
       </div>
     </section>
 
     <section id="screen-thanks" class="screen">
-      <div class="row justify-content-center">
-        <div class="col-xl-8">
-          <div class="card app-card">
-            <div class="card-body p-4 p-md-5 text-center">
-              <div class="thanks-icon">✓</div>
-              <h2 class="h3 fw-bold">Teste finalizado</h2>
-              <p class="text-muted mb-4">Sua avaliação foi concluída com sucesso. As respostas já foram processadas conforme a trilha selecionada e o material está pronto para conferência do RH. Antes de encerrar esta etapa, clique em <strong>Salvar</strong> para registrar o resultado e garantir que ele fique disponível para consulta posterior.</p>
-
-              <div class="d-flex justify-content-center gap-2 flex-wrap mb-4">
-                <button class="btn btn-success btn-lg" onclick="saveExamResult()">Salvar</button>
-              </div>
-
-              <div id="save-alert" class="alert alert-success d-none">Resultado salvo com sucesso no navegador.</div>
-
-              <div class="admin-gate text-start mt-4 no-print">
-                <h3 class="h6 fw-bold mb-3">Área restrita do RH</h3>
-                <div class="row g-2 align-items-end">
-                  <div class="col-md-8">
-                    <label class="form-label">Senha do RH para visualizar resultado</label>
-                    <input id="admin-pass" type="password" class="form-control" placeholder="Digite a senha do RH">
-                  </div>
-                  <div class="col-md-4 d-grid">
-                    <button class="btn btn-outline-primary" onclick="openAdminResult()">Acessar resultado</button>
-                  </div>
-                </div>
-                <div id="admin-alert" class="alert alert-danger d-none mt-3 mb-0"></div>
-              </div>
-            </div>
+      <div class="rh-finish-screen">
+        <div class="rh-finish-shell">
+          <div class="rh-finish-badge">Concluído</div>
+          <div class="rh-finish-icon-wrap">
+            <div class="rh-finish-icon">✓</div>
           </div>
+
+          <h2 class="rh-finish-title">Avaliação Finalizada com Sucesso</h2>
+          <p class="rh-finish-subtitle">Parabéns por completar a sua etapa técnica. Seus dados foram processados e os registros estão seguros no sistema da Horizon RH.</p>
+
+          <div class="rh-finish-info-grid">
+            <article class="rh-finish-info-card">
+              <div class="rh-finish-info-icon is-blue">
+                <span class="material-symbols-outlined">inventory_2</span>
+              </div>
+              <h3>Instruções para Salvar</h3>
+              <p>Recomendamos salvar o comprovante de finalização. Clique no botão abaixo para gerar o PDF oficial da sua sessão.</p>
+              <button class="btn rh-finish-save-btn" onclick="saveExamResult()">Salvar</button>
+            </article>
+
+            <article class="rh-finish-info-card is-soft">
+              <div class="rh-finish-info-icon is-gold">
+                <span class="material-symbols-outlined">trending_up</span>
+              </div>
+              <h3>Próximos Passos</h3>
+              <p>O RH da empresa receberá uma notificação agora mesmo. O status da sua candidatura será atualizado em até 48 horas úteis.</p>
+              <span class="rh-finish-link">Ver cronograma do processo</span>
+            </article>
+          </div>
+
+          <div id="save-alert" class="alert alert-success d-none rh-finish-alert">Resultado salvo com sucesso no navegador.</div>
+
+          <div class="rh-finish-access-card no-print">
+            <div class="rh-finish-access-icon">
+              <span class="material-symbols-outlined">lock</span>
+            </div>
+            <div class="rh-finish-access-title">Acesso Restrito RH</div>
+            <p class="rh-finish-access-text">Não se preocupe, isso agora é com a gente ! Insira a credencial de segurança para acessar o resultado detalhado.</p>
+
+
+            <div class="rh-finish-access-form">
+              <input id="admin-pass" type="password" class="form-control" placeholder="Senha de Acesso">
+              <button class="btn rh-finish-access-btn" onclick="openAdminResult()">Acessar</button>
+            </div>
+
+            <div id="admin-alert" class="alert alert-danger d-none mt-3 mb-0"></div>
+            <div class="rh-finish-access-footnote">EDA AVALIAÇÃO 360 • AUTENTICAÇÃO CRIPTOGRAFADA</div>
+          </div>
+
+          <div class="rh-finish-footer-note">© 2026 P.R - C24H. Todos os direitos reservados.</div>
         </div>
       </div>
     </section>
 
     <section id="screen-result" class="screen">
-      <div class="row justify-content-center">
-        <div class="col-xl-10">
-          <div class="card app-card">
-            <div class="card-body p-4 p-md-5">
+      <div class="rh-result-screen">
+        <aside class="rh-result-sidebar no-print">
+          <div class="rh-result-sidebar-title">
+            <span class="material-symbols-outlined">assignment_turned_in</span>
+            <div>
+              <strong>Avaliação Técnica</strong>
+              <span>ID: 2940-B</span>
+            </div>
+          </div>
 
+          <nav class="rh-result-nav">
+            <!--<button type="button" class="rh-result-nav-btn">Visão Geral</button>
+            <button type="button" class="rh-result-nav-btn">Etapas</button> -->
+            <button type="button" class="rh-result-nav-btn is-active">Pontuação</button>
+            <!--<button type="button" class="rh-result-nav-btn">Feedbacks</button>
+            <button type="button" class="rh-result-nav-btn">Configurações</button>-->
+          </nav>
+
+          <button class="btn rh-result-export-btn" onclick="downloadExamPackage()">Exportar PDF</button>
+        </aside>
+
+        <div class="rh-result-main">
+          <div class="rh-result-topnav no-print">
+            <div class="rh-result-topnav-links">
+              <!--<span>Dashboard</span>-->
+              <span class="is-active">Avaliações</span>
+              <!--<span>Candidatos</span>
+              <span>Relatórios</span>-->
+            </div>
+            <div class="rh-result-topnav-actions">
+              <button class="btn btn-primary" onclick="downloadExamPackage()">Baixar prova</button>
+              <button class="btn btn-outline-secondary" onclick="backToMenu()">Menu principal</button>
+            </div>
+          </div>
+
+          <div class="rh-result-content card app-card">
+            <div class="card-body p-4 p-md-4">
               <div class="print-page print-page-1">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+                <div class="rh-result-header">
                   <div>
-                    <h2 class="h3 fw-bold mb-1">Resultado da Avaliação</h2>
-                    <p class="text-muted mb-0">Resumo final da prova.</p>
+                    <h2 class="rh-result-title">Resultado da Avaliação</h2>
+                    <p class="rh-result-subtitle">Relatório detalhado consolidado em <span id="print-generated-at"></span></p>
                   </div>
-                  <div class="d-flex gap-2 no-print">
-                    <button class="btn btn-primary" onclick="downloadExamPackage()">Baixar prova</button>
-                    <button class="btn btn-outline-secondary" onclick="printResult()">Imprimir</button>
-                    <button class="btn btn-outline-secondary" onclick="backToMenu()">Menu principal</button>
-                  </div>
-
+                  <span class="rh-result-status-badge no-print">Finalizado</span>
                 </div>
 
-                <div class="row g-3 mb-4">
-                  <div class="col-md-3">
-                    <div class="result-item">
-                      <div class="text-muted">Candidato</div>
-                      <div id="result-name" class="fw-bold fs-5"></div>
+                <div class="rh-result-summary-grid">
+                  <div class="rh-result-candidate-card">
+                    <div id="result-name" class="rh-result-candidate-name"></div>
+                    <div id="result-role" class="rh-result-candidate-role"></div>
+                    <div class="rh-result-candidate-meta">
+                      <span class="rh-result-meta-pill">ID #4492</span>
+                      <span id="result-level" class="rh-result-meta-pill"></span>
                     </div>
                   </div>
-                  <div class="col-md-3">
-                    <div class="result-item">
-                      <div class="text-muted">Perfil</div>
-                      <div id="result-role" class="fw-bold fs-5"></div>
-                    </div>
-                  </div>
-                  <div class="col-md-3">
-                    <div class="result-item">
-                      <div class="text-muted">Nível / trilha</div>
-                      <div id="result-level" class="fw-bold fs-5"></div>
-                    </div>
-                  </div>
-                  <div class="col-md-3">
-                    <div class="result-item">
-                      <div class="text-muted">Nota final</div>
-                      <div id="result-score" class="fw-bold fs-3 text-success"></div>
-                    </div>
+
+                  <div class="rh-result-score-card">
+                    <div class="rh-result-score-label">Nota Final</div>
+                    <div id="result-score" class="rh-result-score-value"></div>
                   </div>
                 </div>
 
-                <div class="mb-4">
-                  <h3 class="h5 fw-bold mb-3">Pontuação por etapa</h3>
-                  <div id="stage-results" class="row g-3"></div>
-                </div>
-              </div>
+                <div class="rh-result-body-grid">
+                  <section class="rh-result-stage-panel">
+                    <div class="rh-result-panel-head">
+                      <h3>Pontuação por Etapa</h3>
+                      <span>Peso Total: 100%</span>
+                    </div>
+                    <div id="stage-results" class="row g-3"></div>
+                  </section>
 
-              <div class="print-page print-page-2">
-                <div class="mb-4">
-                  <h3 class="h5 fw-bold mb-3">Pendências para revisão do RH</h3>
-                  <div id="manual-review-box" class="result-item">
-                    <div class="text-muted">Nenhuma pendência.</div>
+                  <aside class="rh-result-side-stack">
+                    <section class="rh-result-note-card">
+                      <h3>Observações do RH</h3>
+                      <p>
+                        <textarea id="rh-observation-input" class="form-control" rows="6" placeholder="Digite aqui observações sobre desempenho, postura, tempo, comportamento, pontos fortes, pontos de atenção, etc." oninput="handleRhObservationChange()"></textarea>
+                    </section>
+
+                    <section class="rh-result-pending-card">
+                      <h3>Pendências</h3>
+                      <div id="manual-review-box" class="rh-result-pending-list">
+                        <div class="text-muted">Nenhuma pendência.</div>
+                      </div>
+                    </section>
+
+                    <button class="btn rh-result-contract-btn no-print" onclick="downloadExamPackage()">Imprimir / Exportar</button>
+                  </aside>
+                </div>
+
+                <section class="rh-result-competency-card">
+                  <div>
+                    <h3>Análise de Competências</h3>
+                    <p>O candidato supera os requisitos técnicos da vaga e apresenta bom equilíbrio entre execução, raciocínio e autonomia.</p>
                   </div>
-                </div>
-
-                <div class="mb-4 print-observation-block">
-                  <h3 class="h5 fw-bold mb-2">Observação do RH</h3>
-                  <p class="text-muted mb-0">Anotações sobre desempenho, postura, tempo, etc.</p>
-                </div>
+                  <!-- <div class="rh-result-competency-grades">
+                    <span><strong>A+</strong> Hard Skills</span>
+                    <span><strong>B</strong> Liderança</span>
+                    <span><strong>A</strong> Autonomia</span>
+                  </div>-->
+                </section>
               </div>
 
               <div class="print-only-result">
                 <div class="print-sheet-topbar">
                   <span id="print-generated-at"></span>
-                  <!--<span>Simulador de Teste RH</span>-->
                 </div>
 
                 <div class="print-sheet-title-row">
@@ -573,15 +683,17 @@
                 <div class="print-sheet-divider print-gap-top"></div>
 
                 <h2 class="print-sheet-section-title">Observação do RH:</h2>
-                <div class="print-observation-note">Anotações sobre desempenho, postura, tempo, etc.</div>
-              </div>
+                <div id="print-rh-observation" class="print-observation-note">
+                  Anotações sobre desempenho, postura, tempo, etc.
+                </div>
 
+              </div>
             </div>
           </div>
         </div>
-      </div>
     </section>
   </div>
+
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
