@@ -205,7 +205,6 @@ const ROLE_LEVEL_SUGGESTIONS = {
   Operador: '2',
   Estagiário: '2',
   Supervisor: '3',
-  'Help Desk': '3',
   'Control Desk': '3',
   Planejamento: '3',
   TI: '4',
@@ -1823,28 +1822,135 @@ function resolveExamBlueprint(role, level, track = '') {
   const safeTrack = String(track || '')
     .trim()
     .toLowerCase();
-  if (safeRole === 'Jovem Aprendiz' || level === '1')
+
+  if (safeRole === 'Jovem Aprendiz' || level === '1') {
     return EXAM_BLUEPRINTS.jovem_aprendiz;
-  if (safeRole === 'Operador') return EXAM_BLUEPRINTS.operador;
-  if (safeRole === 'Estagiário')
+  }
+
+  if (safeRole === 'Operador') {
+    return EXAM_BLUEPRINTS.operador;
+  }
+
+  if (safeRole === 'Estagiário') {
     return safeTrack === 'rh'
       ? EXAM_BLUEPRINTS.estagiario_rh
       : EXAM_BLUEPRINTS.estagiario_ti;
-  if (safeRole === 'Supervisor') return EXAM_BLUEPRINTS.supervisor;
-  if (safeRole === 'Help Desk' || safeRole === 'Control Desk')
+  }
+
+  if (safeRole === 'Supervisor') {
+    return EXAM_BLUEPRINTS.supervisor;
+  }
+
+  if (safeRole === 'Control Desk') {
     return EXAM_BLUEPRINTS.helpdesk;
-  if (safeRole === 'Planejamento') return EXAM_BLUEPRINTS.planejamento;
-  if (safeRole === 'TI') return EXAM_BLUEPRINTS.ti;
+  }
+
+  if (safeRole === 'Planejamento') {
+    return EXAM_BLUEPRINTS.planejamento;
+  }
+
+  if (safeRole === 'TI') {
+    return EXAM_BLUEPRINTS.ti;
+  }
+
   return EXAM_BLUEPRINTS.adm;
+}
+
+function shuffleArray(items) {
+  const arr = Array.isArray(items) ? [...items] : [];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function shuffleMultipleChoiceQuestion(question) {
+  if (
+    !question ||
+    question.type !== 'multiple' ||
+    !Array.isArray(question.options)
+  ) {
+    return question;
+  }
+
+  const indexedOptions = question.options.map((option, index) => ({
+    option,
+    originalIndex: index,
+  }));
+
+  const shuffledOptions = shuffleArray(indexedOptions);
+  const newAnswerIndex = shuffledOptions.findIndex(
+    (item) => item.originalIndex === question.answer,
+  );
+
+  return {
+    ...question,
+    options: shuffledOptions.map((item) => item.option),
+    answer: newAnswerIndex,
+  };
+}
+
+function getBlueprintQuestionTarget(blueprint) {
+  if (!blueprint || !blueprint.label) return null;
+
+  if (blueprint.label.includes('Estagiário')) return 13;
+  if (blueprint.label.includes('Analista / Outros')) return 16;
+
+  return null;
+}
+
+function normalizeBlueprintQuestions(questions) {
+  return questions.map((question) => {
+    const cloned = { ...question };
+    if (cloned.type === 'multiple') {
+      return shuffleMultipleChoiceQuestion(cloned);
+    }
+    return cloned;
+  });
 }
 
 function buildExamFromBlueprint(blueprint) {
   const questions = [];
+
   blueprint.stages.forEach((stage) => {
     const stageQuestions = stage
       .questions()
       .map((q) => ({ ...q, stageWeight: stage.weight }));
+
     questions.push(...stageQuestions);
   });
-  return questions;
+
+  const normalizedQuestions = normalizeBlueprintQuestions(questions);
+  const targetCount = getBlueprintQuestionTarget(blueprint);
+
+  if (!targetCount || normalizedQuestions.length <= targetCount) {
+    return normalizedQuestions;
+  }
+
+  const groupedByStage = new Map();
+
+  normalizedQuestions.forEach((question) => {
+    const stageKey = question.stageKey || 'default_stage';
+    if (!groupedByStage.has(stageKey)) {
+      groupedByStage.set(stageKey, []);
+    }
+    groupedByStage.get(stageKey).push(question);
+  });
+
+  const selectedQuestions = [];
+  const stageEntries = Array.from(groupedByStage.entries());
+
+  while (
+    selectedQuestions.length < targetCount &&
+    stageEntries.some(([, list]) => list.length > 0)
+  ) {
+    for (const [, list] of stageEntries) {
+      if (list.length > 0 && selectedQuestions.length < targetCount) {
+        selectedQuestions.push(list.shift());
+      }
+    }
+  }
+
+  return selectedQuestions;
 }

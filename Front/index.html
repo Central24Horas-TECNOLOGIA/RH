@@ -100,10 +100,14 @@
 
               <div class="rh-details-footer">
                 <div class="rh-details-footer-actions">
-                  <button type="button" class="btn btn-outline-primary" id="recent-test-download-btn" onclick="downloadRecentTestPackage()" disabled>Baixar prova</button>
+                  <!---<button type="button" class="btn btn-outline-primary" id="recent-test-download-btn" onclick="downloadRecentTestPackage()" disabled>Baixar prova</button> -->
+                  <button type="button" class="btn btn-outline-secondary" id="recent-test-print-btn" onclick="printResult()">
+                    Imprimir resultado
+                  </button>
                 </div>
                 <button type="button" class="btn btn-primary" onclick="closeRecentTestDetails()">Voltar para a tela inicial</button>
               </div>
+
             </div>
           </div>
         </main>
@@ -113,22 +117,65 @@
 
   <section id="screen-login" class="screen active">
     <div class="rh-login-page">
-      <div class="rh-login-panel">
-        <img src="style/logo-central24-crop.jpg" alt="Logo Central 24 Horas" class="rh-login-panel-logo">
+      <div class="rh-login-panel rh-login-panel-modern">
+        <div class="rh-login-brand-block rh-login-brand-block-centered">
+          <img src="style/Conecta_logo.png" alt="Central 24 horas" class="rh-login-brand-image">
+          <!--<div class="rh-login-brand-subtitle">Workspace Executivo</div>-->
+        </div>
 
-        <div class="mb-3">
-          <label class="form-label rh-login-label">Login</label>
-          <input id="login-user" type="text" class="form-control rh-login-input" placeholder="Digite o usuário">
+        <div class="rh-login-copy-block">
+          <h2 class="rh-login-welcome-title">Bem-vindo</h2>
+          <p class="rh-login-welcome-text">
+            Acesse sua plataforma com elegância e foco.
+          </p>
         </div>
 
         <div class="mb-3">
-          <label class="form-label rh-login-label">Senha</label>
-          <input id="login-pass" type="password" class="form-control rh-login-input" placeholder="Digite a senha">
+          <label class="form-label rh-login-label">Login</label>
+          <div class="rh-login-input-wrap">
+            <span class="material-symbols-outlined rh-login-input-icon">alternate_email</span>
+            <input id="login-user" type="text" class="form-control rh-login-input rh-login-input-modern" placeholder="nome@empresa.com.br">
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <div class="rh-login-label-row">
+            <label class="form-label rh-login-label mb-0">Senha</label>
+            <button type="button" class="rh-login-link-btn" tabindex="-1">Esqueceu a senha?</button>
+          </div>
+
+          <div class="rh-login-input-wrap">
+            <span class="material-symbols-outlined rh-login-input-icon">lock</span>
+            <input id="login-pass" type="password" class="form-control rh-login-input rh-login-input-modern" placeholder="••••••••">
+            <span class="material-symbols-outlined rh-login-input-icon rh-login-input-icon-right">visibility</span>
+          </div>
+        </div>
+
+        <div class="rh-login-check-row">
+          <label class="rh-login-check-label">
+            <input type="checkbox" class="rh-login-check-input">
+            <span>Manter conectado</span>
+          </label>
         </div>
 
         <div id="login-alert" class="alert alert-danger d-none mb-3"></div>
 
-        <button class="btn rh-login-btn w-100" onclick="doLogin()">Entrar</button>
+        <button class="btn rh-login-btn rh-login-btn-modern w-100" onclick="doLogin()">
+          <span>Acessar</span>
+          <span class="material-symbols-outlined">arrow_forward</span>
+        </button>
+
+        <div class="rh-login-footer-link">
+          <span>Nova na plataforma?</span>
+          <button type="button" class="rh-login-link-btn rh-login-link-btn-strong" tabindex="-1">Solicite ao RH</button>
+        </div>
+
+        <div class="rh-login-footer-meta">
+          <span>© 2024 Central 24 Horas</span>
+          <span>Privacidade</span>
+          <span>Termos</span>
+          <span>Suporte</span>
+        </div>
       </div>
     </div>
   </section>
@@ -377,8 +424,8 @@
 
     <section id="screen-candidate" class="screen">
       <div class="row justify-content-center">
-        <div class="col-xl-10">
-          <div class="card app-card rh-flow-card">
+        <div class="col-12 col-xl-11">
+          <div class="card app-card rh-flow-card rh-candidate-wide-card">
             <div class="card-body p-4 p-md-5">
               <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
                 <div>
@@ -442,6 +489,34 @@
     </section>
 
     <section id="screen-exam" class="screen">
+      <div id="finish-confirm-overlay" class="rh-details-overlay d-none" onclick="handleFinishConfirmOverlayClick(event)">
+        <div class="rh-details-dialog rh-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="finish-confirm-title">
+          <div class="rh-details-header">
+            <div>
+              <h3 id="finish-confirm-title" class="rh-details-title">Confirmar encerramento</h3>
+              <p class="rh-details-subtitle mb-0">Tem certeza de que deseja encerrar a prova agora?</p>
+            </div>
+            <button type="button" class="btn rh-details-close-btn" onclick="closeFinishConfirm()" aria-label="Fechar confirmação">X</button>
+          </div>
+
+          <div class="rh-details-body">
+            <div class="alert alert-warning mb-0">
+              Ao confirmar, a prova será finalizada imediatamente e o candidato seguirá para a tela de conclusão.
+            </div>
+          </div>
+
+          <div class="rh-details-footer">
+            <div class="rh-details-footer-actions">
+              <button type="button" class="btn btn-outline-secondary" onclick="closeFinishConfirm()">
+                Continuar prova
+              </button>
+            </div>
+            <button type="button" class="btn btn-danger" onclick="confirmFinishExam()">
+              Encerrar prova
+            </button>
+          </div>
+        </div>
+      </div>
       <div class="exam-screen-shell">
         <header class="exam-screen-header">
           <div class="exam-screen-header-inner">
@@ -486,7 +561,7 @@
           </div>
 
           <div class="exam-screen-footer-actions">
-            <button type="button" class="btn exam-nav-btn exam-nav-btn-danger" onclick="finishExam()">Encerrar agora</button>
+            <button type="button" class="btn exam-nav-btn exam-nav-btn-danger" onclick="openFinishConfirm()">Encerrar agora</button>
             <button id="next-btn" class="btn exam-nav-btn exam-nav-btn-primary" onclick="nextQuestion()">Próxima</button>
           </div>
         </footer>
@@ -502,16 +577,23 @@
           </div>
 
           <h2 class="rh-finish-title">Avaliação Finalizada com Sucesso</h2>
-          <p class="rh-finish-subtitle">Parabéns por completar a sua etapa técnica. Seus dados foram processados e os registros estão seguros no sistema da Horizon RH.</p>
+          <p class="rh-finish-subtitle">Parabéns por completar a sua etapa técnica. Seus dados foram processados e os registros estão seguros no sistema da Central 24 horas.</p>
 
           <div class="rh-finish-info-grid">
-            <article class="rh-finish-info-card">
+            <article class="rh-finish-info-card rh-finish-info-card-save is-required">
               <div class="rh-finish-info-icon is-blue">
-                <span class="material-symbols-outlined">inventory_2</span>
+                <span class="material-symbols-outlined">task_alt</span>
               </div>
-              <h3>Instruções para Salvar</h3>
-              <p>Recomendamos salvar o comprovante de finalização. Clique no botão abaixo para gerar o PDF oficial da sua sessão.</p>
-              <button class="btn rh-finish-save-btn" onclick="saveExamResult()">Salvar</button>
+              <h3>Finalização obrigatória</h3>
+              <p>Para concluir corretamente esta avaliação, é obrigatório salvar o resultado no sistema. Somente após esse registro a prova será considerada finalizada.</p>
+
+              <button id="save-result-btn" class="btn rh-finish-save-btn" type="button" onclick="saveExamResult()">
+                Salvar resultado
+              </button>
+
+              <div class="rh-finish-required-note">
+                Esta etapa é obrigatória para registrar a prova na plataforma.
+              </div>
             </article>
 
             <article class="rh-finish-info-card is-soft">
@@ -520,11 +602,16 @@
               </div>
               <h3>Próximos Passos</h3>
               <p>O RH da empresa receberá uma notificação agora mesmo. O status da sua candidatura será atualizado em até 48 horas úteis.</p>
-              <span class="rh-finish-link">Ver cronograma do processo</span>
+              <!--<span class="rh-finish-link">Ver cronograma do processo</span>-->
             </article>
           </div>
 
-          <div id="save-alert" class="alert alert-success d-none rh-finish-alert">Resultado salvo com sucesso no navegador.</div>
+          <div id="save-alert" class="alert d-none rh-finish-alert" role="alert"></div>
+          <div class="d-flex justify-content-center mt-3 no-print">
+            <button type="button" class="btn btn-outline-secondary rh-soft-btn" onclick="backToMenu()">
+              Retornar ao menu
+            </button>
+          </div>
 
           <div class="rh-finish-access-card no-print">
             <div class="rh-finish-access-icon">
@@ -567,7 +654,7 @@
             <button type="button" class="rh-result-nav-btn">Configurações</button>-->
           </nav>
 
-          <button class="btn rh-result-export-btn" onclick="downloadExamPackage()">Exportar PDF</button>
+          <button class="btn rh-result-export-btn" onclick="printResult()">Imprimir resultado</button>
         </aside>
 
         <div class="rh-result-main">
@@ -634,7 +721,7 @@
                       </div>
                     </section>
 
-                    <button class="btn rh-result-contract-btn no-print" onclick="downloadExamPackage()">Imprimir / Exportar</button>
+                    <button class="btn rh-result-contract-btn no-print" onclick="downloadExamPackage()">Baixar prova</button>
                   </aside>
                 </div>
 

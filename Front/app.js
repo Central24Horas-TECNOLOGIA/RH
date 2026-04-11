@@ -22,6 +22,9 @@ const state = {
   manualReviewItems: [],
   currentResultId: null,
   rhObservation: '',
+  finishStatus: 'Finalizado',
+  isSavingResult: false,
+  resultSaved: false,
 
   recentPage: 1,
   recentPageSize: 6,
@@ -44,7 +47,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         Operador: '2',
         Estagiário: '2',
         Supervisor: '3',
-        'Help Desk': '3',
         'Control Desk': '3',
         Planejamento: '3',
         TI: '4',
@@ -58,7 +60,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         Outros: 'adm',
         TI: 'ti',
         Supervisor: 'operacao',
-        'Help Desk': 'adm',
         'Control Desk': 'adm',
         Planejamento: 'adm',
       };
@@ -258,6 +259,28 @@ function openAdminResult() {
 
 function printResult() {
   window.print();
+}
+
+function openFinishConfirm() {
+  const overlay = document.getElementById('finish-confirm-overlay');
+  if (overlay) overlay.classList.remove('d-none');
+}
+
+function closeFinishConfirm() {
+  const overlay = document.getElementById('finish-confirm-overlay');
+  if (overlay) overlay.classList.add('d-none');
+}
+
+function handleFinishConfirmOverlayClick(event) {
+  if (event.target?.id === 'finish-confirm-overlay') {
+    closeFinishConfirm();
+  }
+}
+
+function confirmFinishExam() {
+  state.finishStatus = 'Encerrado pelo candidato';
+  closeFinishConfirm();
+  finishExam();
 }
 
 function handleRhObservationChange() {
@@ -980,11 +1003,133 @@ async function proceedToCandidate() {
   renderCandidateRules();
   showScreen('screen-candidate');
 }
+function getStageMacroDescription(stageKey) {
+  const role = (state.candidate?.role || '').trim();
+  const level = String(state.candidate?.level || '').trim();
+  const track = (state.candidate?.track || '').trim();
+  const roleUpper = safeUpper(role);
+  const trackUpper = safeUpper(track);
+
+  const baseMap = {
+    word_basic:
+      'Será avaliado formatação de texto, organização visual do conteúdo, digitação, interpretação escrita e nível de escrita do candidato.',
+    word_intermediate:
+      'Será avaliado formatação de texto, estruturação de conteúdo, clareza na escrita, organização de informações e domínio intermediário de edição de documentos.',
+    word_advanced:
+      'Será avaliado domínio avançado de edição de documentos, padronização visual, construção textual, coesão da escrita e aplicação de recursos de formatação.',
+    excel_basic:
+      'Será avaliado cálculos básicos, preenchimento de planilhas, organização de dados, formatação de tabelas e interpretação de informações.',
+    excel_intermediate:
+      'Será avaliado cálculos intermediários, organização e análise de dados, formatação de tabelas, uso de fórmulas e raciocínio em planilhas.',
+    excel_advanced:
+      'Será avaliado cálculos avançados, análise de dados, construção de tabelas, lógica em planilhas, fórmulas, gráficos e recursos avançados como PROCV.',
+    excel_operational:
+      'Será avaliado cálculos operacionais, organização de planilhas, controle de dados, formatação de tabelas e aplicação prática de fórmulas no contexto da operação.',
+    excel_planning:
+      'Será avaliado raciocínio analítico, cálculos em planilhas, organização de bases, construção de tabelas, gráficos, indicadores e uso de PROCV.',
+    excel_quality:
+      'Será avaliado manipulação de planilhas, cálculos, organização de dados, filtros, formatação de tabelas e uso de PROCV em contexto de controle de qualidade.',
+    logic:
+      'Será avaliado raciocínio lógico, interpretação de cenários, tomada de decisão e capacidade analítica.',
+    technical_support:
+      'Será avaliado conhecimento técnico, interpretação de incidentes, raciocínio de suporte, análise de causa e tomada de decisão em cenários práticos.',
+    customer_service:
+      'Será avaliado comunicação, interpretação de atendimento, postura profissional, clareza de resposta e raciocínio aplicado ao contexto operacional.',
+    general_knowledge:
+      'Será avaliado conhecimentos gerais, interpretação textual, atenção, raciocínio e repertório básico profissional.',
+    adm: 'Será avaliado organização, interpretação de informações, raciocínio administrativo, controles operacionais e análise de dados.',
+    rh: 'Será avaliado interpretação de cenário, organização de informações, escrita profissional, raciocínio analítico e conhecimentos aplicados à rotina de RH.',
+  };
+
+  if (
+    roleUpper.includes('JOVEM APRENDIZ') ||
+    roleUpper.includes('OPERADOR') ||
+    roleUpper.includes('ESTAGIÁRIO')
+  ) {
+    if (stageKey.includes('word')) {
+      return 'Será avaliado formatação de texto, digitação, organização do conteúdo, compreensão escrita e nível de escrita do candidato.';
+    }
+    if (stageKey.includes('excel')) {
+      return 'Será avaliado cálculos, preenchimento de planilhas, formatação de tabelas, organização de dados e uso de fórmulas básicas e intermediárias, incluindo PROCV quando aplicável.';
+    }
+  }
+
+  if (
+    roleUpper.includes('SUPERVISOR') ||
+    roleUpper.includes('CONTROL DESK') ||
+    roleUpper.includes('PLANEJAMENTO')
+  ) {
+    if (stageKey.includes('word')) {
+      return 'Será avaliado escrita profissional, clareza textual, organização de informações, estruturação de conteúdo e domínio de formatação de documentos.';
+    }
+    if (stageKey.includes('excel')) {
+      return 'Será avaliado cálculos, análise de indicadores, construção e formatação de tabelas, organização de bases, gráficos e uso de fórmulas como PROCV.';
+    }
+  }
+
+  if (
+    roleUpper.includes('TI') ||
+    roleUpper.includes('ANALISTA') ||
+    trackUpper === 'TI'
+  ) {
+    if (stageKey.includes('word')) {
+      return 'Será avaliado clareza técnica na escrita, organização de conteúdo, padronização textual, interpretação e estruturação de respostas profissionais.';
+    }
+    if (stageKey.includes('excel')) {
+      return 'Será avaliado análise de dados, cálculos, organização de planilhas, formatação de tabelas, cruzamento de informações e uso de fórmulas como PROCV.';
+    }
+    if (stageKey.includes('technical')) {
+      return 'Será avaliado raciocínio técnico, interpretação de problemas, análise de cenário, lógica de suporte e tomada de decisão.';
+    }
+  }
+
+  if (trackUpper === 'RH') {
+    if (stageKey.includes('word')) {
+      return 'Será avaliado escrita corporativa, clareza textual, organização de informações e formatação de documentos.';
+    }
+    if (stageKey.includes('excel')) {
+      return 'Será avaliado cálculos, organização de planilhas, controle de dados, formatação de tabelas e uso de fórmulas aplicadas à rotina administrativa.';
+    }
+  }
+
+  if (trackUpper === 'ADM') {
+    if (stageKey.includes('word')) {
+      return 'Será avaliado escrita profissional, clareza, estruturação do conteúdo e padronização de documentos.';
+    }
+    if (stageKey.includes('excel')) {
+      return 'Será avaliado cálculos, organização de dados, formatação de tabelas, análise de informações e uso de fórmulas como PROCV.';
+    }
+  }
+
+  return (
+    baseMap[stageKey] ||
+    'Será avaliado conhecimento prático da etapa, interpretação, organização de informações e domínio dos recursos exigidos para a vaga.'
+  );
+}
+
+function buildCandidateRulesSummary() {
+  if (!state.blueprint?.stages?.length) return '';
+
+  return `
+    <ul class="candidate-summary-list">
+      ${state.blueprint.stages
+        .map(
+          (stage) => `
+            <li>
+              <strong>${STAGE_LABELS[stage.key] || 'Etapa'}</strong><br>
+              <span>${getStageMacroDescription(stage.key)}</span>
+            </li>
+          `,
+        )
+        .join('')}
+    </ul>
+  `;
+}
 
 function renderCandidateRules() {
   const box = document.getElementById('candidate-rules-summary');
   if (!box || !state.blueprint) return;
-  box.innerHTML = `<ul class="candidate-summary-list">${state.blueprint.stages.map((stage) => `<li><strong>${STAGE_LABELS[stage.key]}</strong>: serão avaliados os conteúdos previstos para esta etapa da vaga.</li>`).join('')}</ul>`;
+  box.innerHTML = buildCandidateRulesSummary();
 }
 
 async function startExam() {
@@ -1027,6 +1172,9 @@ async function startExam() {
   state.manualReviewItems = [];
   state.currentResultId = null;
   state.rhObservation = '';
+  state.finishStatus = 'Finalizado';
+  state.isSavingResult = false;
+  state.resultSaved = false;
 
   const examCandidateEl = document.getElementById('exam-candidate');
   const examRoleEl = document.getElementById('exam-role');
@@ -1293,12 +1441,15 @@ function prevQuestion() {
 }
 function nextQuestion() {
   captureCurrentAnswer();
+
   if (state.currentIndex < state.questions.length - 1) {
     state.currentIndex++;
     renderQuestion();
-  } else {
-    finishExam();
+    return;
   }
+
+  state.finishStatus = 'Finalizado';
+  finishExam();
 }
 
 function hasBoldInHtml(html) {
@@ -2261,6 +2412,7 @@ function finishExam() {
 }
 
 function renderResults() {
+  updateSaveResultButtonState(state.resultSaved ? 'saved' : 'idle');
   document.getElementById('result-name').textContent = state.candidate.name;
   document.getElementById('result-role').textContent = state.candidate.role;
   document.getElementById('result-level').textContent =
@@ -2523,8 +2675,51 @@ async function downloadExamPackage() {
   }
 }
 
+function updateSaveResultButtonState(mode = 'idle') {
+  const button = document.getElementById('save-result-btn');
+  if (!button) return;
+
+  button.classList.remove('is-saving', 'is-saved');
+  button.disabled = false;
+
+  if (mode === 'saving') {
+    button.disabled = true;
+    button.classList.add('is-saving');
+    button.textContent = 'Salvando...';
+    return;
+  }
+
+  if (mode === 'saved') {
+    button.disabled = true;
+    button.classList.add('is-saved');
+    button.textContent = 'Resultado salvo';
+    return;
+  }
+
+  button.textContent = 'Salvar resultado';
+}
+
 async function saveExamResult() {
   const alertEl = document.getElementById('save-alert');
+
+  if (state.isSavingResult || state.resultSaved) {
+    return;
+  }
+
+  state.isSavingResult = true;
+  updateSaveResultButtonState('saving');
+
+  if (alertEl) {
+    alertEl.classList.remove(
+      'd-none',
+      'alert-danger',
+      'alert-warning',
+      'alert-info',
+      'alert-success',
+    );
+    alertEl.classList.add('alert-info');
+    alertEl.textContent = 'Salvando resultado no sistema...';
+  }
 
   try {
     const recordId = state.currentResultId || buildResultId();
@@ -2541,25 +2736,19 @@ async function saveExamResult() {
       tempo_minutos: state.candidate.time,
       data_iso: now.toISOString(),
       data_exibicao: now.toLocaleString('pt-BR'),
-      status: 'Finalizado',
+      status: state.finishStatus || 'Finalizado',
       etapas_json: JSON.stringify(state.stageSummary || []),
     };
 
     await saveHistoryRow(row);
+    await saveAnswerFile(recordId, buildAnswerKeyPayload(recordId));
+
     state.currentResultId = recordId;
     state.recentPage = 1;
+    state.resultSaved = true;
+
     renderMenuRecentTests();
-
-    let answerFileSaved = true;
-    let answerFileError = null;
-
-    try {
-      await saveAnswerFile(recordId, buildAnswerKeyPayload(recordId));
-    } catch (error) {
-      answerFileSaved = false;
-      answerFileError = error;
-      console.error('Erro ao salvar gabarito:', error);
-    }
+    updateSaveResultButtonState('saved');
 
     if (alertEl) {
       alertEl.classList.remove(
@@ -2569,36 +2758,27 @@ async function saveExamResult() {
         'alert-info',
         'alert-success',
       );
-
-      if (answerFileSaved) {
-        alertEl.textContent = 'Resultado salvo com sucesso.';
-        alertEl.classList.add('alert-success');
-      } else {
-        alertEl.textContent =
-          'Resultado salvo com sucesso, mas o gabarito detalhado não foi salvo no servidor.';
-        alertEl.classList.add('alert-warning');
-      }
-    }
-
-    renderMenuRecentTests();
-
-    if (answerFileError) {
-      return;
+      alertEl.classList.add('alert-success');
+      alertEl.textContent = 'Resultado salvo com sucesso.';
     }
   } catch (error) {
     console.error('Erro ao salvar prova:', error);
+    updateSaveResultButtonState('idle');
 
     if (alertEl) {
-      alertEl.textContent =
-        'Não foi possível salvar a prova no servidor. Verifique a API.';
       alertEl.classList.remove(
         'd-none',
-        'alert-success',
+        'alert-danger',
         'alert-warning',
         'alert-info',
+        'alert-success',
       );
       alertEl.classList.add('alert-danger');
+      alertEl.textContent =
+        'Não foi possível salvar a prova no servidor. Verifique a API e tente novamente.';
     }
+  } finally {
+    state.isSavingResult = false;
   }
 }
 
