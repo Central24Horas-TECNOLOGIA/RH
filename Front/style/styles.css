@@ -548,10 +548,11 @@ body { background: #f4f6f9; overflow: auto;}
 }
 
 .rh-detail-card {
-  border: 1px solid #e9ecef;
-  border-radius: 14px;
-  padding: 14px;
-  background: #f8f9fa;
+    MARGIN: 10px;
+    border: 1px solid #e9ecef;
+    border-radius: 14px;
+    padding: 14px;
+    background: #f8f9fa;
 }
 
 .rh-detail-label {
@@ -2025,9 +2026,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 20px 22px 24px;
 }
 
-.rh-modern-pagehead {
-  margin-bottom: 18px;
-}
+
 
 .rh-modern-title {
   font-size: clamp(1.75rem, 2vw, 2.6rem);
@@ -3668,4 +3667,760 @@ body {
     margin: 0 auto;
             margin-top: 20px;
   }
+}
+.process-inline-note {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.rh-process-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+@media (max-width: 1440px) {
+  .rh-login-page {
+    justify-content: space-between;
+    padding: 28px 24px;
+    gap: 20px;
+  }
+
+  .rh-login-panel-modern {
+    max-width: 380px;
+    padding: 12px 6px 8px;
+  }
+
+  .rh-login-brand-image {
+    width: min(210px, 100%);
+    margin-bottom: 8px;
+  }
+
+  .rh-login-welcome-title {
+    font-size: 1.8rem;
+    line-height: 1.05;
+  }
+
+  .rh-login-welcome-text {
+    font-size: 0.95rem;
+    max-width: 280px;
+  }
+
+  .rh-login-input-modern {
+    height: 54px;
+    border-radius: 16px;
+  }
+
+  .rh-login-btn-modern {
+    height: 54px;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .rh-login-page {
+    justify-content: center;
+    background-position: left center;
+    padding: 20px 18px;
+  }
+
+  .rh-login-panel-modern {
+    max-width: 360px;
+    padding: 10px 4px 6px;
+  }
+
+  .rh-login-brand-image {
+    width: min(180px, 100%);
+  }
+
+  .rh-login-copy-block {
+    margin-bottom: 18px;
+  }
+
+  .rh-login-welcome-title {
+    font-size: 1.6rem;
+  }
+
+  .rh-login-welcome-text {
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .rh-login-footer-meta {
+    margin-top: 22px;
+    gap: 8px;
+    font-size: 0.64rem;
+  }
+}
+
+@media (max-width: 1200px) {
+  #screen-process-create .col-xl-10 {
+    max-width: 96%;
+  }
+
+  #screen-process-create .card-body {
+    padding: 28px 24px !important;
+  }
+}
+
+@media (max-width: 992px) {
+  #screen-process-create .card-body {
+    padding: 24px 18px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  #screen-process-create .card-body {
+    padding: 20px 14px !important;
+  }
+
+  #screen-process-create .d-flex.justify-content-between.align-items-start.flex-wrap.gap-3.mb-4 {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  #screen-process-create .d-flex.gap-2.flex-wrap.justify-content-end {
+    justify-content: flex-start !important;
+  }
+}
+
+/* ===== LOGIN FIXO COMO O MODELO ===== */
+.rh-login-page {
+  min-height: 100vh;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  background-image: url('fundo_rh.png');
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: cover;
+  padding: 0;
+  overflow: hidden;
+}
+
+.rh-login-panel-modern {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  background: #ffffff;
+  padding: 46px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  margin-left: auto;
+  box-sizing: border-box;
+}
+
+.rh-login-brand-block-centered {
+  align-items: center;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.rh-login-brand-image {
+  width: 150px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 10px;
+  display: block;
+}
+
+.rh-login-copy-block {
+  margin-bottom: 20px;
+}
+
+.rh-login-welcome-title {
+  font-size: 2.1rem;
+  line-height: 1.05;
+  margin: 0 0 10px;
+}
+
+.rh-login-welcome-text {
+  font-size: 0.98rem;
+  line-height: 1.5;
+  max-width: 260px;
+  margin: 0;
+}
+
+.rh-login-input-modern {
+  height: 50px;
+  border-radius: 16px;
+}
+
+.rh-login-btn-modern {
+  height: 50px;
+  border-radius: 16px;
+  margin-top: 6px;
+}
+
+.rh-login-footer-link {
+  margin-top: 14px;
+}
+
+.rh-login-footer-meta {
+  margin-top: auto;
+  padding-top: 24px;
+  font-size: 0.68rem;
+  gap: 10px;
+}
+
+/* notebook padrão */
+@media (max-width: 1366px) {
+  .rh-login-page {
+    grid-template-columns: minmax(0, 1fr) 350px;
+  }
+
+  .rh-login-panel-modern {
+    padding: 36px 24px 20px;
+  }
+
+  .rh-login-brand-image {
+    width: 135px;
+  }
+
+  .rh-login-welcome-title {
+    font-size: 1.9rem;
+  }
+
+  .rh-login-welcome-text {
+    font-size: 0.94rem;
+    max-width: 240px;
+  }
+}
+
+/* telas menores, mas mantendo o mesmo conceito visual */
+@media (max-width: 1100px) {
+  .rh-login-page {
+    grid-template-columns: minmax(0, 1fr) 330px;
+  }
+
+  .rh-login-panel-modern {
+    padding: 28px 20px 18px;
+  }
+
+  .rh-login-brand-image {
+    width: 120px;
+  }
+
+  .rh-login-welcome-title {
+    font-size: 1.75rem;
+  }
+
+  .rh-login-welcome-text {
+    font-size: 0.9rem;
+    max-width: 220px;
+  }
+
+  .rh-login-input-modern,
+  .rh-login-btn-modern {
+    height: 46px;
+    border-radius: 14px;
+  }
+}
+
+/* celular: aqui sim pode empilhar */
+@media (max-width: 768px) {
+  .rh-login-page {
+    grid-template-columns: 1fr;
+    background-position: center left;
+  }
+
+  .rh-login-panel-modern {
+    min-height: auto;
+    max-width: 100%;
+    width: 100%;
+    padding: 28px 18px 18px;
+    background: rgba(255, 255, 255, 0.96);
+  }
+
+  .rh-login-brand-image {
+    width: 120px;
+  }
+
+  .rh-login-welcome-text {
+    max-width: none;
+  }
+}
+/* ===== LOGIN FINAL CORRIGIDO - COLAR NO FINAL DO ARQUIVO ===== */
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+}
+
+#screen-login {
+  min-height: 100vh;
+}
+
+#screen-login .rh-login-page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 0;
+  background-color: #173f8a;
+  background-image: url('fundo_login.png');
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: cover;
+}
+
+#screen-login .rh-login-panel,
+#screen-login .rh-login-panel-modern {
+  width: 100%;
+  max-width: 380px;
+  min-height: 100vh;
+  margin-left: auto;
+  padding: 38px 28px 22px;
+  background: rgba(255, 255, 255, 0.98);
+  border-left: 1px solid rgba(219, 225, 235, 0.85);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  box-shadow: none;
+}
+
+#screen-login .rh-login-brand-block,
+#screen-login .rh-login-brand-block-centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+#screen-login .rh-login-brand-image {
+  display: block;
+  width: 138px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 10px;
+  object-fit: contain;
+}
+
+#screen-login .rh-login-copy-block {
+  margin-bottom: 18px;
+}
+
+#screen-login .rh-login-welcome-title {
+  margin: 0 0 10px;
+  font-size: 2.2rem;
+  line-height: 1.05;
+  font-weight: 900;
+  color: #0a3b69;
+}
+
+#screen-login .rh-login-welcome-text {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.98rem;
+  line-height: 1.55;
+  max-width: 260px;
+}
+
+#screen-login .rh-login-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+#screen-login .rh-login-label {
+  font-size: 0.92rem;
+  color: #4b5563;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+#screen-login .rh-login-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+#screen-login .rh-login-input-icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  font-size: 1.15rem;
+  color: #9aa4b2;
+  pointer-events: none;
+}
+
+#screen-login .rh-login-input-icon-right {
+  left: auto;
+  right: 14px;
+}
+
+#screen-login .rh-login-input,
+#screen-login .rh-login-input-modern {
+  width: 100%;
+  height: 50px;
+  border-radius: 16px;
+  border: none;
+  background: #eef3ff;
+  padding-left: 42px;
+  padding-right: 42px;
+  font-size: 0.98rem;
+  color: #334155;
+  box-shadow: none !important;
+}
+
+#screen-login .rh-login-input-modern::placeholder,
+#screen-login .rh-login-input::placeholder {
+  color: #a3adbb;
+}
+
+#screen-login .rh-login-input:focus,
+#screen-login .rh-login-input-modern:focus {
+  background: #e8efff;
+  border: none;
+  box-shadow: none !important;
+}
+
+#screen-login .rh-login-check-row {
+  margin: 12px 0 18px;
+}
+
+#screen-login .rh-login-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.92rem;
+  color: #6b7280;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#screen-login .rh-login-check-input {
+  width: 15px;
+  height: 15px;
+  accent-color: #1f3f8f;
+}
+
+#screen-login .rh-login-link-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #6e7fa0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: default;
+}
+
+#screen-login .rh-login-link-btn-strong {
+  color: #c28a13;
+}
+
+#screen-login .rh-login-btn,
+#screen-login .rh-login-btn-modern {
+  width: 100%;
+  height: 50px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #1f3f8f 0%, #17357e 100%);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 14px 28px rgba(31, 63, 143, 0.22);
+}
+
+#screen-login .rh-login-btn-modern:hover,
+#screen-login .rh-login-btn:hover {
+  background: linear-gradient(180deg, #21479f 0%, #183882 100%);
+  color: #fff;
+}
+
+#screen-login .rh-login-footer-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+  color: #6b7280;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+#screen-login .rh-login-footer-meta {
+  margin-top: auto;
+  padding-top: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.68rem;
+  color: #9aa4b2;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* notebook / desktop menor */
+@media (max-width: 1366px) {
+  #screen-login .rh-login-panel,
+  #screen-login .rh-login-panel-modern {
+    max-width: 360px;
+    padding: 32px 24px 20px;
+  }
+
+  #screen-login .rh-login-brand-image {
+    width: 128px;
+  }
+
+  #screen-login .rh-login-welcome-title {
+    font-size: 2rem;
+  }
+
+  #screen-login .rh-login-welcome-text {
+    font-size: 0.94rem;
+    max-width: 235px;
+  }
+}
+
+/* telas médias ainda mantêm o mesmo conceito */
+@media (max-width: 1100px) {
+  #screen-login .rh-login-panel,
+  #screen-login .rh-login-panel-modern {
+    max-width: 335px;
+    padding: 28px 20px 18px;
+  }
+
+  #screen-login .rh-login-brand-image {
+    width: 118px;
+  }
+
+  #screen-login .rh-login-welcome-title {
+    font-size: 1.8rem;
+  }
+
+  #screen-login .rh-login-welcome-text {
+    font-size: 0.9rem;
+    max-width: 220px;
+  }
+
+  #screen-login .rh-login-input,
+  #screen-login .rh-login-input-modern,
+  #screen-login .rh-login-btn,
+  #screen-login .rh-login-btn-modern {
+    height: 46px;
+    border-radius: 14px;
+  }
+}
+
+/* só no celular desmonta */
+@media (max-width: 768px) {
+  #screen-login .rh-login-page {
+    background-position: center left;
+    background-size: cover;
+  }
+
+  #screen-login .rh-login-panel,
+  #screen-login .rh-login-panel-modern {
+    max-width: 100%;
+    min-height: 100vh;
+    padding: 28px 18px 18px;
+  }
+
+  #screen-login .rh-login-brand-image {
+    width: 118px;
+  }
+
+  #screen-login .rh-login-welcome-text {
+    max-width: none;
+  }
+}
+/* ===== DETALHES DO PROCESSO - AJUSTE VISUAL ===== */
+
+.process-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.process-summary-card {
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 12px 14px;
+}
+
+.process-summary-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.process-summary-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1;
+}
+
+.process-summary-card.is-approved .process-summary-value {
+  color: #15803d;
+}
+
+.process-summary-card.is-eliminated .process-summary-value {
+  color: #dc2626;
+}
+
+.process-summary-card.is-talent .process-summary-value {
+  color: #64748b;
+}
+
+.process-summary-card.is-analysis .process-summary-value {
+  color: #2563eb;
+}
+
+.process-action-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.process-action-btn {
+  min-width: 128px;
+  padding: 4px 10px;
+  font-size: 0.84rem;
+  line-height: 1.2;
+  border-radius: 8px;
+}
+
+.process-candidate-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.process-candidate-status-badge.is-approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.process-candidate-status-badge.is-eliminated {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.process-candidate-status-badge.is-talent {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.process-candidate-status-badge.is-analysis {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+@media (max-width: 992px) {
+  .process-summary-grid {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+
+  .process-action-stack {
+    align-items: stretch;
+  }
+
+  .process-action-btn {
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .process-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Alinhamento das tabelas de histórico e processos ===== */
+
+.rh-modern-history-table thead th {
+  text-align: left;
+  vertical-align: middle;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.rh-modern-history-table tbody td {
+  text-align: left;
+  vertical-align: middle;
+}
+
+.rh-modern-history-table th.text-end,
+.rh-modern-history-table td.text-end {
+  text-align: right !important;
+}
+
+.rh-modern-history-table th.text-center,
+.rh-modern-history-table td.text-center {
+  text-align: center !important;
+}
+
+/* ===== ALINHAMENTO DAS TABELAS ===== */
+
+.rh-modern-history-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.rh-modern-history-table thead th {
+  text-align: left;
+  vertical-align: middle;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  white-space: nowrap;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.rh-modern-history-table tbody td {
+  text-align: left;
+  vertical-align: middle;
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+.rh-modern-history-table th.text-end,
+.rh-modern-history-table td.text-end {
+  text-align: right !important;
+}
+
+.rh-modern-history-table td .rh-status-pill {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.2;
 }

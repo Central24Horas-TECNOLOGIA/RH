@@ -7,6 +7,7 @@ const API_BASE_URL = 'http://127.0.0.1:8000';
 const state = {
   logged: false,
   candidate: null,
+  selectedProcessId: '',
   blueprint: null,
   questions: [],
   currentIndex: 0,
@@ -31,6 +32,10 @@ const state = {
 
   historyPage: 1,
   historyPageSize: 10,
+
+  processDetailsPage: 1,
+  processDetailsPageSize: 5,
+  currentProcessDetailsId: '',
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -93,6 +98,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
   );
 
+  const processRoleEl = document.getElementById('process-role');
+  const processOperationEl = document.getElementById('process-operation');
+  const processTrackEl = document.getElementById('process-track');
+
+  if (processRoleEl) {
+    processRoleEl.addEventListener('change', () => {
+      const role = processRoleEl.value.trim();
+      const rules = getProcessFormRules(role);
+
+      if (processTrackEl) {
+        processTrackEl.value = rules.fixedTrack || '';
+        processTrackEl.disabled = !!rules.fixedTrack;
+      }
+
+      if (processOperationEl) {
+        processOperationEl.disabled = false;
+      }
+    });
+  }
+
   try {
     await ensureHistoryCsv();
   } catch (error) {
@@ -100,17 +125,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   updateFlowPreview();
+  try {
+    await populateProcessSelect();
+  } catch (error) {
+    console.warn(
+      'Não foi possível carregar os processos seletivos iniciais:',
+      error,
+    );
+  }
 });
+
+function syncSidebarActiveState(screenId) {
+  document
+    .querySelectorAll('.rh-modern-nav-btn[data-nav-screen]')
+    .forEach((btn) => {
+      const targetScreen = btn.getAttribute('data-nav-screen');
+      btn.classList.toggle('is-active', targetScreen === screenId);
+    });
+}
 
 function showScreen(id) {
   document
     .querySelectorAll('.screen')
     .forEach((s) => s.classList.remove('active'));
+
   const target = document.getElementById(id);
   if (target) target.classList.add('active');
 
+  syncSidebarActiveState(id);
+
   if (id === 'screen-menu') renderMenuRecentTests();
   if (id === 'screen-history') renderHistoryTable();
+  if (id === 'screen-processes') renderProcessesScreen();
+  if (id === 'screen-talent-bank') renderTalentBankTable();
 }
 
 function sanitizeFileName(name) {
@@ -411,6 +458,745 @@ async function readHistoryRows() {
   );
 }
 
+async function readProcesses() {
+  const response = await fetch(`${API_BASE_URL}/processes`, {
+    method: 'GET',
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Falha ao carregar processos. Status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+async function saveProcess(processData) {
+  const response = await fetch(`${API_BASE_URL}/processes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(processData),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao criar processo: ${errorText}`);
+  }
+}
+
+async function updateProcess(idProcesso, processData) {
+  const response = await fetch(
+    `${API_BASE_URL}/processes/${encodeURIComponent(idProcesso)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(processData),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao atualizar processo: ${errorText}`);
+  }
+}
+
+async function closeProcess(idProcesso) {
+  const response = await fetch(
+    `${API_BASE_URL}/processes/${encodeURIComponent(idProcesso)}/close`,
+    {
+      method: 'POST',
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao encerrar processo: ${errorText}`);
+  }
+}
+
+async function readProcessCandidates() {
+  const response = await fetch(`${API_BASE_URL}/process-candidates`, {
+    method: 'GET',
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Falha ao carregar candidatos do processo. Status: ${response.status}`,
+    );
+  }
+
+  return await response.json();
+}
+
+async function saveProcessCandidate(candidateData) {
+  const response = await fetch(`${API_BASE_URL}/process-candidates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(candidateData),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao vincular candidato ao processo: ${errorText}`);
+  }
+}
+
+async function updateProcessCandidateStatus(idRegistro, statusData) {
+  const response = await fetch(
+    `${API_BASE_URL}/process-candidates/${idRegistro}/status`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(statusData),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Falha ao atualizar status do candidato: ${errorText}`);
+  }
+}
+
+async function readTalentBank() {
+  const response = await fetch(`${API_BASE_URL}/talent-bank`, {
+    method: 'GET',
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Falha ao carregar banco de talentos. Status: ${response.status}`,
+    );
+  }
+
+  return await response.json();
+}
+
+async function buildCandidateCurrentStatusMap() {
+  const [processCandidates, talentBank] = await Promise.all([
+    readProcessCandidates().catch(() => []),
+    readTalentBank().catch(() => []),
+  ]);
+
+  const statusMap = {};
+
+  processCandidates.forEach((candidate) => {
+    const idTeste = String(candidate.id_teste || '').trim();
+    if (!idTeste) return;
+
+    const idProcesso = String(candidate.id_processo || '').trim();
+    const status =
+      String(candidate.status_candidato || '').trim() || 'Em análise';
+
+    let label = status;
+    if (idProcesso) {
+      label = `${status} • ${idProcesso}`;
+    }
+
+    statusMap[idTeste] = {
+      status,
+      processId: idProcesso,
+      label,
+    };
+  });
+
+  talentBank.forEach((candidate) => {
+    const idTeste = String(candidate.id_teste || '').trim();
+    if (!idTeste) return;
+
+    const idProcesso = String(candidate.id_processo || '').trim();
+
+    const existing = statusMap[idTeste];
+    const existingStatus = String(existing?.status || '').trim();
+
+    /* Só assume Banco de talentos se não existir status mais atual
+       ou se o status atual ainda estiver Em análise */
+    if (!existing || existingStatus === 'Em análise' || existingStatus === '') {
+      statusMap[idTeste] = {
+        status: 'Banco de talentos',
+        processId: idProcesso,
+        label: idProcesso
+          ? `Banco de talentos • ${idProcesso}`
+          : 'Banco de talentos',
+      };
+    }
+  });
+
+  return statusMap;
+}
+
+function getCurrentSituationLabel(row, statusMap) {
+  const idTeste = String(row?.id_teste || '').trim();
+  const historyProcessId = String(row?.id_processo || '').trim();
+  const mapped = statusMap?.[idTeste];
+
+  if (mapped?.label) return mapped.label;
+
+  if (historyProcessId) {
+    return `Em análise • ${historyProcessId}`;
+  }
+
+  return 'Exame individual';
+}
+
+function getCurrentSituationBadgeClass(label) {
+  const normalized = safeUpper(label).normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  if (normalized.includes('APROVADO')) return 'is-finished';
+  if (normalized.includes('ELIMINADO')) return 'is-unsaved';
+  if (normalized.includes('BANCO DE TALENTOS')) return 'is-neutral';
+  if (normalized.includes('EM ANALISE')) return 'is-neutral';
+
+  return 'is-neutral';
+}
+
+function getProcessRoleAbbreviation(role) {
+  const map = {
+    'Jovem Aprendiz': 'JV.AP',
+    Supervisor: 'SUP',
+    Operador: 'OPR',
+    Analista: 'ANL',
+    Estagiário: 'ESTG',
+    Outros: 'OUT',
+    'Control Desk': 'CTRL',
+    Planejamento: 'PLAN',
+    TI: 'TI',
+  };
+
+  return map[String(role || '').trim()] || 'OUT';
+}
+
+function buildProcessId(role) {
+  const now = new Date();
+  const pad = (v) => String(v).padStart(2, '0');
+  const datePart = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  const rolePart = getProcessRoleAbbreviation(role);
+  return `PROC.${rolePart}.${datePart}`;
+}
+function getProcessFormRules(role) {
+  const safeRole = String(role || '').trim();
+
+  if (safeRole === 'Operador' || safeRole === 'Supervisor') {
+    return {
+      requiresOperation: true,
+      requiresTrack: false,
+      fixedTrack: '',
+    };
+  }
+
+  if (safeRole === 'Control Desk') {
+    return {
+      requiresOperation: false,
+      requiresTrack: false,
+      fixedTrack: '',
+    };
+  }
+
+  if (safeRole === 'Estagiário') {
+    return {
+      requiresOperation: false,
+      requiresTrack: true,
+      fixedTrack: '',
+    };
+  }
+
+  if (safeRole === 'Analista' || safeRole === 'TI') {
+    return {
+      requiresOperation: false,
+      requiresTrack: false,
+      fixedTrack: 'TI',
+    };
+  }
+
+  if (safeRole === 'Jovem Aprendiz') {
+    return {
+      requiresOperation: true,
+      requiresTrack: false,
+      fixedTrack: '',
+    };
+  }
+
+  return {
+    requiresOperation: false,
+    requiresTrack: false,
+    fixedTrack: '',
+  };
+}
+
+async function refreshHomeData() {
+  try {
+    answerFilesCache = null;
+    historyCache = null;
+    await renderMenuRecentTests();
+    alert('Informações atualizadas com sucesso.');
+  } catch (error) {
+    console.error('Erro ao atualizar dados da tela inicial:', error);
+    alert('Não foi possível atualizar as informações.');
+  }
+}
+
+async function createProcess() {
+  const role = document.getElementById('process-role')?.value?.trim() || '';
+  const quantity = Number(
+    document.getElementById('process-quantity')?.value || 0,
+  );
+  const endDate = document.getElementById('process-end-date')?.value || '';
+  const operation =
+    document.getElementById('process-operation')?.value?.trim() || '';
+  const trackInput =
+    document.getElementById('process-track')?.value?.trim() || '';
+  const alertEl = document.getElementById('process-create-alert');
+
+  const rules = getProcessFormRules(role);
+  const finalTrack = rules.fixedTrack || trackInput;
+
+  if (!role || !quantity || !endDate) {
+    if (alertEl) {
+      alertEl.textContent =
+        'Preencha a vaga, a quantidade de vagas e a data de encerramento.';
+      alertEl.classList.remove('d-none');
+    }
+    return;
+  }
+
+  if (rules.requiresOperation && !operation) {
+    if (alertEl) {
+      alertEl.textContent =
+        'Para essa vaga, é obrigatório informar a operação.';
+      alertEl.classList.remove('d-none');
+    }
+    return;
+  }
+
+  if (rules.requiresTrack && !finalTrack) {
+    if (alertEl) {
+      alertEl.textContent = 'Para essa vaga, é obrigatório informar a trilha.';
+      alertEl.classList.remove('d-none');
+    }
+    return;
+  }
+
+  if (alertEl) {
+    alertEl.classList.add('d-none');
+  }
+
+  const now = new Date();
+
+  try {
+    await saveProcess({
+      id_processo: buildProcessId(role),
+      vaga: role,
+      quantidade_vagas: quantity,
+      vagas_preenchidas: 0,
+      data_encerramento: endDate,
+      operacao: operation,
+      trilha: finalTrack,
+      status: 'Aberto',
+      data_criacao: now.toISOString(),
+    });
+
+    await populateProcessSelect();
+    goToProcesses();
+  } catch (error) {
+    console.error('Erro ao criar processo:', error);
+
+    if (alertEl) {
+      alertEl.textContent =
+        error?.message ||
+        'Não foi possível criar o processo seletivo. Verifique a tabela processos_seletivos no Access e reinicie a API.';
+      alertEl.classList.remove('d-none');
+    }
+  }
+}
+
+async function populateProcessSelect() {
+  const select = document.getElementById('candidate-process');
+  if (!select) return;
+
+  const processes = await readProcesses();
+  const openProcesses = processes.filter(
+    (p) => String(p.status || '').trim() !== 'Encerrado',
+  );
+
+  select.innerHTML =
+    '<option value="">Selecione...</option>' +
+    openProcesses
+      .map(
+        (p) => `
+        <option value="${escapeHtml(p.id_processo)}">
+          ${escapeHtml(p.vaga)} • ${escapeHtml(p.operacao || p.trilha || '-')} • ${escapeHtml(p.data_encerramento || '-')}
+        </option>
+      `,
+      )
+      .join('');
+}
+
+async function renderProcessesScreen() {
+  const processBody = document.getElementById('processes-table-body');
+  const candidatesBody = document.getElementById(
+    'process-candidates-table-body',
+  );
+  if (!processBody || !candidatesBody) return;
+
+  const processes = await readProcesses();
+  const candidates = await readProcessCandidates();
+
+  const activeCandidates = candidates.filter(
+    (candidate) =>
+      String(candidate.status_candidato || '').trim() === 'Em análise',
+  );
+
+  if (!processes.length) {
+    processBody.innerHTML =
+      '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum processo cadastrado.</td></tr>';
+  } else {
+    processBody.innerHTML = processes
+      .map(
+        (process) => `
+      <tr>
+        <td>${escapeHtml(process.id_processo || '-')}</td>
+        <td>${escapeHtml(process.vaga || '-')}</td>
+        <td>${escapeHtml(process.operacao || '-')}</td>
+        <td>${escapeHtml(process.trilha || '-')}</td>
+        <td>${escapeHtml(`${process.vagas_preenchidas || 0}/${process.quantidade_vagas || 0}`)}</td>
+        <td>${escapeHtml(process.data_encerramento || '-')}</td>
+        <td>
+          <span class="rh-status-pill ${
+            String(process.status || '').trim() === 'Encerrado'
+              ? 'is-unsaved'
+              : 'is-finished'
+          }">${escapeHtml(process.status || '-')}</span>
+        </td>
+<td class="text-end">
+  <div class="d-flex justify-content-end gap-2 flex-wrap">
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-secondary"
+      onclick="openEditProcessModal(
+        '${escapeHtml(process.id_processo || '')}',
+        '${escapeHtml(process.vaga || '')}',
+        ${Number(process.quantidade_vagas || 0)},
+        '${escapeHtml(process.data_encerramento || '')}',
+        '${escapeHtml(process.operacao || '')}',
+        '${escapeHtml(process.trilha || '')}',
+        '${escapeHtml(process.status || 'Aberto')}'
+      )"
+    >
+      Editar
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-primary"
+      onclick="openProcessDetails('${escapeHtml(process.id_processo || '')}')"
+    >
+      Detalhes
+    </button>
+
+    ${
+      String(process.status || '').trim() !== 'Encerrado'
+        ? `
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            onclick="openCloseProcessConfirm('${escapeHtml(process.id_processo || '')}')"
+          >
+            Encerrar
+          </button>
+        `
+        : ''
+    }
+  </div>
+</td>
+      </tr>
+    `,
+      )
+      .join('');
+  }
+
+  if (!activeCandidates.length) {
+    candidatesBody.innerHTML =
+      '<tr><td colspan="6" class="text-center text-muted py-4">Nenhum candidato em análise vinculado a processo.</td></tr>';
+  } else {
+    candidatesBody.innerHTML = activeCandidates
+      .map(
+        (candidate) => `
+      <tr>
+        <td>${escapeHtml(candidate.id_processo || '-')}</td>
+        <td>${escapeHtml(candidate.nome_candidato || '-')}</td>
+        <td>${escapeHtml(candidate.vaga || '-')}</td>
+        <td>${escapeHtml(candidate.pontuacao_final || '-')}</td>
+        <td>${escapeHtml(candidate.status_candidato || '-')}</td>
+        <td class="text-end">
+          <div class="d-flex justify-content-end gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="setCandidateProcessStatus(${candidate.id_registro}, 'Aprovado', '${escapeHtml(candidate.id_processo || '')}')">Aprovado</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="setCandidateProcessStatus(${candidate.id_registro}, 'Eliminado', '${escapeHtml(candidate.id_processo || '')}')">Eliminado</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setCandidateProcessStatus(${candidate.id_registro}, 'Banco de talentos', '${escapeHtml(candidate.id_processo || '')}')">Banco de talentos</button>
+          </div>
+        </td>
+      </tr>
+    `,
+      )
+      .join('');
+  }
+}
+
+function openEditProcessModal(
+  idProcesso,
+  vaga,
+  quantidade,
+  dataEncerramento,
+  operacao,
+  trilha,
+) {
+  const overlay = document.getElementById('edit-process-overlay');
+  if (!overlay) return;
+
+  document.getElementById('edit-process-id').value = idProcesso || '';
+  document.getElementById('edit-process-role').value = vaga || '';
+  document.getElementById('edit-process-quantity').value = quantidade || 0;
+  document.getElementById('edit-process-end-date').value = formatDateToInput(
+    dataEncerramento || '',
+  );
+  document.getElementById('edit-process-operation').value = operacao || '';
+  document.getElementById('edit-process-track').value = trilha || '';
+
+  const alertEl = document.getElementById('edit-process-alert');
+  if (alertEl) alertEl.classList.add('d-none');
+
+  overlay.classList.remove('d-none');
+}
+
+function closeEditProcessModal() {
+  const overlay = document.getElementById('edit-process-overlay');
+  if (overlay) overlay.classList.add('d-none');
+}
+
+function handleEditProcessOverlayClick(event) {
+  if (event.target?.id === 'edit-process-overlay') {
+    closeEditProcessModal();
+  }
+}
+
+async function saveEditedProcess() {
+  const idProcesso =
+    document.getElementById('edit-process-id')?.value?.trim() || '';
+  const quantidade = Number(
+    document.getElementById('edit-process-quantity')?.value || 0,
+  );
+  const dataEncerramento =
+    document.getElementById('edit-process-end-date')?.value || '';
+  const operacao =
+    document.getElementById('edit-process-operation')?.value?.trim() || '';
+  const trilha =
+    document.getElementById('edit-process-track')?.value?.trim() || '';
+  const alertEl = document.getElementById('edit-process-alert');
+
+  if (!idProcesso || !quantidade || !dataEncerramento) {
+    if (alertEl) {
+      alertEl.textContent = 'Preencha os campos obrigatórios.';
+      alertEl.classList.remove('d-none');
+    }
+    return;
+  }
+
+  await updateProcess(idProcesso, {
+    quantidade_vagas: quantidade,
+    data_encerramento: dataEncerramento,
+    operacao: operacao,
+    trilha: trilha,
+  });
+
+  closeEditProcessModal();
+  await populateProcessSelect();
+  await renderProcessesScreen();
+}
+
+async function handleCloseProcess(idProcesso) {
+  if (!confirm(`Deseja encerrar o processo ${idProcesso}?`)) {
+    return;
+  }
+
+  await closeProcess(idProcesso);
+  await populateProcessSelect();
+  await renderProcessesScreen();
+}
+
+async function editProcessPrompt(
+  idProcesso,
+  quantidadeAtual,
+  dataAtual,
+  operacaoAtual,
+  trilhaAtual,
+  statusAtual,
+) {
+  const novaQuantidade = prompt('Nova quantidade de vagas:', quantidadeAtual);
+  if (novaQuantidade === null) return;
+
+  const novaData = prompt('Nova data de encerramento (YYYY-MM-DD):', dataAtual);
+  if (novaData === null) return;
+
+  const novaOperacao = prompt('Operação:', operacaoAtual);
+  if (novaOperacao === null) return;
+
+  const novaTrilha = prompt('Trilha:', trilhaAtual);
+  if (novaTrilha === null) return;
+
+  await updateProcess(idProcesso, {
+    quantidade_vagas: Number(novaQuantidade || quantidadeAtual),
+    data_encerramento: novaData || dataAtual,
+    operacao: novaOperacao || operacaoAtual,
+    trilha: novaTrilha || trilhaAtual,
+    status: statusAtual || 'Aberto',
+  });
+
+  await populateProcessSelect();
+  await renderProcessesScreen();
+}
+
+async function setCandidateProcessStatus(
+  idRegistro,
+  statusCandidato,
+  idProcesso,
+) {
+  if (statusCandidato === 'Aprovado') {
+    const processes = await readProcesses();
+    const process = processes.find(
+      (p) => String(p.id_processo) === String(idProcesso),
+    );
+
+    if (process && Number(process.quantidade_vagas || 0) === 1) {
+      const confirmed = confirm(
+        'Este processo possui apenas 1 vaga. Ao aprovar o candidato, o processo será automaticamente finalizado. Deseja continuar?',
+      );
+      if (!confirmed) return;
+    }
+  }
+
+  await updateProcessCandidateStatus(idRegistro, {
+    status_candidato: statusCandidato,
+    data_movimentacao: new Date().toISOString(),
+  });
+
+  await renderProcessesScreen();
+  await renderTalentBankTable();
+  await populateProcessSelect();
+
+  const overlay = document.getElementById('process-details-overlay');
+  if (overlay && !overlay.classList.contains('d-none')) {
+    await openProcessDetails(idProcesso);
+  }
+}
+
+async function removeTalentBankCandidate(idBanco) {
+  const confirmed = confirm(
+    'Deseja eliminar este candidato do banco de talentos? Ele deixará de aparecer nesta lista.',
+  );
+  if (!confirmed) return;
+
+  const response = await fetch(`${API_BASE_URL}/talent-bank/${idBanco}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Falha ao eliminar candidato do banco de talentos: ${errorText}`,
+    );
+  }
+
+  await renderTalentBankTable();
+}
+
+async function useTalentBankCandidate(idBanco) {
+  const openProcesses = (await readProcesses()).filter(
+    (process) => String(process.status || '').trim() !== 'Encerrado',
+  );
+
+  if (!openProcesses.length) {
+    alert('Não há processo aberto no momento.');
+    return;
+  }
+
+  const optionsText = openProcesses
+    .map(
+      (process, index) =>
+        `${index + 1} - ${process.id_processo} | ${process.vaga} | ${process.operacao || process.trilha || '-'}`,
+    )
+    .join('\n');
+
+  const choice = prompt(
+    `Selecione o número do processo para inserir o candidato:\n\n${optionsText}`,
+  );
+
+  if (choice === null) return;
+
+  const selectedIndex = Number(choice) - 1;
+  const selectedProcess = openProcesses[selectedIndex];
+
+  if (!selectedProcess) {
+    alert('Processo inválido.');
+    return;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/talent-bank/${idBanco}/use`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id_processo: selectedProcess.id_processo,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Falha ao utilizar candidato do banco de talentos: ${errorText}`,
+    );
+  }
+
+  await renderTalentBankTable();
+  await renderProcessesScreen();
+}
+
+async function renderTalentBankTable() {
+  const body = document.getElementById('talent-bank-table-body');
+  if (!body) return;
+
+  const rows = await readTalentBank();
+
+  if (!rows.length) {
+    body.innerHTML =
+      '<tr><td colspan="7" class="text-center text-muted py-4">Nenhum candidato no banco de talentos.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows
+    .map(
+      (row) => `
+    <tr>
+      <td>${escapeHtml(row.id_processo || '-')}</td>
+      <td>${escapeHtml(row.nome_candidato || '-')}</td>
+      <td>${escapeHtml(row.vaga || '-')}</td>
+      <td>${escapeHtml(row.pontuacao_final || '-')}</td>
+      <td>${escapeHtml(row.data_movimentacao || '-')}</td>
+      <td>${escapeHtml(row.origem || '-')}</td>
+      <td class="text-end">
+        <div class="d-flex justify-content-end gap-2 flex-wrap">
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeTalentBankCandidate(${Number(row.id_banco || 0)})">
+            Eliminar candidato
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-primary" onclick="useTalentBankCandidate(${Number(row.id_banco || 0)})">
+            Utilizar candidato
+          </button>
+        </div>
+      </td>
+    </tr>
+  `,
+    )
+    .join('');
+}
+
 async function saveHistoryRow(row) {
   const response = await fetch(`${API_BASE_URL}/history`, {
     method: 'POST',
@@ -568,6 +1354,7 @@ async function renderMenuRecentTests() {
     if (empty) empty.classList.add('d-none');
 
     const files = await getAnswerFilesSafe();
+    const currentStatusMap = await buildCandidateCurrentStatusMap();
     const recentItems = rows.slice(0, state.recentPageSize);
 
     const cards = await Promise.all(
@@ -578,6 +1365,13 @@ async function renderMenuRecentTests() {
           rawStatus || (saved?.content ? 'Finalizado' : 'Finalizado');
         const statusClass = getRecentStatusClass(status);
 
+        const currentSituation = getCurrentSituationLabel(
+          row,
+          currentStatusMap,
+        );
+        const currentSituationClass =
+          getCurrentSituationBadgeClass(currentSituation);
+
         return `
   <button type="button" class="rh-recent-card btn text-start" data-record-id="${escapeHtml(row.id_teste)}">
     <div class="rh-recent-avatar-wrap">
@@ -585,26 +1379,28 @@ async function renderMenuRecentTests() {
         src="style/avatar-candidato.png"
         alt="Foto de perfil do candidato"
         class="rh-recent-avatar"
-      >  
+      >
     </div>
 
     <div class="rh-recent-card-top">
-      <!--<div class="rh-recent-top-left">
-      
-      </div>-->
-
       <div class="rh-recent-top-right">
         <span class="rh-recent-score-label">NOTA</span>
         <span class="rh-recent-score">${escapeHtml(formatDetailScore(row.pontuacao_final, saved?.weightedFinalScore || row?.weightedFinalScore || '0,0'))}</span>
-       
       </div>
     </div>
+
     <span class="rh-recent-name">${escapeHtml(row.nome_candidato || 'Sem nome')}</span>
     <span class="rh-recent-date">${escapeHtml(row.data_exibicao || '-')}</span>
+
     <div class="rh-recent-card-bottom">
-    
       <span class="rh-recent-role">${escapeHtml(row.vaga || '-')}</span>
       <span class="rh-status-pill ${statusClass}">${escapeHtml(status)}</span>
+    </div>
+
+    <div class="mt-2">
+      <span class="rh-status-pill ${currentSituationClass}">
+        ${escapeHtml(currentSituation)}
+      </span>
     </div>
   </button>
 `;
@@ -625,11 +1421,49 @@ async function renderMenuRecentTests() {
   }
 }
 
+function getActiveDetailsModalRefs() {
+  const historyScreen = document.getElementById('screen-history');
+  const isHistoryActive = historyScreen?.classList.contains('active');
+
+  if (isHistoryActive) {
+    return {
+      overlay: document.getElementById('history-test-details-overlay'),
+      title: document.getElementById('history-test-details-title'),
+      body: document.getElementById('history-test-details-body'),
+      downloadBtn: null,
+      closeFn: 'closeHistoryTestDetails',
+    };
+  }
+
+  return {
+    overlay: document.getElementById('recent-test-details-overlay'),
+    title: document.getElementById('recent-test-details-title'),
+    body: document.getElementById('recent-test-details-body'),
+    downloadBtn: document.getElementById('recent-test-download-btn'),
+    closeFn: 'closeRecentTestDetails',
+  };
+}
+
+function closeHistoryTestDetails() {
+  const overlay = document.getElementById('history-test-details-overlay');
+  const body = document.getElementById('history-test-details-body');
+  if (body) body.innerHTML = '';
+  if (overlay) overlay.classList.add('d-none');
+}
+
+function handleHistoryDetailsOverlayClick(event) {
+  if (event.target?.id === 'history-test-details-overlay') {
+    closeHistoryTestDetails();
+  }
+}
+
 async function openRecentTestDetails(recordId) {
-  const overlay = document.getElementById('recent-test-details-overlay');
-  const title = document.getElementById('recent-test-details-title');
-  const body = document.getElementById('recent-test-details-body');
-  const downloadBtn = document.getElementById('recent-test-download-btn');
+  const refs = getActiveDetailsModalRefs();
+  const overlay = refs.overlay;
+  const title = refs.title;
+  const body = refs.body;
+  const downloadBtn = refs.downloadBtn;
+
   if (!overlay || !title || !body) return;
 
   const rows = await readHistoryRows();
@@ -676,6 +1510,9 @@ async function openRecentTestDetails(recordId) {
   const fullLog = payload?.textContent || '';
   const status = await normalizeRecentStatus(row);
   const statusClass = getRecentStatusClass(status);
+  const currentStatusMap = await buildCandidateCurrentStatusMap();
+  const currentSituation = getCurrentSituationLabel(row, currentStatusMap);
+  const currentSituationClass = getCurrentSituationBadgeClass(currentSituation);
   const stageCardsHtml = stageSummary.length
     ? `
       <div class="rh-detail-stage-grid">
@@ -742,7 +1579,23 @@ async function openRecentTestDetails(recordId) {
           <span class="rh-detail-label">Tempo</span>
           <span class="rh-detail-value">${escapeHtml(row.tempo_minutos ? `${row.tempo_minutos} min` : '-')}</span>
         </div>
+        <div class="rh-detail-card">
+  <span class="rh-detail-label">Situação atual</span>
+  <span class="rh-status-pill ${currentSituationClass}">
+    ${escapeHtml(currentSituation)}
+  </span>
+</div>
       </div>
+      <div class="rh-detail-card">
+  <span class="rh-detail-label">Processo seletivo</span>
+  <span class="rh-detail-value">
+    ${
+      row.id_processo && String(row.id_processo).trim()
+        ? escapeHtml(row.id_processo)
+        : '<span class="rh-status-pill is-neutral">Processo Único</span>'
+    }
+  </span>
+</div>
     </section>
 
     <section class="rh-details-section">
@@ -775,6 +1628,7 @@ async function openRecentTestDetails(recordId) {
 
   overlay.classList.remove('d-none');
 }
+
 function closeRecentTestDetails() {
   const overlay = document.getElementById('recent-test-details-overlay');
   const body = document.getElementById('recent-test-details-body');
@@ -962,6 +1816,20 @@ function backToMenu() {
   showScreen('screen-menu');
 }
 
+function goToProcessCreate() {
+  showScreen('screen-process-create');
+}
+
+function goToProcesses() {
+  showScreen('screen-processes');
+  renderProcessesScreen();
+}
+
+function goToTalentBank() {
+  showScreen('screen-talent-bank');
+  renderTalentBankTable();
+}
+
 function goToHistory() {
   showScreen('screen-history');
   renderHistoryTable();
@@ -979,6 +1847,8 @@ async function proceedToCandidate() {
   const level = document.getElementById('candidate-level').value;
   const track = document.getElementById('candidate-track').value.trim();
   const time = parseInt(document.getElementById('candidate-time').value, 10);
+  const processId =
+    document.getElementById('candidate-process')?.value?.trim() || '';
   const alert = document.getElementById('config-alert');
 
   if (!role || !level || !time) {
@@ -987,22 +1857,35 @@ async function proceedToCandidate() {
     return;
   }
 
+  if (!processId) {
+    alert.textContent = 'Selecione o processo seletivo para prosseguir.';
+    alert.classList.remove('d-none');
+    return;
+  }
+
   alert.classList.add('d-none');
+
   const blueprint = resolveExamBlueprint(role, level, track);
+
   state.candidate = {
     ...(state.candidate || {}),
+    id_processo: processId,
     role,
     level,
     time,
     track: track || 'automático',
   };
+
+  state.selectedProcessId = processId;
   state.blueprint = blueprint;
 
   const rolePreview = document.getElementById('candidate-role-preview');
   if (rolePreview) rolePreview.value = `${role} • ${blueprint.label}`;
+
   renderCandidateRules();
   showScreen('screen-candidate');
 }
+
 function getStageMacroDescription(stageKey) {
   const role = (state.candidate?.role || '').trim();
   const level = String(state.candidate?.level || '').trim();
@@ -1157,8 +2040,22 @@ async function startExam() {
   const blueprint = state.blueprint || resolveExamBlueprint(role, level, track);
 
   if (alert) alert.classList.add('d-none');
-  state.candidate = { name, role, level, time, track: track || 'automático' };
+
+  const processId =
+    state.candidate?.id_processo || state.selectedProcessId || '';
+
+  state.candidate = {
+    ...(state.candidate || {}),
+    name,
+    role,
+    level,
+    time,
+    track: track || 'automático',
+    id_processo: processId,
+  };
+
   state.blueprint = blueprint;
+  state.selectedProcessId = processId;
   state.questions = buildExamFromBlueprint(blueprint);
   state.currentIndex = 0;
   state.answers = new Array(state.questions.length).fill(null);
@@ -1556,8 +2453,14 @@ function evaluateWord(answer, expected, points) {
   const raw = (score / totalWeight) * points;
   return Math.max(plain.trim().length >= 5 ? 1 : 0, Math.round(raw));
 }
-function evaluateMultiple(answer, correctIndex, points) {
-  return answer && answer.selected === correctIndex ? points : 0;
+
+function evaluateMultiple(answerData, question, points) {
+  const expectedIndex =
+    question?.answer !== undefined && question?.answer !== null
+      ? question.answer
+      : question?.correctIndex;
+
+  return answerData && answerData.selected === expectedIndex ? points : 0;
 }
 
 async function downloadExcelTask(questionIndex) {
@@ -2318,7 +3221,7 @@ function finishExam() {
       const score = evaluateWord(ans, q.expected, q.points);
       result = scoreResult(score, q.points, [], false);
     } else if (q.type === 'multiple') {
-      const score = evaluateMultiple(ans, q.correctIndex, q.points);
+      const score = evaluateMultiple(ans, q, q.points);
       result = scoreResult(score, q.points, [], false);
     } else if (q.type === 'excel_external') {
       if (!ans || !ans.uploaded || !ans.validation) {
@@ -2413,13 +3316,23 @@ function finishExam() {
 
 function renderResults() {
   updateSaveResultButtonState(state.resultSaved ? 'saved' : 'idle');
+
   document.getElementById('result-name').textContent = state.candidate.name;
   document.getElementById('result-role').textContent = state.candidate.role;
   document.getElementById('result-level').textContent =
     `${state.candidate.level} • ${state.blueprint.label}`;
   document.getElementById('result-score').textContent =
     state.weightedFinalScore.toFixed(2);
+  const resultProcessEl = document.getElementById('result-process');
+  const printProcessEl = document.getElementById('print-process');
 
+  const processLabel =
+    state.candidate?.id_processo && String(state.candidate.id_processo).trim()
+      ? state.candidate.id_processo
+      : 'Processo Individual';
+
+  if (resultProcessEl) resultProcessEl.textContent = processLabel;
+  if (printProcessEl) printProcessEl.textContent = processLabel;
   const box = document.getElementById('stage-results');
   box.innerHTML = state.stageSummary
     .map((data) => {
@@ -2538,10 +3451,24 @@ function renderResults() {
 
 function getQuestionExpectedAnswerText(q) {
   if (q.type === 'multiple') {
-    return (
-      q.options?.[q.correctIndex] ?? 'Resposta objetiva definida no sistema.'
-    );
+    const expectedIndex =
+      q?.answer !== undefined && q?.answer !== null
+        ? q.answer
+        : q?.correctIndex;
+
+    if (
+      expectedIndex !== undefined &&
+      expectedIndex !== null &&
+      Array.isArray(q.options)
+    ) {
+      return (
+        q.options[expectedIndex] ?? 'Alternativa correta definida no sistema.'
+      );
+    }
+
+    return 'Alternativa correta definida no sistema.';
   }
+
   if (q.type === 'word') {
     const expected = [];
     if (q.expected?.titleText)
@@ -2562,11 +3489,241 @@ function getQuestionExpectedAnswerText(q) {
       ? expected.join(' | ')
       : 'Critérios práticos definidos no sistema.';
   }
+
   if (q.type === 'excel_external') {
     const key = getTaskAnswerKey(q.taskId);
     return key.length ? key.join(' | ') : 'Checklist prático do Excel.';
   }
+
   return '';
+}
+
+function closeProcessDetails() {
+  const overlay = document.getElementById('process-details-overlay');
+  const body = document.getElementById('process-details-body');
+  if (body) body.innerHTML = '';
+  if (overlay) overlay.classList.add('d-none');
+}
+
+function handleProcessDetailsOverlayClick(event) {
+  if (event.target?.id === 'process-details-overlay') {
+    closeProcessDetails();
+  }
+}
+
+async function openProcessDetails(idProcesso, page = 1) {
+  const overlay = document.getElementById('process-details-overlay');
+  const title = document.getElementById('process-details-title');
+  const body = document.getElementById('process-details-body');
+  if (!overlay || !title || !body) return;
+
+  const candidates = await readProcessCandidates();
+  const processCandidates = candidates.filter(
+    (candidate) =>
+      String(candidate.id_processo || '').trim() ===
+      String(idProcesso || '').trim(),
+  );
+
+  state.currentProcessDetailsId = idProcesso;
+  state.processDetailsPage = page;
+
+  title.textContent = `Detalhes do processo • ${idProcesso}`;
+
+  const totalCandidates = processCandidates.length;
+  const approvedCount = processCandidates.filter(
+    (candidate) =>
+      String(candidate.status_candidato || '').trim() === 'Aprovado',
+  ).length;
+  const eliminatedCount = processCandidates.filter(
+    (candidate) =>
+      String(candidate.status_candidato || '').trim() === 'Eliminado',
+  ).length;
+  const talentCount = processCandidates.filter(
+    (candidate) =>
+      String(candidate.status_candidato || '').trim() === 'Banco de talentos',
+  ).length;
+  const analysisCount = processCandidates.filter(
+    (candidate) =>
+      String(candidate.status_candidato || '').trim() === 'Em análise',
+  ).length;
+
+  if (!processCandidates.length) {
+    body.innerHTML = `
+      <div class="process-summary-grid">
+        <div class="process-summary-card">
+          <span class="process-summary-label">Total</span>
+          <span class="process-summary-value">0</span>
+        </div>
+        <div class="process-summary-card is-approved">
+          <span class="process-summary-label">Aprovados</span>
+          <span class="process-summary-value">0</span>
+        </div>
+        <div class="process-summary-card is-eliminated">
+          <span class="process-summary-label">Eliminados</span>
+          <span class="process-summary-value">0</span>
+        </div>
+        <div class="process-summary-card is-talent">
+          <span class="process-summary-label">Banco de talentos</span>
+          <span class="process-summary-value">0</span>
+        </div>
+        <div class="process-summary-card is-analysis">
+          <span class="process-summary-label">Em análise</span>
+          <span class="process-summary-value">0</span>
+        </div>
+      </div>
+
+      <div class="alert alert-secondary mb-0">
+        Não há candidatos vinculados a este processo.
+      </div>
+    `;
+    overlay.classList.remove('d-none');
+    return;
+  }
+
+  const paged = getPagedItems(
+    processCandidates,
+    state.processDetailsPage,
+    state.processDetailsPageSize,
+  );
+
+  body.innerHTML = `
+    <div class="process-summary-grid">
+      <div class="process-summary-card">
+        <span class="process-summary-label">Total</span>
+        <span class="process-summary-value">${totalCandidates}</span>
+      </div>
+
+      <div class="process-summary-card is-approved">
+        <span class="process-summary-label">Aprovados</span>
+        <span class="process-summary-value">${approvedCount}</span>
+      </div>
+
+      <div class="process-summary-card is-eliminated">
+        <span class="process-summary-label">Eliminados</span>
+        <span class="process-summary-value">${eliminatedCount}</span>
+      </div>
+
+      <div class="process-summary-card is-talent">
+        <span class="process-summary-label">Banco de talentos</span>
+        <span class="process-summary-value">${talentCount}</span>
+      </div>
+
+      <div class="process-summary-card is-analysis">
+        <span class="process-summary-label">Em análise</span>
+        <span class="process-summary-value">${analysisCount}</span>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle history-table rh-modern-history-table">
+        <thead>
+          <tr>
+            <th>Candidato</th>
+            <th>Vaga</th>
+            <th>Nota</th>
+            <th>Status</th>
+            <th class="text-end">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${paged.items
+            .map((candidate) => {
+              const status = String(candidate.status_candidato || '').trim();
+
+              let statusClass = 'is-analysis';
+              if (status === 'Aprovado') statusClass = 'is-approved';
+              if (status === 'Eliminado') statusClass = 'is-eliminated';
+              if (status === 'Banco de talentos') statusClass = 'is-talent';
+
+              return `
+                <tr>
+                  <td>${escapeHtml(candidate.nome_candidato || '-')}</td>
+                  <td>${escapeHtml(candidate.vaga || '-')}</td>
+                  <td>${escapeHtml(candidate.pontuacao_final || '-')}</td>
+                  <td>
+                    <span class="process-candidate-status-badge ${statusClass}">
+                      ${escapeHtml(status || '-')}
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    <div class="process-action-stack">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-success process-action-btn"
+                        onclick="setCandidateProcessStatus(${candidate.id_registro}, 'Aprovado', '${escapeHtml(candidate.id_processo || '')}')"
+                      >
+                        Aprovado
+                      </button>
+
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger process-action-btn"
+                        onclick="setCandidateProcessStatus(${candidate.id_registro}, 'Eliminado', '${escapeHtml(candidate.id_processo || '')}')"
+                      >
+                        Eliminado
+                      </button>
+
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary process-action-btn"
+                        onclick="setCandidateProcessStatus(${candidate.id_registro}, 'Banco de talentos', '${escapeHtml(candidate.id_processo || '')}')"
+                      >
+                        Banco de talentos
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            })
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="d-flex justify-content-center gap-2 flex-wrap mt-4">
+      ${buildPaginationHtml(
+        paged.currentPage,
+        paged.totalPages,
+        'goToProcessDetailsPage',
+      )}
+    </div>
+  `;
+
+  overlay.classList.remove('d-none');
+}
+
+function openCloseProcessConfirm(idProcesso) {
+  const overlay = document.getElementById('close-process-overlay');
+  const input = document.getElementById('close-process-id');
+  if (input) input.value = idProcesso || '';
+  if (overlay) overlay.classList.remove('d-none');
+}
+
+function closeCloseProcessModal() {
+  const overlay = document.getElementById('close-process-overlay');
+  if (overlay) overlay.classList.add('d-none');
+}
+
+function handleCloseProcessOverlayClick(event) {
+  if (event.target?.id === 'close-process-overlay') {
+    closeCloseProcessModal();
+  }
+}
+
+async function confirmCloseProcess() {
+  const idProcesso =
+    document.getElementById('close-process-id')?.value?.trim() || '';
+  if (!idProcesso) return;
+
+  await closeProcess(idProcesso);
+  closeCloseProcessModal();
+  await populateProcessSelect();
+  await renderProcessesScreen();
+}
+
+function goToProcessDetailsPage(page) {
+  if (!state.currentProcessDetailsId) return;
+  openProcessDetails(state.currentProcessDetailsId, page);
 }
 
 function getCandidateAnswerText(q, ans) {
@@ -2728,6 +3885,7 @@ async function saveExamResult() {
     const row = {
       id_teste: recordId,
       nome_candidato: state.candidate.name,
+      id_processo: state.candidate.id_processo || state.selectedProcessId || '',
       vaga: state.candidate.role,
       nivel: state.candidate.level,
       trilha: state.blueprint.label,
@@ -2742,6 +3900,16 @@ async function saveExamResult() {
 
     await saveHistoryRow(row);
     await saveAnswerFile(recordId, buildAnswerKeyPayload(recordId));
+    await saveProcessCandidate({
+      id_processo: state.candidate.id_processo || state.selectedProcessId || '',
+      id_teste: recordId,
+      nome_candidato: state.candidate.name,
+      vaga: state.candidate.role,
+      status_candidato: 'Em análise',
+      pontuacao_final: state.weightedFinalScore.toFixed(1).replace('.', ','),
+      data_prova: now.toISOString(),
+      origem: 'Prova',
+    });
 
     state.currentResultId = recordId;
     state.recentPage = 1;
@@ -2868,6 +4036,7 @@ async function renderHistoryTable() {
 
   try {
     const rows = await readHistoryRows();
+    const currentStatusMap = await buildCandidateCurrentStatusMap();
 
     const nameFilter =
       document
@@ -2907,7 +4076,7 @@ async function renderHistoryTable() {
     if (!filtered.length) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="8" class="text-center text-muted py-4">
+          <td colspan="7" class="text-center text-muted py-4">
             Nenhum registro encontrado.
           </td>
         </tr>
@@ -2924,16 +4093,26 @@ async function renderHistoryTable() {
     state.historyPage = paged.currentPage;
 
     tableBody.innerHTML = paged.items
-      .map(
-        (row) => `
+      .map((row) => {
+        const currentSituation = getCurrentSituationLabel(
+          row,
+          currentStatusMap,
+        );
+        const currentSituationClass =
+          getCurrentSituationBadgeClass(currentSituation);
+
+        return `
           <tr>
-            <td>${escapeHtml(row.id_teste || '-')}</td>
             <td>${escapeHtml(row.nome_candidato || '-')}</td>
             <td>${escapeHtml(row.vaga || '-')}</td>
             <td>${escapeHtml(row.nivel || '-')}</td>
             <td>${escapeHtml(row.data_exibicao || '-')}</td>
             <td>${escapeHtml(formatDetailScore(row.pontuacao_final || '-', ''))}</td>
-            <td>${escapeHtml(row.status || 'Finalizado')}</td>
+            <td>
+              <span class="rh-status-pill ${currentSituationClass}">
+                ${escapeHtml(currentSituation)}
+              </span>
+            </td>
             <td>
               <div class="d-flex gap-2 flex-wrap justify-content-end">
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="openRecentTestDetails('${row.id_teste}')">Detalhes</button>
@@ -2941,8 +4120,8 @@ async function renderHistoryTable() {
               </div>
             </td>
           </tr>
-        `,
-      )
+        `;
+      })
       .join('');
 
     if (pagination) {
@@ -2956,7 +4135,7 @@ async function renderHistoryTable() {
     console.error('Erro ao renderizar histórico:', error);
     tableBody.innerHTML = `
       <tr>
-        <td colspan="8" class="text-center text-danger py-4">
+        <td colspan="7" class="text-center text-danger py-4">
           Não foi possível carregar o histórico.
         </td>
       </tr>

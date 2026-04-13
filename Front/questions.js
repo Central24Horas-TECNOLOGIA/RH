@@ -1645,7 +1645,7 @@ function techAdmSpecificPoolAnalista() {
 const EXAM_BLUEPRINTS = {
   jovem_aprendiz: {
     level: '1',
-    label: 'Nível 1 — Jovem Aprendiz',
+    label: 'Nv 1 — Jovem Aprendiz',
     stages: [
       {
         key: 'word_basic',
@@ -1658,7 +1658,7 @@ const EXAM_BLUEPRINTS = {
   },
   operador: {
     level: '2',
-    label: 'Nível 2 — Operador',
+    label: 'Nv 2 — Operador',
     stages: [
       {
         key: 'word_basic',
@@ -1671,7 +1671,7 @@ const EXAM_BLUEPRINTS = {
   },
   estagiario_ti: {
     level: '2',
-    label: 'Nível 2 — Estagiário (TI)',
+    label: 'Nv 2 — Estagiário (TI)',
     stages: [
       {
         key: 'word_basic',
@@ -1694,7 +1694,7 @@ const EXAM_BLUEPRINTS = {
   },
   estagiario_rh: {
     level: '2',
-    label: 'Nível 2 — Estagiário (RH)',
+    label: 'Nv 2 — Estagiário (RH)',
     stages: [
       {
         key: 'word_basic',
@@ -1713,7 +1713,7 @@ const EXAM_BLUEPRINTS = {
   },
   supervisor: {
     level: '3',
-    label: 'Nível 3 — Supervisor',
+    label: 'Nv — Supervisor',
     stages: [
       { key: 'word_basic', weight: 35, questions: () => wordBasicLevel3Pool() },
       { key: 'excel_mid', weight: 35, questions: () => excelStageMid() },
@@ -1726,7 +1726,7 @@ const EXAM_BLUEPRINTS = {
   },
   helpdesk: {
     level: '3',
-    label: 'Nível 3 — Control Desk',
+    label: 'Nv 3 — Control Desk',
     stages: [
       { key: 'word_basic', weight: 20, questions: () => wordPoolHelpDesk() },
       {
@@ -1749,7 +1749,7 @@ const EXAM_BLUEPRINTS = {
   },
   planejamento: {
     level: '3',
-    label: 'Nível 3 — Planejamento',
+    label: 'Nv 3 — Planejamento',
     stages: [
       {
         key: 'word_basic',
@@ -1772,7 +1772,7 @@ const EXAM_BLUEPRINTS = {
   },
   ti: {
     level: '4',
-    label: 'Nível 4 — TI',
+    label: 'Nv — TI',
     stages: [
       { key: 'word_advanced', weight: 20, questions: () => wordAdvancedPool() },
       {
@@ -1795,7 +1795,7 @@ const EXAM_BLUEPRINTS = {
   },
   adm: {
     level: '4',
-    label: 'Nível 4 — Analista / Outros (ADM)',
+    label: 'Nv 4 — Analista / Outros (ADM)',
     stages: [
       { key: 'word_advanced', weight: 20, questions: () => wordAdvancedPool() },
       {
