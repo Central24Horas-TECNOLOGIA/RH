@@ -439,6 +439,95 @@ const APPS_SCRIPT_URL =
 let historyCache = null;
 let answerFilesCache = null;
 
+const apiMemoryCache = {
+  processes: null,
+  processCandidates: null,
+  talentBank: null,
+};
+
+const API_CACHE_TTL_MS = 15000;
+
+function getCacheEntry(key) {
+  const entry = apiMemoryCache[key];
+  if (!entry) return null;
+
+  const age = Date.now() - entry.timestamp;
+  if (age > API_CACHE_TTL_MS) {
+    apiMemoryCache[key] = null;
+    return null;
+  }
+
+  return entry.data;
+}
+
+function setCacheEntry(key, data) {
+  apiMemoryCache[key] = {
+    data,
+    timestamp: Date.now(),
+  };
+}
+
+function invalidateApiCache(...keys) {
+  keys.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(apiMemoryCache, key)) {
+      apiMemoryCache[key] = null;
+    }
+  });
+}
+
+function toggleSectionBlock(contentId, buttonId) {
+  const content = document.getElementById(contentId);
+  const button = document.getElementById(buttonId);
+
+  if (!content) return;
+
+  const isHidden = content.classList.contains('d-none');
+  content.classList.toggle('d-none', !isHidden);
+
+  if (button) {
+    const icon = button.querySelector('.material-symbols-outlined');
+    if (icon) {
+      icon.textContent = isHidden ? 'expand_less' : 'expand_more';
+    }
+  }
+}
+
+function getProcessFilterValues() {
+  return {
+    vaga:
+      document
+        .getElementById('process-filter-vaga')
+        ?.value?.trim()
+        .toLowerCase() || '',
+    operacao:
+      document
+        .getElementById('process-filter-operacao')
+        ?.value?.trim()
+        .toLowerCase() || '',
+    notaCorte:
+      document.getElementById('process-filter-cutoff')?.value?.trim() || '',
+    status:
+      document
+        .getElementById('process-filter-status')
+        ?.value?.trim()
+        .toLowerCase() || '',
+  };
+}
+
+function buildProcessActionButton(icon, title, className, onClick) {
+  return `
+    <button
+      type="button"
+      class="btn btn-sm ${className}"
+      onclick="${onClick}"
+      title="${escapeHtml(title)}"
+      aria-label="${escapeHtml(title)}"
+    >
+      <span class="material-symbols-outlined" style="font-size:18px;line-height:1;">${icon}</span>
+    </button>
+  `;
+}
+
 function openAdminResult() {
   const pass = document.getElementById('admin-pass').value.trim();
   const alert = document.getElementById('admin-alert');
@@ -607,7 +696,12 @@ async function readHistoryRows() {
   );
 }
 
-async function readProcesses() {
+async function readProcesses(forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = getCacheEntry('processes');
+    if (cached) return cached;
+  }
+
   const response = await fetch(`${API_BASE_URL}/processes`, {
     method: 'GET',
     cache: 'no-store',
@@ -617,7 +711,9 @@ async function readProcesses() {
     throw new Error(`Falha ao carregar processos. Status: ${response.status}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+  setCacheEntry('processes', Array.isArray(data) ? data : []);
+  return Array.isArray(data) ? data : [];
 }
 
 async function saveProcess(processData) {
@@ -628,6 +724,7 @@ async function saveProcess(processData) {
   });
 
   if (!response.ok) {
+    invalidateApiCache('processes');
     const errorText = await response.text();
     throw new Error(`Falha ao criar processo: ${errorText}`);
   }
@@ -644,6 +741,7 @@ async function updateProcess(idProcesso, processData) {
   );
 
   if (!response.ok) {
+    invalidateApiCache('processes');
     const errorText = await response.text();
     throw new Error(`Falha ao atualizar processo: ${errorText}`);
   }
@@ -658,12 +756,18 @@ async function closeProcess(idProcesso) {
   );
 
   if (!response.ok) {
+    invalidateApiCache('processes');
     const errorText = await response.text();
     throw new Error(`Falha ao encerrar processo: ${errorText}`);
   }
 }
 
-async function readProcessCandidates() {
+async function readProcessCandidates(forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = getCacheEntry('processCandidates');
+    if (cached) return cached;
+  }
+
   const response = await fetch(`${API_BASE_URL}/process-candidates`, {
     method: 'GET',
     cache: 'no-store',
@@ -675,7 +779,9 @@ async function readProcessCandidates() {
     );
   }
 
-  return await response.json();
+  const data = await response.json();
+  setCacheEntry('processCandidates', Array.isArray(data) ? data : []);
+  return Array.isArray(data) ? data : [];
 }
 
 async function saveProcessCandidate(candidateData) {
@@ -686,6 +792,7 @@ async function saveProcessCandidate(candidateData) {
   });
 
   if (!response.ok) {
+    invalidateApiCache('processCandidates', 'talentBank');
     const errorText = await response.text();
     throw new Error(`Falha ao vincular candidato ao processo: ${errorText}`);
   }
@@ -702,12 +809,18 @@ async function updateProcessCandidateStatus(idRegistro, statusData) {
   );
 
   if (!response.ok) {
+    invalidateApiCache('processes', 'processCandidates', 'talentBank');
     const errorText = await response.text();
     throw new Error(`Falha ao atualizar status do candidato: ${errorText}`);
   }
 }
 
-async function readTalentBank() {
+async function readTalentBank(forceRefresh = false) {
+  if (!forceRefresh) {
+    const cached = getCacheEntry('talentBank');
+    if (cached) return cached;
+  }
+
   const response = await fetch(`${API_BASE_URL}/talent-bank`, {
     method: 'GET',
     cache: 'no-store',
@@ -719,7 +832,9 @@ async function readTalentBank() {
     );
   }
 
-  return await response.json();
+  const data = await response.json();
+  setCacheEntry('talentBank', Array.isArray(data) ? data : []);
+  return Array.isArray(data) ? data : [];
 }
 
 async function buildCandidateCurrentStatusMap() {
@@ -817,12 +932,10 @@ function getProcessRoleAbbreviation(role) {
 }
 
 function buildProcessId(role) {
-  const now = new Date();
-  const pad = (v) => String(v).padStart(2, '0');
-  const datePart = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
   const rolePart = getProcessRoleAbbreviation(role);
-  return `PROC.${rolePart}.${datePart}`;
+  return `PROC.${rolePart}`;
 }
+
 function getProcessFormRules(role) {
   const safeRole = String(role || '').trim();
 
@@ -1020,12 +1133,30 @@ async function renderProcessesScreen() {
 
   if (!processBody || !closedProcessBody || !candidatesBody) return;
 
-  const processes = await readProcesses();
-  const candidates = await readProcessCandidates();
+  const [processes, candidates] = await Promise.all([
+    readProcesses(),
+    readProcessCandidates(),
+  ]);
 
-  const openProcesses = processes.filter(
-    (process) => String(process.status || '').trim() !== 'Encerrado',
-  );
+  const filters = getProcessFilterValues();
+
+  const openProcesses = processes
+    .filter((process) => String(process.status || '').trim() !== 'Encerrado')
+    .filter((process) => {
+      const vaga = String(process.vaga || '').toLowerCase();
+      const operacao = String(process.operacao || '').toLowerCase();
+      const usaNotaCorte = Number(process.usa_nota_corte || 0) ? 'sim' : 'não';
+      const status = String(process.status || '').toLowerCase();
+
+      const matchVaga = !filters.vaga || vaga.includes(filters.vaga);
+      const matchOperacao =
+        !filters.operacao || operacao.includes(filters.operacao);
+      const matchCutoff =
+        !filters.notaCorte || usaNotaCorte === filters.notaCorte.toLowerCase();
+      const matchStatus = !filters.status || status.includes(filters.status);
+
+      return matchVaga && matchOperacao && matchCutoff && matchStatus;
+    });
 
   const closedProcesses = processes.filter(
     (process) => String(process.status || '').trim() === 'Encerrado',
@@ -1038,59 +1169,62 @@ async function renderProcessesScreen() {
 
   if (!openProcesses.length) {
     processBody.innerHTML =
-      '<tr><td colspan="10" class="text-center text-muted py-4">Nenhum processo aberto.</td></tr>';
+      '<tr><td colspan="10" class="text-center text-muted py-4">Nenhum processo aberto encontrado.</td></tr>';
   } else {
     processBody.innerHTML = openProcesses
-      .map(
-        (process) => `
-      <tr>
-        <td>${escapeHtml(process.id_processo || '-')}</td>
-        <td>${escapeHtml(process.vaga || '-')}</td>
-        <td>${escapeHtml(process.operacao || '-')}</td>
-        <td>${escapeHtml(process.trilha || '-')}</td>
-        <td>${Number(process.usa_nota_corte || 0) ? 'Sim' : 'Não'}</td>
-        <td>${escapeHtml(process.nota_corte || '-')}</td>
-        <td>${escapeHtml(`${process.vagas_preenchidas || 0}/${process.quantidade_vagas || 0}`)}</td>
-        <td>${escapeHtml(process.data_encerramento || '-')}</td>
-        <td><span class="rh-status-pill is-finished">${escapeHtml(process.status || '-')}</span></td>
-        <td class="text-end">
-          <div class="d-flex justify-content-end gap-2 flex-wrap">
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-secondary"
-              onclick="openEditProcessModal(
-                '${escapeHtml(process.id_processo || '')}',
-                '${escapeHtml(process.vaga || '')}',
-                ${Number(process.quantidade_vagas || 0)},
-                '${escapeHtml(process.data_encerramento || '')}',
-                '${escapeHtml(process.operacao || '')}',
-                '${escapeHtml(process.trilha || '')}',
-                '${escapeHtml(process.status || 'Aberto')}'
-              )"
-            >
-              Editar
-            </button>
+      .map((process) => {
+        const editBtn = buildProcessActionButton(
+          'edit',
+          'Editar',
+          'btn-outline-secondary',
+          `openEditProcessModal(
+            '${escapeHtml(process.id_processo || '')}',
+            '${escapeHtml(process.vaga || '')}',
+            ${Number(process.quantidade_vagas || 0)},
+            '${escapeHtml(process.data_encerramento || '')}',
+            '${escapeHtml(process.operacao || '')}',
+            '${escapeHtml(process.trilha || '')}',
+            '${escapeHtml(process.status || 'Aberto')}',
+            ${Number(process.usa_nota_corte || 0)},
+            '${escapeHtml(process.nota_corte || '')}'
+          )`,
+        );
 
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-primary"
-              onclick="openProcessDetails('${escapeHtml(process.id_processo || '')}')"
-            >
-              Detalhes
-            </button>
+        const detailBtn = buildProcessActionButton(
+          'visibility',
+          'Detalhes',
+          'btn-outline-primary',
+          `openProcessDetails('${escapeHtml(process.id_processo || '')}')`,
+        );
 
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-danger"
-              onclick="openCloseProcessConfirm('${escapeHtml(process.id_processo || '')}')"
-            >
-              Encerrar
-            </button>
-          </div>
-        </td>
-      </tr>
-    `,
-      )
+        const closeBtn = buildProcessActionButton(
+          'cancel',
+          'Encerrar',
+          'btn-outline-danger',
+          `openCloseProcessConfirm('${escapeHtml(process.id_processo || '')}')`,
+        );
+
+        return `
+          <tr>
+            <td>${escapeHtml(process.id_processo || '-')}</td>
+            <td>${escapeHtml(process.vaga || '-')}</td>
+            <td>${escapeHtml(process.operacao || '-')}</td>
+            <td>${escapeHtml(process.trilha || '-')}</td>
+            <td>${Number(process.usa_nota_corte || 0) ? 'Sim' : 'Não'}</td>
+            <td>${escapeHtml(process.nota_corte || '-')}</td>
+            <td>${escapeHtml(`${process.vagas_preenchidas || 0}/${process.quantidade_vagas || 0}`)}</td>
+            <td>${escapeHtml(process.data_encerramento || '-')}</td>
+            <td><span class="rh-status-pill is-finished">${escapeHtml(process.status || '-')}</span></td>
+            <td class="text-end">
+              <div class="d-flex justify-content-end gap-2 flex-wrap">
+                ${editBtn}
+                ${detailBtn}
+                ${closeBtn}
+              </div>
+            </td>
+          </tr>
+        `;
+      })
       .join('');
   }
 
@@ -1099,73 +1233,58 @@ async function renderProcessesScreen() {
       '<tr><td colspan="10" class="text-center text-muted py-4">Nenhum processo encerrado.</td></tr>';
   } else {
     closedProcessBody.innerHTML = closedProcesses
-      .map(
-        (process) => `
-      <tr>
-        <td>${escapeHtml(process.id_processo || '-')}</td>
-        <td>${escapeHtml(process.vaga || '-')}</td>
-        <td>${escapeHtml(process.operacao || '-')}</td>
-        <td>${escapeHtml(process.trilha || '-')}</td>
-        <td>${Number(process.usa_nota_corte || 0) ? 'Sim' : 'Não'}</td>
-        <td>${escapeHtml(process.nota_corte || '-')}</td>
-        <td>${escapeHtml(`${process.vagas_preenchidas || 0}/${process.quantidade_vagas || 0}`)}</td>
-        <td>${escapeHtml(process.data_encerramento || '-')}</td>
-        <td><span class="rh-status-pill is-unsaved">${escapeHtml(process.status || '-')}</span></td>
-        <td class="text-end">
-          <div class="d-flex justify-content-end gap-2 flex-wrap">
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-secondary"
-              onclick="openEditProcessModal(
-                '${escapeHtml(process.id_processo || '')}',
-                '${escapeHtml(process.vaga || '')}',
-                ${Number(process.quantidade_vagas || 0)},
-                '${escapeHtml(process.data_encerramento || '')}',
-                '${escapeHtml(process.operacao || '')}',
-                '${escapeHtml(process.trilha || '')}',
-                '${escapeHtml(process.status || 'Encerrado')}'
-              )"
-            >
-              Editar
-            </button>
+      .map((process) => {
+        const detailBtn = buildProcessActionButton(
+          'visibility',
+          'Detalhes',
+          'btn-outline-primary',
+          `openProcessDetails('${escapeHtml(process.id_processo || '')}')`,
+        );
 
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-primary"
-              onclick="openProcessDetails('${escapeHtml(process.id_processo || '')}')"
-            >
-              Detalhes
-            </button>
-          </div>
-        </td>
-      </tr>
-    `,
-      )
+        return `
+          <tr>
+            <td>${escapeHtml(process.id_processo || '-')}</td>
+            <td>${escapeHtml(process.vaga || '-')}</td>
+            <td>${escapeHtml(process.operacao || '-')}</td>
+            <td>${escapeHtml(process.trilha || '-')}</td>
+            <td>${Number(process.usa_nota_corte || 0) ? 'Sim' : 'Não'}</td>
+            <td>${escapeHtml(process.nota_corte || '-')}</td>
+            <td>${escapeHtml(`${process.vagas_preenchidas || 0}/${process.quantidade_vagas || 0}`)}</td>
+            <td>${escapeHtml(process.data_encerramento || '-')}</td>
+            <td><span class="rh-status-pill is-unsaved">${escapeHtml(process.status || '-')}</span></td>
+            <td class="text-end">
+              <div class="d-flex justify-content-end gap-2 flex-wrap">
+                ${detailBtn}
+              </div>
+            </td>
+          </tr>
+        `;
+      })
       .join('');
   }
 
   if (!activeCandidates.length) {
     candidatesBody.innerHTML =
-      '<tr><td colspan="6" class="text-center text-muted py-4">Nenhum candidato em análise vinculado ao processo.</td></tr>';
+      '<tr><td colspan="6" class="text-center text-muted py-4">Nenhum candidato em análise vinculado a processo.</td></tr>';
   } else {
     candidatesBody.innerHTML = activeCandidates
       .map(
         (candidate) => `
-      <tr>
-        <td>${escapeHtml(candidate.id_processo || '-')}</td>
-        <td>${escapeHtml(candidate.nome_candidato || '-')}</td>
-        <td>${escapeHtml(candidate.vaga || '-')}</td>
-        <td>${escapeHtml(candidate.pontuacao_final || '-')}</td>
-        <td>${escapeHtml(candidate.status_candidato || '-')}</td>
-        <td class="text-end">
-          <div class="d-flex justify-content-end gap-2 flex-wrap">
-            <button type="button" class="btn btn-sm btn-outline-success" onclick="setCandidateProcessStatus(${candidate.id_registro}, 'Aprovado', '${escapeHtml(candidate.id_processo || '')}')">Aprovado</button>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="setCandidateProcessStatus(${candidate.id_registro}, 'Eliminado', '${escapeHtml(candidate.id_processo || '')}')">Eliminado</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setCandidateProcessStatus(${candidate.id_registro}, 'Banco de talentos', '${escapeHtml(candidate.id_processo || '')}')">Banco de talentos</button>
-          </div>
-        </td>
-      </tr>
-    `,
+        <tr>
+          <td>${escapeHtml(candidate.id_processo || '-')}</td>
+          <td>${escapeHtml(candidate.nome_candidato || '-')}</td>
+          <td>${escapeHtml(candidate.vaga || '-')}</td>
+          <td>${escapeHtml(candidate.pontuacao_final || '-')}</td>
+          <td>${escapeHtml(candidate.status_candidato || '-')}</td>
+          <td class="text-end">
+            <div class="d-flex justify-content-end gap-2 flex-wrap">
+              ${buildProcessActionButton('check_circle', 'Aprovar', 'btn-outline-success', `setCandidateProcessStatus(${candidate.id_registro}, 'Aprovado', '${escapeHtml(candidate.id_processo || '')}')`)}
+              ${buildProcessActionButton('dangerous', 'Eliminar', 'btn-outline-danger', `setCandidateProcessStatus(${candidate.id_registro}, 'Eliminado', '${escapeHtml(candidate.id_processo || '')}')`)}
+              ${buildProcessActionButton('groups', 'Banco de talentos', 'btn-outline-secondary', `setCandidateProcessStatus(${candidate.id_registro}, 'Banco de talentos', '${escapeHtml(candidate.id_processo || '')}')`)}
+            </div>
+          </td>
+        </tr>
+      `,
       )
       .join('');
   }
@@ -1346,7 +1465,7 @@ async function removeTalentBankCandidate(idBanco) {
       `Falha ao eliminar candidato do banco de talentos: ${errorText}`,
     );
   }
-
+  invalidateApiCache('talentBank', 'processCandidates', 'processes');
   await renderTalentBankTable();
 }
 
@@ -1390,6 +1509,7 @@ async function useTalentBankCandidate(idBanco) {
   });
 
   if (!response.ok) {
+    invalidateApiCache('talentBank', 'processCandidates', 'processes');
     const errorText = await response.text();
     throw new Error(
       `Falha ao utilizar candidato do banco de talentos: ${errorText}`,

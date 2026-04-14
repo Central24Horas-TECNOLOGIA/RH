@@ -76,84 +76,130 @@
 
           <section class="rh-modern-table-card mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <h3 class="h5 mb-0">Processos abertos</h3>
+              <button type="button" id="toggle-open-processes-btn" class="btn btn-link text-decoration-none p-0 d-flex align-items-center gap-2" onclick="toggleSectionBlock('open-processes-content','toggle-open-processes-btn')">
+                <span class="material-symbols-outlined">expand_less</span>
+                <h3 class="h5 mb-0">Processos abertos</h3>
+              </button>
             </div>
 
-            <div class="table-responsive">
-              <table class="table align-middle history-table rh-modern-history-table">
-                <thead>
-                  <tr>
-                    <th>Processo</th>
-                    <th>Vaga</th>
-                    <th>Operação</th>
-                    <th>Trilha</th>
-                    <th>Nota de corte</th>
-                    <th>Valor corte</th>
-                    <th>Vagas</th>
-                    <th>Encerramento</th>
-                    <th>Status</th>
-                    <th class="text-end">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="processes-table-body">
-                  <tr>
-                    <td colspan="10" class="text-center text-muted py-4">Nenhum processo aberto.</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div id="open-processes-content">
+              <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                  <label class="form-label">Vaga</label>
+                  <input id="process-filter-vaga" type="text" class="form-control" placeholder="Filtrar por vaga" oninput="renderProcessesScreen()">
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label">Operação</label>
+                  <input id="process-filter-operacao" type="text" class="form-control" placeholder="Filtrar por operação" oninput="renderProcessesScreen()">
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label">Nota de corte</label>
+                  <select id="process-filter-cutoff" class="form-select" onchange="renderProcessesScreen()">
+                    <option value="">Todos</option>
+                    <option value="sim">Sim</option>
+                    <option value="não">Não</option>
+                  </select>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label">Status</label>
+                  <select id="process-filter-status" class="form-select" onchange="renderProcessesScreen()">
+                    <option value="">Todos</option>
+                    <option value="aberto">Aberto</option>
+                    <option value="encerrado">Encerrado</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table align-middle history-table rh-modern-history-table">
+                  <thead>
+                    <tr>
+                      <th>Processo</th>
+                      <th>Vaga</th>
+                      <th>Operação</th>
+                      <th>Trilha</th>
+                      <th>Nota de corte</th>
+                      <th>Valor corte</th>
+                      <th>Vagas</th>
+                      <th>Encerramento</th>
+                      <th>Status</th>
+                      <th class="text-end">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="processes-table-body">
+                    <tr>
+                      <td colspan="10" class="text-center text-muted py-4">Nenhum processo aberto.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
 
           <section class="rh-modern-table-card mb-4">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <h3 class="h5 mb-0">Processos encerrados</h3>
+              <button type="button" id="toggle-closed-processes-btn" class="btn btn-link text-decoration-none p-0 d-flex align-items-center gap-2" onclick="toggleSectionBlock('closed-processes-content','toggle-closed-processes-btn')">
+                <span class="material-symbols-outlined">expand_more</span>
+                <h3 class="h5 mb-0">Processos encerrados</h3>
+              </button>
             </div>
 
             <div class="table-responsive">
-              <table class="table align-middle history-table rh-modern-history-table">
-                <thead>
-                  <tr>
-                    <th>Processo</th>
-                    <th>Vaga</th>
-                    <th>Operação</th>
-                    <th>Trilha</th>
-                    <th>Nota de corte</th>
-                    <th>Valor corte</th>
-                    <th>Vagas</th>
-                    <th>Encerramento</th>
-                    <th>Status</th>
-                    <th class="text-end">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="closed-processes-table-body">
-                  <tr>
-                    <td colspan="10" class="text-center text-muted py-4">Nenhum processo encerrado.</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div id="closed-processes-content" class="d-none">
+                <table class="table align-middle history-table rh-modern-history-table">
+                  <thead>
+                    <tr>
+                      <th>Processo</th>
+                      <th>Vaga</th>
+                      <th>Operação</th>
+                      <th>Trilha</th>
+                      <th>Nota de corte</th>
+                      <th>Valor corte</th>
+                      <th>Vagas</th>
+                      <th>Encerramento</th>
+                      <th>Status</th>
+                      <th class="text-end">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="closed-processes-table-body">
+                    <tr>
+                      <td colspan="10" class="text-center text-muted py-4">Nenhum processo encerrado.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
 
           <section class="rh-modern-table-card">
-            <h3 class="h5 mb-3">Candidatos por processo</h3>
+            <button type="button" id="toggle-process-candidates-btn" class="btn btn-link text-decoration-none p-0 d-flex align-items-center gap-2" onclick="toggleSectionBlock('process-candidates-content','toggle-process-candidates-btn')">
+              <span class="material-symbols-outlined">expand_more</span>
+              <h3 class="h5 mb-0">Candidatos por processo</h3>
+            </button>
             <div class="table-responsive">
-              <table class="table align-middle history-table rh-modern-history-table">
-                <thead>
-                  <tr>
-                    <th>Processo</th>
-                    <th>Candidato</th>
-                    <th>Vaga</th>
-                    <th>Nota</th>
-                    <th>Status</th>
-                    <th class="text-end">Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="process-candidates-table-body">
-                  <tr>
-                    <td colspan="6" class="text-center text-muted py-4">Nenhum candidato em análise vinculado a processo.</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div id="process-candidates-content" class="d-none">
+
+                <table class="table align-middle history-table rh-modern-history-table">
+                  <thead>
+                    <tr>
+                      <th>Processo</th>
+                      <th>Candidato</th>
+                      <th>Vaga</th>
+                      <th>Nota</th>
+                      <th>Status</th>
+                      <th class="text-end">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="process-candidates-table-body">
+                    <tr>
+                      <td colspan="6" class="text-center text-muted py-4">Nenhum candidato em análise vinculado a processo.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         </main>
