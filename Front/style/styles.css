@@ -3489,8 +3489,8 @@ body {
 }
 
 .rh-status-pill.is-finished {
-  background: #fdeccf;
-  color: #9a6910;
+  background: #6bffba;
+  color: #198754;
 }
 
 .rh-status-pill.is-unsaved {
@@ -4576,4 +4576,84 @@ body {
 
 .rh-cutoff-toggle input:focus + .rh-cutoff-toggle-slider {
   box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
+}
+.analysis-gauge-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.analysis-gauge-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.analysis-gauge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb 0%, #22c55e 100%);
+  border-radius: 999px;
+}
+
+.analysis-gauge-label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.analysis-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.analysis-stage-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+}
+
+.analysis-stage-title {
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.analysis-stage-score {
+  font-size: 0.92rem;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.analysis-stage-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.rh-status-pill.is-info {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.analysis-stage-bar-fill {
+  height: 100%;
+  background: #2563eb;
+  border-radius: 999px;
+}
+
+.analysis-note-box {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 14px;
+  display: grid;
+  gap: 6px;
 }

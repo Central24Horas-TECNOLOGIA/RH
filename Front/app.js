@@ -36,6 +36,16 @@ const state = {
   processDetailsPage: 1,
   processDetailsPageSize: 5,
   currentProcessDetailsId: '',
+
+  analyticsPage: 1,
+  analyticsPageSize: 5,
+  currentAnalysisTestId: '',
+  analyticsFilters: {
+    process: '',
+    candidate: '',
+    role: '',
+    score: '',
+  },
 };
 
 const PAGE_BY_SCREEN = {
@@ -50,6 +60,7 @@ const PAGE_BY_SCREEN = {
   'screen-exam': 'exam.html',
   'screen-thanks': 'thanks.html',
   'screen-result': 'result.html',
+  'screen-analysis-candidates': 'analysis-candidates.html',
 };
 
 const APP_STATE_STORAGE_KEY = 'rh_app_state_v2';
@@ -118,6 +129,7 @@ function renderCurrentPageByScreenId(screenId) {
   if (screenId === 'screen-talent-bank') renderTalentBankTable();
   if (screenId === 'screen-candidate') renderCandidateRules();
   if (screenId === 'screen-result') renderResults();
+  if (screenId === 'screen-analysis-candidates') renderCandidateAnalyticsPage();
 
   if (screenId === 'screen-exam') {
     restoreExamScreen();
@@ -4551,4 +4563,521 @@ async function renderHistoryTable() {
     `;
     if (pagination) pagination.innerHTML = '';
   }
+}
+function goToCandidateAnalysis() {
+  showScreen('screen-analysis-candidates');
+}
+
+async function readCandidateAnalytics() {
+  const response = await fetch(`${API_BASE_URL}/candidate-analytics`, {
+    method: 'GET',
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Falha ao carregar análises de candidatos. Status: ${response.status}`,
+    );
+  }
+
+  return await response.json();
+}
+
+async function readCandidateAnalysisDetail(idTeste) {
+  const response = await fetch(
+    `${API_BASE_URL}/candidate-analytics/${encodeURIComponent(idTeste)}`,
+    {
+      method: 'GET',
+      cache: 'no-store',
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Falha ao carregar análise detalhada. Status: ${response.status}`,
+    );
+  }
+
+  return await response.json();
+}
+
+/*function formatAnalysisScore(value) {
+  let raw = String(value ?? '0').trim();
+
+  if (!raw) return '0,0';
+
+  raw = raw.replace(/\s/g, '');
+
+  if (raw.includes(',') && raw.includes('.')) {
+    raw = raw.replace(/\./g, '').replace(',', '.');
+  } else if (raw.includes(',')) {
+    raw = raw.replace(',', '.');
+  } else {
+    const parts = raw.split('.');
+    if (parts.length > 2) {
+      raw = `${parts[0]}.${parts.slice(1).join('')}`;
+    }
+  }
+
+  let num = Number(raw);
+
+  if (!Number.isFinite(num)) {
+    const fallback = raw.match(/-?\d+/);
+    num = fallback ? Number(fallback[0]) : 0;
+  }
+
+  num = Math.round(num);
+
+  return num.toLocaleString('pt-BR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}*/
+
+function formatAnalysisScore(value) {
+  let raw = String(value ?? '0').trim();
+
+  if (!raw) return '0,0';
+
+  raw = raw.replace(/\s/g, '');
+
+  if (raw.includes(',') && raw.includes('.')) {
+    raw = raw.replace(/\./g, '').replace(',', '.');
+  } else if (raw.includes(',')) {
+    raw = raw.replace(',', '.');
+  } else {
+    const parts = raw.split('.');
+    if (parts.length > 2) {
+      raw = `${parts[0]}.${parts.slice(1).join('')}`;
+    }
+  }
+
+  let num = Number(raw);
+
+  if (!Number.isFinite(num)) {
+    const fallback = raw.match(/-?\d+/);
+    num = fallback ? Number(fallback[0]) : 0;
+  }
+
+  num = Math.round(num);
+
+  return num.toLocaleString('pt-BR', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
+
+function getAnalysisFilters() {
+  return {
+    process:
+      document
+        .getElementById('analytics-filter-process')
+        ?.value?.trim()
+        .toLowerCase() || '',
+    candidate:
+      document
+        .getElementById('analytics-filter-candidate')
+        ?.value?.trim()
+        .toLowerCase() || '',
+    role:
+      document
+        .getElementById('analytics-filter-role')
+        ?.value?.trim()
+        .toLowerCase() || '',
+    score:
+      document.getElementById('analytics-filter-score')?.value?.trim() || '',
+  };
+}
+
+function bindAnalyticsFilters() {
+  [
+    'analytics-filter-process',
+    'analytics-filter-candidate',
+    'analytics-filter-role',
+    'analytics-filter-score',
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.bound === '1') return;
+
+    el.addEventListener('input', () => {
+      state.analyticsPage = 1;
+      renderCandidateAnalyticsPage();
+    });
+    el.dataset.bound = '1';
+  });
+}
+
+function renderAnalysisBarChart(items = []) {
+  if (!Array.isArray(items) || !items.length) {
+    return `
+      <div class="alert alert-secondary mb-0">
+        Não há dados suficientes para exibir o gráfico comparativo.
+      </div>
+    `;
+  }
+
+  const safeItems = items.map((item) => {
+    const obtained = Math.max(
+      0,
+      Math.min(10, Number(String(item.obtained ?? 0).replace(',', '.')) || 0),
+    );
+    const expected = Math.max(
+      0,
+      Math.min(10, Number(String(item.expected ?? 0).replace(',', '.')) || 0),
+    );
+
+    return {
+      label: item.label || '-',
+      obtained,
+      expected,
+    };
+  });
+
+  const chartHeight = 260;
+  const groupWidth = 92;
+  const barWidth = 24;
+  const gapBetweenBars = 10;
+  const leftPadding = 48;
+  const rightPadding = 24;
+  const bottomPadding = 70;
+  const topPadding = 20;
+
+  const svgWidth = leftPadding + rightPadding + safeItems.length * groupWidth;
+  const svgHeight = chartHeight + topPadding + bottomPadding;
+
+  const yTicks = [0, 2, 4, 6, 8, 10];
+
+  const bars = safeItems
+    .map((item, index) => {
+      const baseX = leftPadding + index * groupWidth + 10;
+      const obtainedHeight = (item.obtained / 10) * chartHeight;
+      const expectedHeight = (item.expected / 10) * chartHeight;
+
+      const obtainedX = baseX;
+      const expectedX = baseX + barWidth + gapBetweenBars;
+
+      const obtainedY = topPadding + (chartHeight - obtainedHeight);
+      const expectedY = topPadding + (chartHeight - expectedHeight);
+
+      const labelY = topPadding + chartHeight + 18;
+      const valueY = topPadding + chartHeight + 34;
+
+      const shortLabel =
+        item.label.length > 14 ? `${item.label.slice(0, 14)}...` : item.label;
+
+      return `
+        <rect x="${obtainedX}" y="${obtainedY}" width="${barWidth}" height="${obtainedHeight}" rx="4" fill="#5cb85c"></rect>
+        <rect x="${expectedX}" y="${expectedY}" width="${barWidth}" height="${expectedHeight}" rx="4" fill="#5bc0de"></rect>
+
+        <text x="${obtainedX + barWidth / 2}" y="${obtainedY - 6}" text-anchor="middle" font-size="11" fill="#475467">
+          ${formatAnalysisScore(item.obtained)}
+        </text>
+        <text x="${expectedX + barWidth / 2}" y="${expectedY - 6}" text-anchor="middle" font-size="11" fill="#475467">
+          ${formatAnalysisScore(item.expected)}
+        </text>
+
+        <text x="${baseX + barWidth + gapBetweenBars / 2}" y="${labelY}" text-anchor="middle" font-size="11" fill="#344054">
+          ${escapeHtml(shortLabel)}
+        </text>
+        <text x="${baseX + barWidth + gapBetweenBars / 2}" y="${valueY}" text-anchor="middle" font-size="10" fill="#98A2B3">
+          Candidato x Vaga
+        </text>
+      `;
+    })
+    .join('');
+
+  const gridLines = yTicks
+    .map((tick) => {
+      const y = topPadding + chartHeight - (tick / 10) * chartHeight;
+      return `
+        <line x1="${leftPadding}" y1="${y}" x2="${svgWidth - rightPadding}" y2="${y}" stroke="#EAECF0" stroke-width="1"></line>
+        <text x="${leftPadding - 10}" y="${y + 4}" text-anchor="end" font-size="11" fill="#667085">${tick}</text>
+      `;
+    })
+    .join('');
+
+  return `
+    <div style="display:grid; gap:16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <strong style="font-size:16px; color:#101828;">Comparativo por etapa</strong>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:13px; color:#475467;">
+          <span style="display:inline-flex; align-items:center; gap:8px;">
+            <span style="width:12px; height:12px; border-radius:3px; background:#5cb85c; display:inline-block;"></span>
+            Nota do candidato
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:8px;">
+            <span style="width:12px; height:12px; border-radius:3px; background:#5bc0de; display:inline-block;"></span>
+            Nota esperada pela vaga
+          </span>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto; border:1px solid #E4E7EC; border-radius:16px; padding:16px; background:#fff;">
+        <svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" role="img" aria-label="Gráfico comparativo por etapa">
+          ${gridLines}
+          ${bars}
+        </svg>
+      </div>
+    </div>
+  `;
+}
+
+function buildAnalysisObservations(detail) {
+  const textAnalysis = detail?.analise_texto || {};
+  const remarks = Array.isArray(detail?.ressalvas) ? detail.ressalvas : [];
+
+  const lines = [
+    `⭐ Nota textual geral: ${formatAnalysisScore(textAnalysis.overall ?? 0)}`,
+    ...remarks.map((item) => `⚠️ ${item}`),
+  ];
+
+  return `
+    <div style="display:grid; gap:8px;">
+      ${lines
+        .map(
+          (line) => `
+            <div style="padding:10px 12px; border:1px solid #e4e7ec; border-radius:12px; background:#f8fafc;">
+              ${escapeHtml(line)}
+            </div>
+          `,
+        )
+        .join('')}
+    </div>
+  `;
+}
+
+function getAnalysisRecommendationClass(recommendation) {
+  const text = String(recommendation || '').trim().toLowerCase();
+
+  if (text.includes('forte aderência')) return 'is-finished';
+  if (text.includes('baixa aderência')) return 'is-unsaved';
+  if (text.includes('boa regular')) return 'is-info';
+
+  return 'is-neutral';
+}
+
+function renderAnalysisRecommendationBadge(recommendation) {
+  const cls = getAnalysisRecommendationClass(recommendation);
+  return `<span class="rh-status-pill ${cls}">${escapeHtml(recommendation || '-')}</span>`;
+}
+
+async function renderCandidateAnalyticsPage() {
+  const tbody = document.getElementById('candidate-analytics-table-body');
+  const pagination = document.getElementById('candidate-analytics-pagination');
+
+  if (!tbody) return;
+
+  bindAnalyticsFilters();
+
+  try {
+    const rows = await readCandidateAnalytics();
+    const filters = getAnalysisFilters();
+
+    const filteredRows = (Array.isArray(rows) ? rows : []).filter((row) => {
+      const process = String(row.id_processo || '').toLowerCase();
+      const candidate = String(row.nome_candidato || '').toLowerCase();
+      const role = String(row.vaga || '').toLowerCase();
+      const status = String(row.status_candidato || '').trim();
+      const score = Number(String(row.nota_final ?? 0).replace(',', '.'));
+
+      const allowedStatuses = ['Em análise', 'Banco de talentos', 'Aprovado'];
+      if (!allowedStatuses.includes(status)) return false;
+      if (
+        !row.id_processo ||
+        String(row.id_processo).trim().toUpperCase() === 'PROCESSO_UNICO'
+      )
+        return false;
+
+      const matchProcess =
+        !filters.process || process.includes(filters.process);
+      const matchCandidate =
+        !filters.candidate || candidate.includes(filters.candidate);
+      const matchRole = !filters.role || role.includes(filters.role);
+
+      let matchScore = true;
+      if (filters.score) {
+        const minScore = Number(String(filters.score).replace(',', '.'));
+        if (!Number.isNaN(minScore)) {
+          matchScore = score >= minScore;
+        }
+      }
+
+      return matchProcess && matchCandidate && matchRole && matchScore;
+    });
+
+    if (!filteredRows.length) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">
+            Nenhum candidato encontrado com os filtros aplicados.
+          </td>
+        </tr>
+      `;
+      if (pagination) pagination.innerHTML = '';
+      return;
+    }
+
+    const paged = getPagedItems(
+      filteredRows,
+      state.analyticsPage,
+      state.analyticsPageSize,
+    );
+    state.analyticsPage = paged.currentPage;
+
+    tbody.innerHTML = paged.items
+      .map(
+        (row) => `
+          <tr>
+            <td>${escapeHtml(row.id_processo || '-')}</td>
+            <td>${escapeHtml(row.nome_candidato || '-')}</td>
+            <td>${escapeHtml(row.vaga || '-')}</td>
+<td>${escapeHtml(formatAnalysisScore(row.nota_final))}</td>
+<td>${escapeHtml(formatAnalysisScore(row.afinidade_percentual))}%</td>
+            <td>${renderAnalysisRecommendationBadge(row.recomendacao || '-')}</td>
+            <td>${escapeHtml(row.status_candidato || '-')}</td>
+            <td class="text-end">
+              <div class="d-flex justify-content-end gap-2 flex-wrap">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  onclick="openCandidateAnalysisDetails('${escapeHtml(row.id_teste)}')"
+                >
+                  Detalhes
+                </button>
+              </div>
+            </td>
+          </tr>
+        `,
+      )
+      .join('');
+
+    if (pagination) {
+      pagination.innerHTML = buildPaginationHtml(
+        paged.currentPage,
+        paged.totalPages,
+        'goToAnalyticsPage',
+      );
+    }
+  } catch (error) {
+    console.error(error);
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" class="text-center text-danger py-4">
+          Não foi possível carregar a análise dos candidatos.
+        </td>
+      </tr>
+    `;
+    if (pagination) pagination.innerHTML = '';
+  }
+}
+
+function goToAnalyticsPage(page) {
+  state.analyticsPage = page;
+  renderCandidateAnalyticsPage();
+}
+
+async function openCandidateAnalysisDetails(idTeste) {
+  const overlay = document.getElementById('candidate-analysis-overlay');
+  const body = document.getElementById('candidate-analysis-body');
+  const title = document.getElementById('candidate-analysis-title');
+
+  if (!overlay || !body || !title) return;
+
+  try {
+    const detail = await readCandidateAnalysisDetail(idTeste);
+    state.currentAnalysisTestId = idTeste;
+
+    title.textContent = `Análise do candidato • ${detail.nome_candidato || 'Candidato'}`;
+
+    body.innerHTML = `
+      <section class="rh-details-section">
+        <h4 class="rh-details-section-title">Resumo analítico</h4>
+        <div class="rh-details-grid">
+          <div class="rh-detail-card">
+            <span class="rh-detail-label">Processo</span>
+            <span class="rh-detail-value">${escapeHtml(detail.id_processo || '-')}</span>
+          </div>
+          <div class="rh-detail-card">
+            <span class="rh-detail-label">Candidato</span>
+            <span class="rh-detail-value">${escapeHtml(detail.nome_candidato || '-')}</span>
+          </div>
+          <div class="rh-detail-card">
+            <span class="rh-detail-label">Vaga</span>
+            <span class="rh-detail-value">${escapeHtml(detail.vaga || '-')}</span>
+          </div>
+          <div class="rh-detail-card">
+            <span class="rh-detail-label">Nota final</span>
+            <span class="rh-detail-value">${escapeHtml(formatAnalysisScore(detail.nota_final))}</span>
+          </div>
+          <div class="rh-detail-card">
+            <span class="rh-detail-label">Afinidade</span>
+            <span class="rh-detail-value">${escapeHtml(formatAnalysisScore(detail.afinidade_percentual))}%</span>
+          </div>
+          <div class="rh-detail-card">
+            <span class="rh-detail-label">Parecer final</span>
+            <span class="rh-detail-value">${escapeHtml(detail.parecer_final || '-')}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="rh-details-section">
+        <h4 class="rh-details-section-title">Gráfico comparativo por etapa</h4>
+        ${renderAnalysisBarChart(detail.grafico || [])}
+      </section>
+
+      <section class="rh-details-section">
+        <h4 class="rh-details-section-title">Texto e observações</h4>
+        ${buildAnalysisObservations(detail)}
+      </section>
+    `;
+
+    overlay.classList.remove('d-none');
+  } catch (error) {
+    console.error(error);
+    title.textContent = 'Análise do candidato';
+    body.innerHTML = `
+      <div class="alert alert-danger mb-0">
+        Não foi possível carregar a análise detalhada.
+      </div>
+    `;
+    overlay.classList.remove('d-none');
+  }
+}
+
+function closeCandidateAnalysisDetails() {
+  const overlay = document.getElementById('candidate-analysis-overlay');
+  const body = document.getElementById('candidate-analysis-body');
+  if (body) body.innerHTML = '';
+  if (overlay) overlay.classList.add('d-none');
+}
+
+function handleCandidateAnalysisOverlayClick(event) {
+  if (event.target?.id === 'candidate-analysis-overlay') {
+    closeCandidateAnalysisDetails();
+  }
+}
+
+async function applyCandidateAnalysisAction(statusCandidato) {
+  if (!state.currentAnalysisTestId) return;
+
+  const processCandidates = await readProcessCandidates();
+  const row = processCandidates.find(
+    (item) =>
+      String(item.id_teste || '').trim() ===
+      String(state.currentAnalysisTestId).trim(),
+  );
+
+  if (!row) {
+    alert('Não foi possível localizar o vínculo do candidato com o processo.');
+    return;
+  }
+
+  await setCandidateProcessStatus(
+    row.id_registro,
+    statusCandidato,
+    row.id_processo,
+  );
+
+  await renderCandidateAnalyticsPage();
+  await openCandidateAnalysisDetails(state.currentAnalysisTestId);
 }

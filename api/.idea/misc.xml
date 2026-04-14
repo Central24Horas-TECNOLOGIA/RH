@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.13 (TEST_API_POST_TALKDESK_ENDOVIEW)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.13 (TEST_API_POST_TALKDESK_ENDOVIEW)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.13" project-jdk-type="Python SDK" />
 </project>
