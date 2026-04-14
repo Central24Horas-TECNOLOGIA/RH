@@ -251,7 +251,7 @@ def get_processes():
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT
+                        SELECT
                 id_processo,
                 vaga,
                 quantidade_vagas,
@@ -259,6 +259,8 @@ def get_processes():
                 data_encerramento,
                 operacao,
                 trilha,
+                usa_nota_corte,
+                nota_corte,
                 status,
                 data_criacao
             FROM processos_seletivos
@@ -280,7 +282,7 @@ def create_process(data: dict):
         cursor = conn.cursor()
 
         cursor.execute("""
-            INSERT INTO processos_seletivos
+                        INSERT INTO processos_seletivos
             (
                 id_processo,
                 vaga,
@@ -289,11 +291,13 @@ def create_process(data: dict):
                 data_encerramento,
                 operacao,
                 trilha,
+                usa_nota_corte,
+                nota_corte,
                 status,
                 data_criacao
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,        (
             data.get("id_processo", ""),
             data.get("vaga", ""),
             int(data.get("quantidade_vagas", 0) or 0),
@@ -301,6 +305,8 @@ def create_process(data: dict):
             data.get("data_encerramento", ""),
             data.get("operacao", ""),
             data.get("trilha", ""),
+            int(data.get("usa_nota_corte", 0) or 0),
+            data.get("nota_corte", None),
             data.get("status", "Aberto"),
             data.get("data_criacao", ""),
         ))
@@ -326,6 +332,8 @@ def update_process(id_processo: str, data: dict):
                 data_encerramento = ?,
                 operacao = ?,
                 trilha = ?,
+                usa_nota_corte = ?,
+                nota_corte = ?,
                 status = ?
             WHERE id_processo = ?
         """, (
@@ -333,6 +341,8 @@ def update_process(id_processo: str, data: dict):
             data.get("data_encerramento", ""),
             data.get("operacao", ""),
             data.get("trilha", ""),
+            int(data.get("usa_nota_corte", 0) or 0),
+            data.get("nota_corte", None),
             data.get("status", "Aberto"),
             id_processo,
         ))

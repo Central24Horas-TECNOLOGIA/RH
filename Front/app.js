@@ -38,7 +38,156 @@ const state = {
   currentProcessDetailsId: '',
 };
 
+const PAGE_BY_SCREEN = {
+  'screen-login': 'login.html',
+  'screen-menu': 'index.html',
+  'screen-history': 'history.html',
+  'screen-processes': 'processes.html',
+  'screen-process-create': 'process-create.html',
+  'screen-talent-bank': 'talent-bank.html',
+  'screen-config': 'config.html',
+  'screen-candidate': 'candidate.html',
+  'screen-exam': 'exam.html',
+  'screen-thanks': 'thanks.html',
+  'screen-result': 'result.html',
+};
+
+const APP_STATE_STORAGE_KEY = 'rh_app_state_v2';
+
+function getCurrentPageScreenId() {
+  return (
+    document.body?.dataset?.screen ||
+    document.querySelector('.screen.active')?.id ||
+    'screen-login'
+  );
+}
+
+function persistAppState() {
+  try {
+    const serializable = { ...state };
+
+    serializable.timerHandle = null;
+
+    // Nunca persistir blueprint com funções
+    serializable.blueprint = null;
+
+    sessionStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (error) {
+    console.warn('Não foi possível persistir o estado da aplicação:', error);
+  }
+}
+
+function hydrateAppState() {
+  try {
+    const raw = sessionStorage.getItem(APP_STATE_STORAGE_KEY);
+    if (!raw) return;
+
+    const saved = JSON.parse(raw);
+    Object.assign(state, saved || {});
+    state.timerHandle = null;
+
+    // Reconstroi o blueprint a partir dos dados do candidato
+    if (state.candidate?.role && state.candidate?.level) {
+      state.blueprint = resolveExamBlueprint(
+        state.candidate.role,
+        state.candidate.level,
+        state.candidate.track || '',
+      );
+    } else {
+      state.blueprint = null;
+    }
+  } catch (error) {
+    console.warn('Não foi possível restaurar o estado da aplicação:', error);
+  }
+}
+
+function clearPersistedAppState() {
+  try {
+    sessionStorage.removeItem(APP_STATE_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Não foi possível limpar o estado persistido:', error);
+  }
+}
+
+function renderCurrentPageByScreenId(screenId) {
+  syncSidebarActiveState(screenId);
+
+  if (screenId === 'screen-menu') renderMenuRecentTests();
+  if (screenId === 'screen-history') renderHistoryTable();
+  if (screenId === 'screen-processes') renderProcessesScreen();
+  if (screenId === 'screen-talent-bank') renderTalentBankTable();
+  if (screenId === 'screen-candidate') renderCandidateRules();
+  if (screenId === 'screen-result') renderResults();
+
+  if (screenId === 'screen-exam') {
+    restoreExamScreen();
+  }
+}
+
+function navigateToScreen(screenId, replace = false) {
+  const targetPage = PAGE_BY_SCREEN[screenId] || PAGE_BY_SCREEN['screen-login'];
+  persistAppState();
+  if (replace) {
+    window.location.replace(targetPage);
+  } else {
+    window.location.href = targetPage;
+  }
+}
+
+function restoreExamScreen() {
+  if (
+    !state.candidate ||
+    !state.blueprint ||
+    !Array.isArray(state.questions) ||
+    !state.questions.length
+  ) {
+    navigateToScreen('screen-config', true);
+    return;
+  }
+
+  const examCandidateEl = document.getElementById('exam-candidate');
+  const examRoleEl = document.getElementById('exam-role');
+  const examTrackEl = document.getElementById('exam-track');
+
+  if (examCandidateEl) examCandidateEl.textContent = state.candidate.name || '';
+  if (examRoleEl) examRoleEl.textContent = state.candidate.role || '';
+  if (examTrackEl) examTrackEl.textContent = state.blueprint.label || '';
+
+  if (state.timerEndsAt) {
+    state.timerSeconds = Math.max(
+      0,
+      Math.floor((Number(state.timerEndsAt) - Date.now()) / 1000),
+    );
+  }
+
+  clearInterval(state.timerHandle);
+  renderTimer();
+  renderQuestion();
+
+  if (state.timerSeconds <= 0) {
+    finishExam();
+    return;
+  }
+
+  state.timerHandle = setInterval(() => {
+    state.timerSeconds--;
+    renderTimer();
+    if (state.timerSeconds <= 0) {
+      clearInterval(state.timerHandle);
+      finishExam();
+      return;
+    }
+    persistAppState();
+  }, 1000);
+}
+
+window.addEventListener('beforeunload', () => {
+  persistAppState();
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
+  hydrateAppState();
+
   const roleEl = document.getElementById('candidate-role');
   const levelEl = document.getElementById('candidate-level');
   const trackEl = document.getElementById('candidate-track');
@@ -133,6 +282,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       error,
     );
   }
+
+  renderCurrentPageByScreenId(getCurrentPageScreenId());
+  persistAppState();
 });
 
 function syncSidebarActiveState(screenId) {
@@ -144,20 +296,17 @@ function syncSidebarActiveState(screenId) {
     });
 }
 
-function showScreen(id) {
-  document
-    .querySelectorAll('.screen')
-    .forEach((s) => s.classList.remove('active'));
+function pushScreenToHistory(screenId) {
+  return screenId;
+}
 
-  const target = document.getElementById(id);
-  if (target) target.classList.add('active');
-
-  syncSidebarActiveState(id);
-
-  if (id === 'screen-menu') renderMenuRecentTests();
-  if (id === 'screen-history') renderHistoryTable();
-  if (id === 'screen-processes') renderProcessesScreen();
-  if (id === 'screen-talent-bank') renderTalentBankTable();
+function showScreen(id, options = {}) {
+  const currentScreenId = getCurrentPageScreenId();
+  if (id === currentScreenId) {
+    renderCurrentPageByScreenId(id);
+    return;
+  }
+  navigateToScreen(id, options.replace === true);
 }
 
 function sanitizeFileName(name) {
@@ -637,7 +786,7 @@ function getCurrentSituationLabel(row, statusMap) {
     return `Em análise • ${historyProcessId}`;
   }
 
-  return 'Exame individual';
+  return 'Processo individual';
 }
 
 function getCurrentSituationBadgeClass(label) {
@@ -746,6 +895,13 @@ async function createProcess() {
     document.getElementById('process-operation')?.value?.trim() || '';
   const trackInput =
     document.getElementById('process-track')?.value?.trim() || '';
+  const hasCutoff =
+    document.getElementById('process-has-cutoff')?.checked || false;
+
+  const cutoffValueRaw =
+    document.getElementById('process-cutoff-value')?.value || '';
+
+  const cutoffValue = cutoffValueRaw ? Number(cutoffValueRaw) : null;
   const alertEl = document.getElementById('process-create-alert');
 
   const rules = getProcessFormRules(role);
@@ -783,6 +939,24 @@ async function createProcess() {
 
   const now = new Date();
 
+  if (hasCutoff) {
+    if (cutoffValue === null || Number.isNaN(cutoffValue)) {
+      if (alertEl) {
+        alertEl.textContent = 'Defina a nota de corte.';
+        alertEl.classList.remove('d-none');
+      }
+      return;
+    }
+
+    if (cutoffValue < 4 || cutoffValue > 10) {
+      if (alertEl) {
+        alertEl.textContent = 'A nota de corte deve estar entre 4 e 10.';
+        alertEl.classList.remove('d-none');
+      }
+      return;
+    }
+  }
+
   try {
     await saveProcess({
       id_processo: buildProcessId(role),
@@ -792,6 +966,8 @@ async function createProcess() {
       data_encerramento: endDate,
       operacao: operation,
       trilha: finalTrack,
+      usa_nota_corte: hasCutoff ? 1 : 0,
+      nota_corte: hasCutoff ? cutoffValue : null,
       status: 'Aberto',
       data_criacao: now.toISOString(),
     });
@@ -821,11 +997,12 @@ async function populateProcessSelect() {
 
   select.innerHTML =
     '<option value="">Selecione...</option>' +
+    '<option value="PROCESSO_UNICO">Processo Único</option>' +
     openProcesses
       .map(
         (p) => `
         <option value="${escapeHtml(p.id_processo)}">
-          ${escapeHtml(p.vaga)} • ${escapeHtml(p.operacao || p.trilha || '-')} • ${escapeHtml(p.data_encerramento || '-')}
+          ${escapeHtml(p.id_processo)} • ${escapeHtml(p.vaga)} • ${escapeHtml(p.operacao || p.trilha || '-')} • ${escapeHtml(p.data_encerramento || '-')}
         </option>
       `,
       )
@@ -834,24 +1011,36 @@ async function populateProcessSelect() {
 
 async function renderProcessesScreen() {
   const processBody = document.getElementById('processes-table-body');
+  const closedProcessBody = document.getElementById(
+    'closed-processes-table-body',
+  );
   const candidatesBody = document.getElementById(
     'process-candidates-table-body',
   );
-  if (!processBody || !candidatesBody) return;
+
+  if (!processBody || !closedProcessBody || !candidatesBody) return;
 
   const processes = await readProcesses();
   const candidates = await readProcessCandidates();
+
+  const openProcesses = processes.filter(
+    (process) => String(process.status || '').trim() !== 'Encerrado',
+  );
+
+  const closedProcesses = processes.filter(
+    (process) => String(process.status || '').trim() === 'Encerrado',
+  );
 
   const activeCandidates = candidates.filter(
     (candidate) =>
       String(candidate.status_candidato || '').trim() === 'Em análise',
   );
 
-  if (!processes.length) {
+  if (!openProcesses.length) {
     processBody.innerHTML =
-      '<tr><td colspan="8" class="text-center text-muted py-4">Nenhum processo cadastrado.</td></tr>';
+      '<tr><td colspan="10" class="text-center text-muted py-4">Nenhum processo aberto.</td></tr>';
   } else {
-    processBody.innerHTML = processes
+    processBody.innerHTML = openProcesses
       .map(
         (process) => `
       <tr>
@@ -859,56 +1048,96 @@ async function renderProcessesScreen() {
         <td>${escapeHtml(process.vaga || '-')}</td>
         <td>${escapeHtml(process.operacao || '-')}</td>
         <td>${escapeHtml(process.trilha || '-')}</td>
+        <td>${Number(process.usa_nota_corte || 0) ? 'Sim' : 'Não'}</td>
+        <td>${escapeHtml(process.nota_corte || '-')}</td>
         <td>${escapeHtml(`${process.vagas_preenchidas || 0}/${process.quantidade_vagas || 0}`)}</td>
         <td>${escapeHtml(process.data_encerramento || '-')}</td>
-        <td>
-          <span class="rh-status-pill ${
-            String(process.status || '').trim() === 'Encerrado'
-              ? 'is-unsaved'
-              : 'is-finished'
-          }">${escapeHtml(process.status || '-')}</span>
+        <td><span class="rh-status-pill is-finished">${escapeHtml(process.status || '-')}</span></td>
+        <td class="text-end">
+          <div class="d-flex justify-content-end gap-2 flex-wrap">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              onclick="openEditProcessModal(
+                '${escapeHtml(process.id_processo || '')}',
+                '${escapeHtml(process.vaga || '')}',
+                ${Number(process.quantidade_vagas || 0)},
+                '${escapeHtml(process.data_encerramento || '')}',
+                '${escapeHtml(process.operacao || '')}',
+                '${escapeHtml(process.trilha || '')}',
+                '${escapeHtml(process.status || 'Aberto')}'
+              )"
+            >
+              Editar
+            </button>
+
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary"
+              onclick="openProcessDetails('${escapeHtml(process.id_processo || '')}')"
+            >
+              Detalhes
+            </button>
+
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger"
+              onclick="openCloseProcessConfirm('${escapeHtml(process.id_processo || '')}')"
+            >
+              Encerrar
+            </button>
+          </div>
         </td>
-<td class="text-end">
-  <div class="d-flex justify-content-end gap-2 flex-wrap">
-    <button
-      type="button"
-      class="btn btn-sm btn-outline-secondary"
-      onclick="openEditProcessModal(
-        '${escapeHtml(process.id_processo || '')}',
-        '${escapeHtml(process.vaga || '')}',
-        ${Number(process.quantidade_vagas || 0)},
-        '${escapeHtml(process.data_encerramento || '')}',
-        '${escapeHtml(process.operacao || '')}',
-        '${escapeHtml(process.trilha || '')}',
-        '${escapeHtml(process.status || 'Aberto')}'
-      )"
-    >
-      Editar
-    </button>
+      </tr>
+    `,
+      )
+      .join('');
+  }
 
-    <button
-      type="button"
-      class="btn btn-sm btn-outline-primary"
-      onclick="openProcessDetails('${escapeHtml(process.id_processo || '')}')"
-    >
-      Detalhes
-    </button>
+  if (!closedProcesses.length) {
+    closedProcessBody.innerHTML =
+      '<tr><td colspan="10" class="text-center text-muted py-4">Nenhum processo encerrado.</td></tr>';
+  } else {
+    closedProcessBody.innerHTML = closedProcesses
+      .map(
+        (process) => `
+      <tr>
+        <td>${escapeHtml(process.id_processo || '-')}</td>
+        <td>${escapeHtml(process.vaga || '-')}</td>
+        <td>${escapeHtml(process.operacao || '-')}</td>
+        <td>${escapeHtml(process.trilha || '-')}</td>
+        <td>${Number(process.usa_nota_corte || 0) ? 'Sim' : 'Não'}</td>
+        <td>${escapeHtml(process.nota_corte || '-')}</td>
+        <td>${escapeHtml(`${process.vagas_preenchidas || 0}/${process.quantidade_vagas || 0}`)}</td>
+        <td>${escapeHtml(process.data_encerramento || '-')}</td>
+        <td><span class="rh-status-pill is-unsaved">${escapeHtml(process.status || '-')}</span></td>
+        <td class="text-end">
+          <div class="d-flex justify-content-end gap-2 flex-wrap">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              onclick="openEditProcessModal(
+                '${escapeHtml(process.id_processo || '')}',
+                '${escapeHtml(process.vaga || '')}',
+                ${Number(process.quantidade_vagas || 0)},
+                '${escapeHtml(process.data_encerramento || '')}',
+                '${escapeHtml(process.operacao || '')}',
+                '${escapeHtml(process.trilha || '')}',
+                '${escapeHtml(process.status || 'Encerrado')}'
+              )"
+            >
+              Editar
+            </button>
 
-    ${
-      String(process.status || '').trim() !== 'Encerrado'
-        ? `
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-danger"
-            onclick="openCloseProcessConfirm('${escapeHtml(process.id_processo || '')}')"
-          >
-            Encerrar
-          </button>
-        `
-        : ''
-    }
-  </div>
-</td>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary"
+              onclick="openProcessDetails('${escapeHtml(process.id_processo || '')}')"
+            >
+              Detalhes
+            </button>
+          </div>
+        </td>
       </tr>
     `,
       )
@@ -917,7 +1146,7 @@ async function renderProcessesScreen() {
 
   if (!activeCandidates.length) {
     candidatesBody.innerHTML =
-      '<tr><td colspan="6" class="text-center text-muted py-4">Nenhum candidato em análise vinculado a processo.</td></tr>';
+      '<tr><td colspan="6" class="text-center text-muted py-4">Nenhum candidato em análise vinculado ao processo.</td></tr>';
   } else {
     candidatesBody.innerHTML = activeCandidates
       .map(
@@ -939,6 +1168,18 @@ async function renderProcessesScreen() {
     `,
       )
       .join('');
+  }
+}
+
+function toggleProcessCutoffField() {
+  const toggle = document.getElementById('process-has-cutoff');
+  const input = document.getElementById('process-cutoff-value');
+  if (!toggle || !input) return;
+
+  input.disabled = !toggle.checked;
+
+  if (!toggle.checked) {
+    input.value = '';
   }
 }
 
@@ -1791,17 +2032,26 @@ async function doLogin() {
 }
 
 function resetExamEntryFields() {
-  document.getElementById('candidate-name').value = '';
-  document.getElementById('candidate-role').value = '';
-  document.getElementById('candidate-level').value = '';
-  document.getElementById('candidate-track').value = '';
-  document.getElementById('candidate-time').value = '40';
+  const candidateNameEl = document.getElementById('candidate-name');
+  const candidateRoleEl = document.getElementById('candidate-role');
+  const candidateLevelEl = document.getElementById('candidate-level');
+  const candidateTrackEl = document.getElementById('candidate-track');
+  const candidateTimeEl = document.getElementById('candidate-time');
   const candidateRolePreviewEl = document.getElementById(
     'candidate-role-preview',
   );
+  const adminPassEl = document.getElementById('admin-pass');
+  const saveAlertEl = document.getElementById('save-alert');
+
+  if (candidateNameEl) candidateNameEl.value = '';
+  if (candidateRoleEl) candidateRoleEl.value = '';
+  if (candidateLevelEl) candidateLevelEl.value = '';
+  if (candidateTrackEl) candidateTrackEl.value = '';
+  if (candidateTimeEl) candidateTimeEl.value = '40';
   if (candidateRolePreviewEl) candidateRolePreviewEl.value = '';
-  document.getElementById('admin-pass').value = '';
-  document.getElementById('save-alert').classList.add('d-none');
+  if (adminPassEl) adminPassEl.value = '';
+  if (saveAlertEl) saveAlertEl.classList.add('d-none');
+
   updateFlowPreview();
 }
 
@@ -1839,9 +2089,9 @@ function logout() {
   clearInterval(state.timerHandle);
   state.logged = false;
   state.finished = false;
+  clearPersistedAppState();
   showScreen('screen-login');
 }
-
 async function proceedToCandidate() {
   const role = document.getElementById('candidate-role').value.trim();
   const level = document.getElementById('candidate-level').value;
@@ -1863,19 +2113,22 @@ async function proceedToCandidate() {
     return;
   }
 
+  const resolvedProcessId = processId === 'PROCESSO_UNICO' ? '' : processId;
+
   alert.classList.add('d-none');
 
   const blueprint = resolveExamBlueprint(role, level, track);
 
+  state.blueprint = blueprint;
+
   state.candidate = {
     ...(state.candidate || {}),
-    id_processo: processId,
+    id_processo: resolvedProcessId,
     role,
     level,
     time,
     track: track || 'automático',
   };
-
   state.selectedProcessId = processId;
   state.blueprint = blueprint;
 
@@ -2016,28 +2269,34 @@ function renderCandidateRules() {
 }
 
 async function startExam() {
-  const name = document.getElementById('candidate-name').value.trim();
+  const name = document.getElementById('candidate-name')?.value.trim() || '';
   const role =
     state.candidate?.role ||
-    document.getElementById('candidate-role').value.trim();
+    document.getElementById('candidate-role')?.value.trim() ||
+    '';
   const level =
-    state.candidate?.level || document.getElementById('candidate-level').value;
+    state.candidate?.level ||
+    document.getElementById('candidate-level')?.value ||
+    '';
   const track =
     state.candidate?.track ||
-    document.getElementById('candidate-track').value.trim();
+    document.getElementById('candidate-track')?.value.trim() ||
+    '';
   const time = parseInt(
-    state.candidate?.time || document.getElementById('candidate-time').value,
+    state.candidate?.time || document.getElementById('candidate-time')?.value,
     10,
   );
   const alert = document.getElementById('candidate-alert');
 
   if (!name) {
-    alert.textContent = 'Informe o nome do candidato para iniciar a prova.';
-    alert.classList.remove('d-none');
+    if (alert) {
+      alert.textContent = 'Informe o nome do candidato para iniciar a prova.';
+      alert.classList.remove('d-none');
+    }
     return;
   }
 
-  const blueprint = state.blueprint || resolveExamBlueprint(role, level, track);
+  const blueprint = resolveExamBlueprint(role, level, track);
 
   if (alert) alert.classList.add('d-none');
 
@@ -2055,11 +2314,23 @@ async function startExam() {
   };
 
   state.blueprint = blueprint;
-  state.selectedProcessId = processId;
-  state.questions = buildExamFromBlueprint(blueprint);
+  state.selectedProcessId = state.candidate?.id_processo || '';
+  try {
+    state.questions = buildExamFromBlueprint(blueprint);
+  } catch (error) {
+    console.error('Erro ao montar a prova:', error);
+    if (alert) {
+      alert.textContent =
+        error?.message ||
+        'Não foi possível montar a prova. Verifique as etapas configuradas no questions.js.';
+      alert.classList.remove('d-none');
+    }
+    return;
+  }
   state.currentIndex = 0;
   state.answers = new Array(state.questions.length).fill(null);
   state.timerSeconds = time * 60;
+  state.timerEndsAt = Date.now() + state.timerSeconds * 1000;
   state.finished = false;
   state.finalResults = [];
   state.totalScore = 0;
@@ -2073,26 +2344,11 @@ async function startExam() {
   state.isSavingResult = false;
   state.resultSaved = false;
 
-  const examCandidateEl = document.getElementById('exam-candidate');
-  const examRoleEl = document.getElementById('exam-role');
-  const examTrackEl = document.getElementById('exam-track');
-  if (examCandidateEl) examCandidateEl.textContent = name;
-  if (examRoleEl) examRoleEl.textContent = role;
-  if (examTrackEl) examTrackEl.textContent = blueprint.label;
-
   clearInterval(state.timerHandle);
-  state.timerHandle = setInterval(() => {
-    state.timerSeconds--;
-    renderTimer();
-    if (state.timerSeconds <= 0) {
-      clearInterval(state.timerHandle);
-      finishExam();
-    }
-  }, 1000);
+  state.timerHandle = null;
 
-  renderTimer();
+  persistAppState();
   showScreen('screen-exam');
-  renderQuestion();
 }
 
 function renderTimer() {
@@ -3207,6 +3463,7 @@ function finishExam() {
   if (state.finished) return;
   state.finished = true;
   clearInterval(state.timerHandle);
+  state.timerEndsAt = null;
   captureCurrentAnswer();
 
   const results = [];
@@ -3310,19 +3567,26 @@ function finishExam() {
     }))
     .filter((item) => item.result.pendingManual);
 
-  renderResults();
+  persistAppState();
   showScreen('screen-thanks');
 }
 
 function renderResults() {
   updateSaveResultButtonState(state.resultSaved ? 'saved' : 'idle');
 
-  document.getElementById('result-name').textContent = state.candidate.name;
-  document.getElementById('result-role').textContent = state.candidate.role;
-  document.getElementById('result-level').textContent =
-    `${state.candidate.level} • ${state.blueprint.label}`;
-  document.getElementById('result-score').textContent =
-    state.weightedFinalScore.toFixed(2);
+  const resultNameEl = document.getElementById('result-name');
+  const resultRoleEl = document.getElementById('result-role');
+  const resultLevelEl = document.getElementById('result-level');
+  const resultScoreEl = document.getElementById('result-score');
+
+  if (!resultNameEl || !resultRoleEl || !resultLevelEl || !resultScoreEl) {
+    return;
+  }
+
+  resultNameEl.textContent = state.candidate?.name || '';
+  resultRoleEl.textContent = state.candidate?.role || '';
+  resultLevelEl.textContent = `${state.candidate?.level || ''} • ${state.blueprint?.label || ''}`;
+  resultScoreEl.textContent = state.weightedFinalScore.toFixed(2);
   const resultProcessEl = document.getElementById('result-process');
   const printProcessEl = document.getElementById('print-process');
 
@@ -3898,6 +4162,31 @@ async function saveExamResult() {
       etapas_json: JSON.stringify(state.stageSummary || []),
     };
 
+    let initialCandidateStatus = 'Em análise';
+
+    const linkedProcessId =
+      state.candidate.id_processo || state.selectedProcessId || '';
+
+    if (linkedProcessId) {
+      const processes = await readProcesses();
+      const linkedProcess = processes.find(
+        (process) =>
+          String(process.id_processo || '').trim() ===
+          String(linkedProcessId).trim(),
+      );
+
+      const usesCutoff = Number(linkedProcess?.usa_nota_corte || 0) === 1;
+      const cutoffValue = Number(linkedProcess?.nota_corte || 0);
+
+      if (
+        usesCutoff &&
+        !Number.isNaN(cutoffValue) &&
+        Number(state.weightedFinalScore || 0) < cutoffValue
+      ) {
+        initialCandidateStatus = 'Eliminado pela nota de corte';
+      }
+    }
+
     await saveHistoryRow(row);
     await saveAnswerFile(recordId, buildAnswerKeyPayload(recordId));
     await saveProcessCandidate({
@@ -3905,7 +4194,7 @@ async function saveExamResult() {
       id_teste: recordId,
       nome_candidato: state.candidate.name,
       vaga: state.candidate.role,
-      status_candidato: 'Em análise',
+      status_candidato: initialCandidateStatus,
       pontuacao_final: state.weightedFinalScore.toFixed(1).replace('.', ','),
       data_prova: now.toISOString(),
       origem: 'Prova',

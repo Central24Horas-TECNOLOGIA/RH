@@ -4424,3 +4424,156 @@ body {
   white-space: normal;
   line-height: 1.2;
 }
+
+/* ===== CONFIG E PROCESS CREATE NO LAYOUT MODERNO ===== */
+
+#screen-config .rh-modern-table-card,
+#screen-process-create .rh-modern-table-card {
+  padding: 24px;
+}
+
+#screen-config .rh-flow-input,
+#screen-process-create .rh-flow-input {
+  min-height: 48px;
+}
+
+#screen-config .rh-flow-preview {
+  border: 1px solid #dbe2ea;
+  border-radius: 16px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+#screen-config .rh-flow-preview-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #eef4ff;
+  color: #002060;
+  margin-right: 12px;
+}
+
+#screen-config .rh-flow-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* ===== Layout moderno também em config e criação de processo ===== */
+
+#screen-config .rh-modern-table-card,
+#screen-process-create .rh-modern-table-card {
+  padding: 24px;
+}
+
+#screen-config .rh-flow-input,
+#screen-process-create .rh-flow-input {
+  min-height: 48px;
+}
+
+#screen-config .rh-flow-preview {
+  border: 1px solid #dbe2ea;
+  border-radius: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+#screen-config .rh-flow-preview-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #eef4ff;
+  color: #002060;
+  flex: 0 0 auto;
+}
+
+.rh-detail-card .rh-status-pill,
+.rh-detail-value .rh-status-pill {
+  width: fit-content;
+}
+
+.rh-cutoff-switch {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #dbe2ea;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.rh-cutoff-switch .form-check-input {
+  width: 44px;
+  height: 24px;
+  margin-top: 0;
+  cursor: pointer;
+}
+
+.rh-cutoff-switch .form-check-label {
+  margin-bottom: 0;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+/* ===== Toggle elegante - nota de corte ===== */
+
+.rh-cutoff-toggle {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 30px;
+  margin-top: 6px;
+  cursor: pointer;
+}
+
+.rh-cutoff-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.rh-cutoff-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #d1d5db;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  transition: all 0.25s ease;
+}
+
+.rh-cutoff-toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  left: 3px;
+  top: 3px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  transition: all 0.25s ease;
+}
+
+.rh-cutoff-toggle input:checked + .rh-cutoff-toggle-slider {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.rh-cutoff-toggle input:checked + .rh-cutoff-toggle-slider::before {
+  transform: translateX(22px);
+}
+
+.rh-cutoff-toggle input:focus + .rh-cutoff-toggle-slider {
+  box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
+}

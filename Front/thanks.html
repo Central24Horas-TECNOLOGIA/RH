@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Teste Central 24 horas</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="style/styles.css" rel="stylesheet"/>
+</head>
+<body data-screen="screen-thanks">
+<section class="active screen" id="screen-thanks">
+<div class="rh-finish-screen">
+<div class="rh-finish-shell">
+<div class="rh-finish-badge">Concluído</div>
+<div class="rh-finish-icon-wrap">
+<div class="rh-finish-icon">✓</div>
+</div>
+<h2 class="rh-finish-title">Avaliação Finalizada com Sucesso</h2>
+<p class="rh-finish-subtitle">Parabéns por completar a sua etapa técnica. Seus dados foram processados e os registros estão seguros no sistema da Central 24 horas.</p>
+<div class="rh-finish-info-grid">
+<article class="rh-finish-info-card rh-finish-info-card-save is-required">
+<div class="rh-finish-info-icon is-blue">
+<span class="material-symbols-outlined">task_alt</span>
+</div>
+<h3>Finalização obrigatória</h3>
+<p>Para concluir corretamente esta avaliação, é obrigatório salvar o resultado no sistema. Somente após esse registro a prova será considerada finalizada.</p>
+<button class="btn rh-finish-save-btn" id="save-result-btn" onclick="saveExamResult()" type="button">
+                Salvar resultado
+              </button>
+<div class="rh-finish-required-note">
+                Esta etapa é obrigatória para registrar a prova na plataforma.
+              </div>
+</article>
+<article class="rh-finish-info-card is-soft">
+<div class="rh-finish-info-icon is-gold">
+<span class="material-symbols-outlined">trending_up</span>
+</div>
+<h3>Próximos Passos</h3>
+<p>O RH da empresa receberá uma notificação agora mesmo. O status da sua candidatura será atualizado em até 48 horas úteis.</p>
+<!--<span class="rh-finish-link">Ver cronograma do processo</span>-->
+</article>
+</div>
+<div class="alert d-none rh-finish-alert" id="save-alert" role="alert"></div>
+<div class="d-flex justify-content-center mt-3 no-print">
+<button class="btn btn-outline-secondary rh-soft-btn" onclick="backToMenu()" type="button">
+              Retornar ao menu
+            </button>
+</div>
+<div class="rh-finish-access-card no-print">
+<div class="rh-finish-access-icon">
+<span class="material-symbols-outlined">lock</span>
+</div>
+<div class="rh-finish-access-title">Acesso Restrito RH</div>
+<p class="rh-finish-access-text">Não se preocupe, isso agora é com a gente ! Insira a credencial de segurança para acessar o resultado detalhado.</p>
+<div class="rh-finish-access-form">
+<input class="form-control" id="admin-pass" placeholder="Senha de Acesso" type="password"/>
+<button class="btn rh-finish-access-btn" onclick="openAdminResult()">Acessar</button>
+</div>
+<div class="alert alert-danger d-none mt-3 mb-0" id="admin-alert"></div>
+<div class="rh-finish-access-footnote">EDA AVALIAÇÃO 360 • AUTENTICAÇÃO CRIPTOGRAFADA</div>
+</div>
+<div class="rh-finish-footer-note">© 2026 P.R - C24H. Todos os direitos reservados.</div>
+</div>
+</div>
+</section>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="questions.js"></script>
+  <script src="Exames/excel-base-data.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>

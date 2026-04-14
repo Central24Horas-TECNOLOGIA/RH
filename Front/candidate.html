@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Teste Central 24 horas</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="style/styles.css" rel="stylesheet"/>
+</head>
+<body data-screen="screen-candidate">
+<section class="active screen" id="screen-candidate">
+<div class="row justify-content-center">
+<div class="col-12 col-xl-11">
+<div class="card app-card rh-flow-card rh-candidate-wide-card">
+<div class="card-body p-4 p-md-5">
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+<div>
+<h2 class="h3 fw-bold mb-1">Instruções ao Candidato</h2>
+<p class="text-muted mb-0">Por favor, preencha seus dados e leia atentamente as instruções abaixo antes de iniciar.</p>
+</div>
+<button class="btn btn-outline-secondary rh-soft-btn" onclick="backToConfig()">Voltar</button>
+</div>
+<div class="row g-4 align-items-start">
+<div class="col-lg-4">
+<div class="rh-candidate-side-card mb-3">
+<label class="form-label small text-uppercase fw-bold text-muted mb-2">Nome completo</label>
+<div class="rh-candidate-name-shell">
+<input class="form-control rh-flow-input" id="candidate-name" placeholder="Ex: João Augusto da Silva" type="text"/>
+<span class="material-symbols-outlined">badge</span>
+</div>
+</div>
+<div class="rh-candidate-side-card rh-candidate-summary-card">
+<h3 class="h6 fw-bold mb-3">Etapas e o que será avaliado</h3>
+<div class="text-muted small" id="candidate-rules-summary"></div>
+</div>
+</div>
+<div class="col-lg-8">
+<div class="rh-candidate-main-card">
+<h3 class="h5 fw-bold mb-3">Regras e orientações da prova</h3>
+<ul class="mb-0 rules-list">
+<li>Leia atentamente cada questão antes de responder. Procure compreender completamente o enunciado e o contexto apresentado antes de registrar sua resposta.</li>
+<li>A estrutura da avaliação foi definida previamente pelo setor de RH e segue o perfil da vaga selecionada. Dessa forma, as etapas e os conteúdos podem variar conforme o nível da posição em avaliação.</li>
+<li>Algumas etapas podem incluir exercícios práticos, especialmente relacionados ao uso do Excel. Nesses casos, será disponibilizado um arquivo de planilha para download contendo os dados necessários para a realização da atividade.</li>
+<li>Ao realizar exercícios em planilha, faça o download do arquivo, desenvolva as atividades solicitadas e salve o documento antes de enviá-lo novamente pelo sistema para validação da etapa.</li>
+<li>Certifique-se de salvar corretamente o arquivo em seu computador antes de realizar o envio. Recomenda-se não alterar o nome do arquivo original disponibilizado pelo sistema.</li>
+<li>O sistema registra automaticamente o andamento da prova, incluindo respostas selecionadas e arquivos enviados, garantindo a integridade das informações até o encerramento da avaliação.</li>
+<li>Após concluir cada etapa, revise suas respostas sempre que possível antes de prosseguir para a próxima fase da avaliação.</li>
+<li>Ao finalizar todas as etapas, o sistema registrará o resultado da avaliação para análise da equipe responsável pelo processo seletivo.</li>
+<li>Caso ocorra qualquer dificuldade técnica durante a prova, informe imediatamente o responsável pela aplicação do teste para orientação.</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="alert alert-danger d-none mt-4" id="candidate-alert"></div>
+<div class="rh-candidate-footer mt-4">
+<div class="rh-candidate-disclaimer">
+<span class="material-symbols-outlined">info</span>
+<span>Ao clicar em iniciar, você declara que leu e concorda com todos os termos e regras citados acima.</span>
+</div>
+<div class="d-flex gap-2 flex-wrap">
+<button class="btn btn-outline-secondary rh-soft-btn" onclick="backToConfig()">Voltar</button>
+<button class="btn btn-success btn-lg rh-primary-cta" onclick="startExam()">Iniciar prova</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="questions.js"></script>
+  <script src="Exames/excel-base-data.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>

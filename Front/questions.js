@@ -969,7 +969,7 @@ function excelStageBasic() {
       'excel_basic',
       STAGE_LABELS.excel_basic,
       'Teste Prático de Excel',
-      'Baixe a planilha e realize as atividades práticas do nível básico, seguindo as orientações propostas no arquivo. As tarefas envolvem ações fundamentais de organização e edição, como exibir linhas de grade, copiar a tabela para a célula G9, aplicar preenchimento em azul-claro na célula D9, inserir um comentário na célula A11, utilizar filtro e calcular o total por meio de fórmula. O exercício simula uma rotina simples de apoio administrativo em uma operação de atendimento.',
+      'Baixe a planilha e realize as atividades práticas do nível básico, seguindo as orientações propostas no arquivo. As tarefas envolvem ações fundamentais de organização e edição, manuseio de células, design de tabelas, utilização de filtros e calculos simples. O exercício simula uma rotina simples de apoio administrativo em uma operação de atendimento.',
       'basic_exam',
       50,
     ),
@@ -1913,44 +1913,38 @@ function normalizeBlueprintQuestions(questions) {
 function buildExamFromBlueprint(blueprint) {
   const questions = [];
 
-  blueprint.stages.forEach((stage) => {
-    const stageQuestions = stage
-      .questions()
-      .map((q) => ({ ...q, stageWeight: stage.weight }));
-
-    questions.push(...stageQuestions);
-  });
-
-  const normalizedQuestions = normalizeBlueprintQuestions(questions);
-  const targetCount = getBlueprintQuestionTarget(blueprint);
-
-  if (!targetCount || normalizedQuestions.length <= targetCount) {
-    return normalizedQuestions;
+  if (!blueprint || !Array.isArray(blueprint.stages)) {
+    throw new Error('Blueprint inválido ou sem etapas definidas.');
   }
 
-  const groupedByStage = new Map();
+  blueprint.stages.forEach((stage, index) => {
+    let stageQuestions = [];
 
-  normalizedQuestions.forEach((question) => {
-    const stageKey = question.stageKey || 'default_stage';
-    if (!groupedByStage.has(stageKey)) {
-      groupedByStage.set(stageKey, []);
+    if (typeof stage.questions === 'function') {
+      stageQuestions = stage.questions();
+    } else if (Array.isArray(stage.questions)) {
+      stageQuestions = stage.questions;
+    } else {
+      console.error('Etapa inválida encontrada no blueprint:', stage);
+      throw new Error(
+        `A etapa "${stage?.key || index}" está com o campo "questions" inválido.`,
+      );
     }
-    groupedByStage.get(stageKey).push(question);
+
+    if (!Array.isArray(stageQuestions)) {
+      console.error('A etapa retornou questions em formato inválido:', stage);
+      throw new Error(
+        `A etapa "${stage?.key || index}" não retornou uma lista de questões válida.`,
+      );
+    }
+
+    questions.push(
+      ...stageQuestions.map((q) => ({
+        ...q,
+        stageWeight: stage.weight,
+      })),
+    );
   });
 
-  const selectedQuestions = [];
-  const stageEntries = Array.from(groupedByStage.entries());
-
-  while (
-    selectedQuestions.length < targetCount &&
-    stageEntries.some(([, list]) => list.length > 0)
-  ) {
-    for (const [, list] of stageEntries) {
-      if (list.length > 0 && selectedQuestions.length < targetCount) {
-        selectedQuestions.push(list.shift());
-      }
-    }
-  }
-
-  return selectedQuestions;
+  return questions;
 }
