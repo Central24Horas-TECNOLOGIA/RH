@@ -111,9 +111,9 @@ STAGE_IMPORTANCE_BY_ROLE = {
     },
     "TI": {
         "word_advanced": 6.0,
-        "technical_support": 8.0,
+        "technical_support": 7.0,
         "logic": 7.5,
-        "excel_advanced": 6.5,
+        "excel_advanced": 8.0,
     },
     "Analista": {
         "word_advanced": 7.0,
@@ -495,68 +495,53 @@ def build_analysis_from_payload(history_row, process_row, process_candidate_row,
     if process_row and process_row.get("nota_corte") not in (None, ""):
         cutoff_value = parse_float_br(process_row.get("nota_corte"))
 
-    compared_stage_count = 0
-    total_stage_fit = 0.0
+    weighted_fit_sum = 0.0
+    total_weight = 0.0
+    low_stage_count = 0
+    zero_stage_count = 0
+    highest_weight_stage = None
 
     for item in normalized_stages:
         obtained = float(item.get("obtained") or 0)
         expected = float(item.get("expected") or 0)
+        weight = float(item.get("expected") or 0)
 
-        if expected <= 0:
-            continue
-
-        compared_stage_count += 1
-
-        stage_fit = (obtained / expected) * 100.0
-        stage_fit = max(0.0, min(stage_fit, 120.0))
-        total_stage_fit += stage_fit
-
-    low_stage_count = 0
-    zero_stage_count = 0
-
-    for item in normalized_stages:
-        obtained = float(item.get("obtained") or 0)
         if obtained == 0:
             zero_stage_count += 1
         if obtained < 3:
             low_stage_count += 1
 
-    stage_affinity = (
-        total_stage_fit / compared_stage_count if compared_stage_count else 0.0
-    )
+        if highest_weight_stage is None or weight > float(highest_weight_stage.get("expected") or 0):
+            highest_weight_stage = item
 
-    text_bonus = 0.0
-    if text_quality["overall"] >= 8:
-        text_bonus = 6.0
-    elif text_quality["overall"] >= 6:
-        text_bonus = 3.0
-    elif text_quality["overall"] < 4:
-        text_bonus = -8.0
+        if expected <= 0:
+            continue
 
-    penalty = 0.0
-    penalty += min(low_stage_count * 8.0, 24.0)
-    penalty += min(zero_stage_count * 12.0, 24.0)
+        stage_fit = (obtained / expected) * 100.0
+        stage_fit = max(0.0, min(stage_fit, 100.0))
 
-    affinity = stage_affinity + text_bonus - penalty
-    affinity = max(0.0, min(round(affinity, 1), 100.0))
+        weighted_fit_sum += stage_fit * weight
+        total_weight += weight
 
-    recommendation = "Boa regular"
+    affinity = round((weighted_fit_sum / total_weight), 1) if total_weight > 0 else 0.0
+    affinity = max(0.0, min(affinity, 100.0))
 
-    if affinity >= 85:
+    zerou_etapa_mais_critica = False
+    if highest_weight_stage:
+        zerou_etapa_mais_critica = float(highest_weight_stage.get("obtained") or 0) == 0.0
+
+    recommendation = "Baixa aderência"
+    if affinity > 75:
         recommendation = "Forte aderência"
-    elif affinity < 50:
-        recommendation = "Baixa aderência"
+    elif affinity > 60:
+        recommendation = "Boa aderência"
 
+    final_consideration = "Apto à vaga"
 
-
-    final_consideration = "Seguir para entrevista"
-
-    if low_stage_count >= 2 or zero_stage_count >= 1 and low_stage_count >= 2:
+    if zerou_etapa_mais_critica:
         final_consideration = "Inapto à vaga"
-    elif affinity < 55:
-        final_consideration = "Não recomendado para esta vaga"
-    elif deficits and weighted_final_score >= 6:
-        final_consideration = "Seguir para entrevista com ressalvas"
+    elif affinity <= 60:
+        final_consideration = "Inapto à vaga"
 
     if cutoff_enabled and cutoff_value is not None and weighted_final_score < cutoff_value:
         final_consideration = "Eliminado pela nota de corte"
@@ -583,6 +568,8 @@ def build_analysis_from_payload(history_row, process_row, process_candidate_row,
         "analise_texto": text_quality,
         "grafico": normalized_stages,
         "ressalvas": remarks,
+        "etapa_critica": highest_weight_stage.get("label") if highest_weight_stage else "",
+        "zerou_etapa_critica": zerou_etapa_mais_critica,
     }
 
 @app.get("/")
@@ -1242,7 +1229,7 @@ def get_candidate_analytics():
                     "nome_candidato": analysis.get("nome_candidato", ""),
                     "vaga": analysis.get("vaga", ""),
                     "nota_final": round(parse_float_br(analysis.get("nota_final", 0)), 1),
-                    "afinidade_percentual": round(parse_float_br(analysis.get("afinidade_percentual", 0)), 1),
+                    "afinidade_percentual": round(float(analysis.get("afinidade_percentual", 0) or 0), 1),
                     "recomendacao": analysis.get("recomendacao", ""),
                     "parecer_final": analysis.get("parecer_final", ""),
                     "status_candidato": status_candidato,
