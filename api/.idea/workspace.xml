@@ -5,41 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c0c892ec-9aa8-4758-8489-402a24173792" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../Front/Exames/excel-base-data.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/README.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/analysis-candidates.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/app.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/candidate.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/config.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/exam.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/history.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/login.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/process-create.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/processes.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/questions.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/result.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/style/Conecta_logo.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/style/avatar-candidato.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/style/fundo_login.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/style/fundo_rh.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/style/logo-central24-crop.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/style/styles.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/talent-bank.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/thanks.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/api.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/answer-file.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/api_c24h.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/debug_gabaritos.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/historico_testes.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/history.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/teste.php" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

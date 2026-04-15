@@ -1036,7 +1036,7 @@ function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
                 )}</span
               >
             </div>
-            <div class="rh-detail-card">
+            <div class="rh-detail-card rh-detail-card--status">
               <span class="rh-detail-label">Situação atual</span>
               <span
                 class=${`rh-status-pill ${obterClasseSituacaoAtual(situacaoAtual)}`}

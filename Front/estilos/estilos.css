@@ -4768,3 +4768,15 @@ body {
   color: #18794e;
   border: 1px solid #b7e0c2;
 }
+
+.rh-detail-card--status {
+  width: fit-content;
+  min-width: 0;
+    max-width: fit-content;
+  justify-self: start;
+}
+
+.rh-detail-card--status .rh-status-pill {
+  width: fit-content;
+     max-width: fit-content;
+}

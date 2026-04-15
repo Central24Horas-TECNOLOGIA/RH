@@ -16,14 +16,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DB_PATH = r"C:\Users\psilva\OneDrive - Empresa Brasileira de Soluções e Serviços em Teleatendimento Ltda\Projetos\RH\data\rh_provas.accdb"
-
+SQL_SERVER = r"PAULO_TI\SQLEXPRESS"
+SQL_DATABASE = "RH_Provas"
 
 CONN_STR = (
-    r"DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};"
-    rf"DBQ={DB_PATH};"
+    "DRIVER={ODBC Driver 17 for SQL Server};"
+    f"SERVER={SQL_SERVER};"
+    f"DATABASE={SQL_DATABASE};"
+    "Trusted_Connection=yes;"
+    "TrustServerCertificate=yes;"
 )
-
 
 def get_connection():
     return pyodbc.connect(CONN_STR)
@@ -63,13 +65,14 @@ def process_auto_close_if_full(cursor, id_processo: str):
 
 
 def get_gabaritos_payload_column(cursor):
-    columns = [col.column_name for col in cursor.columns(table='gabaritos')]
+    columns = [col.column_name for col in cursor.columns(table='gabaritos', schema='dbo')]
     for name in ('payload_json', 'playlaod_json'):
         if name in columns:
             return name
+
     raise HTTPException(
         status_code=500,
-        detail=f"Coluna de payload não encontrada na tabela gabaritos. Colunas disponíveis: {columns}",
+        detail=f"Coluna de payload não encontrada na tabela dbo.gabaritos. Colunas disponíveis: {columns}",
     )
 
 STAGE_IMPORTANCE_BY_ROLE = {
@@ -577,7 +580,8 @@ def root():
     return {
         "status": "ok",
         "message": "API RH Provas online",
-        "db_path": DB_PATH
+        "server": SQL_SERVER,
+        "database": SQL_DATABASE
     }
     '''return {"status": "ok", "message": "API RH Provas online"}'''
 
