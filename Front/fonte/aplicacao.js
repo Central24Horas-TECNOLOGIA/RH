@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from './infraestrutura-react.js';
+
 import { montarHashDaTela, obterTelaPorHash } from './rotas.js';
 import {
   baixarBlob,
@@ -18,18 +19,24 @@ import {
   sanitizarNomeArquivo,
 } from './utilitarios.js';
 import {
+  adicionarPreAnaliseAoProcesso,
+  atualizarPreAnaliseCv,
   atualizarProcesso,
   atualizarStatusCandidato,
+  analisarCvProcesso,
   criarCandidatoNoProcesso,
   criarProcesso,
   encerrarProcesso,
+  excluirPreAnaliseCv,
   invalidarCacheApi,
   lerAnalisesCandidatos,
   lerArquivosResposta,
   lerBancoTalentos,
   lerCandidatosProcessos,
   lerDetalheAnaliseCandidato,
+  lerDetalheProcesso,
   lerHistorico,
+  lerPreAnalisesCv,
   lerProcessos,
   removerBancoTalentos,
   salvarArquivoResposta,
@@ -463,18 +470,6 @@ function PainelRh({
         <div class="rh-modern-main">
           <header class="rh-modern-topbar">
             <div class="rh-modern-topbar-left">
-              <button
-                type="button"
-                class="rh-modern-mobile-logo"
-                aria-label="Voltar para a página principal"
-                onClick=${() => controlador.irParaMenu()}
-              >
-                <img
-                  alt="Logo Central 24 Horas"
-                  class="rh-modern-topbar-logo"
-                  src="estilos/logo-central24.jpg"
-                />
-              </button>
               <div class="rh-modern-search-shell">
                 <span class="material-symbols-outlined">search</span>
                 <input type="text" readonly value=${placeholderBusca} />
@@ -1357,6 +1352,7 @@ function TelaInicio({ controlador }) {
 function TelaHistorico({ controlador }) {
   const [carregando, setCarregando] = useState(true);
   const [linhas, setLinhas] = useState([]);
+
   const [pagina, setPagina] = useState(1);
   const [filtros, setFiltros] = useState({ nome: '', vaga: '', data: '' });
   const [detalheAberto, setDetalheAberto] = useState(null);
@@ -1826,8 +1822,23 @@ function TelaCriarProcesso({ controlador }) {
 
 function TelaBancoTalentos({ controlador }) {
   const [linhas, setLinhas] = useState([]);
+  const [processosAbertos, setProcessosAbertos] = useState([]);
+  const [candidatoParaUtilizar, setCandidatoParaUtilizar] = useState(null);
+  const [processoSelecionadoUso, setProcessoSelecionadoUso] = useState('');
 
-  const carregar = async () => setLinhas(await lerBancoTalentos(true));
+  const carregar = async () => {
+    const [banco, processos] = await Promise.all([
+      lerBancoTalentos(true),
+      lerProcessos(true),
+    ]);
+
+    setLinhas(Array.isArray(banco) ? banco : []);
+    setProcessosAbertos(
+      (Array.isArray(processos) ? processos : []).filter(
+        (processo) => String(processo.status || '').trim() !== 'Encerrado',
+      ),
+    );
+  };
 
   useEffect(() => {
     carregar();
@@ -1840,36 +1851,14 @@ function TelaBancoTalentos({ controlador }) {
     carregar();
   };
 
-  const utilizar = async (idBanco) => {
-    const processosAbertos = (await lerProcessos()).filter(
-      (processo) => String(processo.status || '').trim() !== 'Encerrado',
-    );
+  const utilizar = async (linha) => {
     if (!processosAbertos.length) {
       window.alert('Não há processo aberto no momento.');
       return;
     }
 
-    const opcoes = processosAbertos
-      .map(
-        (processo, indice) =>
-          `${indice + 1} - ${processo.id_processo} | ${processo.vaga} | ${processo.operacao || processo.trilha || '-'}`,
-      )
-      .join('\n');
-    const escolha = window.prompt(
-      `Selecione o número do processo para inserir o candidato:\n\n${opcoes}`,
-    );
-    if (escolha === null) return;
-
-    const processoSelecionado = processosAbertos[Number(escolha) - 1];
-    if (!processoSelecionado) {
-      window.alert('Processo inválido.');
-      return;
-    }
-
-    await usarCandidatoDoBancoTalentos(idBanco, {
-      id_processo: processoSelecionado.id_processo,
-    });
-    carregar();
+    setCandidatoParaUtilizar(linha);
+    setProcessoSelecionadoUso('');
   };
 
   return html`
@@ -1915,48 +1904,125 @@ function TelaBancoTalentos({ controlador }) {
               </tr>
             </thead>
             <tbody>
-              ${linhas.length
-                ? linhas.map(
-                    (linha) => html`
-                      <tr key=${linha.id_banco}>
-                        <td>${linha.id_processo || '-'}</td>
-                        <td>${linha.nome_candidato || '-'}</td>
-                        <td>${linha.vaga || '-'}</td>
-                        <td>${linha.pontuacao_final || '-'}</td>
-                        <td>${linha.data_movimentacao || '-'}</td>
-                        <td>${linha.origem || '-'}</td>
-                        <td class="text-end">
-                          <div
-                            class="d-flex justify-content-end gap-2 flex-wrap"
-                          >
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-danger"
-                              onClick=${() => remover(linha.id_banco)}
+              ${
+                linhas.length
+                  ? linhas.map(
+                      (linha) => html`
+                        <tr key=${linha.id_banco}>
+                          <td>${linha.id_processo || '-'}</td>
+                          <td>${linha.nome_candidato || '-'}</td>
+                          <td>${linha.vaga || '-'}</td>
+                          <td>${linha.pontuacao_final || '-'}</td>
+                          <td>${linha.data_movimentacao || '-'}</td>
+                          <td>${linha.origem || '-'}</td>
+                          <td class="text-end">
+                            <div
+                              class="d-flex justify-content-end gap-2 flex-wrap"
                             >
-                              Eliminar candidato
-                            </button>
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-primary"
-                              onClick=${() => utilizar(linha.id_banco)}
-                            >
-                              Utilizar candidato
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    `,
-                  )
-                : html`<tr>
-                    <td colspan="7" class="text-center text-muted py-4">
-                      Nenhum candidato no banco de talentos.
-                    </td>
-                  </tr>`}
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-danger"
+                                onClick=${() => remover(linha.id_banco)}
+                              >
+                                Eliminar candidato
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                onClick=${() => utilizar(linha)}
+                              >
+                                Utilizar candidato
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      `,
+                    )
+                  : html`<tr>
+                      <td colspan="7" class="text-center text-muted py-4">
+                        Nenhum candidato no banco de talentos.
+                      </td>
+                    </tr>`
+              }
             </tbody>
           </table>
         </div>
       </section>
+            <${ModalPadrao}
+        aberto=${!!candidatoParaUtilizar}
+        titulo="Utilizar candidato"
+        subtitulo="Selecione o processo aberto e confirme a ação."
+        onClose=${() => {
+          setCandidatoParaUtilizar(null);
+          setProcessoSelecionadoUso('');
+        }}
+      >
+        <div class="rh-details-body">
+          <div class="mb-3">
+            <label class="form-label">Processo aberto</label>
+            <select
+              class="form-select"
+              value=${processoSelecionadoUso}
+              onChange=${(event) => setProcessoSelecionadoUso(event.target.value)}
+            >
+              <option value="">Selecione...</option>
+              ${processosAbertos.map(
+                (processo) => html`
+                  <option
+                    key=${processo.id_processo}
+                    value=${processo.id_processo}
+                  >
+                    ${processo.id_processo} • ${processo.vaga} •
+                    ${processo.operacao || processo.trilha || '-'}
+                  </option>
+                `,
+              )}
+            </select>
+          </div>
+        </div>
+        <div class="rh-details-footer">
+          <div class="rh-details-footer-actions">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              onClick=${() => {
+                setCandidatoParaUtilizar(null);
+                setProcessoSelecionadoUso('');
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+          <button
+            type="button"
+            class="btn btn-primary"
+            onClick=${async () => {
+              if (!processoSelecionadoUso) {
+                window.alert('Selecione um processo antes de continuar.');
+                return;
+              }
+
+              const confirmar = window.confirm(
+                `Deseja realmente utilizar o candidato ${candidatoParaUtilizar?.nome_candidato || ''} no processo ${processoSelecionadoUso}?`,
+              );
+              if (!confirmar) return;
+
+              await usarCandidatoDoBancoTalentos(
+                candidatoParaUtilizar.id_banco,
+                {
+                  id_processo: processoSelecionadoUso,
+                },
+              );
+
+              setCandidatoParaUtilizar(null);
+              setProcessoSelecionadoUso('');
+              await carregar();
+            }}
+          >
+            Confirmar utilização
+          </button>
+        </div>
+      </${ModalPadrao}>
     <//>
   `;
 }
@@ -3119,11 +3185,17 @@ function TelaProcessos({ controlador }) {
                                     <button
                                       type="button"
                                       class="btn btn-sm btn-outline-primary"
-                                      onClick=${() =>
-                                        setDetalhes({
-                                          idProcesso: processo.id_processo,
-                                          pagina: 1,
-                                        })}
+                                      onClick=${() => {
+                                        sessionStorage.setItem(
+                                          'rh_processo_detalhe_atual',
+                                          String(
+                                            processo.id_processo || '',
+                                          ).trim(),
+                                        );
+                                        controlador.irParaTelaProtegida(
+                                          'screen-process-details',
+                                        );
+                                      }}
                                     >
                                       Detalhes
                                     </button>
@@ -3222,11 +3294,15 @@ function TelaProcessos({ controlador }) {
                                 <button
                                   type="button"
                                   class="btn btn-sm btn-outline-primary"
-                                  onClick=${() =>
-                                    setDetalhes({
-                                      idProcesso: processo.id_processo,
-                                      pagina: 1,
-                                    })}
+                                  onClick=${() => {
+                                    sessionStorage.setItem(
+                                      'rh_processo_detalhe_atual',
+                                      String(processo.id_processo || '').trim(),
+                                    );
+                                    controlador.irParaTelaProtegida(
+                                      'screen-process-details',
+                                    );
+                                  }}
                                 >
                                   Detalhes
                                 </button>
@@ -3601,6 +3677,759 @@ function TelaProcessos({ controlador }) {
       <//>
     <//>
   `;
+}
+
+function TelaDetalhesProcesso({ controlador }) {
+  const [carregando, setCarregando] = useState(true);
+  const [resultadoAnaliseSelecionado, setResultadoAnaliseSelecionado] =
+    useState(null);
+  const [erro, setErro] = useState('');
+  const [processo, setProcesso] = useState(null);
+  const [resumo, setResumo] = useState(null);
+  const [candidatos, setCandidatos] = useState([]);
+  const [preAnalises, setPreAnalises] = useState([]);
+  const [paginaPreAnalises, setPaginaPreAnalises] = useState(1);
+  const [totalPaginasPreAnalises, setTotalPaginasPreAnalises] = useState(1);
+  const [arquivoCv, setArquivoCv] = useState(null);
+  const [guardarCvOriginal, setGuardarCvOriginal] = useState(false);
+  const [analisandoCv, setAnalisandoCv] = useState(false);
+  const [preAnaliseSelecionada, setPreAnaliseSelecionada] = useState(null);
+  const [visualizacaoCv, setVisualizacaoCv] = useState(null);
+
+  const idProcesso = sessionStorage.getItem('rh_processo_detalhe_atual') || '';
+
+  const carregar = async (pagina = 1) => {
+    if (!idProcesso) {
+      setErro('Processo não identificado.');
+      setCarregando(false);
+      return;
+    }
+
+    setCarregando(true);
+    setErro('');
+
+    try {
+      const [detalhe, listaPreAnalises] = await Promise.all([
+        lerDetalheProcesso(idProcesso),
+        lerPreAnalisesCv(idProcesso, pagina, 5),
+      ]);
+
+      setProcesso(detalhe?.processo || null);
+      setResumo(detalhe?.resumo || null);
+      setCandidatos(
+        (Array.isArray(detalhe?.candidatos) ? detalhe.candidatos : []).filter(
+          (item) => String(item?.status_candidato || '').trim() !== 'Eliminado',
+        ),
+      );
+      setPreAnalises(
+        Array.isArray(listaPreAnalises?.items) ? listaPreAnalises.items : [],
+      );
+      setPaginaPreAnalises(Number(listaPreAnalises?.page || 1));
+      setTotalPaginasPreAnalises(Number(listaPreAnalises?.total_pages || 1));
+    } catch (error) {
+      setErro(
+        error.message || 'Não foi possível carregar o detalhe do processo.',
+      );
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => {
+    carregar(1);
+  }, []);
+
+  const atualizarStatus = async (idRegistro, status) => {
+    const statusSeguro = String(status || '').trim();
+
+    if (statusSeguro === 'Eliminado') {
+      const confirmar = window.confirm(
+        'Deseja realmente eliminar este candidato? Após confirmar, ele sairá da lista desta tela.',
+      );
+      if (!confirmar) return;
+    }
+
+    try {
+      await atualizarStatusCandidato(idRegistro, {
+        status_candidato: statusSeguro,
+      });
+      await carregar(paginaPreAnalises);
+    } catch (error) {
+      alert(error.message || 'Não foi possível atualizar o status.');
+    }
+  };
+
+  const enviarCv = async () => {
+    if (!arquivoCv) {
+      alert('Selecione um CV antes de analisar.');
+      return;
+    }
+
+    try {
+      setAnalisandoCv(true);
+
+      const formData = new FormData();
+      formData.append('arquivo', arquivoCv);
+      formData.append('guardar_cv_original', guardarCvOriginal ? '1' : '0');
+
+      await analisarCvProcesso(idProcesso, formData);
+      setArquivoCv(null);
+      await carregar(1);
+    } catch (error) {
+      alert(error.message || 'Não foi possível analisar o CV.');
+    } finally {
+      setAnalisandoCv(false);
+    }
+  };
+
+  const salvarEdicao = async () => {
+    if (!preAnaliseSelecionada) return;
+
+    try {
+      await atualizarPreAnaliseCv(preAnaliseSelecionada.id_pre_analise, {
+        nome_candidato: preAnaliseSelecionada.nome_candidato,
+        email: preAnaliseSelecionada.email,
+        telefone: preAnaliseSelecionada.telefone,
+        whatsapp: preAnaliseSelecionada.whatsapp,
+      });
+
+      setPreAnaliseSelecionada(null);
+      await carregar(paginaPreAnalises);
+    } catch (error) {
+      alert(error.message || 'Não foi possível salvar a edição.');
+    }
+  };
+
+  const excluirPreAnalise = async (idPreAnalise) => {
+    if (!window.confirm('Deseja excluir esta pré-análise?')) return;
+
+    try {
+      await excluirPreAnaliseCv(idPreAnalise);
+      await carregar(paginaPreAnalises);
+    } catch (error) {
+      alert(error.message || 'Não foi possível excluir a pré-análise.');
+    }
+  };
+
+  const incluirNoProcesso = async (idPreAnalise) => {
+    try {
+      await adicionarPreAnaliseAoProcesso(idPreAnalise);
+      await carregar(paginaPreAnalises);
+    } catch (error) {
+      alert(error.message || 'Não foi possível adicionar ao processo.');
+    }
+  };
+
+  if (carregando) {
+    return html`
+      <${PainelRh}
+        screenId="screen-process-details"
+        navAtiva="screen-processes"
+        subtituloMarca="Detalhes do processo"
+        placeholderBusca="Detalhes do processo"
+        controlador=${controlador}
+        acaoPrimaria=${{
+          label: 'Gerenciar processos',
+          onClick: () => controlador.irParaTelaProtegida('screen-processes'),
+        }}
+        acoesTopo=${html`
+          <button
+            type="button"
+            class="btn btn-outline-secondary rh-modern-secondary-btn"
+            onClick=${() => controlador.sair()}
+          >
+            Sair
+          </button>
+        `}
+      >
+        <div class="alert alert-info">Carregando detalhes do processo...</div>
+      <//>
+    `;
+  }
+
+  return html`
+  <${PainelRh}
+    screenId="screen-process-details"
+    navAtiva="screen-processes"
+    subtituloMarca="Detalhes do processo"
+    placeholderBusca="Detalhes do processo"
+    controlador=${controlador}
+    acaoPrimaria=${{
+      label: 'Gerenciar processos',
+      onClick: () => controlador.irParaTelaProtegida('screen-processes'),
+    }}
+    acoesTopo=${html`
+      <button
+        type="button"
+        class="btn btn-outline-secondary rh-modern-secondary-btn"
+        onClick=${() => controlador.sair()}
+      >
+        Sair
+      </button>
+    `}
+  >
+    <section class="rh-modern-pagehead rh-modern-pagehead-history">
+      <div>
+        <p class="rh-modern-kicker">Console • Processo seletivo</p>
+        <h2 class="rh-modern-title">Detalhes do Processo</h2>
+        <p class="rh-modern-description">
+          Consulte o processo, a lista de candidatos e a pré-análise de CV.
+        </p>
+      </div>
+    </section>
+
+    ${erro ? html`<div class="alert alert-danger">${erro}</div>` : null}
+
+    <section class="rh-modern-table-card p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+          <h2 class="mb-1">Detalhes do Processo</h2>
+          <div class="text-muted">
+            ${processo?.id_processo || '-'} • ${processo?.vaga || '-'}
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
+        >
+          Voltar
+        </button>
+      </div>
+
+      ${erro ? html`<div class="alert alert-danger">${erro}</div>` : null}
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-4"><div class="process-summary-card"><span class="process-summary-label">Nome</span><span class="process-summary-value process-summary-value-text">${processo?.nome_processo || '-'}</span></div></div>
+        <div class="col-md-4"><div class="process-summary-card"><span class="process-summary-label">Vaga</span><span class="process-summary-value process-summary-value-text">${processo?.vaga || '-'}</span></div></div>
+        <div class="col-md-4"><div class="process-summary-card"><span class="process-summary-label">Operação</span><span class="process-summary-value process-summary-value-text">${processo?.operacao || '-'}</span></div></div>
+        <div class="col-md-4"><div class="process-summary-card"><span class="process-summary-label">Trilha</span><span class="process-summary-value process-summary-value-text">${processo?.trilha || '-'}</span></div></div>
+        <div class="col-md-4"><div class="process-summary-card"><span class="process-summary-label">Nota de corte</span><span class="process-summary-value process-summary-value-text">${Number(processo?.usa_nota_corte || 0) ? processo?.nota_corte || '-' : 'Não'}</span></div></div>
+        <div class="col-md-4"><div class="process-summary-card"><span class="process-summary-label">Vagas</span><span class="process-summary-value">${processo?.quantidade_vagas || 0}</span></div></div>
+        <div class="col-md-4"><div class="process-summary-card"><span class="process-summary-label">Encerramento</span><span class="process-summary-value process-summary-value-text">${processo?.data_encerramento || '-'}</span></div></div>
+      </div>
+
+      <div class="process-summary-grid mb-4">
+        <div class="process-summary-card"><span class="process-summary-label">Total</span><span class="process-summary-value">${resumo?.total || 0}</span></div>
+        <div class="process-summary-card is-approved"><span class="process-summary-label">Aprovados</span><span class="process-summary-value">${resumo?.aprovados || 0}</span></div>
+        <div class="process-summary-card is-eliminated"><span class="process-summary-label">Eliminados</span><span class="process-summary-value">${resumo?.eliminados || 0}</span></div>
+        <div class="process-summary-card is-talent"><span class="process-summary-label">Banco de talentos</span><span class="process-summary-value">${resumo?.banco || 0}</span></div>
+        <div class="process-summary-card is-analysis"><span class="process-summary-label">Em análise</span><span class="process-summary-value">${resumo?.analise || 0}</span></div>
+      </div>
+
+      <div class="rh-modern-table-card p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h4 class="mb-0">Pré-análise de CV</h4>
+        </div>
+
+        <div class="row g-3 align-items-end">
+          <div class="col-md-6">
+            <label class="form-label">Adicionar CV</label>
+            <input
+              type="file"
+              class="form-control"
+              accept=".pdf,.doc,.docx,.txt"
+              onChange=${(event) => setArquivoCv(event.target.files?.[0] || null)}
+            />
+          </div>
+          <div class="col-md-3">
+            <div class="form-check mt-4">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="guardarCvOriginal"
+                checked=${guardarCvOriginal}
+                onChange=${(event) => setGuardarCvOriginal(!!event.target.checked)}
+              />
+              <label class="form-check-label" for="guardarCvOriginal">
+                Guardar CV original no banco
+              </label>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <button
+              type="button"
+              class="btn btn-primary w-100"
+              onClick=${enviarCv}
+              disabled=${analisandoCv}
+            >
+              ${analisandoCv ? 'Analisando...' : 'Analisar CV'}
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive mt-4">
+          <table class="table align-middle rh-modern-history-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Telefone</th>
+                <th>Classificação</th>
+                <th>Score</th>
+                <th class="text-end">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                preAnalises.length
+                  ? preAnalises.map(
+                      (item) => html`
+                        <tr key=${item.id_pre_analise}>
+                          <td>${item.nome_candidato || '-'}</td>
+                          <td>${item.email || '-'}</td>
+                          <td>${item.telefone || item.whatsapp || '-'}</td>
+                          <td>
+                            <span
+                              class=${`cv-classification-badge ${item.classificacao_slug || ''}`}
+                              >${item.classificacao || '-'}</span
+                            >
+                          </td>
+                          <td>${item.score_final ?? '-'}</td>
+                          <td class="text-end">
+                            <div
+                              class="d-flex justify-content-end gap-2 flex-wrap"
+                            >
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                onClick=${() =>
+                                  setPreAnaliseSelecionada({ ...item })}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-dark"
+                                onClick=${() =>
+                                  setResultadoAnaliseSelecionado(item)}
+                              >
+                                Resultado da Análise
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-info"
+                                onClick=${() => setVisualizacaoCv(item)}
+                              >
+                                Ver CV
+                              </button>
+                              ${Number(item.ja_adicionado_ao_processo || 0) !==
+                              1
+                                ? html`
+                                    <button
+                                      type="button"
+                                      class="btn btn-sm btn-outline-success"
+                                      onClick=${() =>
+                                        incluirNoProcesso(item.id_pre_analise)}
+                                    >
+                                      Adicionar ao processo
+                                    </button>
+                                  `
+                                : null}
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-danger"
+                                onClick=${() =>
+                                  excluirPreAnalise(item.id_pre_analise)}
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      `,
+                    )
+                  : html`<tr>
+                      <td colspan="6" class="text-center text-muted py-4">
+                        Nenhuma pré-análise encontrada.
+                      </td>
+                    </tr>`
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <${GrupoPaginacao}
+          paginaAtual=${paginaPreAnalises}
+          totalPaginas=${totalPaginasPreAnalises}
+          onChange=${(pagina) => carregar(pagina)}
+        />
+      </div>
+
+      <div class="rh-modern-table-card p-4">
+        <h4 class="mb-3">Candidatos no processo</h4>
+        <div class="table-responsive">
+          <table class="table align-middle rh-modern-history-table">
+            <thead>
+              <tr>
+                <th>Candidato</th>
+                <th>Vaga</th>
+                <th>Nota</th>
+                <th>Status</th>
+                <th class="text-end">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                candidatos.length
+                  ? candidatos.map(
+                      (candidato) => html`
+                        <tr key=${candidato.id_registro}>
+                          <td>${candidato.nome_candidato || '-'}</td>
+                          <td>${candidato.vaga || '-'}</td>
+                          <td>${candidato.pontuacao_final || '-'}</td>
+                          <td>${candidato.status_candidato || '-'}</td>
+                          <td class="text-end">
+                            <div
+                              class="d-flex justify-content-end gap-2 flex-wrap"
+                            >
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-success"
+                                onClick=${() =>
+                                  atualizarStatus(
+                                    candidato.id_registro,
+                                    'Aprovado',
+                                  )}
+                              >
+                                Aprovar
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-danger"
+                                onClick=${() =>
+                                  atualizarStatus(
+                                    candidato.id_registro,
+                                    'Eliminado',
+                                  )}
+                              >
+                                Eliminar
+                              </button>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                onClick=${() =>
+                                  atualizarStatus(
+                                    candidato.id_registro,
+                                    'Banco de talentos',
+                                  )}
+                              >
+                                Banco de talentos
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      `,
+                    )
+                  : html`<tr>
+                      <td colspan="5" class="text-center text-muted py-4">
+                        Nenhum candidato vinculado a este processo.
+                      </td>
+                    </tr>`
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <${ModalPadrao}
+        aberto=${!!preAnaliseSelecionada}
+        titulo="Editar pré-cadastro"
+        subtitulo="Ajuste as informações extraídas do CV antes de seguir."
+        onClose=${() => setPreAnaliseSelecionada(null)}
+      >
+        ${
+          preAnaliseSelecionada
+            ? html`
+                <div class="rh-details-body">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">Nome</label>
+                      <input
+                        class="form-control"
+                        value=${preAnaliseSelecionada.nome_candidato || ''}
+                        onInput=${(e) =>
+                          setPreAnaliseSelecionada({
+                            ...preAnaliseSelecionada,
+                            nome_candidato: e.target.value,
+                          })}
+                      />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">E-mail</label>
+                      <input
+                        class="form-control"
+                        value=${preAnaliseSelecionada.email || ''}
+                        onInput=${(e) =>
+                          setPreAnaliseSelecionada({
+                            ...preAnaliseSelecionada,
+                            email: e.target.value,
+                          })}
+                      />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Telefone</label>
+                      <input
+                        class="form-control"
+                        value=${preAnaliseSelecionada.telefone || ''}
+                        onInput=${(e) =>
+                          setPreAnaliseSelecionada({
+                            ...preAnaliseSelecionada,
+                            telefone: e.target.value,
+                          })}
+                      />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">WhatsApp</label>
+                      <input
+                        class="form-control"
+                        value=${preAnaliseSelecionada.whatsapp || ''}
+                        onInput=${(e) =>
+                          setPreAnaliseSelecionada({
+                            ...preAnaliseSelecionada,
+                            whatsapp: e.target.value,
+                          })}
+                      />
+                    </div>
+                  </div>
+                  <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      onClick=${() => setPreAnaliseSelecionada(null)}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      onClick=${salvarEdicao}
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                </div>
+              `
+            : null
+        }
+      </${ModalPadrao}>
+
+      <${ModalPadrao}
+        aberto=${!!visualizacaoCv}
+        titulo="Visualização do CV"
+        subtitulo="Texto bruto extraído do currículo."
+        onClose=${() => setVisualizacaoCv(null)}
+        className="cv-preview-dialog"
+      >
+        ${
+          visualizacaoCv
+            ? html`
+                <div class="rh-details-body">
+                  <div class="cv-preview-box">
+                    ${visualizacaoCv.texto_extraido || 'Sem conteúdo extraído.'}
+                  </div>
+                  ${visualizacaoCv.arquivo_original_base64
+                    ? html`
+                        <div class="mt-3 text-end">
+                          <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            onClick=${() => {
+                              const link = document.createElement('a');
+                              link.href = `data:${visualizacaoCv.mime_type || 'application/octet-stream'};base64,${visualizacaoCv.arquivo_original_base64}`;
+                              link.download =
+                                visualizacaoCv.nome_arquivo || 'cv';
+                              link.click();
+                            }}
+                          >
+                            Baixar original
+                          </button>
+                        </div>
+                      `
+                    : null}
+                </div>
+              `
+            : null
+        }
+      </${ModalPadrao}>
+      <${ModalPadrao}
+  aberto=${!!resultadoAnaliseSelecionado}
+  titulo="Resultado da Análise"
+  subtitulo="Resumo analítico da classificação automática do CV."
+  onClose=${() => setResultadoAnaliseSelecionado(null)}
+>
+  ${
+    resultadoAnaliseSelecionado
+      ? html`
+          <div class="rh-details-body">
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <div class="process-summary-card">
+                  <span class="process-summary-label">Score</span>
+                  <span class="process-summary-value">
+                    ${resultadoAnaliseSelecionado.score_final ?? '-'}
+                  </span>
+                </div>
+              </div>
+              <div class="col-md-8">
+                <div class="process-summary-card">
+                  <span class="process-summary-label">Classificação</span>
+                  <span
+                    class=${`cv-classification-badge ${resultadoAnaliseSelecionado.classificacao_slug || ''}`}
+                  >
+                    ${resultadoAnaliseSelecionado.classificacao || '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="process-summary-card mb-3">
+              <span class="process-summary-label"
+                >Palavras-chave identificadas</span
+              >
+              <div class="cv-preview-box">
+                ${(() => {
+                  try {
+                    const palavras = JSON.parse(
+                      resultadoAnaliseSelecionado.palavras_chave || '[]',
+                    );
+                    return Array.isArray(palavras) && palavras.length
+                      ? palavras.join(', ')
+                      : 'Nenhuma palavra-chave relevante foi identificada.';
+                  } catch (e) {
+                    return (
+                      resultadoAnaliseSelecionado.palavras_chave ||
+                      'Nenhuma palavra-chave relevante foi identificada.'
+                    );
+                  }
+                })()}
+              </div>
+            </div>
+
+            <div class="process-summary-card mb-3">
+              <span class="process-summary-label"
+                >Pontos observados pelo sistema</span
+              >
+              <div class="cv-preview-box">
+                ${(() => {
+                  try {
+                    const problemas = JSON.parse(
+                      resultadoAnaliseSelecionado.problemas || '[]',
+                    );
+                    return Array.isArray(problemas) && problemas.length
+                      ? problemas.join('\n')
+                      : 'Nenhum problema crítico foi apontado.';
+                  } catch (e) {
+                    return (
+                      resultadoAnaliseSelecionado.problemas ||
+                      'Nenhum problema crítico foi apontado.'
+                    );
+                  }
+                })()}
+              </div>
+            </div>
+
+            <div class="process-summary-card">
+              <span class="process-summary-label">Resumo analítico</span>
+              <div class="cv-preview-box">
+                ${montarResumoAnaliticoCv(resultadoAnaliseSelecionado)}
+              </div>
+            </div>
+          </div>
+        `
+      : null
+  }
+</${ModalPadrao}>
+  </section>
+  <//>
+`;
+}
+
+function montarResumoAnaliticoCv(item) {
+  const score = Number(item?.score_final || 0);
+  const classificacao = String(item?.classificacao || '').trim();
+
+  let palavras = [];
+  let problemas = [];
+  let pontosFortes = [];
+  let educationStrength = '';
+  let experienceStrength = '';
+
+  try {
+    const payloadProblemas = JSON.parse(item?.problemas || '{}');
+
+    if (Array.isArray(payloadProblemas)) {
+      problemas = payloadProblemas;
+    } else {
+      problemas = Array.isArray(payloadProblemas?.problemas)
+        ? payloadProblemas.problemas
+        : [];
+      pontosFortes = Array.isArray(payloadProblemas?.pontos_fortes)
+        ? payloadProblemas.pontos_fortes
+        : [];
+      educationStrength = payloadProblemas?.education_strength || '';
+      experienceStrength = payloadProblemas?.experience_strength || '';
+    }
+  } catch (e) {
+    problemas = [];
+  }
+  try {
+    problemas = JSON.parse(item?.problemas || '[]');
+  } catch (e) {
+    problemas = [];
+  }
+
+  const partes = [];
+  partes.push(
+    `O candidato foi classificado como "${classificacao}" com score ${score}.`,
+  );
+
+  if (palavras.length) {
+    partes.push(
+      `O sistema identificou aderência por meio das seguintes palavras-chave: ${palavras.join(', ')}.`,
+    );
+  } else {
+    partes.push(
+      'O sistema encontrou pouca ou nenhuma aderência por palavras-chave relevantes.',
+    );
+  }
+
+  if (pontosFortes.length) {
+    partes.push(`Pontos fortes identificados: ${pontosFortes.join(' ')}`);
+  }
+
+  if (problemas.length) {
+    partes.push(
+      `Os principais pontos de atenção foram: ${problemas.join(' ')}`,
+    );
+  } else {
+    partes.push(
+      'Não foram identificados problemas críticos na leitura automática do currículo.',
+    );
+  }
+
+  if (educationStrength) {
+    partes.push(`Análise de educação/formação: ${educationStrength}.`);
+  }
+
+  if (experienceStrength) {
+    partes.push(`Análise de experiência profissional: ${experienceStrength}.`);
+  }
+  if (score >= 7) {
+    partes.push(
+      'Por isso, o currículo foi considerado com forte aderência ao processo.',
+    );
+  } else if (score >= 4.5) {
+    partes.push(
+      'Por isso, o currículo foi considerado razoavelmente aderente ao processo.',
+    );
+  } else {
+    partes.push(
+      'Por isso, o currículo foi considerado pouco aderente ao processo.',
+    );
+  }
+
+  return partes.join('\n\n');
 }
 
 // Tela de configuracao do fluxo da prova.
@@ -4779,6 +5608,10 @@ export function Aplicacao() {
 
   if (telaResolvida === 'screen-processes') {
     return html`<${TelaProcessos} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-process-details') {
+    return html`<${TelaDetalhesProcesso} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-talent-bank') {

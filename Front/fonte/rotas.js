@@ -5,6 +5,7 @@ export const ROTAS_POR_TELA = {
   'screen-history': 'historico',
   'screen-processes': 'processos',
   'screen-process-create': 'novo-processo',
+  'screen-process-details': 'detalhes-processo',
   'screen-talent-bank': 'banco-talentos',
   'screen-config': 'configuracao',
   'screen-candidate': 'candidato',

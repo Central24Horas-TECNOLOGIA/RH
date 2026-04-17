@@ -1,8 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 import pyodbc
 import json
 import math
+import re
+import base64
+from datetime import datetime
 from collections import Counter
 
 app = FastAPI(title="API RH Provas")
@@ -35,6 +38,478 @@ def rows_to_dicts(cursor, rows):
     columns = [column[0] for column in cursor.description]
     return [dict(zip(columns, row)) for row in rows]
 
+def get_next_id_registro(cursor):
+    cursor.execute("SELECT ISNULL(MAX(id_registro), 0) + 1 FROM candidatos_processos")
+    row = cursor.fetchone()
+    return int(row[0] or 1)
+
+CV_KEYWORDS = [
+    "excel", "word", "power bi", "powerbi", "atendimento", "suporte",
+    "planilha", "dashboards", "dashboard", "sql", "python", "javascript",
+    "react", "talkdesk", "power automate", "sharepoint", "teams",
+    "analise", "análise", "dados", "cliente", "monitoramento"
+]
+
+CV_WEIGHTS_BY_ROLE = {
+    "Jovem Aprendiz": {
+        "keywords": {
+            "excel": 1.5,
+            "word": 1.0,
+            "atendimento": 2.0,
+            "cliente": 1.5,
+            "dados": 1.0,
+        },
+        "min_keywords": 2,
+    },
+    "Operador": {
+        "keywords": {
+            "atendimento": 2.5,
+            "cliente": 2.0,
+            "suporte": 1.5,
+            "talkdesk": 2.0,
+            "monitoramento": 1.0,
+            "excel": 1.0,
+        },
+        "min_keywords": 2,
+    },
+    "Supervisor": {
+        "keywords": {
+            "excel": 2.0,
+            "atendimento": 2.0,
+            "cliente": 1.5,
+            "monitoramento": 1.5,
+            "dados": 1.5,
+            "power bi": 2.0,
+        },
+        "min_keywords": 3,
+    },
+    "Estagiário": {
+        "keywords": {
+            "excel": 1.5,
+            "python": 2.0,
+            "sql": 2.0,
+            "dados": 1.5,
+            "javascript": 1.5,
+            "react": 1.5,
+        },
+        "min_keywords": 2,
+    },
+    "Analista": {
+        "keywords": {
+            "excel": 1.5,
+            "power bi": 2.5,
+            "sql": 2.0,
+            "python": 2.0,
+            "dados": 2.0,
+            "analise": 1.5,
+            "análise": 1.5,
+        },
+        "min_keywords": 3,
+    },
+    "TI": {
+        "keywords": {
+            "python": 2.5,
+            "javascript": 2.0,
+            "react": 2.0,
+            "sql": 2.0,
+            "sharepoint": 1.5,
+            "power automate": 1.5,
+            "teams": 1.0,
+            "suporte": 1.5,
+        },
+        "min_keywords": 3,
+    },
+}
+
+EMAIL_REGEX = re.compile(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', re.IGNORECASE)
+PHONE_REGEX = re.compile(r'(?:(?:\+?55)\s*)?(?:\(?\d{2}\)?\s*)?(?:9?\d{4})[-\s.]?\d{4}')
+WHATSAPP_REGEX = re.compile(r'(?:(?:\+?55)\s*)?(?:\(?\d{2}\)?\s*)?(?:9\d{4})[-\s.]?\d{4}')
+
+def ensure_cv_pre_analises_table(cursor):
+    cursor.execute("""
+    IF OBJECT_ID('dbo.cv_pre_analises', 'U') IS NULL
+    BEGIN
+        CREATE TABLE dbo.cv_pre_analises (
+            id_pre_analise INT IDENTITY(1,1) PRIMARY KEY,
+            id_processo NVARCHAR(60) NOT NULL,
+            nome_candidato NVARCHAR(255) NULL,
+            email NVARCHAR(255) NULL,
+            telefone NVARCHAR(50) NULL,
+            whatsapp NVARCHAR(50) NULL,
+            palavras_chave NVARCHAR(MAX) NULL,
+            score_final DECIMAL(5,2) NULL,
+            classificacao NVARCHAR(50) NULL,
+            classificacao_slug NVARCHAR(50) NULL,
+            problemas NVARCHAR(MAX) NULL,
+            texto_extraido NVARCHAR(MAX) NULL,
+            nome_arquivo NVARCHAR(255) NULL,
+            mime_type NVARCHAR(120) NULL,
+            arquivo_original_base64 NVARCHAR(MAX) NULL,
+            ja_adicionado_ao_processo BIT NOT NULL DEFAULT 0,
+            criado_em DATETIME NOT NULL DEFAULT GETDATE()
+        )
+    END
+    """)
+
+def normalize_cv_text(texto):
+    bruto = str(texto or "")
+    bruto = bruto.replace("\r", "\n")
+    bruto = re.sub(r'\n{3,}', '\n\n', bruto)
+    bruto = re.sub(r'[ \t]{2,}', ' ', bruto)
+    return bruto.strip()
+
+def extract_email(texto):
+    match = EMAIL_REGEX.search(texto or "")
+    return match.group(1).strip() if match else ""
+
+def extract_phone(texto):
+    match = PHONE_REGEX.search(texto or "")
+    return match.group(0).strip() if match else ""
+
+def extract_whatsapp(texto):
+    match = WHATSAPP_REGEX.search(texto or "")
+    return match.group(0).strip() if match else ""
+
+def is_valid_candidate_name(nome):
+    nome_limpo = str(nome or "").strip()
+    if not nome_limpo:
+        return False
+
+    partes = [p for p in nome_limpo.split() if p.strip()]
+    if len(partes) < 2 or len(partes) > 5:
+        return False
+
+    if len(nome_limpo) < 8 or len(nome_limpo) > 60:
+        return False
+
+    termos_invalidos = {
+        "curriculo", "currículo", "objetivo", "resumo", "perfil",
+        "experiencia", "experiência", "formacao", "formação",
+        "habilidades", "competencias", "competências",
+        "telefone", "email", "e-mail", "whatsapp", "linkedin", "github"
+    }
+
+    nome_lower = nome_limpo.lower()
+    if any(termo in nome_lower for termo in termos_invalidos):
+        return False
+
+    if any(ch.isdigit() for ch in nome_limpo):
+        return False
+
+    return True
+
+
+def is_valid_email(email):
+    email_limpo = str(email or "").strip()
+    if not email_limpo:
+        return False
+    return bool(EMAIL_REGEX.fullmatch(email_limpo))
+
+
+def sanitize_phone(valor):
+    return re.sub(r"\D", "", str(valor or ""))
+
+
+def is_valid_phone(telefone):
+    numero = sanitize_phone(telefone)
+    if numero.startswith("55") and len(numero) in (12, 13):
+        numero = numero[2:]
+
+    return len(numero) in (10, 11)
+
+
+def has_education_content(texto):
+    base = str(texto or "").lower()
+    pistas = [
+        "formação", "formacao", "escolaridade", "ensino médio", "ensino medio",
+        "graduação", "graduacao", "tecnólogo", "tecnologo", "curso técnico",
+        "curso tecnico", "faculdade", "universidade", "bacharelado",
+        "licenciatura", "pós-graduação", "pos-graduacao", "mba"
+    ]
+    return any(pista in base for pista in pistas)
+
+
+def has_experience_content(texto):
+    base = str(texto or "").lower()
+    pistas = [
+        "experiência", "experiencia", "experiências", "experiencias",
+        "atuei", "trabalhei", "atuação", "atuacao", "empresa",
+        "cargo", "função", "funcao", "responsável por", "responsavel por",
+        "atividades desenvolvidas"
+    ]
+    return any(pista in base for pista in pistas)
+
+
+def extract_education_strength(texto):
+    base = str(texto or "").lower()
+
+    if any(p in base for p in ["mba", "pós-graduação", "pos-graduacao"]):
+        return "forte"
+    if any(p in base for p in ["graduação", "graduacao", "bacharelado", "tecnólogo", "tecnologo", "faculdade", "universidade"]):
+        return "media"
+    if any(p in base for p in ["ensino médio", "ensino medio", "curso técnico", "curso tecnico", "escolaridade"]):
+        return "basica"
+    return "ausente"
+
+
+def extract_experience_strength(texto):
+    base = str(texto or "").lower()
+
+    marcadores_tempo = re.findall(r"\b(19|20)\d{2}\b", base)
+    tem_empresa = any(p in base for p in ["empresa", "cargo", "função", "funcao", "responsável por", "responsavel por"])
+
+    if len(marcadores_tempo) >= 2 and tem_empresa:
+        return "forte"
+    if len(marcadores_tempo) >= 1 or tem_empresa:
+        return "media"
+    if has_experience_content(texto):
+        return "basica"
+    return "ausente"
+
+def extract_candidate_name(texto):
+    linhas = [linha.strip() for linha in str(texto or "").splitlines() if linha.strip()]
+    if not linhas:
+        return ""
+
+    candidatos = []
+
+    for linha in linhas[:15]:
+        linha_limpa = linha.strip(" -•|")
+        if is_valid_candidate_name(linha_limpa):
+            candidatos.append(linha_limpa)
+
+    if candidatos:
+        candidatos.sort(key=lambda item: (len(item.split()), len(item)))
+        return candidatos[0]
+
+    return ""
+
+def extract_keywords(texto):
+    base = str(texto or "").lower()
+    encontrados = []
+
+    termos_negativos = [
+        "não tenho experiência com",
+        "nao tenho experiencia com",
+        "não possuo experiência com",
+        "nao possuo experiencia com",
+        "sem experiência em",
+        "sem experiencia em",
+        "nunca trabalhei com",
+        "não conheço",
+        "nao conheco",
+        "não domino",
+        "nao domino",
+    ]
+
+    for palavra in CV_KEYWORDS:
+        if palavra not in base:
+            continue
+
+        trecho_inicio = max(0, base.find(palavra) - 60)
+        trecho_fim = min(len(base), base.find(palavra) + len(palavra) + 60)
+        contexto = base[trecho_inicio:trecho_fim]
+
+        if any(neg in contexto for neg in termos_negativos):
+            continue
+
+        encontrados.append(palavra)
+
+    return sorted(set(encontrados))
+
+def score_cv_for_role(
+    role,
+    keywords_found,
+    has_email,
+    has_phone,
+    text_length,
+    candidate_name="",
+    email_value="",
+    phone_value="",
+    education_strength="ausente",
+    experience_strength="ausente",
+):
+    role_cfg = CV_WEIGHTS_BY_ROLE.get(str(role or "").strip(), {
+        "keywords": {},
+        "min_keywords": 2,
+    })
+
+    score = 0.0
+    problemas = []
+    pontos_fortes = []
+
+    keyword_weights = role_cfg.get("keywords", {})
+    keywords_validas = []
+
+    for keyword in keywords_found:
+        peso = float(keyword_weights.get(keyword, 0.0))
+        if peso > 0:
+            keywords_validas.append(keyword)
+            score += peso
+
+    if is_valid_candidate_name(candidate_name):
+        score += 0.75
+        pontos_fortes.append("Nome do candidato identificado com consistência.")
+    else:
+        score -= 2.0
+        problemas.append("Nome do candidato não foi identificado com segurança.")
+
+    if has_email and is_valid_email(email_value):
+        score += 1.0
+        pontos_fortes.append("E-mail válido identificado.")
+    else:
+        score -= 1.5
+        problemas.append("E-mail não encontrado ou inválido.")
+
+    if has_phone and is_valid_phone(phone_value):
+        score += 1.0
+        pontos_fortes.append("Telefone ou WhatsApp válido identificado.")
+    else:
+        score -= 1.5
+        problemas.append("Telefone/WhatsApp não encontrado ou inválido.")
+
+    if text_length < 80:
+        score -= 3.0
+        problemas.append("CV com pouco conteúdo extraído.")
+    elif text_length < 180:
+        score -= 1.5
+        problemas.append("CV com conteúdo muito limitado para análise segura.")
+    elif text_length >= 250:
+        score += 0.5
+
+    min_keywords = int(role_cfg.get("min_keywords", 2))
+
+    if len(keywords_validas) >= min_keywords:
+        score += 0.5
+        pontos_fortes.append(
+            f"Foram identificadas {len(keywords_validas)} palavra(s)-chave aderentes à vaga."
+        )
+    else:
+        score -= 2.0
+        problemas.append("Poucas palavras-chave realmente aderentes à vaga.")
+
+    if not keywords_validas:
+        score -= 2.0
+        problemas.append("Nenhuma palavra-chave relevante da vaga foi validada no currículo.")
+
+    if education_strength == "forte":
+        score += 1.5
+        pontos_fortes.append("Formação acadêmica robusta identificada.")
+    elif education_strength == "media":
+        score += 0.9
+        pontos_fortes.append("Formação acadêmica compatível identificada.")
+    elif education_strength == "basica":
+        score += 0.3
+        pontos_fortes.append("Indícios básicos de formação identificados.")
+    else:
+        score -= 1.2
+        problemas.append("Formação/educação não identificada no currículo.")
+
+    if experience_strength == "forte":
+        score += 2.0
+        pontos_fortes.append("Experiência profissional consistente identificada.")
+    elif experience_strength == "media":
+        score += 1.0
+        pontos_fortes.append("Experiência profissional parcial identificada.")
+    elif experience_strength == "basica":
+        score += 0.3
+        pontos_fortes.append("Há menções superficiais de experiência profissional.")
+    else:
+        score -= 1.8
+        problemas.append("Experiência profissional não identificada com clareza.")
+
+    score = max(0.0, min(10.0, round(score, 2)))
+
+    if (
+        score >= 7.0
+        and len(keywords_validas) >= min_keywords
+        and is_valid_candidate_name(candidate_name)
+        and is_valid_email(email_value)
+        and is_valid_phone(phone_value)
+        and experience_strength in ("forte", "media")
+    ):
+        classificacao = "Ótimo candidato"
+        slug = "otimo-candidato"
+    elif (
+        score >= 4.5
+        and len(keywords_validas) >= max(1, min_keywords - 1)
+        and experience_strength in ("forte", "media", "basica")
+    ):
+        classificacao = "Bom candidato"
+        slug = "bom-candidato"
+    else:
+        classificacao = "Não qualificado"
+        slug = "nao-qualificado"
+
+    return {
+        "score": score,
+        "classificacao": classificacao,
+        "slug": slug,
+        "problemas": problemas,
+        "pontos_fortes": pontos_fortes,
+        "keywords_validas": keywords_validas,
+        "education_strength": education_strength,
+        "experience_strength": experience_strength,
+    }
+
+def extract_text_from_uploaded_file(filename, content_bytes):
+    nome = str(filename or "").lower()
+
+    if nome.endswith(".txt"):
+        try:
+            return content_bytes.decode("utf-8", errors="ignore")
+        except Exception:
+            return ""
+
+    if nome.endswith(".pdf"):
+        try:
+            from pypdf import PdfReader
+            import io
+            reader = PdfReader(io.BytesIO(content_bytes))
+            partes = []
+            for page in reader.pages:
+                texto_pagina = page.extract_text() or ""
+                if texto_pagina.strip():
+                    partes.append(texto_pagina)
+            return "\n".join(partes).strip()
+        except Exception:
+            return ""
+
+    if nome.endswith(".docx"):
+        try:
+            from docx import Document
+            import io
+            document = Document(io.BytesIO(content_bytes))
+            partes = [p.text for p in document.paragraphs if str(p.text or "").strip()]
+            return "\n".join(partes).strip()
+        except Exception:
+            return ""
+
+    return ""
+
+def get_process_row(cursor, id_processo):
+    cursor.execute("""
+        SELECT
+            id_processo,
+            vaga,
+            quantidade_vagas,
+            vagas_preenchidas,
+            data_encerramento,
+            operacao,
+            trilha,
+            usa_nota_corte,
+            nota_corte,
+            status,
+            data_criacao
+        FROM processos_seletivos
+        WHERE id_processo = ?
+    """, (id_processo,))
+    row = cursor.fetchone()
+    if not row:
+        return None
+
+    columns = [column[0] for column in cursor.description]
+    return dict(zip(columns, row))
 
 def process_auto_close_if_full(cursor, id_processo: str):
     cursor.execute(
@@ -912,14 +1387,18 @@ def get_process_candidates():
 
 
 @app.post("/process-candidates")
+@app.post("/process-candidates")
 def create_process_candidate(data: dict):
     try:
         conn = get_connection()
         cursor = conn.cursor()
 
+        id_registro = get_next_id_registro(cursor)
+
         cursor.execute("""
             INSERT INTO candidatos_processos
             (
+                id_registro,
                 id_processo,
                 id_teste,
                 nome_candidato,
@@ -929,8 +1408,9 @@ def create_process_candidate(data: dict):
                 data_prova,
                 origem
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
+            id_registro,
             data.get("id_processo", ""),
             data.get("id_teste", ""),
             data.get("nome_candidato", ""),
@@ -947,7 +1427,6 @@ def create_process_candidate(data: dict):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.put("/process-candidates/{id_registro}/status")
 def update_process_candidate_status(id_registro: int, data: dict):
@@ -1136,30 +1615,32 @@ def use_talent_bank_candidate(id_banco: int, data: dict):
         id_processo = str(data.get("id_processo", "")).strip()
         if not id_processo:
             raise HTTPException(status_code=400, detail="Processo de destino não informado.")
-
+        id_registro = get_next_id_registro(cursor)
         cursor.execute("""
-             INSERT INTO candidatos_processos
-             (
-                 id_processo,
-                 id_teste,
-                 nome_candidato,
-                 vaga,
-                 status_candidato,
-                 pontuacao_final,
-                 data_prova,
-                 origem
-             )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO candidatos_processos
+(
+    id_registro,
+    id_processo,
+    id_teste,
+    nome_candidato,
+    vaga,
+    status_candidato,
+    pontuacao_final,
+    data_prova,
+    origem
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          """, (
-            id_processo,
-            row[0],
-            row[1],
-            row[2],
-            'Em análise',
-            row[3],
-            '',
-            row[4] or 'Banco de talentos',
-        ))
+    id_registro,
+    id_processo,
+    row[0],
+    row[1],
+    row[2],
+    'Em análise',
+    row[3],
+    '',
+    row[4] or 'Banco de talentos',
+))
 
         cursor.execute("""
              DELETE FROM banco_talentos
@@ -1170,6 +1651,419 @@ def use_talent_bank_candidate(id_banco: int, data: dict):
         conn.close()
         return {"success": True}
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/processes/{id_processo}/details")
+def get_process_details(id_processo: str):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        ensure_cv_pre_analises_table(cursor)
+
+        processo = get_process_row(cursor, id_processo)
+        if not processo:
+            raise HTTPException(status_code=404, detail="Processo não encontrado.")
+
+        cursor.execute("""
+            SELECT
+                id_registro,
+                id_processo,
+                id_teste,
+                nome_candidato,
+                vaga,
+                status_candidato,
+                pontuacao_final,
+                data_prova,
+                origem
+            FROM candidatos_processos
+            WHERE id_processo = ?
+            ORDER BY id_registro DESC
+        """, (id_processo,))
+        candidatos = rows_to_dicts(cursor, cursor.fetchall())
+
+        resumo = {
+            "total": len(candidatos),
+            "aprovados": sum(1 for c in candidatos if str(c.get("status_candidato") or "").strip() == "Aprovado"),
+            "eliminados": sum(1 for c in candidatos if "Eliminado" in str(c.get("status_candidato") or "").strip()),
+            "banco": sum(1 for c in candidatos if str(c.get("status_candidato") or "").strip() == "Banco de talentos"),
+            "analise": sum(1 for c in candidatos if str(c.get("status_candidato") or "").strip() == "Em análise"),
+        }
+
+        conn.close()
+        return {
+            "processo": processo,
+            "resumo": resumo,
+            "candidatos": candidatos,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/processes/{id_processo}/cv-pre-analyses")
+def list_cv_pre_analyses(id_processo: str, page: int = 1, page_size: int = 5):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        ensure_cv_pre_analises_table(cursor)
+
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM cv_pre_analises
+            WHERE id_processo = ?
+        """, (id_processo,))
+        total_items = int(cursor.fetchone()[0] or 0)
+
+        offset = max(0, (page - 1) * page_size)
+
+        cursor.execute("""
+            SELECT
+                id_pre_analise,
+                id_processo,
+                nome_candidato,
+                email,
+                telefone,
+                whatsapp,
+                palavras_chave,
+                score_final,
+                classificacao,
+                classificacao_slug,
+                problemas,
+                texto_extraido,
+                nome_arquivo,
+                mime_type,
+                arquivo_original_base64,
+                ja_adicionado_ao_processo,
+                criado_em
+            FROM cv_pre_analises
+            WHERE id_processo = ?
+            ORDER BY id_pre_analise DESC
+            OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+        """, (id_processo, offset, page_size))
+
+        items = rows_to_dicts(cursor, cursor.fetchall())
+        total_pages = max(1, math.ceil(total_items / max(page_size, 1)))
+
+        conn.close()
+        return {
+            "items": items,
+            "page": page,
+            "page_size": page_size,
+            "total_items": total_items,
+            "total_pages": total_pages,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/processes/{id_processo}/cv-pre-analyses")
+async def create_cv_pre_analysis(
+    id_processo: str,
+    arquivo: UploadFile = File(...),
+    guardar_cv_original: str = Form("0"),
+):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        ensure_cv_pre_analises_table(cursor)
+
+        processo = get_process_row(cursor, id_processo)
+        if not processo:
+            raise HTTPException(status_code=404, detail="Processo não encontrado.")
+
+        content = await arquivo.read()
+        texto_extraido = extract_text_from_uploaded_file(arquivo.filename, content)
+        texto_normalizado = normalize_cv_text(texto_extraido)
+
+        if not texto_normalizado:
+            raise HTTPException(
+                status_code=400,
+                detail="Não foi possível extrair texto do CV. Para PDF, verifique se o arquivo possui texto selecionável. Para DOCX, confirme se a biblioteca python-docx está instalada."
+            )
+
+        nome_candidato = extract_candidate_name(texto_normalizado)
+        email = extract_email(texto_normalizado)
+        telefone = extract_phone(texto_normalizado)
+        whatsapp = extract_whatsapp(texto_normalizado)
+        palavras = extract_keywords(texto_normalizado)
+
+        telefone_base = whatsapp or telefone
+        education_strength = extract_education_strength(texto_normalizado)
+        experience_strength = extract_experience_strength(texto_normalizado)
+
+        if email:
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM cv_pre_analises
+                WHERE id_processo = ? AND email = ?
+            """, (id_processo, email))
+            ja_existe = int(cursor.fetchone()[0] or 0)
+            if ja_existe:
+                raise HTTPException(status_code=400, detail="Já existe uma pré-análise com este e-mail neste processo.")
+
+        avaliacao = score_cv_for_role(
+            processo.get("vaga"),
+            palavras,
+            bool(email),
+            bool(telefone_base),
+            len(texto_normalizado),
+            nome_candidato,
+            email,
+            telefone_base,
+            education_strength,
+            experience_strength,
+        )
+
+        arquivo_original_base64 = None
+        if str(guardar_cv_original).strip() in ("1", "true", "True"):
+            arquivo_original_base64 = base64.b64encode(content).decode("utf-8")
+
+        cursor.execute("""
+            INSERT INTO cv_pre_analises
+            (
+                id_processo,
+                nome_candidato,
+                email,
+                telefone,
+                whatsapp,
+                palavras_chave,
+                score_final,
+                classificacao,
+                classificacao_slug,
+                problemas,
+                texto_extraido,
+                nome_arquivo,
+                mime_type,
+                arquivo_original_base64,
+                ja_adicionado_ao_processo
+            )
+            OUTPUT INSERTED.id_pre_analise
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        """, (
+            id_processo,
+            nome_candidato,
+            email,
+            telefone,
+            whatsapp,
+            json.dumps(avaliacao["keywords_validas"], ensure_ascii=False),
+            avaliacao["score"],
+            avaliacao["classificacao"],
+            avaliacao["slug"],
+            json.dumps({
+                "problemas": avaliacao["problemas"],
+                "pontos_fortes": avaliacao["pontos_fortes"],
+                "education_strength": avaliacao["education_strength"],
+                "experience_strength": avaliacao["experience_strength"],
+            }, ensure_ascii=False),
+            texto_normalizado,
+            arquivo.filename,
+            arquivo.content_type or "application/octet-stream",
+            arquivo_original_base64,
+        ))
+
+        id_pre_analise = cursor.fetchone()[0]
+
+        if avaliacao["classificacao"] in ("Bom candidato", "Ótimo candidato"):
+            id_registro = get_next_id_registro(cursor)
+
+            cursor.execute("""
+                INSERT INTO candidatos_processos
+                (
+                    id_registro,
+                    id_processo,
+                    id_teste,
+                    nome_candidato,
+                    vaga,
+                    status_candidato,
+                    pontuacao_final,
+                    data_prova,
+                    origem
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                id_registro,
+                id_processo,
+                f"CV-{id_pre_analise}",
+                nome_candidato,
+                processo.get("vaga") or "",
+                "Em análise",
+                str(avaliacao["score"]).replace(".", ","),
+                datetime.now().isoformat(),
+                "Pré-análise de CV",
+            ))
+
+            cursor.execute("""
+                UPDATE cv_pre_analises
+                SET ja_adicionado_ao_processo = 1
+                WHERE id_pre_analise = ?
+            """, (id_pre_analise,))
+
+        conn.commit()
+        conn.close()
+
+        return {"success": True, "id_pre_analise": id_pre_analise}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/cv-pre-analyses/{id_pre_analise}")
+def update_cv_pre_analysis(id_pre_analise: int, data: dict):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        ensure_cv_pre_analises_table(cursor)
+
+        cursor.execute("""
+            SELECT id_processo, email
+            FROM cv_pre_analises
+            WHERE id_pre_analise = ?
+        """, (id_pre_analise,))
+        row = cursor.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Pré-análise não encontrada.")
+
+        id_processo = str(row[0] or "").strip()
+        novo_email = str(data.get("email") or "").strip()
+
+        if novo_email:
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM cv_pre_analises
+                WHERE id_processo = ? AND email = ? AND id_pre_analise <> ?
+            """, (id_processo, novo_email, id_pre_analise))
+            duplicado = int(cursor.fetchone()[0] or 0)
+            if duplicado:
+                raise HTTPException(status_code=400, detail="Já existe outra pré-análise com este e-mail neste processo.")
+
+        cursor.execute("""
+            UPDATE cv_pre_analises
+            SET
+                nome_candidato = ?,
+                email = ?,
+                telefone = ?,
+                whatsapp = ?
+            WHERE id_pre_analise = ?
+        """, (
+            data.get("nome_candidato", ""),
+            novo_email,
+            data.get("telefone", ""),
+            data.get("whatsapp", ""),
+            id_pre_analise,
+        ))
+
+        conn.commit()
+        conn.close()
+        return {"success": True}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/cv-pre-analyses/{id_pre_analise}")
+def delete_cv_pre_analysis(id_pre_analise: int):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        ensure_cv_pre_analises_table(cursor)
+
+        cursor.execute("""
+            DELETE FROM cv_pre_analises
+            WHERE id_pre_analise = ?
+        """, (id_pre_analise,))
+
+        conn.commit()
+        conn.close()
+        return {"success": True}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/cv-pre-analyses/{id_pre_analise}/add-to-process")
+def add_cv_pre_analysis_to_process(id_pre_analise: int):
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        ensure_cv_pre_analises_table(cursor)
+
+        cursor.execute("""
+            SELECT
+                id_pre_analise,
+                id_processo,
+                nome_candidato,
+                email,
+                score_final,
+                classificacao,
+                ja_adicionado_ao_processo
+            FROM cv_pre_analises
+            WHERE id_pre_analise = ?
+        """, (id_pre_analise,))
+        row = cursor.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Pré-análise não encontrada.")
+
+        if int(row[6] or 0) == 1:
+            raise HTTPException(status_code=400, detail="Este CV já foi adicionado ao processo.")
+
+        processo = get_process_row(cursor, row[1])
+        if not processo:
+            raise HTTPException(status_code=404, detail="Processo não encontrado.")
+        id_registro = get_next_id_registro(cursor)
+        cursor.execute("""
+           INSERT INTO candidatos_processos
+(
+    id_registro,
+    id_processo,
+    id_teste,
+    nome_candidato,
+    vaga,
+    status_candidato,
+    pontuacao_final,
+    data_prova,
+    origem
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+    id_registro,
+    row[1],
+    f"CV-{row[0]}",
+    row[2],
+    processo.get("vaga") or "",
+    "Em análise",
+    str(row[4] or "").replace(".", ","),
+    datetime.now().isoformat(),
+    "Pré-análise de CV",
+))
+
+        cursor.execute("""
+            UPDATE cv_pre_analises
+            SET ja_adicionado_ao_processo = 1
+            WHERE id_pre_analise = ?
+        """, (id_pre_analise,))
+
+        conn.commit()
+        conn.close()
+        return {"success": True}
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -215,3 +215,73 @@ export async function lerDetalheAnaliseCandidato(idTeste) {
     method: 'GET',
   });
 }
+
+export async function lerDetalheProcesso(idProcesso) {
+  return requisitar(`/processes/${encodeURIComponent(idProcesso)}/details`, {
+    method: 'GET',
+  });
+}
+
+export async function lerPreAnalisesCv(idProcesso, pagina = 1, tamanho = 5) {
+  const params = new URLSearchParams({
+    page: String(pagina),
+    page_size: String(tamanho),
+  });
+
+  return requisitar(
+    `/processes/${encodeURIComponent(idProcesso)}/cv-pre-analyses?${params.toString()}`,
+    { method: 'GET' },
+  );
+}
+
+export async function analisarCvProcesso(idProcesso, formData) {
+  const resultado = await fetch(
+    `${URL_API_BASE}/processes/${encodeURIComponent(idProcesso)}/cv-pre-analyses`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  );
+
+  if (!resultado.ok) {
+    const textoErro = await resultado.text().catch(() => '');
+    throw new Error(textoErro || `Falha na API (${resultado.status}).`);
+  }
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado.json();
+}
+
+export async function atualizarPreAnaliseCv(idPreAnalise, payload) {
+  const resultado = await requisitar(
+    `/cv-pre-analyses/${encodeURIComponent(idPreAnalise)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado;
+}
+
+export async function excluirPreAnaliseCv(idPreAnalise) {
+  const resultado = await requisitar(
+    `/cv-pre-analyses/${encodeURIComponent(idPreAnalise)}`,
+    { method: 'DELETE' },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado;
+}
+
+export async function adicionarPreAnaliseAoProcesso(idPreAnalise) {
+  const resultado = await requisitar(
+    `/cv-pre-analyses/${encodeURIComponent(idPreAnalise)}/add-to-process`,
+    { method: 'POST' },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado;
+}
