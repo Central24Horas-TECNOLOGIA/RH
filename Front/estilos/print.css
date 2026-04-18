@@ -1,0 +1,98 @@
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm 10mm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .no-print,
+  #screen-login,
+  #screen-config,
+  #screen-candidate,
+  #screen-exam,
+  #screen-thanks {
+    display: none !important;
+  }
+
+  #screen-result {
+    display: block !important;
+  }
+
+  .rh-result-screen,
+  .rh-result-main,
+  .rh-result-content,
+  .app-card {
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  .print-page {
+    display: none !important;
+  }
+
+  .print-only-result {
+    display: block !important;
+  }
+
+  .print-sheet-topbar {
+    margin-bottom: 1rem;
+    font-size: 11px;
+  }
+
+  .print-sheet-title-row h1 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+  }
+
+  .print-sheet-title-row p,
+  .print-sheet-meta,
+  .print-stage-meta,
+  .print-observation-note,
+  .print-manual-box {
+    color: #333 !important;
+    line-height: 1.55;
+  }
+
+  .print-sheet-divider {
+    margin: 1rem 0 0.8rem;
+    border-top: 2px solid #333;
+  }
+
+  .print-gap-top {
+    margin-top: 1.2rem;
+  }
+
+  .print-sheet-section-title {
+    margin: 0 0 0.75rem;
+    font-size: 1.35rem;
+  }
+
+  .print-stage-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .print-stage-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-stage-title {
+    font-weight: 700;
+    margin-bottom: 0.45rem;
+  }
+
+  .print-stage-score {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.45rem;
+  }
+}

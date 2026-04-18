@@ -1,4 +1,4 @@
-// Reúne funções pequenas e reutilizáveis usadas em páginas, contexto e serviços.
+﻿// Reúne funções pequenas e reutilizáveis usadas em páginas, contexto e serviços.
 
 export function sanitizarNomeArquivo(nome) {
   return String(nome || '').replace(/[^\w\-\.À-ÿ]/g, '_');
@@ -170,3 +170,5 @@ export function gerarIdResultado() {
   const pad = (valor) => String(valor).padStart(2, '0');
   return `TESTE-${agora.getFullYear()}${pad(agora.getMonth() + 1)}${pad(agora.getDate())}-${pad(agora.getHours())}${pad(agora.getMinutes())}${pad(agora.getSeconds())}`;
 }
+
+

@@ -1,4 +1,4 @@
-// Mantém a navegação em hash simples para funcionar sem etapa de build.
+﻿// Mantém a navegação em hash simples para funcionar sem etapa de build.
 export const ROTAS_POR_TELA = {
   'screen-login': 'login',
   'screen-menu': 'inicio',
@@ -39,3 +39,4 @@ export function obterTelaPorHash(hashAtual) {
 export function montarHashDaTela(tela) {
   return `#/${obterRotaPorTela(tela)}`;
 }
+

@@ -1,4 +1,4 @@
-import { DADOS_BASE_EXCEL } from './base-dados-excel.js';
+﻿import { DADOS_BASE_EXCEL } from './base-dados-excel.js';
 import { ROTULOS_ETAPAS } from './perguntas.js';
 import {
   baixarBlob,
@@ -41,7 +41,7 @@ function criarResultadoChecklist(tarefas, pontos, notas = []) {
     notes: notas,
     pendingManual: true,
     completedTasks: listaValida.map(
-      (tarefa) => `${tarefa.done ? '✔️' : '❌'} ${tarefa.label}`,
+      (tarefa) => `${tarefa.done ? '[x]' : '[ ]'} ${tarefa.label}`,
     ),
   };
 }
@@ -202,7 +202,7 @@ export function avaliarRespostaTexto(resposta, esperado, pontos) {
       : null,
     esperado.requiresList
       ? {
-          ok: /<(ul|ol)[^>]*>/i.test(html) || /^\s*[-•*]\s+/m.test(textoPlano),
+          ok: /<(ul|ol)[^>]*>/i.test(html) || /^\s*[-*•]\s+/m.test(textoPlano),
           weight: 1.5,
         }
       : null,
@@ -210,7 +210,7 @@ export function avaliarRespostaTexto(resposta, esperado, pontos) {
       ? {
           ok:
             contarItensListaNoHtml(html) >= esperado.minListItems ||
-            (textoPlano.match(/^\s*[-•*]\s+\S/gm) || []).length >=
+            (textoPlano.match(/^\s*[-*•]\s+\S/gm) || []).length >=
               esperado.minListItems,
           weight: 1.5,
         }
@@ -292,7 +292,7 @@ export function obterGabaritoDaTarefa(taskId) {
   const gabaritos = {
     basic_exam: [
       'Criar coluna Subtotal ao final da tabela',
-      'Calcular Subtotal = Valor do produto × Quantidade',
+      'Calcular Subtotal = Valor do produto x Quantidade',
       'Formatar Valor Unitário e Subtotal como contábil',
       'Aplicar à nova coluna o mesmo estilo visual da planilha',
       'Alterar as cores de A1 e da linha A2',
@@ -1034,8 +1034,8 @@ function validarExamePlanejamento(workbook, pontos) {
 function validarExameAvancado(workbook, pontos) {
   const base = validarExamePlanejamento(workbook, pontos);
   const tarefas = base.completedTasks.map((item) => ({
-    label: item.replace(/^[✔️❌]\s*/, ''),
-    done: item.startsWith('✔️'),
+    label: item.replace(/^\[(x| )\]\s*/, ''),
+    done: item.startsWith('[x]'),
   }));
   const notas = Array.isArray(base.notes) ? [...base.notes] : [];
 
@@ -1563,3 +1563,4 @@ export async function baixarPacoteDaProva({
   const blob = await zip.generateAsync({ type: 'blob' });
   baixarBlob(`prova_${nomeBase}.zip`, blob);
 }
+

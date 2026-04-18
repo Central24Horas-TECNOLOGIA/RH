@@ -1,4 +1,4 @@
-function wordQ(
+﻿function wordQ(
   stageKey,
   stageLabel,
   title,
@@ -236,7 +236,7 @@ function wordBasicPool() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Formatação de comunicado interno',
-      'Durante a troca de turno das 14h, o supervisor percebeu que alguns operadores estavam retornando com atraso das pausas, o que acabou impactando a organização da equipe e o fluxo de atendimento. Para reforçar essa orientação de forma clara e objetiva, foi solicitado um comunicado interno simples para toda a operação. Escreva o título “COMUNICADO INTERNO” em negrito e centralizado. Em seguida, redija um pequeno texto orientando que os operadores devem retornar das pausas no horário correto, a fim de evitar impactos no atendimento e na rotina da operação.',
+      'Durante a troca de turno das 14h, o supervisor percebeu que alguns operadores estavam retornando com atraso das pausas, o que acabou impactando a organização da equipe e o fluxo de atendimento. Para reforçar essa orientação de forma clara e objetiva, foi solicitado um comunicado interno simples para toda a operação. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto orientando que os operadores devem retornar das pausas no horário correto, a fim de evitar impactos no atendimento e na rotina da operação.',
       {
         titleText: 'COMUNICADO INTERNO',
         titleBold: true,
@@ -255,7 +255,7 @@ function wordBasicPool() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Texto com lista de procedimentos',
-      'Antes de iniciar os atendimentos, a equipe precisa seguir uma rotina básica de preparação para começar o trabalho de forma organizada. Pense em ações simples, como verificar as informações necessárias, abrir as ferramentas utilizadas e conferir se tudo está pronto para o início da operação. Com base nesse contexto, escreva o título “ROTINA DE ABERTURA” e crie uma lista com pelo menos 3 itens mostrando o que deve ser feito antes de começar o atendimento.',
+      'Antes de iniciar os atendimentos, a equipe precisa seguir uma rotina básica de preparação para começar o trabalho de forma organizada. Pense em ações simples, como verificar as informações necessárias, abrir as ferramentas utilizadas e conferir se tudo está pronto para o início da operação. Com base nesse contexto, escreva o título "ROTINA DE ABERTURA" e crie uma lista com pelo menos 3 itens mostrando o que deve ser feito antes de começar o atendimento.',
       { titleText: 'ROTINA DE ABERTURA', requiresList: true, minListItems: 3 },
     ),
   ];
@@ -267,7 +267,7 @@ function wordBasicLevel3Pool() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Redação de comunicado interno',
-      'A equipe do turno da manhã precisará seguir, de forma temporária, uma pequena alteração no script de atendimento utilizado pela operação. Para que todos recebam a informação de maneira rápida e clara, será necessário elaborar um aviso interno com orientação objetiva. Com base nesse cenário, escreva o título “AVISO DE EQUIPE” em negrito e centralizado. Em seguida, redija um comunicado com pelo menos 2 frases, utilizando linguagem clara, direta e de fácil entendimento.',
+      'A equipe do turno da manhã precisará seguir, de forma temporária, uma pequena alteração no script de atendimento utilizado pela operação. Para que todos recebam a informação de maneira rápida e clara, será necessário elaborar um aviso interno com orientação objetiva. Com base nesse cenário, escreva o título "AVISO DE EQUIPE" em negrito e centralizado. Em seguida, redija um comunicado com pelo menos 2 frases, utilizando linguagem clara, direta e de fácil entendimento.',
       {
         titleText: 'AVISO DE EQUIPE',
         titleBold: true,
@@ -299,9 +299,9 @@ function wordAdvancedPool() {
       'word_advanced',
       STAGE_LABELS.word_advanced,
       'Redação de relatório técnico',
-      'Após uma falha de integração entre sistemas, a gerência solicitou um relatório técnico resumido para entender o que aconteceu e quais foram os impactos gerados na operação. Nesse tipo de documento, é importante apresentar o ocorrido de forma clara, mencionando o incidente e os reflexos observados, como lentidão, interrupções ou dificuldades no andamento das atividades. Considerando esse contexto, escreva o título “RELATÓRIO TÉCNICO” em negrito e centralizado. Em seguida, descreva o incidente e os impactos operacionais em pelo menos 2 frases.',
+      'Após uma falha de integração entre sistemas, a gerência solicitou um relatório técnico resumido para entender o que aconteceu e quais foram os impactos gerados na operação. Nesse tipo de documento, é importante apresentar o ocorrido de forma clara, mencionando o incidente e os reflexos observados, como lentidão, interrupções ou dificuldades no andamento das atividades. Considerando esse contexto, escreva o título "RELATORIO TECNICO" em negrito e centralizado. Em seguida, descreva o incidente e os impactos operacionais em pelo menos 2 frases.',
       {
-        titleText: 'RELATÓRIO TÉCNICO',
+        titleText: 'RELATORIO TECNICO',
         titleBold: true,
         titleCenter: true,
         minSentences: 2,
@@ -319,8 +319,8 @@ function wordAdvancedPool() {
       'word_advanced',
       STAGE_LABELS.word_advanced,
       'Organização de procedimentos',
-      'Quando um problema é identificado em produção, torna-se necessário acompanhar a correção de forma organizada, registrando as ações executadas, o andamento da análise e a evolução da solução aplicada. Esse acompanhamento ajuda a dar mais clareza ao processo e facilita a comunicação entre as áreas envolvidas. Com base nesse cenário, escreva “PLANO DE AÇÃO” centralizado e, abaixo, redija um texto objetivo sobre como acompanhar a correção de um problema em produção.',
-      { titleText: 'PLANO DE AÇÃO', titleCenter: true, minTextLength: 55 },
+      'Quando um problema é identificado em produção, torna-se necessário acompanhar a correção de forma organizada, registrando as ações executadas, o andamento da análise e a evolução da solução aplicada. Esse acompanhamento ajuda a dar mais clareza ao processo e facilita a comunicação entre as áreas envolvidas. Com base nesse cenário, escreva "PLANO DE ACAO" centralizado e, abaixo, redija um texto objetivo sobre como acompanhar a correção de um problema em produção.',
+      { titleText: 'PLANO DE ACAO', titleCenter: true, minTextLength: 55 },
     ),
   ];
 }
@@ -1086,7 +1086,7 @@ function wordBasicPoolJovemAprendiz() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Formatação de comunicado interno',
-      'Durante a rotina do setor, foi percebido que alguns recados importantes estavam sendo passados apenas verbalmente, o que gerou dúvidas entre os colaboradores. Para evitar desencontro de informações, foi solicitado um comunicado simples para reforçar uma orientação à equipe. Escreva o título “COMUNICADO INTERNO” em negrito e centralizado. Em seguida, redija um pequeno texto informando que todos devem conferir os avisos do setor no início do expediente.',
+      'Durante a rotina do setor, foi percebido que alguns recados importantes estavam sendo passados apenas verbalmente, o que gerou dúvidas entre os colaboradores. Para evitar desencontro de informações, foi solicitado um comunicado simples para reforçar uma orientação à equipe. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto informando que todos devem conferir os avisos do setor no início do expediente.',
       {
         titleText: 'COMUNICADO INTERNO',
         titleBold: true,
@@ -1105,7 +1105,7 @@ function wordBasicPoolJovemAprendiz() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Lista de materiais para o primeiro dia',
-      'Um novo colaborador iniciará as atividades no setor e precisa receber uma orientação simples sobre o que deve levar no primeiro dia. Escreva o título “MATERIAIS PARA O PRIMEIRO DIA” e crie uma lista com pelo menos 3 itens contendo materiais ou documentos importantes.',
+      'Um novo colaborador iniciará as atividades no setor e precisa receber uma orientação simples sobre o que deve levar no primeiro dia. Escreva o título "MATERIAIS PARA O PRIMEIRO DIA" e crie uma lista com pelo menos 3 itens contendo materiais ou documentos importantes.',
       {
         titleText: 'MATERIAIS PARA O PRIMEIRO DIA',
         requiresList: true,
@@ -1121,7 +1121,7 @@ function wordBasicPoolOperador() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Formatação de comunicado interno',
-      'Durante a troca de turno, foi percebido que alguns registros de atendimento estavam sendo finalizados sem as observações necessárias, o que dificultou o acompanhamento dos casos. Para reforçar essa orientação, foi solicitado um comunicado interno simples para a equipe. Escreva o título “COMUNICADO INTERNO” em negrito e centralizado. Em seguida, redija um pequeno texto orientando que os atendimentos devem ser finalizados com registro claro das informações principais.',
+      'Durante a troca de turno, foi percebido que alguns registros de atendimento estavam sendo finalizados sem as observações necessárias, o que dificultou o acompanhamento dos casos. Para reforçar essa orientação, foi solicitado um comunicado interno simples para a equipe. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto orientando que os atendimentos devem ser finalizados com registro claro das informações principais.',
       {
         titleText: 'COMUNICADO INTERNO',
         titleBold: true,
@@ -1140,8 +1140,8 @@ function wordBasicPoolOperador() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Lista de pendências do atendimento',
-      'Ao encerrar o turno, você precisa deixar registradas algumas pendências para a próxima equipe dar continuidade aos casos em aberto. Escreva o título “PENDÊNCIAS DO TURNO” e crie uma lista com pelo menos 3 itens contendo exemplos de pendências ou ações que precisam de acompanhamento.',
-      { titleText: 'PENDÊNCIAS DO TURNO', requiresList: true, minListItems: 3 },
+      'Ao encerrar o turno, você precisa deixar registradas algumas pendências para a próxima equipe dar continuidade aos casos em aberto. Escreva o título "PENDENCIAS DO TURNO" e crie uma lista com pelo menos 3 itens contendo exemplos de pendências ou ações que precisam de acompanhamento.',
+      { titleText: 'PENDENCIAS DO TURNO', requiresList: true, minListItems: 3 },
     ),
   ];
 }
@@ -1152,9 +1152,9 @@ function wordBasicPoolEstagiarioTI() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Formatação de comunicado interno',
-      'A equipe de TI realizará uma atualização simples em uma ferramenta interna no fim do expediente, e os colaboradores precisam ser avisados com antecedência. Escreva o título “COMUNICADO TÉCNICO” em negrito e centralizado. Em seguida, redija um pequeno texto informando que poderá haver instabilidade temporária durante a atualização e que a equipe será avisada após a normalização.',
+      'A equipe de TI realizará uma atualização simples em uma ferramenta interna no fim do expediente, e os colaboradores precisam ser avisados com antecedência. Escreva o título "COMUNICADO TECNICO" em negrito e centralizado. Em seguida, redija um pequeno texto informando que poderá haver instabilidade temporária durante a atualização e que a equipe será avisada após a normalização.',
       {
-        titleText: 'COMUNICADO TÉCNICO',
+        titleText: 'COMUNICADO TECNICO',
         titleBold: true,
         titleCenter: true,
         minTextLength: 45,
@@ -1171,7 +1171,7 @@ function wordBasicPoolEstagiarioTI() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Checklist inicial de suporte',
-      'Antes de iniciar um atendimento técnico simples, é importante realizar algumas verificações básicas para entender o problema com mais clareza. Com base nesse contexto, escreva o título “CHECKLIST INICIAL DE SUPORTE” e crie uma lista com pelo menos 3 itens mostrando verificações que podem ser feitas no começo do atendimento.',
+      'Antes de iniciar um atendimento técnico simples, é importante realizar algumas verificações básicas para entender o problema com mais clareza. Com base nesse contexto, escreva o título "CHECKLIST INICIAL DE SUPORTE" e crie uma lista com pelo menos 3 itens mostrando verificações que podem ser feitas no começo do atendimento.',
       {
         titleText: 'CHECKLIST INICIAL DE SUPORTE',
         requiresList: true,
@@ -1277,7 +1277,7 @@ function wordBasicPoolEstagiarioRH() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Formatação de comunicado interno',
-      'O RH precisa reforçar para os colaboradores a importância de confirmar presença nas entrevistas internas agendadas com antecedência. Escreva o título “COMUNICADO INTERNO” em negrito e centralizado. Em seguida, redija um pequeno texto orientando que a confirmação seja feita dentro do prazo informado para evitar desencontros de agenda.',
+      'O RH precisa reforçar para os colaboradores a importância de confirmar presença nas entrevistas internas agendadas com antecedência. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto orientando que a confirmação seja feita dentro do prazo informado para evitar desencontros de agenda.',
       {
         titleText: 'COMUNICADO INTERNO',
         titleBold: true,
@@ -1296,7 +1296,7 @@ function wordBasicPoolEstagiarioRH() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Lista de documentos para entrevista',
-      'O RH precisa encaminhar uma orientação simples sobre o que o candidato deve apresentar no dia da entrevista. Escreva o título “DOCUMENTOS PARA A ENTREVISTA” e crie uma lista com pelo menos 3 itens contendo documentos ou informações que o candidato deve levar.',
+      'O RH precisa encaminhar uma orientação simples sobre o que o candidato deve apresentar no dia da entrevista. Escreva o título "DOCUMENTOS PARA A ENTREVISTA" e crie uma lista com pelo menos 3 itens contendo documentos ou informações que o candidato deve levar.',
       {
         titleText: 'DOCUMENTOS PARA A ENTREVISTA',
         requiresList: true,
@@ -1393,7 +1393,7 @@ function wordPoolHelpDesk() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Registro de atendimento',
-      'Após concluir um suporte, é necessário deixar um registro claro para histórico do chamado. Escreva o título “REGISTRO DE ATENDIMENTO” em negrito e centralizado. Em seguida, redija um pequeno texto resumindo o problema reportado, a ação executada e o resultado obtido.',
+      'Após concluir um suporte, é necessário deixar um registro claro para histórico do chamado. Escreva o título "REGISTRO DE ATENDIMENTO" em negrito e centralizado. Em seguida, redija um pequeno texto resumindo o problema reportado, a ação executada e o resultado obtido.',
       {
         titleText: 'REGISTRO DE ATENDIMENTO',
         titleBold: true,
@@ -1411,7 +1411,7 @@ function wordBasicLevel3PoolPlanejamento() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Redação de comunicado interno',
-      'Foi identificado um ajuste temporário na distribuição das pausas da equipe para melhor equilíbrio da operação em um horário de maior demanda. Para comunicar essa alteração com clareza, escreva o título “AJUSTE OPERACIONAL” em negrito e centralizado. Em seguida, redija um comunicado com pelo menos 2 frases, utilizando linguagem clara, direta e de fácil entendimento.',
+      'Foi identificado um ajuste temporário na distribuição das pausas da equipe para melhor equilíbrio da operação em um horário de maior demanda. Para comunicar essa alteração com clareza, escreva o título "AJUSTE OPERACIONAL" em negrito e centralizado. Em seguida, redija um comunicado com pelo menos 2 frases, utilizando linguagem clara, direta e de fácil entendimento.',
       {
         titleText: 'AJUSTE OPERACIONAL',
         titleBold: true,
@@ -1645,7 +1645,7 @@ function techAdmSpecificPoolAnalista() {
 const EXAM_BLUEPRINTS = {
   jovem_aprendiz: {
     level: '1',
-    label: 'Nv 1 — Jovem Aprendiz',
+    label: 'Nv 1 - Jovem Aprendiz',
     stages: [
       {
         key: 'word_basic',
@@ -1658,7 +1658,7 @@ const EXAM_BLUEPRINTS = {
   },
   operador: {
     level: '2',
-    label: 'Nv 2 — Operador',
+    label: 'Nv 2 - Operador',
     stages: [
       {
         key: 'word_basic',
@@ -1671,7 +1671,7 @@ const EXAM_BLUEPRINTS = {
   },
   estagiario_ti: {
     level: '2',
-    label: 'Nv 2 — Estagiário (TI)',
+    label: 'Nv 2 - Estagiario (TI)',
     stages: [
       {
         key: 'word_basic',
@@ -1694,7 +1694,7 @@ const EXAM_BLUEPRINTS = {
   },
   estagiario_rh: {
     level: '2',
-    label: 'Nv 2 — Estagiário (RH)',
+    label: 'Nv 2 - Estagiario (RH)',
     stages: [
       {
         key: 'word_basic',
@@ -1713,7 +1713,7 @@ const EXAM_BLUEPRINTS = {
   },
   supervisor: {
     level: '3',
-    label: 'Nv — Supervisor',
+    label: 'Nv 3 - Supervisor',
     stages: [
       { key: 'word_basic', weight: 35, questions: () => wordBasicLevel3Pool() },
       { key: 'excel_mid', weight: 35, questions: () => excelStageMid() },
@@ -1726,7 +1726,7 @@ const EXAM_BLUEPRINTS = {
   },
   helpdesk: {
     level: '3',
-    label: 'Nv 3 — Control Desk',
+    label: 'Nv 3 - Control Desk',
     stages: [
       { key: 'word_basic', weight: 20, questions: () => wordPoolHelpDesk() },
       {
@@ -1749,7 +1749,7 @@ const EXAM_BLUEPRINTS = {
   },
   planejamento: {
     level: '3',
-    label: 'Nv 3 — Planejamento',
+    label: 'Nv 3 - Planejamento',
     stages: [
       {
         key: 'word_basic',
@@ -1772,7 +1772,7 @@ const EXAM_BLUEPRINTS = {
   },
   ti: {
     level: '4',
-    label: 'Nv — TI',
+    label: 'Nv 4 - TI',
     stages: [
       { key: 'word_advanced', weight: 20, questions: () => wordAdvancedPool() },
       {
@@ -1795,7 +1795,7 @@ const EXAM_BLUEPRINTS = {
   },
   adm: {
     level: '4',
-    label: 'Nv 4 — Analista / Outros (ADM)',
+    label: 'Nv 4 - Analista / Outros (ADM)',
     stages: [
       { key: 'word_advanced', weight: 20, questions: () => wordAdvancedPool() },
       {
@@ -1957,3 +1957,5 @@ export {
   resolveExamBlueprint as resolverBlueprintProva,
   buildExamFromBlueprint as montarProvaPorBlueprint,
 };
+
+

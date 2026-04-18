@@ -1,0 +1,296 @@
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top right, rgba(21, 61, 138, 0.14), transparent 28%),
+    linear-gradient(180deg, #f7f9fc 0%, var(--color-bg) 100%);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+.screen {
+  display: none;
+}
+
+.screen.active {
+  display: block;
+}
+
+.app-card,
+.rh-section-card,
+.rh-login-panel,
+.exam-question-card,
+.excel-card,
+.rh-finish-shell,
+.rh-result-content {
+  border: 1px solid rgba(217, 226, 238, 0.9);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow-md);
+}
+
+.form-control,
+.form-select {
+  min-height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: rgba(21, 61, 138, 0.5);
+  box-shadow: 0 0 0 0.2rem rgba(21, 61, 138, 0.12);
+}
+
+.btn {
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.btn-primary,
+.rh-modern-primary-btn,
+.rh-finish-access-btn,
+.rh-result-export-btn,
+.rh-finish-save-btn,
+.rh-login-btn-modern {
+  border-color: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary) 0%, #204f9a 100%);
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.rh-modern-primary-btn:hover,
+.rh-finish-access-btn:hover,
+.rh-result-export-btn:hover,
+.rh-finish-save-btn:hover,
+.rh-login-btn-modern:hover {
+  border-color: var(--color-primary-strong);
+  background: linear-gradient(135deg, var(--color-primary-strong) 0%, #153d8a 100%);
+}
+
+.btn-outline-secondary {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-soft);
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.rh-inline-alert,
+.alert {
+  border-radius: var(--radius-sm);
+}
+
+.rh-inline-alert {
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(185, 120, 16, 0.28);
+  background: var(--color-warning-soft);
+  color: #77510d;
+}
+
+.rh-empty-state {
+  padding: var(--space-7);
+  text-align: center;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-soft);
+}
+
+.rh-empty-state h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.05rem;
+}
+
+.rh-empty-state p {
+  margin: 0;
+  color: var(--color-text-soft);
+}
+
+.rh-status-pill,
+.process-candidate-status-badge,
+.cv-classification-badge,
+.rh-aderencia-tag,
+.weight-badge,
+.rh-result-meta-pill,
+.exam-stage-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.rh-status-pill,
+.process-candidate-status-badge {
+  color: var(--color-text-soft);
+  background: #eef3f9;
+}
+
+.rh-status-pill.is-finished,
+.process-candidate-status-badge.is-approved {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.rh-status-pill.is-unsaved,
+.process-candidate-status-badge.is-eliminated {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.rh-status-pill.is-neutral,
+.process-candidate-status-badge.is-analysis {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.process-candidate-status-badge.is-talent {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.cv-classification-badge {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.cv-classification-badge.nao-qualificado {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.cv-classification-badge.bom-candidato {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.cv-classification-badge.otimo-candidato {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.rh-aderencia-tag.is-low {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.rh-aderencia-tag.is-medium {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.rh-aderencia-tag.is-strong {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.weight-badge {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.stage-card-score.good {
+  color: var(--color-success);
+}
+
+.stage-card-score.warn {
+  color: var(--color-warning);
+}
+
+.stage-card-score.bad {
+  color: var(--color-danger);
+}
+
+.word-editor {
+  min-height: 320px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 1rem;
+  outline: none;
+  line-height: 1.65;
+}
+
+.muted-list,
+.rules-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--color-text-soft);
+}
+
+.rules-list li,
+.muted-list li {
+  margin-bottom: 0.55rem;
+}
+
+.upload-hidden-input {
+  display: none;
+}
+
+.upload-file-name {
+  display: block;
+  margin-top: 0.75rem;
+  color: var(--color-text-soft);
+  word-break: break-word;
+}
+
+.excel-status-error {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+.excel-status-ok {
+  color: var(--color-success);
+  font-weight: 700;
+}
+
+.excel-status-warn {
+  color: var(--color-warning);
+  font-weight: 700;
+}
+
+.no-print {
+  display: initial;
+}
+
+.print-only-result,
+.print-only {
+  display: none;
+}

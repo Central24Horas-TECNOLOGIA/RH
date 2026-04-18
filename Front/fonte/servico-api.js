@@ -1,4 +1,11 @@
-const URL_API_BASE = 'http://127.0.0.1:8000';
+/**
+ * @typedef {import('../src/types/api').SaveAnswerFileRequest} SaveAnswerFileRequest
+ * @typedef {import('../src/types/api').UpdateCandidateStatusRequest} UpdateCandidateStatusRequest
+ * @typedef {import('../src/types/models').HistoryRecord} HistoryRecord
+ * @typedef {import('../src/types/models').Process} Process
+ */
+
+const URL_API_BASE = window.__RH_API_BASE__ || 'http://127.0.0.1:8000';
 const TEMPO_CACHE_MS = 15000;
 
 const cacheMemoria = new Map();
