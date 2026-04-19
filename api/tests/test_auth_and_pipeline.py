@@ -16,7 +16,7 @@ if str(API_DIR) not in sys.path:
 from rh_api.auth import validate_access_token
 from rh_api.config import get_settings
 from rh_api.dependencies import get_current_user
-from rh_api.repositories.db_repository import is_deadlock_error
+from rh_api.repositories import is_deadlock_error
 from rh_api.routers.auth import login, me
 from rh_api.routers.history import get_history
 from rh_api.routers.interviews import create_interview, get_interviews, update_interview

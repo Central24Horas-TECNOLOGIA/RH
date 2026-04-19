@@ -3,12 +3,16 @@ __pycache__/
 *.py[cod]
 *.pyc.*
 .pytest_cache/
+pytest-cache-files-*/
 .coverage
 
 # Ambientes e segredos
 .env
 api/.env
 *.local
+.venv/
+venv/
+env/
 
 # IDE
 .idea/
@@ -18,6 +22,9 @@ api/.env
 *.log
 *.tmp
 *.temp
+.edge-dom.html
+.edge-headless/
+.edge-*.png
 Thumbs.db
 .DS_Store
 
@@ -31,3 +38,6 @@ Thumbs.db
 node_modules/
 dist/
 build/
+
+# Frontend local
+Front/src/

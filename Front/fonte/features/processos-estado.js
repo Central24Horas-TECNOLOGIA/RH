@@ -1,3 +1,5 @@
-export const CHAVE_PROCESSO_DETALHE = 'rh_processo_detalhe_atual';
-export const CHAVE_PIPELINE_PROCESSO = 'rh_pipeline_processo_atual';
-export const CHAVE_PIPELINE_CANDIDATO = 'rh_pipeline_candidato_atual';
+export {
+  CHAVE_PIPELINE_CANDIDATO,
+  CHAVE_PIPELINE_PROCESSO,
+  CHAVE_PROCESSO_DETALHE,
+} from './processos/state.js';

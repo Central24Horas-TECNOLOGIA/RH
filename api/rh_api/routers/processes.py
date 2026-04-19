@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 
 from ..dependencies import get_current_user, get_repository
-from ..repositories.db_repository import DatabaseRepository
+from ..repositories import DatabaseRepository
 from ..schemas.processes import (
     CandidateProfileUpdateRequest,
     CvPreAnalysisUpdateRequest,

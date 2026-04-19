@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .logging_config import configure_logging
-from .repositories.db_repository import (
+from .repositories import (
     bootstrap_runtime_schema,
     describe_database_error,
     is_deadlock_error,
@@ -43,7 +43,7 @@ def create_app() -> FastAPI:
             )
         yield
 
-    app = FastAPI(title="API RH Provas", lifespan=lifespan)
+    app = FastAPI(title="Conecta C24h API", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,

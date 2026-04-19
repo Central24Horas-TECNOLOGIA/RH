@@ -66,7 +66,7 @@ export const TAMANHO_DETALHE_PROCESSO = 5;
 const logger = criarLogger('controlador-aplicacao');
 
 /**
- * @typedef {import('../../src/types/models').ApplicationState} ApplicationState
+ * @typedef {import('../types/models').ApplicationState} ApplicationState
  */
 
 export function criarEstadoInicial() {

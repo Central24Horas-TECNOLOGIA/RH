@@ -1,27 +1,15 @@
-# Documentacao Conexa RH
+# Documentacao Conecta C24h
 
-Este diretorio consolida a documentacao funcional, tecnica e operacional do sistema real existente no repositorio.
+Este diretorio concentra a documentacao pratica da estrutura atual do projeto.
 
-## Indice
+## Indice principal
 
-1. [Visao geral](01-visao-geral.md)
-2. [Requisitos](02-requisitos.md)
-3. [Regras de negocio](03-regras-de-negocio.md)
-4. [Fluxos do sistema](04-fluxos-do-sistema.md)
-5. [Arquitetura](05-arquitetura.md)
-6. [Banco de dados](06-banco-de-dados.md)
-7. [API](07-api.md)
-8. [Manual do usuario RH](08-manual-usuario-rh.md)
-9. [Manual do administrador e suporte](09-manual-administrador-suporte.md)
-10. [Implantacao](10-implantacao.md)
-11. [Manutencao](11-manutencao.md)
-12. [Testes](12-testes.md)
-13. [Changelog](13-changelog.md)
-14. [Seguranca](14-seguranca.md)
-15. [Codigo e README tecnico](15-codigo-e-readme-tecnico.md)
+- [estrutura-do-projeto.md](estrutura-do-projeto.md): mapa de pastas e funcao de cada modulo.
+- [arquitetura.md](arquitetura.md): como frontend, backend e persistencia se conversam.
+- [guia-de-manutencao.md](guia-de-manutencao.md): onde alterar cada parte do sistema.
+- [guia-para-novo-mantenedor.md](guia-para-novo-mantenedor.md): leitura rapida para quem esta entrando agora.
+- [testes.md](testes.md): como validar o projeto sem depender do banco real.
 
-## Atualizacao mais recente
+## Historico
 
-- Estabilizacao do backend para detalhe de processo com bootstrap controlado de schema e retry baixo para deadlock.
-- Inclusao de tour guiado por tela com persistencia em `localStorage`.
-- Compactacao visual global para melhor uso em notebook.
+Os documentos anteriores foram preservados em [legacy](legacy) para consulta historica.

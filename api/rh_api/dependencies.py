@@ -5,7 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .auth import AuthenticatedUser, validate_access_token
 from .config import get_settings
-from .repositories.db_repository import DatabaseRepository
+from .repositories import DatabaseRepository
 
 
 bearer_scheme = HTTPBearer(auto_error=False)

@@ -11,5 +11,5 @@
     "checkJs": false,
     "baseUrl": "."
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts"]
+  "include": ["fonte/types/**/*.ts", "fonte/types/**/*.d.ts"]
 }

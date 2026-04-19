@@ -25,7 +25,8 @@
 .rh-modern-sidebar-brand {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .rh-modern-brand-copy {
@@ -43,16 +44,6 @@
     height: 48px;
     /* border-radius: 0px; */
     box-shadow: 0 16px 28px rgba(0, 0, 0, 0.18);
-}
-
-.rh-modern-brand-title {
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.rh-modern-brand-subtitle {
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.82rem;
 }
 
 .rh-modern-sidebar-toggle {

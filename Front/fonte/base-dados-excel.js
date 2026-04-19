@@ -1,9 +1,0 @@
-import { DADOS_EXCEL_BASE } from './dados-excel/dados.js';
-import { MAILING_EXCEL_BASE } from './dados-excel/mailing.js';
-
-const EXCEL_BASE_DATA = {
-  Mailing: MAILING_EXCEL_BASE,
-  Dados: DADOS_EXCEL_BASE,
-};
-
-export { EXCEL_BASE_DATA as DADOS_BASE_EXCEL };

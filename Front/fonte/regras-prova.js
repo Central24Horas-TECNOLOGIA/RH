@@ -1,5 +1,5 @@
-﻿import { DADOS_BASE_EXCEL } from './base-dados-excel.js';
-import { ROTULOS_ETAPAS } from './perguntas.js';
+﻿import { ROTULOS_ETAPAS } from './perguntas.js';
+import { obterDadosBaseExcel } from './features/prova/services/excel-base-data.js';
 import {
   baixarBlob,
   contarFrases,
@@ -386,10 +386,11 @@ export async function baixarModeloExcel(taskId, nomeCandidato = 'candidato') {
   );
 }
 
-function adicionarPlanilhasBase(workbook) {
+async function adicionarPlanilhasBase(workbook) {
   const XLSX = obterBibliotecaXlsx();
+  const dadosBaseExcel = await obterDadosBaseExcel();
 
-  Object.entries(DADOS_BASE_EXCEL).forEach(([nomePlanilha, linhas]) => {
+  Object.entries(dadosBaseExcel).forEach(([nomePlanilha, linhas]) => {
     const nomeSeguro = `Base - ${nomePlanilha}`.slice(0, 31);
     if (workbook.SheetNames.includes(nomeSeguro)) return;
 
@@ -436,7 +437,7 @@ function montarPlanilhaBasica(workbook) {
   return workbook;
 }
 
-function montarPlanilhaQualidade(workbook) {
+async function montarPlanilhaQualidade(workbook) {
   const XLSX = obterBibliotecaXlsx();
 
   const planilhaA = converterMatrizParaPlanilha([]);
@@ -531,11 +532,11 @@ function montarPlanilhaQualidade(workbook) {
   ]);
   XLSX.utils.book_append_sheet(workbook, grafico, 'Grafico');
 
-  adicionarPlanilhasBase(workbook);
+  await adicionarPlanilhasBase(workbook);
   return workbook;
 }
 
-function montarPlanilhaPlanejamento(workbook) {
+async function montarPlanilhaPlanejamento(workbook) {
   const XLSX = obterBibliotecaXlsx();
 
   const q1 = converterMatrizParaPlanilha([
@@ -647,13 +648,13 @@ function montarPlanilhaPlanejamento(workbook) {
   ]);
   XLSX.utils.book_append_sheet(workbook, q5, 'Q5.');
 
-  adicionarPlanilhasBase(workbook);
+  await adicionarPlanilhasBase(workbook);
   return workbook;
 }
 
-function montarPlanilhaAvancada(workbook) {
+async function montarPlanilhaAvancada(workbook) {
   const XLSX = obterBibliotecaXlsx();
-  montarPlanilhaPlanejamento(workbook);
+  await montarPlanilhaPlanejamento(workbook);
 
   const q6 = converterMatrizParaPlanilha([
     ['Questao 6.'],
@@ -692,14 +693,14 @@ function montarPlanilhaAvancada(workbook) {
   return workbook;
 }
 
-export function montarWorkbookDaTarefa(taskId, titulo) {
+export async function montarWorkbookDaTarefa(taskId, titulo) {
   const XLSX = obterBibliotecaXlsx();
   const workbook = XLSX.utils.book_new();
 
   if (taskId === 'basic_exam') return { workbook: montarPlanilhaBasica(workbook) };
-  if (taskId === 'qualid_exam') return { workbook: montarPlanilhaQualidade(workbook) };
-  if (taskId === 'planning_exam') return { workbook: montarPlanilhaPlanejamento(workbook) };
-  if (taskId === 'advanced_exam') return { workbook: montarPlanilhaAvancada(workbook) };
+  if (taskId === 'qualid_exam') return { workbook: await montarPlanilhaQualidade(workbook) };
+  if (taskId === 'planning_exam') return { workbook: await montarPlanilhaPlanejamento(workbook) };
+  if (taskId === 'advanced_exam') return { workbook: await montarPlanilhaAvancada(workbook) };
 
   const planilha = converterMatrizParaPlanilha([['Arquivo de prova'], [titulo]]);
   XLSX.utils.book_append_sheet(workbook, planilha, 'Questao');
