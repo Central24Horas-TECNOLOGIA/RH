@@ -3,6 +3,7 @@
   | 'screen-menu'
   | 'screen-history'
   | 'screen-processes'
+  | 'screen-candidate-pipeline'
   | 'screen-process-create'
   | 'screen-process-details'
   | 'screen-talent-bank'
@@ -18,6 +19,7 @@ export type RouteId =
   | 'inicio'
   | 'historico'
   | 'processos'
+  | 'pipeline-candidatos'
   | 'novo-processo'
   | 'detalhes-processo'
   | 'banco-talentos'
@@ -248,6 +250,8 @@ export interface RouteStatusMapItem {
 
 export interface ApplicationState {
   autenticado: boolean;
+  validandoSessao: boolean;
+  usuarioAutenticado: string;
   candidato: Candidate;
   processoSelecionado: string;
   questoes: Question[];

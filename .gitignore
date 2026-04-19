@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc.*
+.pytest_cache/
+.coverage
+
+# Ambientes e segredos
+.env
+api/.env
+*.local
+
+# IDE
+.idea/
+.vscode/
+
+# Artefatos temporarios
+*.log
+*.tmp
+*.temp
+Thumbs.db
+.DS_Store
+
+# Bancos locais e variacoes
+*.db
+*.sqlite
+*.sqlite3
+*.accdb
+
+# Node e build local
+node_modules/
+dist/
+build/

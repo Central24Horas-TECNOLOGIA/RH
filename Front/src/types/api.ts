@@ -52,6 +52,14 @@ export interface SavedAnswerFileRecord {
 
 export type SavedAnswerFilesResponse = Record<string, SavedAnswerFileRecord>;
 
+export interface PaginatedHistoryResponse {
+  items: HistoryRecord[];
+  page: number;
+  page_size: number;
+  total_items: number;
+  total_pages: number;
+}
+
 export interface ProcessDetailResponse {
   processo: Process | null;
   resumo: {
@@ -135,6 +143,32 @@ export interface SaveResultCompositePayload {
   historico: HistoryRecord;
   gabarito: SavedAnswerPayload;
   candidatoProcesso: CreateProcessCandidateRequest;
+}
+
+export interface PipelineCard {
+  id_registro: number;
+  id_processo: string;
+  id_teste: string;
+  nome_candidato: string;
+  vaga: string;
+  status_candidato: string;
+  pontuacao_final?: string | number;
+  data_prova?: string;
+  origem?: string;
+  etapa_pipeline: string;
+  status_processo?: string;
+}
+
+export interface PipelineCardCreateRequest {
+  id_processo: string;
+  nome_candidato: string;
+  vaga?: string;
+  etapa_pipeline?: string;
+}
+
+export interface PipelineCardMoveRequest {
+  etapa_pipeline: string;
+  data_movimentacao?: string;
 }
 
 export interface DashboardRecentState {

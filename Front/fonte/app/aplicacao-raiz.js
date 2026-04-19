@@ -16,6 +16,7 @@ import {
   TelaDetalhesProcesso,
   TelaProcessos,
 } from '../features/telas-processos.js';
+import { TelaPipelineCandidatos } from '../features/tela-pipeline.js';
 import {
   TelaCandidato,
   TelaConfiguracao,
@@ -67,6 +68,18 @@ export function Aplicacao() {
     }
   }, [telaAtual, telaResolvida]);
 
+  if (controlador.estado.validandoSessao) {
+    return html`
+      <section class="active screen" id="screen-loading">
+        <div class="container py-5">
+          <div class="alert alert-secondary mb-0">
+            Validando sessao do usuario...
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
   if (!controlador.estado.autenticado || telaResolvida === 'screen-login') {
     return html`<${TelaLogin} controlador=${controlador} />`;
   }
@@ -85,6 +98,10 @@ export function Aplicacao() {
 
   if (telaResolvida === 'screen-processes') {
     return html`<${TelaProcessos} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-candidate-pipeline') {
+    return html`<${TelaPipelineCandidatos} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-process-details') {
