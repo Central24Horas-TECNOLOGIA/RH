@@ -7,7 +7,10 @@ import {
 } from '../utilitarios.js';
 import {
   EVENTO_AUTENTICACAO_EXPIRADA,
+  agendarEntrevista,
   adicionarPreAnaliseAoProcesso,
+  atualizarEntrevista,
+  atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
   atualizarProcesso,
   atualizarStatusCandidato,
@@ -17,6 +20,7 @@ import {
   criarProcesso,
   encerrarSessaoApi,
   encerrarProcesso,
+  excluirCardPipeline,
   excluirPreAnaliseCv,
   fazerLoginApi,
   invalidarCacheApi,
@@ -26,6 +30,7 @@ import {
   lerCandidatosProcessos,
   lerDetalheAnaliseCandidato,
   lerDetalheProcesso,
+  lerEntrevistas,
   lerHistorico,
   lerHistoricoPaginado,
   lerPipelineCandidatos,
@@ -40,6 +45,7 @@ import {
   usarCandidatoDoBancoTalentos,
   verificarSessaoApi,
 } from '../servico-api.js';
+import { criarLogger } from '../logger.js';
 import {
   montarProvaPorBlueprint,
   resolverBlueprintProva,
@@ -57,6 +63,7 @@ export const TAMANHO_RECENTES = 6;
 export const TAMANHO_HISTORICO = 10;
 export const TAMANHO_ANALISE = 5;
 export const TAMANHO_DETALHE_PROCESSO = 5;
+const logger = criarLogger('controlador-aplicacao');
 
 /**
  * @typedef {import('../../src/types/models').ApplicationState} ApplicationState
@@ -70,6 +77,7 @@ export function criarEstadoInicial() {
     autenticado,
     validandoSessao: autenticado,
     usuarioAutenticado: sessao.usuario || '',
+    barraLateralRecolhida: false,
     candidato: {
       id_processo: '',
       role: '',
@@ -129,7 +137,7 @@ export function hidratarEstado() {
 
     return estado;
   } catch (error) {
-    console.warn('Nao foi possivel restaurar o estado salvo:', error);
+    logger.warn('Nao foi possivel restaurar o estado salvo.', error);
     return criarEstadoInicial();
   }
 }
@@ -151,7 +159,7 @@ export function persistirEstado(estado) {
       }),
     );
   } catch (error) {
-    console.warn('Nao foi possivel persistir o estado da aplicacao:', error);
+    logger.warn('Nao foi possivel persistir o estado da aplicacao.', error);
   }
 }
 
@@ -159,7 +167,7 @@ export function limparEstadoPersistido() {
   try {
     sessionStorage.removeItem(CHAVE_ESTADO);
   } catch (error) {
-    console.warn('Nao foi possivel limpar o estado persistido:', error);
+    logger.warn('Nao foi possivel limpar o estado persistido.', error);
   }
 }
 
@@ -542,6 +550,13 @@ export function useControladorAplicacao() {
     navegarParaTela('screen-menu');
   };
 
+  const alternarBarraLateral = () => {
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      barraLateralRecolhida: !anterior.barraLateralRecolhida,
+    }));
+  };
+
   const fazerLogin = async (usuario, senha) => {
     try {
       const sessao = await fazerLoginApi(usuario, senha);
@@ -849,6 +864,7 @@ export function useControladorAplicacao() {
     regrasCandidato: montarResumoRegrasDoCandidato(blueprint, estado.candidato),
     fazerLogin,
     sair,
+    alternarBarraLateral,
     irParaMenu,
     irParaTelaProtegida,
     iniciarNovoFluxo,
@@ -865,7 +881,10 @@ export function useControladorAplicacao() {
 }
 
 export {
+  agendarEntrevista,
   adicionarPreAnaliseAoProcesso,
+  atualizarEntrevista,
+  atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
   atualizarProcesso,
   atualizarStatusCandidato,
@@ -873,12 +892,14 @@ export {
   criarCardPipeline,
   criarProcesso,
   encerrarProcesso,
+  excluirCardPipeline,
   excluirPreAnaliseCv,
   lerAnalisesCandidatos,
   lerBancoTalentos,
   lerCandidatosProcessos,
   lerDetalheAnaliseCandidato,
   lerDetalheProcesso,
+  lerEntrevistas,
   lerHistorico,
   lerHistoricoPaginado,
   lerPipelineCandidatos,

@@ -24,6 +24,7 @@ export interface UpdateProcessRequest {
   usa_nota_corte: number;
   nota_corte: number | null;
   status: string;
+  link_agendamento: string;
 }
 
 export interface CreateProcessCandidateRequest {
@@ -157,6 +158,13 @@ export interface PipelineCard {
   origem?: string;
   etapa_pipeline: string;
   status_processo?: string;
+  tags?: string[];
+  habilidades?: string[];
+  observacao_rh?: string;
+  status_entrevista?: string;
+  data_entrevista?: string;
+  link_entrevista?: string;
+  id_entrevista?: number;
 }
 
 export interface PipelineCardCreateRequest {
@@ -177,4 +185,45 @@ export interface DashboardRecentState {
   bancoTalentos: TalentBankCandidate[];
   processos: Process[];
   resumoEtapas: StageSummary[];
+}
+
+export interface CandidateProfileUpdateRequest {
+  nome_candidato?: string;
+  habilidades: string[];
+  tags: string[];
+  observacao_rh: string;
+}
+
+export interface InterviewItem {
+  id_entrevista: number;
+  id_processo: string;
+  id_registro: number;
+  id_teste: string;
+  nome_candidato: string;
+  vaga: string;
+  data_entrevista: string;
+  status_entrevista: string;
+  link_agendamento?: string;
+  link_agendamento_processo?: string;
+  observacoes_rh?: string;
+  mensagem_base?: string;
+  tags?: string[];
+  habilidades?: string[];
+  observacao_candidato_rh?: string;
+}
+
+export interface InterviewCreateRequest {
+  id_registro: number;
+  id_processo?: string;
+  data_entrevista: string;
+  status_entrevista?: string;
+  link_agendamento?: string;
+  observacoes_rh?: string;
+}
+
+export interface InterviewUpdateRequest {
+  data_entrevista?: string;
+  status_entrevista?: string;
+  link_agendamento?: string;
+  observacoes_rh?: string;
 }

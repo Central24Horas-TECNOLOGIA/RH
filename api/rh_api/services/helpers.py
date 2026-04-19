@@ -56,3 +56,29 @@ def safe_json_loads(value, default):
         return json.loads(value) if value else default
     except Exception:
         return default
+
+
+def normalize_string_list(value) -> list[str]:
+    if isinstance(value, list):
+        raw_items = value
+    elif isinstance(value, str):
+        raw_items = re.split(r"[,;\n]+", value)
+    else:
+        raw_items = []
+
+    normalized = []
+    seen = set()
+
+    for item in raw_items:
+        safe_item = normalize_text(item)
+        if not safe_item:
+            continue
+
+        compare_key = normalize_compare_text(safe_item)
+        if compare_key in seen:
+            continue
+
+        seen.add(compare_key)
+        normalized.append(safe_item)
+
+    return normalized

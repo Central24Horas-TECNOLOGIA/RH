@@ -32,9 +32,24 @@ export function obterClasseEtapaResultado(percentual) {
 export function obterClasseStatusProcesso(status) {
   const valor = String(status || '').trim();
   if (valor === 'Aprovado') return 'is-approved';
-  if (valor === 'Eliminado') return 'is-eliminated';
+  if (valor.startsWith('Eliminado') || valor === 'Reprovado') return 'is-eliminated';
   if (valor === 'Banco de talentos') return 'is-talent';
   return 'is-analysis';
+}
+
+export function obterClasseStatusEntrevista(status) {
+  const valor = String(status || '').trim();
+  if (valor === 'Compareceu') return 'is-approved';
+  if (valor === 'Faltou') return 'is-eliminated';
+  if (valor === 'Confirmado') return 'is-confirmed';
+  return 'is-analysis';
+}
+
+export function formatarDataHora(valor) {
+  if (!valor) return '-';
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return String(valor || '-');
+  return data.toLocaleString('pt-BR');
 }
 
 export function montarDescricaoFluxo(blueprint) {

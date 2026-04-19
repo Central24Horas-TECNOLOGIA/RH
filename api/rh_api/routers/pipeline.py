@@ -34,3 +34,11 @@ def move_candidate_pipeline_card(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.move_pipeline_card(id_registro, payload.model_dump())
+
+
+@router.delete("/candidate-pipeline/{id_registro}")
+def delete_candidate_pipeline_card(
+    id_registro: int,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.delete_pipeline_card(id_registro)

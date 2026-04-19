@@ -5,6 +5,8 @@
  * @typedef {import('../src/types/models').Process} Process
  */
 
+import { criarLogger } from './logger.js';
+
 const URL_API_BASE = window.__RH_API_BASE__ || 'http://127.0.0.1:8000';
 const TEMPO_CACHE_MS = 15000;
 const CHAVE_TOKEN_AUTENTICACAO = 'rh_api_access_token';
@@ -13,6 +15,7 @@ const CHAVE_USUARIO_AUTENTICADO = 'rh_api_authenticated_user';
 export const EVENTO_AUTENTICACAO_EXPIRADA = 'rh-auth-expired';
 
 const cacheMemoria = new Map();
+const logger = criarLogger('api');
 
 function lerCache(chave) {
   const entrada = cacheMemoria.get(chave);
@@ -88,6 +91,10 @@ async function requisitar(caminho, opcoes = {}, configuracao = {}) {
       headers,
     });
   } catch (error) {
+    logger.error('Falha de conectividade com a API.', {
+      caminho,
+      mensagem: error?.message || '',
+    });
     throw new Error(
       `Nao foi possivel conectar com a API em ${URL_API_BASE}${caminho}. Verifique se o servidor da API esta ativo.`,
     );
@@ -101,6 +108,11 @@ async function requisitar(caminho, opcoes = {}, configuracao = {}) {
       notificarSessaoExpirada();
     }
 
+    logger.warn('Resposta de erro recebida da API.', {
+      caminho,
+      status: resposta.status,
+      textoErro,
+    });
     throw new Error(textoErro || `Falha na API (${resposta.status}).`);
   }
 
@@ -113,7 +125,12 @@ async function requisitar(caminho, opcoes = {}, configuracao = {}) {
 }
 
 export function invalidarCacheApi(...chaves) {
-  chaves.forEach((chave) => cacheMemoria.delete(chave));
+  chaves.forEach((chave) => {
+    cacheMemoria.delete(chave);
+    Array.from(cacheMemoria.keys())
+      .filter((cacheKey) => cacheKey.startsWith(`${chave}:`))
+      .forEach((cacheKey) => cacheMemoria.delete(cacheKey));
+  });
 }
 
 export async function fazerLoginApi(usuario, senha) {
@@ -286,15 +303,28 @@ export async function atualizarStatusCandidato(idRegistro, dadosStatus) {
   return resultado;
 }
 
-export async function lerBancoTalentos(forcar = false) {
+export async function lerBancoTalentos({
+  forcar = false,
+  search = '',
+  skill = '',
+  tag = '',
+} = {}) {
+  const chaveCache = `banco-talentos:${search}:${skill}:${tag}`;
+
   if (!forcar) {
-    const emCache = lerCache('banco-talentos');
+    const emCache = lerCache(chaveCache);
     if (emCache) return emCache;
   }
 
-  const dados = await requisitar('/talent-bank', { method: 'GET' });
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (skill) params.set('skill', skill);
+  if (tag) params.set('tag', tag);
+
+  const sufixo = params.toString() ? `?${params.toString()}` : '';
+  const dados = await requisitar(`/talent-bank${sufixo}`, { method: 'GET' });
   const lista = Array.isArray(dados) ? dados : [];
-  gravarCache('banco-talentos', lista);
+  gravarCache(chaveCache, lista);
   return lista;
 }
 
@@ -304,6 +334,20 @@ export async function removerBancoTalentos(idBanco) {
   });
 
   invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos');
+  return resultado;
+}
+
+export async function atualizarPerfilCandidato(idTeste, payload) {
+  const resultado = await requisitar(
+    `/candidate-profiles/${encodeURIComponent(idTeste)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos');
   return resultado;
 }
 
@@ -406,6 +450,60 @@ export async function criarCardPipeline(payload) {
 export async function moverCardPipeline(idRegistro, payload) {
   const resultado = await requisitar(
     `/candidate-pipeline/${encodeURIComponent(idRegistro)}/stage`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos');
+  return resultado;
+}
+
+export async function excluirCardPipeline(idRegistro) {
+  const resultado = await requisitar(
+    `/candidate-pipeline/${encodeURIComponent(idRegistro)}`,
+    { method: 'DELETE' },
+  );
+
+  invalidarCacheApi(
+    'candidatos-processos',
+    'pipeline-candidatos',
+    'processos',
+    'banco-talentos',
+  );
+  return resultado;
+}
+
+export async function lerEntrevistas({
+  idProcesso = '',
+  statusEntrevista = '',
+  search = '',
+} = {}) {
+  const params = new URLSearchParams();
+  if (idProcesso) params.set('id_processo', idProcesso);
+  if (statusEntrevista) params.set('status_entrevista', statusEntrevista);
+  if (search) params.set('search', search);
+
+  const sufixo = params.toString() ? `?${params.toString()}` : '';
+  return requisitar(`/interviews${sufixo}`, { method: 'GET' });
+}
+
+export async function agendarEntrevista(payload) {
+  const resultado = await requisitar('/interviews', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos');
+  return resultado;
+}
+
+export async function atualizarEntrevista(idEntrevista, payload) {
+  const resultado = await requisitar(
+    `/interviews/${encodeURIComponent(idEntrevista)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

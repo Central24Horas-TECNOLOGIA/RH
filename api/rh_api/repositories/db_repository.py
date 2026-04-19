@@ -4,8 +4,11 @@ import base64
 import json
 import logging
 import math
+import threading
+import time
 from datetime import datetime
 
+import pyodbc
 from fastapi import HTTPException, UploadFile, status
 
 from ..config import Settings
@@ -24,11 +27,21 @@ from ..services.cv import (
     score_cv_for_role,
     serialize_cv_problems,
 )
-from ..services.helpers import normalize_compare_text, normalize_text, parse_float_br, rows_to_dicts, safe_json_loads
+from ..services.helpers import (
+    normalize_compare_text,
+    normalize_string_list,
+    normalize_text,
+    parse_float_br,
+    rows_to_dicts,
+    safe_json_loads,
+)
+from ..services.interviews import build_interview_message, normalize_interview_status
 from ..services.pipeline import infer_pipeline_stage, map_pipeline_stage_to_status, normalize_pipeline_stage
 
 
 logger = logging.getLogger(__name__)
+_SCHEMA_BOOTSTRAP_LOCK = threading.Lock()
+_SCHEMA_BOOTSTRAPPED = False
 
 
 def ensure_cv_pre_analises_table(cursor) -> None:
@@ -81,6 +94,104 @@ def ensure_pipeline_columns(cursor) -> None:
     )
 
 
+def ensure_process_columns(cursor) -> None:
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'link_agendamento') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD link_agendamento NVARCHAR(MAX) NULL
+        END
+        """
+    )
+
+
+def ensure_candidate_metadata_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.candidatos_metadata', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.candidatos_metadata (
+                id_teste NVARCHAR(120) NOT NULL PRIMARY KEY,
+                nome_candidato NVARCHAR(255) NULL,
+                habilidades_json NVARCHAR(MAX) NULL,
+                tags_json NVARCHAR(MAX) NULL,
+                observacao_rh NVARCHAR(MAX) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+
+def ensure_interviews_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.entrevistas_agendadas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.entrevistas_agendadas (
+                id_entrevista INT IDENTITY(1,1) PRIMARY KEY,
+                id_processo NVARCHAR(60) NOT NULL,
+                id_registro INT NULL,
+                id_teste NVARCHAR(120) NULL,
+                nome_candidato NVARCHAR(255) NOT NULL,
+                vaga NVARCHAR(255) NULL,
+                data_entrevista DATETIME NOT NULL,
+                status_entrevista NVARCHAR(30) NOT NULL DEFAULT 'Agendado',
+                link_agendamento NVARCHAR(MAX) NULL,
+                observacoes_rh NVARCHAR(MAX) NULL,
+                mensagem_base NVARCHAR(MAX) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+
+def describe_database_error(error: Exception) -> str:
+    parts = []
+
+    for item in getattr(error, "args", ()):
+        text = normalize_text(item)
+        if text:
+            parts.append(text)
+
+    return " ".join(parts)
+
+
+def is_deadlock_error(error: Exception) -> bool:
+    safe_error = normalize_compare_text(describe_database_error(error))
+    return "1205" in safe_error or "deadlock" in safe_error or "40001" in safe_error
+
+
+def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool:
+    global _SCHEMA_BOOTSTRAPPED
+
+    if _SCHEMA_BOOTSTRAPPED and not force:
+        return False
+
+    with _SCHEMA_BOOTSTRAP_LOCK:
+        if _SCHEMA_BOOTSTRAPPED and not force:
+            return False
+
+        conn = get_connection(settings, autocommit=True)
+        try:
+            cursor = conn.cursor()
+            ensure_process_columns(cursor)
+            ensure_pipeline_columns(cursor)
+            ensure_candidate_metadata_table(cursor)
+            ensure_cv_pre_analises_table(cursor)
+            ensure_interviews_table(cursor)
+        finally:
+            conn.close()
+
+        _SCHEMA_BOOTSTRAPPED = True
+        logger.info("Bootstrap de schema complementar do RH concluido com sucesso.")
+        return True
+
+
 def get_next_id_registro(cursor) -> int:
     cursor.execute("SELECT ISNULL(MAX(id_registro), 0) + 1 FROM candidatos_processos")
     row = cursor.fetchone()
@@ -113,7 +224,8 @@ def get_process_row(cursor, id_processo: str):
             usa_nota_corte,
             nota_corte,
             status,
-            data_criacao
+            data_criacao,
+            link_agendamento
         FROM processos_seletivos
         WHERE id_processo = ?
         """,
@@ -162,6 +274,225 @@ class DatabaseRepository:
     def _connect(self):
         return get_connection(self.settings)
 
+    def _run_with_deadlock_retry(
+        self,
+        action: str,
+        operation,
+        *,
+        retries: int = 1,
+        base_delay_seconds: float = 0.2,
+        final_message: str | None = None,
+    ):
+        total_attempts = max(1, retries + 1)
+
+        for attempt in range(1, total_attempts + 1):
+            try:
+                return operation()
+            except pyodbc.Error as exc:
+                if not is_deadlock_error(exc):
+                    raise
+
+                if attempt >= total_attempts:
+                    self.logger.error(
+                        "Deadlock persistente ao %s apos %s tentativa(s): %s",
+                        action,
+                        attempt,
+                        describe_database_error(exc),
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail=final_message
+                        or "O banco de dados ficou temporariamente indisponivel por conflito de concorrencia. Tente novamente em instantes.",
+                    ) from exc
+
+                wait_seconds = base_delay_seconds * attempt
+                self.logger.warning(
+                    "Deadlock ao %s. Tentativa %s/%s em %.2fs. Detalhes: %s",
+                    action,
+                    attempt,
+                    total_attempts,
+                    wait_seconds,
+                    describe_database_error(exc),
+                )
+                time.sleep(wait_seconds)
+
+    def _serialize_candidate_profile(self, row: dict | None = None) -> dict:
+        safe_row = row or {}
+        return {
+            "nome_candidato": normalize_text(safe_row.get("nome_candidato")),
+            "habilidades": normalize_string_list(safe_json_loads(safe_row.get("habilidades_json"), [])),
+            "tags": normalize_string_list(safe_json_loads(safe_row.get("tags_json"), [])),
+            "observacao_rh": normalize_text(safe_row.get("observacao_rh")),
+        }
+
+    def _get_candidate_profile_map(self, cursor) -> dict[str, dict]:
+        cursor.execute(
+            """
+            SELECT id_teste, nome_candidato, habilidades_json, tags_json, observacao_rh
+            FROM candidatos_metadata
+            """
+        )
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        result = {}
+        for row in rows:
+            id_teste = normalize_text(row.get("id_teste"))
+            if not id_teste:
+                continue
+            result[id_teste] = self._serialize_candidate_profile(row)
+        return result
+
+    def _get_latest_interview_map(self, cursor) -> dict[str, dict]:
+        cursor.execute(
+            """
+            WITH entrevistas_ordenadas AS (
+                SELECT
+                    id_teste,
+                    id_registro,
+                    id_entrevista,
+                    id_processo,
+                    data_entrevista,
+                    status_entrevista,
+                    link_agendamento,
+                    observacoes_rh,
+                    mensagem_base,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY id_teste
+                        ORDER BY data_entrevista DESC, id_entrevista DESC
+                    ) AS ordem
+                FROM entrevistas_agendadas
+                WHERE ISNULL(id_teste, '') <> ''
+            )
+            SELECT
+                id_teste,
+                id_registro,
+                id_entrevista,
+                id_processo,
+                data_entrevista,
+                status_entrevista,
+                link_agendamento,
+                observacoes_rh,
+                mensagem_base
+            FROM entrevistas_ordenadas
+            WHERE ordem = 1
+            """
+        )
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        return {
+            normalize_text(item.get("id_teste")): item
+            for item in rows
+            if normalize_text(item.get("id_teste"))
+        }
+
+    def _enrich_candidate_records(self, cursor, candidates: list[dict]) -> list[dict]:
+        profile_map = self._get_candidate_profile_map(cursor)
+        interview_map = self._get_latest_interview_map(cursor)
+
+        for candidate in candidates:
+            id_teste = normalize_text(candidate.get("id_teste"))
+            profile = profile_map.get(id_teste, {})
+            latest_interview = interview_map.get(id_teste, {})
+
+            candidate["tags"] = profile.get("tags", [])
+            candidate["habilidades"] = profile.get("habilidades", [])
+            candidate["observacao_rh"] = profile.get("observacao_rh", "")
+            candidate["status_entrevista"] = normalize_text(latest_interview.get("status_entrevista"))
+            candidate["data_entrevista"] = latest_interview.get("data_entrevista")
+            candidate["link_entrevista"] = normalize_text(latest_interview.get("link_agendamento"))
+            candidate["observacoes_entrevista"] = normalize_text(latest_interview.get("observacoes_rh"))
+            candidate["mensagem_entrevista"] = normalize_text(latest_interview.get("mensagem_base"))
+            candidate["id_entrevista"] = latest_interview.get("id_entrevista")
+
+        return candidates
+
+    def _upsert_candidate_profile(
+        self,
+        cursor,
+        *,
+        id_teste: str,
+        nome_candidato: str = "",
+        habilidades: list[str] | None = None,
+        tags: list[str] | None = None,
+        observacao_rh: str | None = None,
+    ) -> None:
+        safe_id_teste = normalize_text(id_teste)
+        if not safe_id_teste:
+            return
+
+        ensure_candidate_metadata_table(cursor)
+        cursor.execute(
+            """
+            SELECT nome_candidato, habilidades_json, tags_json, observacao_rh
+            FROM candidatos_metadata
+            WHERE id_teste = ?
+            """,
+            (safe_id_teste,),
+        )
+        existing = cursor.fetchone()
+
+        existing_profile = (
+            self._serialize_candidate_profile(
+                {
+                    "nome_candidato": existing[0],
+                    "habilidades_json": existing[1],
+                    "tags_json": existing[2],
+                    "observacao_rh": existing[3],
+                }
+            )
+            if existing
+            else {"nome_candidato": "", "habilidades": [], "tags": [], "observacao_rh": ""}
+        )
+
+        merged_name = normalize_text(nome_candidato) or existing_profile.get("nome_candidato", "")
+        merged_skills = normalize_string_list(habilidades if habilidades is not None else existing_profile.get("habilidades", []))
+        merged_tags = normalize_string_list(tags if tags is not None else existing_profile.get("tags", []))
+        merged_observation = (
+            normalize_text(observacao_rh)
+            if observacao_rh is not None
+            else existing_profile.get("observacao_rh", "")
+        )
+
+        if existing:
+            cursor.execute(
+                """
+                UPDATE candidatos_metadata
+                SET
+                    nome_candidato = ?,
+                    habilidades_json = ?,
+                    tags_json = ?,
+                    observacao_rh = ?,
+                    atualizado_em = GETDATE()
+                WHERE id_teste = ?
+                """,
+                (
+                    merged_name,
+                    json.dumps(merged_skills, ensure_ascii=False),
+                    json.dumps(merged_tags, ensure_ascii=False),
+                    merged_observation,
+                    safe_id_teste,
+                ),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO candidatos_metadata
+                (
+                    id_teste,
+                    nome_candidato,
+                    habilidades_json,
+                    tags_json,
+                    observacao_rh
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    safe_id_teste,
+                    merged_name,
+                    json.dumps(merged_skills, ensure_ascii=False),
+                    json.dumps(merged_tags, ensure_ascii=False),
+                    merged_observation,
+                ),
+            )
+
     def _hydrate_pipeline_fields(self, cursor, candidates: list[dict]) -> list[dict]:
         mutated = False
         now = datetime.now()
@@ -206,7 +537,8 @@ class DatabaseRepository:
                 trilha,
                 usa_nota_corte,
                 nota_corte,
-                status
+                status,
+                link_agendamento
             FROM processos_seletivos
             """
         )
@@ -214,7 +546,6 @@ class DatabaseRepository:
         return {normalize_text(item.get("id_processo")): item for item in rows}
 
     def _get_process_candidate_map(self, cursor) -> dict[str, dict]:
-        ensure_pipeline_columns(cursor)
         cursor.execute(
             """
             SELECT
@@ -234,6 +565,7 @@ class DatabaseRepository:
         )
         rows = rows_to_dicts(cursor, cursor.fetchall())
         rows = self._hydrate_pipeline_fields(cursor, rows)
+        rows = self._enrich_candidate_records(cursor, rows)
 
         result = {}
         for item in rows:
@@ -552,7 +884,8 @@ class DatabaseRepository:
                     usa_nota_corte,
                     nota_corte,
                     status,
-                    data_criacao
+                    data_criacao,
+                    link_agendamento
                 FROM processos_seletivos
                 """
             )
@@ -564,6 +897,7 @@ class DatabaseRepository:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_process_columns(cursor)
             cursor.execute(
                 """
                 INSERT INTO processos_seletivos
@@ -578,9 +912,10 @@ class DatabaseRepository:
                     usa_nota_corte,
                     nota_corte,
                     status,
-                    data_criacao
+                    data_criacao,
+                    link_agendamento
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data.get("id_processo", ""),
@@ -594,6 +929,7 @@ class DatabaseRepository:
                     data.get("nota_corte", None),
                     data.get("status", "Aberto"),
                     data.get("data_criacao", ""),
+                    data.get("link_agendamento", ""),
                 ),
             )
             conn.commit()
@@ -606,6 +942,7 @@ class DatabaseRepository:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_process_columns(cursor)
             cursor.execute(
                 """
                 UPDATE processos_seletivos
@@ -616,7 +953,8 @@ class DatabaseRepository:
                     trilha = ?,
                     usa_nota_corte = ?,
                     nota_corte = ?,
-                    status = ?
+                    status = ?,
+                    link_agendamento = ?
                 WHERE id_processo = ?
                 """,
                 (
@@ -627,6 +965,7 @@ class DatabaseRepository:
                     int(data.get("usa_nota_corte", 0) or 0),
                     data.get("nota_corte", None),
                     data.get("status", "Aberto"),
+                    data.get("link_agendamento", ""),
                     id_processo,
                 ),
             )
@@ -659,8 +998,6 @@ class DatabaseRepository:
         conn = self._connect()
         try:
             cursor = conn.cursor()
-            ensure_pipeline_columns(cursor)
-
             query = """
                 SELECT
                     id_registro,
@@ -684,7 +1021,8 @@ class DatabaseRepository:
 
             cursor.execute(query, tuple(params))
             rows = rows_to_dicts(cursor, cursor.fetchall())
-            return self._hydrate_pipeline_fields(cursor, rows)
+            rows = self._hydrate_pipeline_fields(cursor, rows)
+            return self._enrich_candidate_records(cursor, rows)
         finally:
             conn.close()
 
@@ -734,6 +1072,11 @@ class DatabaseRepository:
                     stage,
                     datetime.now(),
                 ),
+            )
+            self._upsert_candidate_profile(
+                cursor,
+                id_teste=data.get("id_teste", ""),
+                nome_candidato=data.get("nome_candidato", ""),
             )
             conn.commit()
             logger.info("Candidato '%s' vinculado ao processo '%s'.", data.get("nome_candidato", ""), data.get("id_processo", ""))
@@ -791,10 +1134,12 @@ class DatabaseRepository:
         finally:
             conn.close()
 
-    def list_talent_bank(self) -> list[dict]:
+    def list_talent_bank(self, search: str = "", skill: str = "", tag: str = "") -> list[dict]:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            profile_map = self._get_candidate_profile_map(cursor)
+            interview_map = self._get_latest_interview_map(cursor)
             cursor.execute(
                 """
                 SELECT
@@ -809,7 +1154,42 @@ class DatabaseRepository:
                 FROM banco_talentos
                 """
             )
-            return rows_to_dicts(cursor, cursor.fetchall())
+            rows = rows_to_dicts(cursor, cursor.fetchall())
+            result = []
+            search_term = normalize_compare_text(search)
+            skill_term = normalize_compare_text(skill)
+            tag_term = normalize_compare_text(tag)
+
+            for item in rows:
+                id_teste = normalize_text(item.get("id_teste"))
+                profile = profile_map.get(id_teste, {})
+                latest_interview = interview_map.get(id_teste, {})
+                item["tags"] = profile.get("tags", [])
+                item["habilidades"] = profile.get("habilidades", [])
+                item["observacao_rh"] = profile.get("observacao_rh", "")
+                item["status_entrevista"] = normalize_text(latest_interview.get("status_entrevista"))
+                item["data_entrevista"] = latest_interview.get("data_entrevista")
+                item["link_entrevista"] = normalize_text(latest_interview.get("link_agendamento"))
+
+                item_search_text = " ".join(
+                    [
+                        normalize_text(item.get("nome_candidato")),
+                        normalize_text(item.get("vaga")),
+                        normalize_text(item.get("id_processo")),
+                        " ".join(item.get("habilidades", [])),
+                        " ".join(item.get("tags", [])),
+                    ]
+                )
+                if search_term and search_term not in normalize_compare_text(item_search_text):
+                    continue
+                if skill_term and all(skill_term not in normalize_compare_text(skill_item) for skill_item in item.get("habilidades", [])):
+                    continue
+                if tag_term and all(tag_term not in normalize_compare_text(tag_item) for tag_item in item.get("tags", [])):
+                    continue
+
+                result.append(item)
+
+            return result
         finally:
             conn.close()
 
@@ -882,6 +1262,11 @@ class DatabaseRepository:
                     datetime.now(),
                 ),
             )
+            self._upsert_candidate_profile(
+                cursor,
+                id_teste=row[0],
+                nome_candidato=row[1],
+            )
             cursor.execute("DELETE FROM banco_talentos WHERE id_banco = ?", (id_banco,))
             conn.commit()
             return {"success": True}
@@ -889,62 +1274,67 @@ class DatabaseRepository:
             conn.close()
 
     def get_process_details(self, id_processo: str) -> dict:
-        conn = self._connect()
-        try:
-            cursor = conn.cursor()
-            ensure_cv_pre_analises_table(cursor)
-            ensure_pipeline_columns(cursor)
+        def operation() -> dict:
+            conn = self._connect()
+            try:
+                cursor = conn.cursor()
 
-            processo = get_process_row(cursor, id_processo)
-            if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                processo = get_process_row(cursor, id_processo)
+                if not processo:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
 
-            cursor.execute(
-                """
-                SELECT
-                    id_registro,
-                    id_processo,
-                    id_teste,
-                    nome_candidato,
-                    vaga,
-                    status_candidato,
-                    pontuacao_final,
-                    data_prova,
-                    origem,
-                    etapa_pipeline,
-                    data_atualizacao_pipeline
-                FROM candidatos_processos
-                WHERE id_processo = ?
-                ORDER BY id_registro DESC
-                """,
-                (id_processo,),
-            )
-            candidatos = rows_to_dicts(cursor, cursor.fetchall())
-            candidatos = self._hydrate_pipeline_fields(cursor, candidatos)
+                cursor.execute(
+                    """
+                    SELECT
+                        id_registro,
+                        id_processo,
+                        id_teste,
+                        nome_candidato,
+                        vaga,
+                        status_candidato,
+                        pontuacao_final,
+                        data_prova,
+                        origem,
+                        etapa_pipeline,
+                        data_atualizacao_pipeline
+                    FROM candidatos_processos
+                    WHERE id_processo = ?
+                    ORDER BY id_registro DESC
+                    """,
+                    (id_processo,),
+                )
+                candidatos = rows_to_dicts(cursor, cursor.fetchall())
+                candidatos = self._hydrate_pipeline_fields(cursor, candidatos)
+                candidatos = self._enrich_candidate_records(cursor, candidatos)
 
-            resumo = {
-                "total": len(candidatos),
-                "aprovados": sum(1 for item in candidatos if normalize_compare_text(item.get("status_candidato")) == "aprovado"),
-                "eliminados": sum(
-                    1
-                    for item in candidatos
-                    if "eliminado" in normalize_compare_text(item.get("status_candidato"))
-                    or normalize_compare_text(item.get("status_candidato")) == "reprovado"
-                ),
-                "banco": sum(1 for item in candidatos if normalize_compare_text(item.get("status_candidato")) == "banco de talentos"),
-                "analise": sum(1 for item in candidatos if normalize_compare_text(item.get("status_candidato")) == "em analise"),
-            }
+                resumo = {
+                    "total": len(candidatos),
+                    "aprovados": sum(1 for item in candidatos if normalize_compare_text(item.get("status_candidato")) == "aprovado"),
+                    "eliminados": sum(
+                        1
+                        for item in candidatos
+                        if "eliminado" in normalize_compare_text(item.get("status_candidato"))
+                        or normalize_compare_text(item.get("status_candidato")) == "reprovado"
+                    ),
+                    "banco": sum(1 for item in candidatos if normalize_compare_text(item.get("status_candidato")) == "banco de talentos"),
+                    "analise": sum(1 for item in candidatos if normalize_compare_text(item.get("status_candidato")) == "em analise"),
+                }
 
-            return {"processo": processo, "resumo": resumo, "candidatos": candidatos}
-        finally:
-            conn.close()
+                return {"processo": processo, "resumo": resumo, "candidatos": candidatos}
+            finally:
+                conn.close()
+
+        return self._run_with_deadlock_retry(
+            f"carregar detalhes do processo {id_processo}",
+            operation,
+            retries=1,
+            final_message="Nao foi possivel carregar os detalhes do processo agora por conta de concorrencia no banco. Tente novamente em instantes.",
+        )
 
     def list_cv_pre_analyses(self, id_processo: str, page: int = 1, page_size: int = 5) -> dict:
         conn = self._connect()
         try:
             cursor = conn.cursor()
-            ensure_cv_pre_analises_table(cursor)
-
             cursor.execute("SELECT COUNT(*) FROM cv_pre_analises WHERE id_processo = ?", (id_processo,))
             total_items = int(cursor.fetchone()[0] or 0)
             page_safe = max(1, int(page or 1))
@@ -1138,6 +1528,11 @@ class DatabaseRepository:
                     """,
                     (id_pre_analise,),
                 )
+                self._upsert_candidate_profile(
+                    cursor,
+                    id_teste=f"CV-{id_pre_analise}",
+                    nome_candidato=nome_candidato,
+                )
 
             conn.commit()
             return {"success": True, "id_pre_analise": id_pre_analise}
@@ -1278,6 +1673,11 @@ class DatabaseRepository:
                 WHERE id_pre_analise = ?
                 """,
                 (id_pre_analise,),
+            )
+            self._upsert_candidate_profile(
+                cursor,
+                id_teste=f"CV-{row[0]}",
+                nome_candidato=row[2],
             )
             conn.commit()
             return {"success": True}
@@ -1432,7 +1832,8 @@ class DatabaseRepository:
             query += " ORDER BY c.id_processo ASC, c.id_registro DESC"
             cursor.execute(query, tuple(params))
             rows = rows_to_dicts(cursor, cursor.fetchall())
-            return self._hydrate_pipeline_fields(cursor, rows)
+            rows = self._hydrate_pipeline_fields(cursor, rows)
+            return self._enrich_candidate_records(cursor, rows)
         finally:
             conn.close()
 
@@ -1488,6 +1889,11 @@ class DatabaseRepository:
                     datetime.now(),
                 ),
             )
+            self._upsert_candidate_profile(
+                cursor,
+                id_teste=id_teste,
+                nome_candidato=data.get("nome_candidato", ""),
+            )
             conn.commit()
             logger.info("Card de pipeline criado para '%s' no processo '%s'.", data.get("nome_candidato", ""), id_processo)
             return {"success": True, "id_registro": id_registro}
@@ -1535,3 +1941,354 @@ class DatabaseRepository:
             return {"success": True}
         finally:
             conn.close()
+
+    def delete_pipeline_card(self, id_registro: int) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_interviews_table(cursor)
+            cursor.execute(
+                """
+                SELECT id_processo, id_teste, status_candidato
+                FROM candidatos_processos
+                WHERE id_registro = ?
+                """,
+                (id_registro,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card do pipeline nao encontrado.")
+
+            id_processo = normalize_text(row[0])
+            id_teste = normalize_text(row[1])
+            status_candidato = normalize_compare_text(row[2])
+
+            if id_processo and status_candidato == "aprovado":
+                cursor.execute(
+                    """
+                    UPDATE processos_seletivos
+                    SET vagas_preenchidas = CASE
+                        WHEN ISNULL(vagas_preenchidas, 0) > 0 THEN vagas_preenchidas - 1
+                        ELSE 0
+                    END
+                    WHERE id_processo = ?
+                    """,
+                    (id_processo,),
+                )
+
+            cursor.execute("DELETE FROM entrevistas_agendadas WHERE id_registro = ? OR id_teste = ?", (id_registro, id_teste))
+            cursor.execute("DELETE FROM banco_talentos WHERE id_teste = ?", (id_teste,))
+            cursor.execute("DELETE FROM candidatos_processos WHERE id_registro = ?", (id_registro,))
+            conn.commit()
+            logger.info("Card %s removido do pipeline e dos vinculos operacionais.", id_registro)
+            return {"success": True}
+        finally:
+            conn.close()
+
+    def upsert_candidate_profile(self, id_teste: str, data: dict) -> dict:
+        safe_id_teste = normalize_text(id_teste)
+        if not safe_id_teste:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato nao informado.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT TOP 1 nome_candidato
+                FROM (
+                    SELECT nome_candidato FROM candidatos_processos WHERE id_teste = ?
+                    UNION ALL
+                    SELECT nome_candidato FROM banco_talentos WHERE id_teste = ?
+                    UNION ALL
+                    SELECT nome_candidato FROM historico_provas WHERE id_teste = ?
+                ) origem
+                """,
+                (safe_id_teste, safe_id_teste, safe_id_teste),
+            )
+            candidate_row = cursor.fetchone()
+            if not candidate_row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato nao encontrado para atualizar o perfil.")
+
+            self._upsert_candidate_profile(
+                cursor,
+                id_teste=safe_id_teste,
+                nome_candidato=data.get("nome_candidato") or candidate_row[0],
+                habilidades=normalize_string_list(data.get("habilidades", [])),
+                tags=normalize_string_list(data.get("tags", [])),
+                observacao_rh=data.get("observacao_rh", ""),
+            )
+            conn.commit()
+            logger.info("Perfil RH atualizado para o candidato %s.", safe_id_teste)
+            return {"success": True}
+        finally:
+            conn.close()
+
+    def list_interviews(
+        self,
+        id_processo: str = "",
+        status_entrevista: str = "",
+        search: str = "",
+    ) -> list[dict]:
+        def operation() -> list[dict]:
+            conn = self._connect()
+            try:
+                cursor = conn.cursor()
+                process_map = self._get_process_map(cursor)
+                profile_map = self._get_candidate_profile_map(cursor)
+                cursor.execute(
+                    """
+                    SELECT
+                        id_entrevista,
+                        id_processo,
+                        id_registro,
+                        id_teste,
+                        nome_candidato,
+                        vaga,
+                        data_entrevista,
+                        status_entrevista,
+                        link_agendamento,
+                        observacoes_rh,
+                        mensagem_base,
+                        criado_em,
+                        atualizado_em
+                    FROM entrevistas_agendadas
+                    ORDER BY data_entrevista ASC, id_entrevista DESC
+                    """
+                )
+                rows = rows_to_dicts(cursor, cursor.fetchall())
+                process_filter = normalize_compare_text(id_processo)
+                status_filter = normalize_compare_text(status_entrevista)
+                search_filter = normalize_compare_text(search)
+                result = []
+
+                for item in rows:
+                    safe_process_id = normalize_text(item.get("id_processo"))
+                    process_row = process_map.get(safe_process_id, {})
+                    profile = profile_map.get(normalize_text(item.get("id_teste")), {})
+                    effective_link = normalize_text(item.get("link_agendamento")) or normalize_text(process_row.get("link_agendamento"))
+
+                    enriched = {
+                        **item,
+                        "link_agendamento": effective_link,
+                        "link_agendamento_processo": normalize_text(process_row.get("link_agendamento")),
+                        "tags": profile.get("tags", []),
+                        "habilidades": profile.get("habilidades", []),
+                        "observacao_candidato_rh": profile.get("observacao_rh", ""),
+                    }
+
+                    if process_filter and process_filter not in normalize_compare_text(safe_process_id):
+                        continue
+                    if status_filter and status_filter != normalize_compare_text(enriched.get("status_entrevista")):
+                        continue
+
+                    if search_filter:
+                        haystack = " ".join(
+                            [
+                                normalize_text(enriched.get("nome_candidato")),
+                                normalize_text(enriched.get("vaga")),
+                                safe_process_id,
+                                " ".join(enriched.get("tags", [])),
+                                " ".join(enriched.get("habilidades", [])),
+                                normalize_text(enriched.get("observacoes_rh")),
+                            ]
+                        )
+                        if search_filter not in normalize_compare_text(haystack):
+                            continue
+
+                    result.append(enriched)
+
+                return result
+            finally:
+                conn.close()
+
+        return self._run_with_deadlock_retry(
+            "listar entrevistas",
+            operation,
+            retries=1,
+            final_message="Nao foi possivel consultar a agenda de entrevistas agora por conta de concorrencia no banco. Tente novamente em instantes.",
+        )
+
+    def create_interview(self, data: dict) -> dict:
+        def operation() -> dict:
+            conn = self._connect()
+            try:
+                cursor = conn.cursor()
+                ensure_pipeline_columns(cursor)
+                ensure_interviews_table(cursor)
+                ensure_process_columns(cursor)
+
+                cursor.execute(
+                    """
+                    SELECT
+                        id_registro,
+                        id_processo,
+                        id_teste,
+                        nome_candidato,
+                        vaga,
+                        status_candidato,
+                        pontuacao_final,
+                        origem,
+                        etapa_pipeline
+                    FROM candidatos_processos
+                    WHERE id_registro = ?
+                    """,
+                    (int(data.get("id_registro") or 0),),
+                )
+                candidate_row = cursor.fetchone()
+                if not candidate_row:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato do processo nao encontrado para agendamento.")
+
+                id_processo = normalize_text(data.get("id_processo")) or normalize_text(candidate_row[1])
+                process_row = get_process_row(cursor, id_processo)
+                if not process_row:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo nao encontrado para a entrevista.")
+
+                interview_date = data.get("data_entrevista")
+                link_agendamento = normalize_text(data.get("link_agendamento")) or normalize_text(process_row.get("link_agendamento"))
+                interview_status = normalize_interview_status(data.get("status_entrevista"))
+                observacoes_rh = normalize_text(data.get("observacoes_rh"))
+                mensagem_base = build_interview_message(
+                    candidate_name=candidate_row[3],
+                    process_id=id_processo,
+                    vacancy_name=candidate_row[4] or process_row.get("vaga", ""),
+                    interview_datetime=interview_date,
+                    scheduling_link=link_agendamento,
+                )
+
+                cursor.execute(
+                    """
+                    INSERT INTO entrevistas_agendadas
+                    (
+                        id_processo,
+                        id_registro,
+                        id_teste,
+                        nome_candidato,
+                        vaga,
+                        data_entrevista,
+                        status_entrevista,
+                        link_agendamento,
+                        observacoes_rh,
+                        mensagem_base,
+                        atualizado_em
+                    )
+                    OUTPUT INSERTED.id_entrevista
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
+                    """,
+                    (
+                        id_processo,
+                        int(candidate_row[0]),
+                        candidate_row[2],
+                        candidate_row[3],
+                        candidate_row[4] or process_row.get("vaga", ""),
+                        interview_date,
+                        interview_status,
+                        link_agendamento,
+                        observacoes_rh,
+                        mensagem_base,
+                    ),
+                )
+                id_entrevista = int(cursor.fetchone()[0])
+
+                current_stage = normalize_pipeline_stage(candidate_row[8])
+                if current_stage not in {"Entrevista", "Aprovado", "Reprovado"}:
+                    self._apply_candidate_status_update(
+                        cursor,
+                        current_row=candidate_row,
+                        new_status=map_pipeline_stage_to_status("Entrevista", candidate_row[5]),
+                        new_stage="Entrevista",
+                        data_movimentacao=interview_date.isoformat() if isinstance(interview_date, datetime) else str(interview_date),
+                    )
+
+                self._upsert_candidate_profile(
+                    cursor,
+                    id_teste=candidate_row[2],
+                    nome_candidato=candidate_row[3],
+                )
+                conn.commit()
+                logger.info("Entrevista %s agendada para o candidato %s.", id_entrevista, candidate_row[3])
+                return {"success": True, "id_entrevista": id_entrevista, "mensagem_base": mensagem_base}
+            finally:
+                conn.close()
+
+        return self._run_with_deadlock_retry(
+            "agendar entrevista",
+            operation,
+            retries=1,
+            final_message="Nao foi possivel agendar a entrevista agora por conta de concorrencia no banco. Tente novamente em instantes.",
+        )
+
+    def update_interview(self, id_entrevista: int, data: dict) -> dict:
+        def operation() -> dict:
+            conn = self._connect()
+            try:
+                cursor = conn.cursor()
+                ensure_interviews_table(cursor)
+                ensure_process_columns(cursor)
+                cursor.execute(
+                    """
+                    SELECT
+                        id_entrevista,
+                        id_processo,
+                        id_teste,
+                        nome_candidato,
+                        vaga,
+                        data_entrevista,
+                        status_entrevista,
+                        link_agendamento,
+                        observacoes_rh
+                    FROM entrevistas_agendadas
+                    WHERE id_entrevista = ?
+                    """,
+                    (id_entrevista,),
+                )
+                current = cursor.fetchone()
+                if not current:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entrevista nao encontrada.")
+
+                process_row = get_process_row(cursor, current[1]) or {}
+                interview_date = data.get("data_entrevista", current[5])
+                interview_status = normalize_interview_status(data.get("status_entrevista", current[6]))
+                link_agendamento = normalize_text(data.get("link_agendamento")) or normalize_text(current[7]) or normalize_text(process_row.get("link_agendamento"))
+                observacoes_rh = normalize_text(data.get("observacoes_rh")) if "observacoes_rh" in data else normalize_text(current[8])
+                mensagem_base = build_interview_message(
+                    candidate_name=current[3],
+                    process_id=current[1],
+                    vacancy_name=current[4],
+                    interview_datetime=interview_date,
+                    scheduling_link=link_agendamento,
+                )
+
+                cursor.execute(
+                    """
+                    UPDATE entrevistas_agendadas
+                    SET
+                        data_entrevista = ?,
+                        status_entrevista = ?,
+                        link_agendamento = ?,
+                        observacoes_rh = ?,
+                        mensagem_base = ?,
+                        atualizado_em = GETDATE()
+                    WHERE id_entrevista = ?
+                    """,
+                    (
+                        interview_date,
+                        interview_status,
+                        link_agendamento,
+                        observacoes_rh,
+                        mensagem_base,
+                        id_entrevista,
+                    ),
+                )
+                conn.commit()
+                logger.info("Entrevista %s atualizada para o status '%s'.", id_entrevista, interview_status)
+                return {"success": True, "mensagem_base": mensagem_base}
+            finally:
+                conn.close()
+
+        return self._run_with_deadlock_retry(
+            f"atualizar entrevista {id_entrevista}",
+            operation,
+            retries=1,
+            final_message="Nao foi possivel atualizar a entrevista agora por conta de concorrencia no banco. Tente novamente em instantes.",
+        )

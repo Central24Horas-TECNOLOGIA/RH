@@ -24,6 +24,7 @@ import {
   obterClasseSituacaoAtual,
   obterRegrasFormularioProcesso,
   obterRotuloSituacaoAtual,
+  atualizarPerfilCandidato,
   removerBancoTalentos,
   usarCandidatoDoBancoTalentos,
 } from '../app/controlador-aplicacao.js';
@@ -34,10 +35,21 @@ import {
   formatarPontuacaoDetalhada,
   obterItensPaginados,
 } from '../utilitarios.js';
-import { obterClasseAderencia } from '../shared/helpers-visuais.js';
+import {
+  formatarDataHora,
+  obterClasseAderencia,
+  obterClasseStatusEntrevista,
+} from '../shared/helpers-visuais.js';
+import { obterTourLogin } from '../shared/tour-config.js';
+import {
+  quebrarListaTexto,
+  validarFormularioProcesso,
+  validarPerfilCandidato,
+} from '../shared/validacoes.js';
 import {
   EmptyState,
   GrupoPaginacao,
+  LoadingState,
   MetricGrid,
   ModalDetalhesProva,
   ModalPadrao,
@@ -45,6 +57,7 @@ import {
   PainelRh,
   SectionCard,
 } from '../ui/componentes-compartilhados.js';
+import { BotaoAjudaTour, TourGuiado } from '../ui/tour-guiado.js';
 
 function AcaoSair({ controlador }) {
   return html`
@@ -58,8 +71,12 @@ function AcaoSair({ controlador }) {
   `;
 }
 
-function BlocoFiltro({ children }) {
-  return html`<section class="rh-filter-card">${children}</section>`;
+function BlocoFiltro({ children, tourId = '' }) {
+  return html`
+    <section class="rh-filter-card" data-tour-id=${tourId || null}>
+      ${children}
+    </section>
+  `;
 }
 
 function CampoFiltro({ label, icon, children }) {
@@ -86,6 +103,8 @@ export function TelaLogin({ controlador }) {
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [mensagemErro, setMensagemErro] = useState('');
+  const [tourReopenSignal, setTourReopenSignal] = useState(0);
+  const tourLogin = obterTourLogin();
 
   const enviar = async () => {
     const resultado = await controlador.fazerLogin(
@@ -101,7 +120,7 @@ export function TelaLogin({ controlador }) {
   return html`
     <section class="active screen" id="screen-login">
       <div class="rh-login-page">
-        <div class="rh-login-hero">
+        <div class="rh-login-hero" data-tour-id="login-hero">
           <div class="rh-login-hero-badge">Sistema Interno RH</div>
           <h1 class="rh-login-hero-title">Plataforma de provas, processos e analise.</h1>
           <p class="rh-login-hero-text">
@@ -115,7 +134,10 @@ export function TelaLogin({ controlador }) {
           </div>
         </div>
 
-        <div class="rh-login-panel rh-login-panel-modern">
+        <div
+          class="rh-login-panel rh-login-panel-modern"
+          data-tour-id="login-panel"
+        >
           <div class="rh-login-brand-block rh-login-brand-block-centered">
             <img
               alt="Central 24 horas"
@@ -174,11 +196,20 @@ export function TelaLogin({ controlador }) {
 
           <button
             class="btn rh-login-btn rh-login-btn-modern w-100"
+            data-tour-id="login-submit"
             onClick=${enviar}
           >
             <span>Acessar sistema</span>
             <span class="material-symbols-outlined">arrow_forward</span>
           </button>
+
+          <div class="rh-login-help-row">
+            <${BotaoAjudaTour}
+              compact=${true}
+              label="Ver orientacoes"
+              onClick=${() => setTourReopenSignal((valor) => valor + 1)}
+            />
+          </div>
 
           <div class="rh-login-footer-meta">
             <span>© 2026 Central 24 Horas</span>
@@ -188,6 +219,13 @@ export function TelaLogin({ controlador }) {
           </div>
         </div>
       </div>
+
+      <${TourGuiado}
+        screenId="screen-login"
+        userId=""
+        steps=${tourLogin.steps}
+        reopenSignal=${tourReopenSignal}
+      />
     </section>
   `;
 }
@@ -267,6 +305,7 @@ export function TelaInicio({ controlador }) {
       <${SectionCard}
         title="Atalhos operacionais"
         description="Acesse os fluxos principais do sistema."
+        tourId="home-shortcuts"
       >
         <div class="rh-action-grid">
           <button
@@ -302,6 +341,7 @@ export function TelaInicio({ controlador }) {
       <${SectionCard}
         title="Registros recentes"
         description="Clique em um registro para abrir o detalhamento salvo."
+        tourId="home-recent"
       >
         ${carregando
           ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
@@ -418,7 +458,7 @@ export function TelaHistorico({ controlador }) {
         description="Consulte resultados salvos com filtros por candidato, vaga e data."
       />
 
-      <${BlocoFiltro}>
+      <${BlocoFiltro} tourId="history-filters">
         <div class="rh-filter-grid">
           <${CampoFiltro} label="Candidato" icon="person_search">
             <input
@@ -461,6 +501,7 @@ export function TelaHistorico({ controlador }) {
       <${SectionCard}
         title="Resultados salvos"
         description="Tabela consolidada com status atualizado e acoes de consulta."
+        tourId="history-results"
       >
         <div class="table-responsive">
           <table class="table align-middle rh-modern-history-table">
@@ -566,8 +607,10 @@ export function TelaCriarProcesso({ controlador }) {
     trilha: '',
     usaNotaCorte: false,
     notaCorte: '',
+    linkAgendamento: '',
   });
   const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
 
   const regras = obterRegrasFormularioProcesso(formulario.vaga);
 
@@ -578,55 +621,39 @@ export function TelaCriarProcesso({ controlador }) {
   }, [regras.trilhaFixa, formulario.trilha]);
 
   const criar = async () => {
-    if (
-      !formulario.vaga ||
-      !formulario.quantidade ||
-      !formulario.dataEncerramento
-    ) {
-      setErro('Preencha vaga, quantidade de vagas e data de encerramento.');
+    const mensagemErro = validarFormularioProcesso(formulario, regras);
+    if (mensagemErro) {
+      setErro(mensagemErro);
       return;
-    }
-
-    if (regras.exigeOperacao && !formulario.operacao) {
-      setErro('Para essa vaga, informe a operacao.');
-      return;
-    }
-
-    if (regras.exigeTrilha && !formulario.trilha) {
-      setErro('Para essa vaga, informe a trilha.');
-      return;
-    }
-
-    if (formulario.usaNotaCorte) {
-      const nota = Number(formulario.notaCorte);
-      if (
-        !formulario.notaCorte ||
-        Number.isNaN(nota) ||
-        nota < 4 ||
-        nota > 10
-      ) {
-        setErro('A nota de corte deve estar entre 4 e 10.');
-        return;
-      }
     }
 
     setErro('');
+    setSalvando(true);
 
-    await criarProcesso({
-      id_processo: montarIdProcesso(formulario.vaga),
-      vaga: formulario.vaga,
-      quantidade_vagas: Number(formulario.quantidade),
-      vagas_preenchidas: 0,
-      data_encerramento: formulario.dataEncerramento,
-      operacao: formulario.operacao,
-      trilha: regras.trilhaFixa || formulario.trilha,
-      usa_nota_corte: formulario.usaNotaCorte ? 1 : 0,
-      nota_corte: formulario.usaNotaCorte ? Number(formulario.notaCorte) : null,
-      status: 'Aberto',
-      data_criacao: new Date().toISOString(),
-    });
+    try {
+      await criarProcesso({
+        id_processo: montarIdProcesso(formulario.vaga),
+        vaga: formulario.vaga,
+        quantidade_vagas: Number(formulario.quantidade),
+        vagas_preenchidas: 0,
+        data_encerramento: formulario.dataEncerramento,
+        operacao: formulario.operacao,
+        trilha: regras.trilhaFixa || formulario.trilha,
+        usa_nota_corte: formulario.usaNotaCorte ? 1 : 0,
+        nota_corte: formulario.usaNotaCorte
+          ? Number(formulario.notaCorte)
+          : null,
+        status: 'Aberto',
+        data_criacao: new Date().toISOString(),
+        link_agendamento: formulario.linkAgendamento.trim(),
+      });
 
-    controlador.irParaTelaProtegida('screen-processes');
+      controlador.irParaTelaProtegida('screen-processes');
+    } catch (error) {
+      setErro(error?.message || 'Nao foi possivel criar o processo.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return html`
@@ -651,6 +678,7 @@ export function TelaCriarProcesso({ controlador }) {
       <${SectionCard}
         title="Dados do processo"
         description="Os campos abaixo mantem a compatibilidade com a API e com o fluxo atual de provas."
+        tourId="process-create-form"
       >
         <div class="row g-3">
           <div class="col-md-6">
@@ -762,6 +790,23 @@ export function TelaCriarProcesso({ controlador }) {
                 setFormulario({ ...formulario, notaCorte: event.target.value })}
             />
           </div>
+
+          <div class="col-md-12">
+            <label class="form-label">Link de agendamento</label>
+            <input
+              class="form-control rh-flow-input"
+              placeholder="https://bookings.cloud.microsoft/..."
+              value=${formulario.linkAgendamento}
+              onInput=${(event) =>
+                setFormulario({
+                  ...formulario,
+                  linkAgendamento: event.target.value,
+                })}
+            />
+            <div class="form-text">
+              Campo opcional para reaproveitar o link do processo na rotina de entrevistas.
+            </div>
+          </div>
         </div>
 
         ${erro ? html`<div class="alert alert-danger mt-4">${erro}</div>` : null}
@@ -774,8 +819,13 @@ export function TelaCriarProcesso({ controlador }) {
           >
             Voltar
           </button>
-          <button type="button" class="btn btn-success btn-lg" onClick=${criar}>
-            Criar processo
+          <button
+            type="button"
+            class="btn btn-success btn-lg"
+            disabled=${salvando}
+            onClick=${criar}
+          >
+            ${salvando ? 'Salvando...' : 'Criar processo'}
           </button>
         </div>
       </${SectionCard}>
@@ -784,35 +834,116 @@ export function TelaCriarProcesso({ controlador }) {
 }
 
 export function TelaBancoTalentos({ controlador }) {
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState('');
   const [linhas, setLinhas] = useState([]);
   const [processosAbertos, setProcessosAbertos] = useState([]);
   const [candidatoParaUtilizar, setCandidatoParaUtilizar] = useState(null);
   const [processoSelecionadoUso, setProcessoSelecionadoUso] = useState('');
+  const [perfilEdicao, setPerfilEdicao] = useState(null);
+  const [formularioPerfil, setFormularioPerfil] = useState({
+    tags: '',
+    habilidades: '',
+    observacao_rh: '',
+  });
+  const [filtros, setFiltros] = useState({
+    busca: '',
+    habilidade: '',
+    tag: '',
+  });
 
   const carregar = async () => {
-    const [banco, processos] = await Promise.all([
-      lerBancoTalentos(true),
-      lerProcessos(true),
-    ]);
+    setCarregando(true);
+    setErro('');
 
-    setLinhas(Array.isArray(banco) ? banco : []);
-    setProcessosAbertos(
-      (Array.isArray(processos) ? processos : []).filter(
-        (processo) => String(processo.status || '').trim() !== 'Encerrado',
-      ),
-    );
+    try {
+      const [banco, processos] = await Promise.all([
+        lerBancoTalentos({
+          forcar: true,
+          search: filtros.busca,
+          skill: filtros.habilidade,
+          tag: filtros.tag,
+        }),
+        lerProcessos(true),
+      ]);
+
+      setLinhas(Array.isArray(banco) ? banco : []);
+      setProcessosAbertos(
+        (Array.isArray(processos) ? processos : []).filter(
+          (processo) => String(processo.status || '').trim() !== 'Encerrado',
+        ),
+      );
+    } catch (error) {
+      setErro(
+        error?.message || 'Nao foi possivel carregar o banco de talentos.',
+      );
+      setLinhas([]);
+    } finally {
+      setCarregando(false);
+    }
   };
 
   useEffect(() => {
     carregar();
-  }, []);
+  }, [filtros.busca, filtros.habilidade, filtros.tag]);
 
   const remover = async (idBanco) => {
     if (!window.confirm('Deseja eliminar este candidato do banco de talentos?')) {
       return;
     }
-    await removerBancoTalentos(idBanco);
-    await carregar();
+
+    setSalvando(true);
+    setErro('');
+    try {
+      await removerBancoTalentos(idBanco);
+      await carregar();
+    } catch (error) {
+      setErro(
+        error?.message || 'Nao foi possivel remover o candidato do banco.',
+      );
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const abrirEdicaoPerfil = (candidato) => {
+    setPerfilEdicao(candidato);
+    setFormularioPerfil({
+      tags: Array.isArray(candidato.tags) ? candidato.tags.join(', ') : '',
+      habilidades: Array.isArray(candidato.habilidades)
+        ? candidato.habilidades.join(', ')
+        : '',
+      observacao_rh: candidato.observacao_rh || '',
+    });
+  };
+
+  const salvarPerfil = async () => {
+    if (!perfilEdicao) return;
+
+    const mensagemErro = validarPerfilCandidato(formularioPerfil);
+    if (mensagemErro) {
+      setErro(mensagemErro);
+      return;
+    }
+
+    setSalvando(true);
+    setErro('');
+
+    try {
+      await atualizarPerfilCandidato(perfilEdicao.id_teste, {
+        nome_candidato: perfilEdicao.nome_candidato,
+        tags: quebrarListaTexto(formularioPerfil.tags),
+        habilidades: quebrarListaTexto(formularioPerfil.habilidades),
+        observacao_rh: formularioPerfil.observacao_rh,
+      });
+      setPerfilEdicao(null);
+      await carregar();
+    } catch (error) {
+      setErro(error?.message || 'Nao foi possivel atualizar o perfil RH.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const confirmarUso = async () => {
@@ -826,13 +957,24 @@ export function TelaBancoTalentos({ controlador }) {
     );
     if (!confirmar) return;
 
-    await usarCandidatoDoBancoTalentos(candidatoParaUtilizar.id_banco, {
-      id_processo: processoSelecionadoUso,
-    });
+    setSalvando(true);
+    setErro('');
 
-    setCandidatoParaUtilizar(null);
-    setProcessoSelecionadoUso('');
-    await carregar();
+    try {
+      await usarCandidatoDoBancoTalentos(candidatoParaUtilizar.id_banco, {
+        id_processo: processoSelecionadoUso,
+      });
+
+      setCandidatoParaUtilizar(null);
+      setProcessoSelecionadoUso('');
+      await carregar();
+    } catch (error) {
+      setErro(
+        error?.message || 'Nao foi possivel reutilizar o candidato selecionado.',
+      );
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return html`
@@ -847,70 +989,165 @@ export function TelaBancoTalentos({ controlador }) {
       <${PageIntro}
         kicker="Console • Banco de talentos"
         title="Candidatos reaproveitaveis"
-        description="Acompanhe candidatos guardados para oportunidades futuras e mova-os para novos processos."
+        description="Acompanhe candidatos guardados para oportunidades futuras, filtre por habilidade e registre tags e observacoes do RH."
       />
+
+      ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
+
+      <${SectionCard}
+        title="Filtros"
+        description="Busque candidatos por nome, habilidade e tags cadastradas."
+        tourId="talent-filters"
+      >
+        <div class="rh-filter-grid rh-filter-grid--wide">
+          <div class="rh-filter-field">
+            <label>Busca por nome</label>
+            <input
+              class="form-control"
+              placeholder="Nome, vaga ou processo"
+              value=${filtros.busca}
+              onInput=${(event) =>
+                setFiltros({ ...filtros, busca: event.target.value })}
+            />
+          </div>
+          <div class="rh-filter-field">
+            <label>Habilidade</label>
+            <input
+              class="form-control"
+              placeholder="Excel, Atendimento, TI..."
+              value=${filtros.habilidade}
+              onInput=${(event) =>
+                setFiltros({ ...filtros, habilidade: event.target.value })}
+            />
+          </div>
+          <div class="rh-filter-field">
+            <label>Tag</label>
+            <input
+              class="form-control"
+              placeholder="Prioritario, Boa aderencia..."
+              value=${filtros.tag}
+              onInput=${(event) =>
+                setFiltros({ ...filtros, tag: event.target.value })}
+            />
+          </div>
+        </div>
+      </${SectionCard}>
 
       <${SectionCard}
         title="Lista atual"
-        description="O comportamento de remocao e reaproveitamento foi mantido."
+        description="Reaproveitamento, perfil RH e filtros avancados funcionando sobre dados persistidos."
+        tourId="talent-table"
       >
-        <div class="table-responsive">
-          <table class="table align-middle rh-modern-history-table">
-            <thead>
-              <tr>
-                <th>Processo</th>
-                <th>Candidato</th>
-                <th>Vaga</th>
-                <th>Nota</th>
-                <th>Data</th>
-                <th>Origem</th>
-                <th class="text-end">Acoes</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${linhas.length
-                ? linhas.map(
-                    (linha) => html`
-                      <tr key=${linha.id_banco}>
-                        <td>${linha.id_processo || '-'}</td>
-                        <td>${linha.nome_candidato || '-'}</td>
-                        <td>${linha.vaga || '-'}</td>
-                        <td>${linha.pontuacao_final || '-'}</td>
-                        <td>${linha.data_movimentacao || '-'}</td>
-                        <td>${linha.origem || '-'}</td>
-                        <td class="text-end">
-                          <div class="d-flex justify-content-end gap-2 flex-wrap">
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-danger"
-                              onClick=${() => remover(linha.id_banco)}
-                            >
-                              Eliminar
-                            </button>
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-primary"
-                              onClick=${() => {
-                                setCandidatoParaUtilizar(linha);
-                                setProcessoSelecionadoUso('');
-                              }}
-                            >
-                              Utilizar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    `,
-                  )
-                : html`
-                    <${TabelaVazia}
-                      colunas=${7}
-                      texto="Nenhum candidato no banco de talentos."
-                    />
-                  `}
-            </tbody>
-          </table>
-        </div>
+        ${carregando
+          ? html`
+              <${LoadingState}
+                titulo="Carregando banco de talentos"
+                descricao="Buscando candidatos, tags e observacoes persistidas."
+              />
+            `
+          : html`
+              <div class="table-responsive">
+                <table class="table align-middle rh-modern-history-table">
+                  <thead>
+                    <tr>
+                      <th>Processo</th>
+                      <th>Candidato</th>
+                      <th>Vaga</th>
+                      <th>Nota</th>
+                      <th>Habilidades / tags</th>
+                      <th>Observacoes RH</th>
+                      <th>Entrevista</th>
+                      <th class="text-end">Acoes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${linhas.length
+                      ? linhas.map(
+                          (linha) => html`
+                            <tr key=${linha.id_banco}>
+                              <td>${linha.id_processo || '-'}</td>
+                              <td>
+                                <strong>${linha.nome_candidato || '-'}</strong>
+                                <div class="small text-muted mt-1">
+                                  ${formatarDataHora(linha.data_movimentacao)}
+                                </div>
+                              </td>
+                              <td>${linha.vaga || '-'}</td>
+                              <td>${linha.pontuacao_final || '-'}</td>
+                              <td>
+                                <div class="rh-cell-stack">
+                                  <div class="rh-chip-wrap">
+                                    ${(linha.habilidades || []).map(
+                                      (item) => html`
+                                        <span key=${item} class="rh-chip is-skill">${item}</span>
+                                      `,
+                                    )}
+                                    ${(linha.tags || []).map(
+                                      (item) => html`
+                                        <span key=${item} class="rh-chip">${item}</span>
+                                      `,
+                                    )}
+                                  </div>
+                                  <small>${linha.origem || '-'}</small>
+                                </div>
+                              </td>
+                              <td>${linha.observacao_rh || 'Sem observacoes.'}</td>
+                              <td>
+                                ${linha.status_entrevista
+                                  ? html`
+                                      <div class="rh-cell-stack">
+                                        <span
+                                          class=${`rh-status-pill ${obterClasseStatusEntrevista(linha.status_entrevista)}`}
+                                        >
+                                          ${linha.status_entrevista}
+                                        </span>
+                                        <small>${formatarDataHora(linha.data_entrevista)}</small>
+                                      </div>
+                                    `
+                                  : 'Nao agendada'}
+                              </td>
+                              <td class="text-end">
+                                <div class="d-flex justify-content-end gap-2 flex-wrap">
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    onClick=${() => abrirEdicaoPerfil(linha)}
+                                  >
+                                    Perfil RH
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    disabled=${salvando}
+                                    onClick=${() => remover(linha.id_banco)}
+                                  >
+                                    Eliminar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    onClick=${() => {
+                                      setCandidatoParaUtilizar(linha);
+                                      setProcessoSelecionadoUso('');
+                                    }}
+                                  >
+                                    Utilizar
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          `,
+                        )
+                      : html`
+                          <${TabelaVazia}
+                            colunas=${8}
+                            texto="Nenhum candidato no banco de talentos."
+                          />
+                        `}
+                  </tbody>
+                </table>
+              </div>
+            `}
       </${SectionCard}>
 
       <${ModalPadrao}
@@ -954,11 +1191,92 @@ export function TelaBancoTalentos({ controlador }) {
           <button
             type="button"
             class="btn btn-primary"
+            disabled=${salvando}
             onClick=${confirmarUso}
           >
             Confirmar utilizacao
           </button>
         </footer>
+      </${ModalPadrao}>
+
+      <${ModalPadrao}
+        aberto=${!!perfilEdicao}
+        titulo="Perfil RH do candidato"
+        subtitulo="Cadastre habilidades, tags e observacoes persistidas para reutilizacao futura."
+        onClose=${() => setPerfilEdicao(null)}
+      >
+        ${perfilEdicao
+          ? html`
+              <div class="rh-details-body">
+                <div class="row g-3">
+                  <div class="col-md-12">
+                    <label class="form-label">Candidato</label>
+                    <input
+                      class="form-control"
+                      readonly
+                      value=${perfilEdicao.nome_candidato || ''}
+                    />
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Habilidades</label>
+                    <input
+                      class="form-control"
+                      placeholder="Excel, Atendimento, Administrativo..."
+                      value=${formularioPerfil.habilidades}
+                      onInput=${(event) =>
+                        setFormularioPerfil({
+                          ...formularioPerfil,
+                          habilidades: event.target.value,
+                        })}
+                    />
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Tags</label>
+                    <input
+                      class="form-control"
+                      placeholder="Prioritario, Boa aderencia..."
+                      value=${formularioPerfil.tags}
+                      onInput=${(event) =>
+                        setFormularioPerfil({
+                          ...formularioPerfil,
+                          tags: event.target.value,
+                        })}
+                    />
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Observacao RH</label>
+                    <textarea
+                      class="form-control"
+                      rows="5"
+                      value=${formularioPerfil.observacao_rh}
+                      onInput=${(event) =>
+                        setFormularioPerfil({
+                          ...formularioPerfil,
+                          observacao_rh: event.target.value,
+                        })}
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+              <footer class="rh-modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  onClick=${() => setPerfilEdicao(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  disabled=${salvando}
+                  onClick=${salvarPerfil}
+                >
+                  ${salvando ? 'Salvando...' : 'Salvar perfil'}
+                </button>
+              </footer>
+            `
+          : null}
       </${ModalPadrao}>
     </${PainelRh}>
   `;
@@ -1117,7 +1435,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
         description="Compare desempenho, afinidade e recomendacao usando os dados ja consolidados pela aplicacao."
       />
 
-      <${BlocoFiltro}>
+      <${BlocoFiltro} tourId="analysis-filters">
         <div class="rh-filter-grid rh-filter-grid--wide">
           <${CampoFiltro} label="Processo" icon="folder_managed">
             <input
@@ -1169,6 +1487,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
       <${SectionCard}
         title="Ranking analitico"
         description="Acoes de aprovacao, eliminacao e envio para banco de talentos continuam disponiveis no modal de detalhe."
+        tourId="analysis-ranking"
       >
         <div class="table-responsive">
           <table class="table align-middle rh-modern-history-table">

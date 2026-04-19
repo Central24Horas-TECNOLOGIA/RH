@@ -7,6 +7,7 @@ export const ROTAS_POR_TELA = {
   'screen-candidate-pipeline': 'pipeline-candidatos',
   'screen-process-create': 'novo-processo',
   'screen-process-details': 'detalhes-processo',
+  'screen-interviews': 'entrevistas',
   'screen-talent-bank': 'banco-talentos',
   'screen-config': 'configuracao',
   'screen-candidate': 'candidato',

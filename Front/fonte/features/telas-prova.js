@@ -1,17 +1,9 @@
-﻿import {
-  html,
-  useEffect,
-  useMemo,
-  useState,
-} from '../infraestrutura-react.js';
+﻿import { html, useEffect, useMemo, useState } from '../infraestrutura-react.js';
 import {
   SUGESTOES_NIVEL_POR_VAGA,
   resolverBlueprintProva,
 } from '../perguntas.js';
-import {
-  lerProcessos,
-  navegarParaTela,
-} from '../app/controlador-aplicacao.js';
+import { lerProcessos, navegarParaTela } from '../app/controlador-aplicacao.js';
 import {
   formatarNotaVisual,
   formatarTempoRestante,
@@ -148,8 +140,9 @@ export function TelaConfiguracao({ controlador }) {
         description="Selecione perfil, nivel, trilha e processo sem alterar o roteamento hash nem a integracao existente."
       />
 
-      ${requisitoBuscado
-        ? html`
+      ${
+        requisitoBuscado
+          ? html`
             <${SectionCard}
               title="Requisito localizado na busca"
               description=${`${requisitoBuscado.blueprintLabel || 'Blueprint'} • ${requisitoBuscado.stageLabel || 'Etapa'}`}
@@ -160,11 +153,13 @@ export function TelaConfiguracao({ controlador }) {
               </div>
             </${SectionCard}>
           `
-        : null}
+          : null
+      }
 
       <${SectionCard}
         title="Parametros da avaliacao"
         description="Todos os campos abaixo alimentam o mesmo estado global ja utilizado pelo sistema."
+        tourId="config-parameters"
       >
         <div class="row g-3">
           <div class="col-md-6">
@@ -179,7 +174,10 @@ export function TelaConfiguracao({ controlador }) {
               <option value="PROCESSO_UNICO">Processo unico</option>
               ${processosAbertos.map(
                 (processo) => html`
-                  <option key=${processo.id_processo} value=${processo.id_processo}>
+                  <option
+                    key=${processo.id_processo}
+                    value=${processo.id_processo}
+                  >
                     ${`${processo.id_processo} • ${processo.vaga} • ${processo.operacao || processo.trilha || '-'} • ${processo.data_encerramento || '-'}`}
                   </option>
                 `,
@@ -314,7 +312,9 @@ export function TelaCandidato({ controlador }) {
       <div class="rh-standalone-page">
         <div class="rh-candidate-layout">
           <aside class="rh-candidate-side-card">
-            <label class="form-label small text-uppercase fw-bold text-muted mb-2">
+            <label
+              class="form-label small text-uppercase fw-bold text-muted mb-2"
+            >
               Nome completo
             </label>
             <div class="rh-candidate-name-shell">
@@ -357,36 +357,53 @@ export function TelaCandidato({ controlador }) {
                 <h3>Antes de comecar</h3>
                 <ul class="rules-list">
                   <li>Leia atentamente cada questao.</li>
-                  <li>Em exercicios de Excel, baixe o arquivo e envie a versao respondida.</li>
-                  <li>O sistema registra automaticamente o andamento da prova.</li>
+                  <li>
+                    Em exercicios de Excel, baixe o arquivo e envie a versao
+                    respondida.
+                  </li>
+                  <li>
+                    O sistema registra automaticamente o andamento da prova.
+                  </li>
                   <li>Revise as respostas sempre que possivel.</li>
                 </ul>
               </article>
               <article class="rh-instruction-card">
                 <h3>Durante a prova</h3>
                 <ul class="rules-list">
-                  <li>Algumas etapas avaliam pratica, raciocinio e organizacao.</li>
+                  <li>
+                    Algumas etapas avaliam pratica, raciocinio e organizacao.
+                  </li>
                   <li>O cronometro segue o tempo configurado pelo RH.</li>
-                  <li>Ao finalizar, o resultado fica disponivel para analise interna.</li>
-                  <li>Se houver dificuldade tecnica, avise o responsavel pela aplicacao.</li>
+                  <li>
+                    Ao finalizar, o resultado fica disponivel para analise
+                    interna.
+                  </li>
+                  <li>
+                    Se houver dificuldade tecnica, avise o responsavel pela
+                    aplicacao.
+                  </li>
                 </ul>
               </article>
             </div>
 
-            ${erro ? html`<div class="alert alert-danger mt-4">${erro}</div>` : null}
+            ${erro
+              ? html`<div class="alert alert-danger mt-4">${erro}</div>`
+              : null}
 
             <div class="rh-candidate-footer">
               <div class="rh-candidate-disclaimer">
                 <span class="material-symbols-outlined">info</span>
                 <span>
-                  Ao iniciar, voce confirma que leu e concorda com as orientacoes da avaliacao.
+                  Ao iniciar, voce confirma que leu e concorda com as
+                  orientacoes da avaliacao.
                 </span>
               </div>
               <div class="d-flex gap-2 flex-wrap">
                 <button
                   type="button"
                   class="btn btn-outline-secondary"
-                  onClick=${() => controlador.irParaTelaProtegida('screen-config')}
+                  onClick=${() =>
+                    controlador.irParaTelaProtegida('screen-config')}
                 >
                   Voltar
                 </button>
@@ -495,7 +512,7 @@ export function TelaProva({ controlador }) {
               <img
                 alt="Central 24 Horas"
                 class="exam-screen-logo"
-                src="estilos/logo-central24.jpg"
+                src="estilos/logo-conexa.png"
               />
               <div class="exam-screen-brand-copy">
                 <span class="exam-screen-caption">Prova em andamento</span>
@@ -533,34 +550,40 @@ export function TelaProva({ controlador }) {
           </div>
 
           <div class="exam-dynamic-area">
-            ${questaoAtual.type === 'word'
-              ? html`
-                  <${EditorTextoRich}
-                    valor=${respostaAtual?.content || ''}
-                    onChange=${atualizarRespostaDiscursiva}
-                  />
-                `
-              : null}
-            ${questaoAtual.type === 'multiple'
-              ? html`
-                  <${PerguntaMultipla}
-                    questao=${questaoAtual}
-                    resposta=${respostaAtual}
-                    onChange=${atualizarRespostaObjetiva}
-                  />
-                `
-              : null}
-            ${questaoAtual.type === 'excel_external'
-              ? html`
-                  <${PerguntaExcel}
-                    questao=${questaoAtual}
-                    resposta=${respostaAtual}
-                    nomeCandidato=${controlador.estado.candidato.name}
-                    onChange=${(resposta) =>
-                      controlador.atualizarResposta(indiceAtual, resposta)}
-                  />
-                `
-              : null}
+            ${
+              questaoAtual.type === 'word'
+                ? html`
+                    <${EditorTextoRich}
+                      valor=${respostaAtual?.content || ''}
+                      onChange=${atualizarRespostaDiscursiva}
+                    />
+                  `
+                : null
+            }
+            ${
+              questaoAtual.type === 'multiple'
+                ? html`
+                    <${PerguntaMultipla}
+                      questao=${questaoAtual}
+                      resposta=${respostaAtual}
+                      onChange=${atualizarRespostaObjetiva}
+                    />
+                  `
+                : null
+            }
+            ${
+              questaoAtual.type === 'excel_external'
+                ? html`
+                    <${PerguntaExcel}
+                      questao=${questaoAtual}
+                      resposta=${respostaAtual}
+                      nomeCandidato=${controlador.estado.candidato.name}
+                      onChange=${(resposta) =>
+                        controlador.atualizarResposta(indiceAtual, resposta)}
+                    />
+                  `
+                : null
+            }
           </div>
         </div>
 
@@ -589,9 +612,11 @@ export function TelaProva({ controlador }) {
               class="btn exam-nav-btn exam-nav-btn-primary"
               onClick=${avancar}
             >
-              ${indiceAtual === controlador.estado.questoes.length - 1
-                ? 'Finalizar'
-                : 'Proxima'}
+              ${
+                indiceAtual === controlador.estado.questoes.length - 1
+                  ? 'Finalizar'
+                  : 'Proxima'
+              }
             </button>
           </div>
         </footer>
@@ -643,17 +668,21 @@ export function TelaConclusao({ controlador }) {
           </div>
           <h2 class="rh-finish-title">Avaliacao finalizada com sucesso</h2>
           <p class="rh-finish-subtitle">
-            A prova foi encerrada e o resultado pode ser salvo no sistema para registro definitivo.
+            A prova foi encerrada e o resultado pode ser salvo no sistema para
+            registro definitivo.
           </p>
 
           <div class="rh-finish-info-grid">
-            <article class="rh-finish-info-card rh-finish-info-card-save is-required">
+            <article
+              class="rh-finish-info-card rh-finish-info-card-save is-required"
+            >
               <div class="rh-finish-info-icon is-blue">
                 <span class="material-symbols-outlined">task_alt</span>
               </div>
               <h3>Finalizacao obrigatoria</h3>
               <p>
-                Para concluir corretamente esta avaliacao, e obrigatorio salvar o resultado no sistema.
+                Para concluir corretamente esta avaliacao, e obrigatorio salvar
+                o resultado no sistema.
               </p>
               <button
                 type="button"
@@ -676,7 +705,8 @@ export function TelaConclusao({ controlador }) {
               </div>
               <h3>Proximos passos</h3>
               <p>
-                O RH recebera o registro salvo e podera continuar a analise do candidato nas telas de gestao.
+                O RH recebera o registro salvo e podera continuar a analise do
+                candidato nas telas de gestao.
               </p>
             </article>
           </div>
@@ -705,7 +735,8 @@ export function TelaConclusao({ controlador }) {
             </div>
             <div class="rh-finish-access-title">Acesso restrito RH</div>
             <p class="rh-finish-access-text">
-              O resultado detalhado permanece restrito a usuarios autenticados no sistema.
+              O resultado detalhado permanece restrito a usuarios autenticados
+              no sistema.
             </p>
             <button
               type="button"
@@ -824,12 +855,19 @@ export function TelaResultado({ controlador }) {
                     <div class="rh-stage-grid">
                       ${(estado.resumoEtapas || []).map(
                         (etapa) => html`
-                          <article key=${etapa.key} class="rh-stage-result-card">
+                          <article
+                            key=${etapa.key}
+                            class="rh-stage-result-card"
+                          >
                             <div class="rh-stage-result-top">
                               <div class="text-muted">${etapa.label}</div>
-                              <span class="weight-badge">${`Peso ${etapa.weight}%`}</span>
+                              <span class="weight-badge"
+                                >${`Peso ${etapa.weight}%`}</span
+                              >
                             </div>
-                            <strong>${`${etapa.questionCount} item(ns) avaliados`}</strong>
+                            <strong
+                              >${`${etapa.questionCount} item(ns) avaliados`}</strong
+                            >
                             <div
                               class=${`stage-card-score ${obterClasseEtapaResultado(etapa.percent)}`}
                             >
@@ -876,59 +914,69 @@ export function TelaResultado({ controlador }) {
                       title="Pendencias"
                       className="rh-section-card--flat"
                     >
-                      ${(estado.pendenciasManuais || []).length
-                        ? html`
-                            <div class="rh-result-pending-list">
-                              ${(estado.pendenciasManuais || []).map(
-                                (item, indice) => html`
-                                  <div key=${indice} class="mb-3">
-                                    <strong>
-                                      ${item.title || item.q?.title || 'Item para revisao'}
-                                    </strong>
-                                    ${item.completedTasks?.length
-                                      ? html`
-                                          <div class="small text-muted mt-2">
-                                            ${item.completedTasks.map(
-                                              (linha, indiceLinha) => html`
-                                                <div key=${indiceLinha}>${linha}</div>
-                                              `,
-                                            )}
-                                          </div>
-                                        `
-                                      : null}
-                                    ${item.answerKey?.length
-                                      ? html`
-                                          <div class="small text-muted mt-2">
-                                            ${item.answerKey.map(
-                                              (linha, indiceLinha) => html`
-                                                <div key=${indiceLinha}>${linha}</div>
-                                              `,
-                                            )}
-                                          </div>
-                                        `
-                                      : null}
-                                    ${item.notes?.length
-                                      ? html`
-                                          <div class="small text-muted mt-2">
-                                            ${item.notes.map(
-                                              (linha, indiceLinha) => html`
-                                                <div key=${indiceLinha}>${linha}</div>
-                                              `,
-                                            )}
-                                          </div>
-                                        `
-                                      : null}
-                                  </div>
-                                `,
-                              )}
-                            </div>
-                          `
-                        : html`
-                            <${EmptyState}
-                              title="Sem pendencias"
-                              text="Nao ha pendencias de revisao registradas para esta prova."
-                            />
-                          `}
+                      ${
+                        (estado.pendenciasManuais || []).length
+                          ? html`
+                              <div class="rh-result-pending-list">
+                                ${(estado.pendenciasManuais || []).map(
+                                  (item, indice) => html`
+                                    <div key=${indice} class="mb-3">
+                                      <strong>
+                                        ${item.title ||
+                                        item.q?.title ||
+                                        'Item para revisao'}
+                                      </strong>
+                                      ${item.completedTasks?.length
+                                        ? html`
+                                            <div class="small text-muted mt-2">
+                                              ${item.completedTasks.map(
+                                                (linha, indiceLinha) => html`
+                                                  <div key=${indiceLinha}>
+                                                    ${linha}
+                                                  </div>
+                                                `,
+                                              )}
+                                            </div>
+                                          `
+                                        : null}
+                                      ${item.answerKey?.length
+                                        ? html`
+                                            <div class="small text-muted mt-2">
+                                              ${item.answerKey.map(
+                                                (linha, indiceLinha) => html`
+                                                  <div key=${indiceLinha}>
+                                                    ${linha}
+                                                  </div>
+                                                `,
+                                              )}
+                                            </div>
+                                          `
+                                        : null}
+                                      ${item.notes?.length
+                                        ? html`
+                                            <div class="small text-muted mt-2">
+                                              ${item.notes.map(
+                                                (linha, indiceLinha) => html`
+                                                  <div key=${indiceLinha}>
+                                                    ${linha}
+                                                  </div>
+                                                `,
+                                              )}
+                                            </div>
+                                          `
+                                        : null}
+                                    </div>
+                                  `,
+                                )}
+                              </div>
+                            `
+                          : html`
+                              <${EmptyState}
+                                title="Sem pendencias"
+                                text="Nao ha pendencias de revisao registradas para esta prova."
+                              />
+                            `
+                      }
                     </${SectionCard}>
                   </aside>
                 </div>
@@ -939,9 +987,18 @@ export function TelaResultado({ controlador }) {
                 >
                   <${MetricGrid}
                     items=${[
-                      { label: 'Pontuacao bruta', value: `${estado.totalScore}/${estado.totalMax}` },
-                      { label: 'Etapas avaliadas', value: (estado.resumoEtapas || []).length },
-                      { label: 'Status final', value: estado.statusFinalizacao || 'Finalizado' },
+                      {
+                        label: 'Pontuacao bruta',
+                        value: `${estado.totalScore}/${estado.totalMax}`,
+                      },
+                      {
+                        label: 'Etapas avaliadas',
+                        value: (estado.resumoEtapas || []).length,
+                      },
+                      {
+                        label: 'Status final',
+                        value: estado.statusFinalizacao || 'Finalizado',
+                      },
                     ]}
                   />
                 </${SectionCard}>
@@ -970,7 +1027,9 @@ export function TelaResultado({ controlador }) {
                     (etapa) => html`
                       <div class="print-stage-card" key=${etapa.key}>
                         <div class="print-stage-title">${etapa.label}</div>
-                        <div class="print-stage-score">${`${etapa.rawScore}/${etapa.rawMax}`}</div>
+                        <div class="print-stage-score">
+                          ${`${etapa.rawScore}/${etapa.rawMax}`}
+                        </div>
                         <div class="print-stage-meta">
                           ${`Peso: ${etapa.weight}%`}<br />
                           ${`Aproveitamento: ${formatarNotaVisual(
@@ -986,28 +1045,36 @@ export function TelaResultado({ controlador }) {
                 <div class="print-sheet-divider print-gap-top"></div>
                 <h2 class="print-sheet-section-title">Pendencias para revisao do RH</h2>
                 <div class="print-manual-box">
-                  ${(estado.pendenciasManuais || []).length
-                    ? (estado.pendenciasManuais || []).map(
-                        (item, indice) => html`
-                          <div key=${indice} class="mb-3">
-                            <strong>${item.title || item.q?.title || 'Item para revisao'}</strong>
-                            ${item.notes?.length
-                              ? html`
-                                  <div class="small text-muted">
-                                    ${item.notes.join(' | ')}
-                                  </div>
-                                `
-                              : null}
-                          </div>
-                        `,
-                      )
-                    : html`<div>Nenhuma pendencia.</div>`}
+                  ${
+                    (estado.pendenciasManuais || []).length
+                      ? (estado.pendenciasManuais || []).map(
+                          (item, indice) => html`
+                            <div key=${indice} class="mb-3">
+                              <strong
+                                >${item.title ||
+                                item.q?.title ||
+                                'Item para revisao'}</strong
+                              >
+                              ${item.notes?.length
+                                ? html`
+                                    <div class="small text-muted">
+                                      ${item.notes.join(' | ')}
+                                    </div>
+                                  `
+                                : null}
+                            </div>
+                          `,
+                        )
+                      : html`<div>Nenhuma pendencia.</div>`
+                  }
                 </div>
                 <div class="print-sheet-divider print-gap-top"></div>
                 <h2 class="print-sheet-section-title">Observacao do RH</h2>
                 <div class="print-observation-note">
-                  ${(estado.observacaoRh || '').trim() ||
-                  'Anotacoes sobre desempenho, postura, tempo e pontos de atencao.'}
+                  ${
+                    (estado.observacaoRh || '').trim() ||
+                    'Anotacoes sobre desempenho, postura, tempo e pontos de atencao.'
+                  }
                 </div>
               </div>
             </div>
@@ -1017,5 +1084,3 @@ export function TelaResultado({ controlador }) {
     </section>
   `;
 }
-
-

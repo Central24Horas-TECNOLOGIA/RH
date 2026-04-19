@@ -17,6 +17,7 @@ import {
   TelaProcessos,
 } from '../features/telas-processos.js';
 import { TelaPipelineCandidatos } from '../features/tela-pipeline.js';
+import { TelaEntrevistas } from '../features/tela-entrevistas.js';
 import {
   TelaCandidato,
   TelaConfiguracao,
@@ -106,6 +107,10 @@ export function Aplicacao() {
 
   if (telaResolvida === 'screen-process-details') {
     return html`<${TelaDetalhesProcesso} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-interviews') {
+    return html`<${TelaEntrevistas} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-talent-bank') {

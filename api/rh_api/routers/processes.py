@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 
 from ..dependencies import get_current_user, get_repository
 from ..repositories.db_repository import DatabaseRepository
 from ..schemas.processes import (
+    CandidateProfileUpdateRequest,
     CvPreAnalysisUpdateRequest,
     ProcessCandidateCreateRequest,
     ProcessCandidateStatusUpdateRequest,
@@ -70,8 +71,13 @@ def update_process_candidate_status(
 
 
 @router.get("/talent-bank")
-def get_talent_bank(repository: DatabaseRepository = Depends(get_repository)):
-    return repository.list_talent_bank()
+def get_talent_bank(
+    search: str = Query(default=""),
+    skill: str = Query(default=""),
+    tag: str = Query(default=""),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.list_talent_bank(search=search, skill=skill, tag=tag)
 
 
 @router.delete("/talent-bank/{id_banco}")
@@ -89,6 +95,15 @@ def use_talent_bank_candidate(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.use_talent_bank_candidate(id_banco, payload.model_dump())
+
+
+@router.put("/candidate-profiles/{id_teste}")
+def update_candidate_profile(
+    id_teste: str,
+    payload: CandidateProfileUpdateRequest,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.upsert_candidate_profile(id_teste, payload.model_dump())
 
 
 @router.get("/processes/{id_processo}/details")

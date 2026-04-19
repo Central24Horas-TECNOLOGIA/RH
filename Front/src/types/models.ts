@@ -6,6 +6,7 @@
   | 'screen-candidate-pipeline'
   | 'screen-process-create'
   | 'screen-process-details'
+  | 'screen-interviews'
   | 'screen-talent-bank'
   | 'screen-config'
   | 'screen-candidate'
@@ -22,6 +23,7 @@ export type RouteId =
   | 'pipeline-candidatos'
   | 'novo-processo'
   | 'detalhes-processo'
+  | 'entrevistas'
   | 'banco-talentos'
   | 'configuracao'
   | 'candidato'
@@ -63,6 +65,7 @@ export interface Process {
   nota_corte?: number | null;
   status?: string;
   data_criacao?: string;
+  link_agendamento?: string;
 }
 
 export interface ProcessCandidate {
@@ -76,6 +79,13 @@ export interface ProcessCandidate {
   data_prova?: string;
   data_movimentacao?: string;
   origem?: string;
+  tags?: string[];
+  habilidades?: string[];
+  observacao_rh?: string;
+  status_entrevista?: string;
+  data_entrevista?: string;
+  link_entrevista?: string;
+  id_entrevista?: number;
 }
 
 export interface TalentBankCandidate {
@@ -87,6 +97,12 @@ export interface TalentBankCandidate {
   pontuacao_final?: string | number;
   data_movimentacao?: string;
   origem?: string;
+  tags?: string[];
+  habilidades?: string[];
+  observacao_rh?: string;
+  status_entrevista?: string;
+  data_entrevista?: string;
+  link_entrevista?: string;
 }
 
 export interface HistoryRecord {
@@ -252,6 +268,7 @@ export interface ApplicationState {
   autenticado: boolean;
   validandoSessao: boolean;
   usuarioAutenticado: string;
+  barraLateralRecolhida: boolean;
   candidato: Candidate;
   processoSelecionado: string;
   questoes: Question[];

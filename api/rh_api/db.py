@@ -16,5 +16,5 @@ def build_connection_string(settings: Settings | None = None) -> str:
     )
 
 
-def get_connection(settings: Settings | None = None) -> pyodbc.Connection:
-    return pyodbc.connect(build_connection_string(settings))
+def get_connection(settings: Settings | None = None, *, autocommit: bool = False) -> pyodbc.Connection:
+    return pyodbc.connect(build_connection_string(settings), autocommit=autocommit)

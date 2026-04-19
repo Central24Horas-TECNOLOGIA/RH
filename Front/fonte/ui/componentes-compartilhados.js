@@ -1,9 +1,4 @@
-﻿import {
-  html,
-  useEffect,
-  useRef,
-  useState,
-} from '../infraestrutura-react.js';
+﻿import { html, useEffect, useRef, useState } from '../infraestrutura-react.js';
 import {
   construirModeloPaginacao,
   formatarPontuacaoDetalhada,
@@ -14,7 +9,9 @@ import {
   validarArquivoExcel,
 } from '../regras-prova.js';
 import { obterClasseSituacaoAtual } from '../app/controlador-aplicacao.js';
+import { obterTourDaTela } from '../shared/tour-config.js';
 import { BuscaGlobalTopbar } from './busca-global.js';
+import { BotaoAjudaTour, TourGuiado } from './tour-guiado.js';
 
 function BotaoPaginacao({ pagina, ativa, onClick }) {
   return html`
@@ -95,6 +92,7 @@ function BarraLateral({
   subtituloMarca,
   controlador,
   mostrarAtalhos = true,
+  recolhida = false,
 }) {
   const itens = [
     { tela: 'screen-menu', icone: 'home', label: 'Painel' },
@@ -110,6 +108,11 @@ function BarraLateral({
       label: 'Pipeline',
     },
     {
+      tela: 'screen-interviews',
+      icone: 'event_available',
+      label: 'Entrevistas',
+    },
+    {
       tela: 'screen-analysis-candidates',
       icone: 'analytics',
       label: 'Analise',
@@ -122,7 +125,10 @@ function BarraLateral({
   ];
 
   return html`
-    <aside class="rh-modern-sidebar">
+    <aside
+      class=${`rh-modern-sidebar ${recolhida ? 'is-collapsed' : ''}`.trim()}
+      data-tour-id="layout-sidebar"
+    >
       <div class="rh-modern-sidebar-brand">
         <button
           type="button"
@@ -133,13 +139,26 @@ function BarraLateral({
           <img
             alt="Central 24 Horas"
             class="rh-modern-logo"
-            src="estilos/logo-central24.jpg"
+            src="estilos/Conexa_logo_branca.png"
           />
         </button>
-        <div>
+        <div class="rh-modern-brand-copy">
           <div class="rh-modern-brand-title">Conexa RH</div>
           <div class="rh-modern-brand-subtitle">${subtituloMarca}</div>
         </div>
+        <button
+          type="button"
+          class="rh-modern-sidebar-toggle"
+          aria-label=${recolhida
+            ? 'Expandir menu lateral'
+            : 'Recolher menu lateral'}
+          title=${recolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+          onClick=${() => controlador.alternarBarraLateral()}
+        >
+          <span class="material-symbols-outlined">
+            ${recolhida ? 'left_panel_open' : 'left_panel_close'}
+          </span>
+        </button>
       </div>
 
       <nav class="rh-modern-nav">
@@ -149,10 +168,11 @@ function BarraLateral({
               key=${item.tela}
               type="button"
               class=${`rh-modern-nav-btn ${navAtiva === item.tela ? 'is-active' : ''}`}
+              title=${item.label}
               onClick=${() => controlador.irParaTelaProtegida(item.tela)}
             >
               <span class="material-symbols-outlined">${item.icone}</span>
-              <span>${item.label}</span>
+              <span class="rh-modern-nav-label">${item.label}</span>
             </button>
           `,
         )}
@@ -164,19 +184,21 @@ function BarraLateral({
               <button
                 type="button"
                 class="rh-modern-cta-btn"
+                title="Novo processo"
                 onClick=${() =>
                   controlador.irParaTelaProtegida('screen-process-create')}
               >
                 <span class="material-symbols-outlined">playlist_add</span>
-                <span>Novo processo</span>
+                <span class="rh-modern-nav-label">Novo processo</span>
               </button>
               <button
                 type="button"
                 class="rh-modern-cta-btn"
+                title="Nova prova"
                 onClick=${() => controlador.iniciarNovoFluxo()}
               >
                 <span class="material-symbols-outlined">play_circle</span>
-                <span>Nova prova</span>
+                <span class="rh-modern-nav-label">Nova prova</span>
               </button>
             </div>
           `
@@ -185,9 +207,15 @@ function BarraLateral({
   `;
 }
 
-export function PageIntro({ kicker, title, description, actions = null }) {
+export function PageIntro({
+  kicker,
+  title,
+  description,
+  actions = null,
+  tourId = 'page-intro',
+}) {
   return html`
-    <section class="rh-page-intro">
+    <section class="rh-page-intro" data-tour-id=${tourId || null}>
       <div>
         ${kicker ? html`<p class="rh-modern-kicker">${kicker}</p>` : null}
         <h2 class="rh-modern-title">${title}</h2>
@@ -195,7 +223,9 @@ export function PageIntro({ kicker, title, description, actions = null }) {
           ? html`<p class="rh-modern-description">${description}</p>`
           : null}
       </div>
-      ${actions ? html`<div class="rh-page-intro-actions">${actions}</div>` : null}
+      ${actions
+        ? html`<div class="rh-page-intro-actions">${actions}</div>`
+        : null}
     </section>
   `;
 }
@@ -205,10 +235,14 @@ export function SectionCard({
   description,
   actions = null,
   className = '',
+  tourId = '',
   children,
 }) {
   return html`
-    <section class=${`rh-section-card ${className}`.trim()}>
+    <section
+      class=${`rh-section-card ${className}`.trim()}
+      data-tour-id=${tourId || null}
+    >
       ${title || description || actions
         ? html`
             <header class="rh-section-card-header">
@@ -259,6 +293,25 @@ export function EmptyState({ title, text }) {
   `;
 }
 
+export function LoadingState({
+  titulo = 'Carregando dados',
+  descricao = 'Aguarde enquanto as informacoes sao atualizadas.',
+}) {
+  return html`
+    <div class="rh-loading-state">
+      <div
+        class="spinner-border text-primary"
+        role="status"
+        aria-hidden="true"
+      ></div>
+      <div>
+        <strong>${titulo}</strong>
+        <p>${descricao}</p>
+      </div>
+    </div>
+  `;
+}
+
 export function PainelRh({
   screenId,
   navAtiva,
@@ -270,19 +323,29 @@ export function PainelRh({
   mostrarAtalhos = true,
   children,
 }) {
+  const sidebarRecolhida = !!controlador?.estado?.barraLateralRecolhida;
+  const tour = obterTourDaTela(screenId, {
+    hasPrimaryAction: Boolean(acaoPrimaria),
+  });
+  const [tourReopenSignal, setTourReopenSignal] = useState(0);
+  const usuarioTour = controlador?.estado?.usuarioAutenticado || '';
+
   return html`
     <section class="active screen" id=${screenId}>
-      <div class="rh-modern-shell">
+      <div
+        class=${`rh-modern-shell ${sidebarRecolhida ? 'is-sidebar-collapsed' : ''}`.trim()}
+      >
         <${BarraLateral}
           navAtiva=${navAtiva}
           subtituloMarca=${subtituloMarca}
           controlador=${controlador}
           mostrarAtalhos=${mostrarAtalhos}
+          recolhida=${sidebarRecolhida}
         />
 
         <div class="rh-modern-main">
           <header class="rh-modern-topbar">
-            <div class="rh-modern-topbar-left">
+            <div class="rh-modern-topbar-left" data-tour-id="topbar-search">
               <${BuscaGlobalTopbar}
                 placeholderBusca=${placeholderBusca}
                 controlador=${controlador}
@@ -294,17 +357,39 @@ export function PainelRh({
                     <button
                       type="button"
                       class="btn btn-primary rh-modern-primary-btn"
+                      data-tour-id="topbar-primary-action"
                       onClick=${acaoPrimaria.onClick}
                     >
                       ${acaoPrimaria.label}
                     </button>
                   `
                 : null}
+              ${tour?.steps?.length
+                ? html`
+                    <${BotaoAjudaTour}
+                      compact=${true}
+                      label="Ver orientacoes"
+                      onClick=${() => setTourReopenSignal((valor) => valor + 1)}
+                    />
+                  `
+                : null}
               ${acoesTopo}
             </div>
           </header>
 
-          <main class="rh-modern-page">${children}</main>
+          <main class="rh-modern-page">
+            ${children}
+            ${tour?.steps?.length
+              ? html`
+                  <${TourGuiado}
+                    screenId=${screenId}
+                    userId=${usuarioTour}
+                    steps=${tour.steps}
+                    reopenSignal=${tourReopenSignal}
+                  />
+                `
+              : null}
+          </main>
         </div>
       </div>
     </section>
@@ -366,52 +451,56 @@ export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
           title="Notas por etapa"
           className="rh-section-card--flat"
         >
-          ${resumoEtapas?.length
-            ? html`
-                <div class="rh-stage-grid">
-                  ${resumoEtapas.map(
-                    (etapa, indice) => html`
-                      <article key=${indice} class="rh-stage-card">
-                        <div class="rh-stage-card-top">
-                          <strong>${etapa.label || '-'}</strong>
-                          <span>Peso ${etapa.weight ?? '-'}%</span>
-                        </div>
-                        <div class="rh-stage-card-score">
-                          ${etapa.rawScore ?? 0}/${etapa.rawMax ?? 0}
-                        </div>
-                        <p>
-                          Aproveitamento:
-                          ${((etapa.percent || 0) * 100).toFixed(1)}%
-                        </p>
-                        <p>
-                          Nota ponderada:
-                          ${Number(etapa.weightedScore || 0).toFixed(1)}
-                        </p>
-                      </article>
-                    `,
-                  )}
-                </div>
-              `
-            : html`
-                <${EmptyState}
-                  title="Sem detalhamento salvo"
-                  text="Esta prova possui apenas o resumo consolidado no historico."
-                />
-              `}
+          ${
+            resumoEtapas?.length
+              ? html`
+                  <div class="rh-stage-grid">
+                    ${resumoEtapas.map(
+                      (etapa, indice) => html`
+                        <article key=${indice} class="rh-stage-card">
+                          <div class="rh-stage-card-top">
+                            <strong>${etapa.label || '-'}</strong>
+                            <span>Peso ${etapa.weight ?? '-'}%</span>
+                          </div>
+                          <div class="rh-stage-card-score">
+                            ${etapa.rawScore ?? 0}/${etapa.rawMax ?? 0}
+                          </div>
+                          <p>
+                            Aproveitamento:
+                            ${((etapa.percent || 0) * 100).toFixed(1)}%
+                          </p>
+                          <p>
+                            Nota ponderada:
+                            ${Number(etapa.weightedScore || 0).toFixed(1)}
+                          </p>
+                        </article>
+                      `,
+                    )}
+                  </div>
+                `
+              : html`
+                  <${EmptyState}
+                    title="Sem detalhamento salvo"
+                    text="Esta prova possui apenas o resumo consolidado no historico."
+                  />
+                `
+          }
         </${SectionCard}>
 
         <${SectionCard}
           title="Registro completo"
           className="rh-section-card--flat"
         >
-          ${payload?.textContent
-            ? html`<pre class="rh-detail-log">${payload.textContent}</pre>`
-            : html`
-                <${EmptyState}
-                  title="Gabarito indisponivel"
-                  text="Nao existe texto detalhado salvo para esta prova."
-                />
-              `}
+          ${
+            payload?.textContent
+              ? html`<pre class="rh-detail-log">${payload.textContent}</pre>`
+              : html`
+                  <${EmptyState}
+                    title="Gabarito indisponivel"
+                    text="Nao existe texto detalhado salvo para esta prova."
+                  />
+                `
+          }
         </${SectionCard}>
       </div>
 
@@ -605,7 +694,9 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
 
         <div class="col-lg-5">
           <div class="excel-upload-box">
-            <label class="form-label fw-semibold">Enviar arquivo respondido</label>
+            <label class="form-label fw-semibold"
+              >Enviar arquivo respondido</label
+            >
             <input
               ref=${inputRef}
               class="upload-hidden-input"
@@ -649,6 +740,3 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
     </div>
   `;
 }
-
-
-

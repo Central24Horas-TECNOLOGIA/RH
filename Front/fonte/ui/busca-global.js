@@ -44,6 +44,12 @@ const PAGINAS_BUSCA = [
     descricao: 'Kanban por etapa com persistencia no backend.',
   },
   {
+    id: 'pagina-entrevistas',
+    tela: 'screen-interviews',
+    titulo: 'Entrevistas agendadas',
+    descricao: 'Agenda de entrevistas, status e mensagens base do RH.',
+  },
+  {
     id: 'pagina-analise',
     tela: 'screen-analysis-candidates',
     titulo: 'Analise de candidatos',
