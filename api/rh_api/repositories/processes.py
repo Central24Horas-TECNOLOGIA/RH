@@ -7,12 +7,31 @@ from fastapi import HTTPException, status
 
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
 from ..services.pipeline import infer_pipeline_stage, map_pipeline_stage_to_status, normalize_pipeline_stage
+from ..services.process_flow import (
+    CANDIDATE_STATUS_ANALYSIS,
+    CANDIDATE_STATUS_APPROVED,
+    CANDIDATE_STATUS_ATTENDED,
+    CANDIDATE_STATUS_CONFIRMED,
+    CANDIDATE_STATUS_ELIMINATED,
+    CANDIDATE_STATUS_MISSED,
+    CANDIDATE_STATUS_QUALIFIED,
+    CANDIDATE_STATUS_SCHEDULED,
+    CANDIDATE_STATUS_TALENT_BANK,
+    canonicalize_candidate_status,
+    get_candidate_visible_status,
+    normalize_process_status,
+)
 from .bootstrap import (
+    build_process_where_clause,
     ensure_pipeline_columns,
     ensure_process_columns,
+    ensure_process_reference_columns,
+    generate_unique_process_id,
     get_next_id_registro,
     get_process_row,
+    get_process_rows,
     process_auto_close_if_full,
+    resolve_process_row_for_related_record,
 )
 
 
@@ -24,25 +43,9 @@ class ProcessRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT
-                    id_processo,
-                    vaga,
-                    quantidade_vagas,
-                    vagas_preenchidas,
-                    data_encerramento,
-                    operacao,
-                    trilha,
-                    usa_nota_corte,
-                    nota_corte,
-                    status,
-                    data_criacao,
-                    link_agendamento
-                FROM processos_seletivos
-                """
-            )
-            return rows_to_dicts(cursor, cursor.fetchall())
+            ensure_process_columns(cursor)
+            ensure_process_reference_columns(cursor)
+            return get_process_rows(cursor)
         finally:
             conn.close()
 
@@ -51,6 +54,12 @@ class ProcessRepositoryMixin:
         try:
             cursor = conn.cursor()
             ensure_process_columns(cursor)
+            ensure_process_reference_columns(cursor)
+            resolved_process_id = generate_unique_process_id(
+                cursor,
+                data.get("id_processo", ""),
+            )
+            created_at = normalize_text(data.get("data_criacao")) or datetime.now().isoformat()
             cursor.execute(
                 """
                 INSERT INTO processos_seletivos
@@ -71,7 +80,7 @@ class ProcessRepositoryMixin:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    data.get("id_processo", ""),
+                    resolved_process_id,
                     data.get("vaga", ""),
                     int(data.get("quantidade_vagas", 0) or 0),
                     int(data.get("vagas_preenchidas", 0) or 0),
@@ -80,14 +89,17 @@ class ProcessRepositoryMixin:
                     data.get("trilha", ""),
                     int(data.get("usa_nota_corte", 0) or 0),
                     data.get("nota_corte", None),
-                    data.get("status", "Aberto"),
-                    data.get("data_criacao", ""),
+                    normalize_process_status(data.get("status", "Aberto")),
+                    created_at,
                     data.get("link_agendamento", ""),
                 ),
             )
             conn.commit()
-            logger.info("Processo '%s' criado.", data.get("id_processo", ""))
-            return {"success": True}
+            logger.info("Processo '%s' criado.", resolved_process_id)
+            return {
+                "success": True,
+                "id_processo": resolved_process_id,
+            }
         finally:
             conn.close()
 
@@ -96,8 +108,13 @@ class ProcessRepositoryMixin:
         try:
             cursor = conn.cursor()
             ensure_process_columns(cursor)
+            ensure_process_reference_columns(cursor)
+            processo = get_process_row(cursor, id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+            where_clause, params = build_process_where_clause(processo)
             cursor.execute(
-                """
+                f"""
                 UPDATE processos_seletivos
                 SET
                     quantidade_vagas = ?,
@@ -108,7 +125,7 @@ class ProcessRepositoryMixin:
                     nota_corte = ?,
                     status = ?,
                     link_agendamento = ?
-                WHERE id_processo = ?
+                WHERE {where_clause}
                 """,
                 (
                     int(data.get("quantidade_vagas", 0) or 0),
@@ -117,14 +134,14 @@ class ProcessRepositoryMixin:
                     data.get("trilha", ""),
                     int(data.get("usa_nota_corte", 0) or 0),
                     data.get("nota_corte", None),
-                    data.get("status", "Aberto"),
+                    normalize_process_status(data.get("status", "Aberto")),
                     data.get("link_agendamento", ""),
-                    id_processo,
+                    *params,
                 ),
             )
-            process_auto_close_if_full(cursor, id_processo)
+            process_auto_close_if_full(cursor, processo)
             conn.commit()
-            logger.info("Processo '%s' atualizado.", id_processo)
+            logger.info("Processo '%s' atualizado.", processo.get("id_processo_ref") or processo.get("id_processo"))
             return {"success": True}
         finally:
             conn.close()
@@ -133,16 +150,24 @@ class ProcessRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_process_reference_columns(cursor)
+            processo = get_process_row(cursor, id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+            where_clause, params = build_process_where_clause(processo)
             cursor.execute(
-                """
+                f"""
                 UPDATE processos_seletivos
                 SET status = ?
-                WHERE id_processo = ?
+                WHERE {where_clause}
                 """,
-                ("Encerrado", id_processo),
+                ("Encerrado", *params),
             )
             conn.commit()
-            logger.info("Processo '%s' encerrado manualmente.", id_processo)
+            logger.info(
+                "Processo '%s' encerrado manualmente.",
+                processo.get("id_processo_ref") or processo.get("id_processo"),
+            )
             return {"success": True}
         finally:
             conn.close()
@@ -151,10 +176,13 @@ class ProcessRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_pipeline_columns(cursor)
+            ensure_process_reference_columns(cursor)
             query = """
                 SELECT
                     id_registro,
                     id_processo,
+                    id_processo_ref,
                     id_teste,
                     nome_candidato,
                     vaga,
@@ -169,13 +197,28 @@ class ProcessRepositoryMixin:
             params = []
             if normalize_text(id_processo):
                 query += " WHERE id_processo = ?"
-                params.append(id_processo)
+                params.append(normalize_text(id_processo).split("@@", 1)[0])
             query += " ORDER BY id_registro DESC"
 
             cursor.execute(query, tuple(params))
             rows = rows_to_dicts(cursor, cursor.fetchall())
             rows = self._hydrate_pipeline_fields(cursor, rows)
-            return self._enrich_candidate_records(cursor, rows)
+            rows = self._enrich_candidate_records(cursor, rows)
+            rows = self._attach_process_context(
+                cursor,
+                rows,
+                timestamp_fields=["data_prova", "data_atualizacao_pipeline"],
+            )
+
+            if normalize_text(id_processo):
+                filtro_ref = normalize_text(id_processo)
+                rows = [
+                    item
+                    for item in rows
+                    if normalize_text(item.get("id_processo_ref")) == filtro_ref
+                ]
+
+            return rows
         finally:
             conn.close()
 
@@ -184,6 +227,14 @@ class ProcessRepositoryMixin:
         try:
             cursor = conn.cursor()
             ensure_pipeline_columns(cursor)
+            ensure_process_reference_columns(cursor)
+
+            processo = get_process_row(
+                cursor,
+                data.get("id_processo_ref") or data.get("id_processo", ""),
+            )
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
 
             id_registro = get_next_id_registro(cursor)
             requested_stage = data.get("etapa_pipeline")
@@ -192,7 +243,11 @@ class ProcessRepositoryMixin:
                 if requested_stage
                 else infer_pipeline_stage(data.get("status_candidato"), data.get("origem"))
             )
-            status_candidato = normalize_text(data.get("status_candidato")) or map_pipeline_stage_to_status(stage)
+            status_candidato = (
+                canonicalize_candidate_status(data.get("status_candidato"))
+                if normalize_text(data.get("status_candidato"))
+                else map_pipeline_stage_to_status(stage)
+            )
 
             cursor.execute(
                 """
@@ -200,6 +255,7 @@ class ProcessRepositoryMixin:
                 (
                     id_registro,
                     id_processo,
+                    id_processo_ref,
                     id_teste,
                     nome_candidato,
                     vaga,
@@ -210,11 +266,12 @@ class ProcessRepositoryMixin:
                     etapa_pipeline,
                     data_atualizacao_pipeline
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     id_registro,
-                    data.get("id_processo", ""),
+                    processo.get("id_processo", ""),
+                    processo.get("id_processo_ref", ""),
                     data.get("id_teste", ""),
                     data.get("nome_candidato", ""),
                     data.get("vaga", ""),
@@ -232,7 +289,11 @@ class ProcessRepositoryMixin:
                 nome_candidato=data.get("nome_candidato", ""),
             )
             conn.commit()
-            logger.info("Candidato '%s' vinculado ao processo '%s'.", data.get("nome_candidato", ""), data.get("id_processo", ""))
+            logger.info(
+                "Candidato '%s' vinculado ao processo '%s'.",
+                data.get("nome_candidato", ""),
+                processo.get("id_processo_ref") or processo.get("id_processo", ""),
+            )
             return {"success": True}
         finally:
             conn.close()
@@ -242,36 +303,45 @@ class ProcessRepositoryMixin:
         try:
             cursor = conn.cursor()
             ensure_pipeline_columns(cursor)
+            ensure_process_reference_columns(cursor)
 
             cursor.execute(
                 """
                 SELECT
                     id_registro,
                     id_processo,
+                    id_processo_ref,
                     id_teste,
                     nome_candidato,
                     vaga,
                     status_candidato,
                     pontuacao_final,
+                    data_prova,
                     origem,
-                    etapa_pipeline
+                    etapa_pipeline,
+                    data_atualizacao_pipeline
                 FROM candidatos_processos
                 WHERE id_registro = ?
                 """,
                 (id_registro,),
             )
-            current = cursor.fetchone()
-            if not current:
+            current_rows = rows_to_dicts(cursor, cursor.fetchall())
+            if not current_rows:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato do processo nao encontrado.")
+            current = current_rows[0]
 
             requested_status = normalize_text(data.get("status_candidato"))
-            current_stage = current[8]
+            current_stage = current.get("etapa_pipeline")
             new_stage = (
                 normalize_pipeline_stage(data.get("etapa_pipeline"))
                 if data.get("etapa_pipeline")
-                else infer_pipeline_stage(requested_status, current[7], current_stage=current_stage)
+                else infer_pipeline_stage(requested_status, current.get("origem"), current_stage=current_stage)
             )
-            new_status = requested_status or map_pipeline_stage_to_status(new_stage)
+            new_status = (
+                canonicalize_candidate_status(requested_status)
+                if requested_status
+                else map_pipeline_stage_to_status(new_stage, current.get("status_candidato"))
+            )
 
             self._apply_candidate_status_update(
                 cursor,
@@ -292,6 +362,8 @@ class ProcessRepositoryMixin:
             conn = self._connect()
             try:
                 cursor = conn.cursor()
+                ensure_pipeline_columns(cursor)
+                ensure_process_reference_columns(cursor)
 
                 processo = get_process_row(cursor, id_processo)
                 if not processo:
@@ -302,6 +374,7 @@ class ProcessRepositoryMixin:
                     SELECT
                         id_registro,
                         id_processo,
+                        id_processo_ref,
                         id_teste,
                         nome_candidato,
                         vaga,
@@ -315,23 +388,48 @@ class ProcessRepositoryMixin:
                     WHERE id_processo = ?
                     ORDER BY id_registro DESC
                     """,
-                    (id_processo,),
+                    (processo.get("id_processo"),),
                 )
                 candidatos = rows_to_dicts(cursor, cursor.fetchall())
                 candidatos = self._hydrate_pipeline_fields(cursor, candidatos)
                 candidatos = self._enrich_candidate_records(cursor, candidatos)
+                candidatos = self._attach_process_context(
+                    cursor,
+                    candidatos,
+                    timestamp_fields=["data_prova", "data_atualizacao_pipeline"],
+                )
+                candidatos = [
+                    item
+                    for item in candidatos
+                    if normalize_text(item.get("id_processo_ref"))
+                    == normalize_text(processo.get("id_processo_ref"))
+                ]
+
+                status_fluxo = [
+                    get_candidate_visible_status(
+                        item.get("status_candidato"),
+                        item.get("status_entrevista"),
+                    )
+                    for item in candidatos
+                ]
 
                 resumo = {
                     "total": len(candidatos),
-                    "aprovados": sum(1 for item in candidatos if normalize_compare_text(item.get("status_candidato")) == "aprovado"),
-                    "eliminados": sum(
+                    "analise": sum(1 for status_item in status_fluxo if status_item == CANDIDATE_STATUS_ANALYSIS),
+                    "qualificados": sum(1 for status_item in status_fluxo if status_item == CANDIDATE_STATUS_QUALIFIED),
+                    "entrevistas": sum(
                         1
-                        for item in candidatos
-                        if "eliminado" in normalize_compare_text(item.get("status_candidato"))
-                        or normalize_compare_text(item.get("status_candidato")) == "reprovado"
+                        for status_item in status_fluxo
+                        if status_item in {
+                            CANDIDATE_STATUS_SCHEDULED,
+                            CANDIDATE_STATUS_CONFIRMED,
+                            CANDIDATE_STATUS_ATTENDED,
+                            CANDIDATE_STATUS_MISSED,
+                        }
                     ),
-                    "banco": sum(1 for item in candidatos if normalize_compare_text(item.get("status_candidato")) == "banco de talentos"),
-                    "analise": sum(1 for item in candidatos if normalize_compare_text(item.get("status_candidato")) == "em analise"),
+                    "aprovados": sum(1 for status_item in status_fluxo if status_item == CANDIDATE_STATUS_APPROVED),
+                    "eliminados": sum(1 for status_item in status_fluxo if status_item == CANDIDATE_STATUS_ELIMINATED),
+                    "banco": sum(1 for status_item in status_fluxo if status_item == CANDIDATE_STATUS_TALENT_BANK),
                 }
 
                 return {"processo": processo, "resumo": resumo, "candidatos": candidatos}

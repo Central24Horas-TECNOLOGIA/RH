@@ -14,7 +14,7 @@
   color: #fff;
   background:
     linear-gradient(145deg, rgba(18, 42, 79, 0.95), rgba(21, 61, 138, 0.92)),
-    url('./fundo-login.png') center/cover;
+    url('./Fundo-azul.png') center/cover;
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
@@ -318,9 +318,9 @@
 }
 
 .exam-screen-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+    width: 63px;
+    height: 56px;
+    border-radius: 0px;
 }
 
 .exam-screen-caption {

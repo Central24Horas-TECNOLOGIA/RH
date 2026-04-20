@@ -5,7 +5,18 @@ from datetime import datetime
 from fastapi import HTTPException, status
 
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
-from .bootstrap import ensure_pipeline_columns, get_next_id_registro
+from ..services.process_flow import (
+    CANDIDATE_STATUS_QUALIFIED,
+    build_process_closed_message,
+    canonicalize_candidate_status,
+    is_process_closed,
+)
+from .bootstrap import (
+    ensure_pipeline_columns,
+    ensure_process_reference_columns,
+    get_next_id_registro,
+    get_process_row,
+)
 
 
 class TalentBankRepositoryMixin:
@@ -13,6 +24,7 @@ class TalentBankRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_process_reference_columns(cursor)
             profile_map = self._get_candidate_profile_map(cursor)
             interview_map = self._get_latest_interview_map(cursor)
             cursor.execute(
@@ -20,6 +32,7 @@ class TalentBankRepositoryMixin:
                 SELECT
                     id_banco,
                     id_processo,
+                    id_processo_ref,
                     id_teste,
                     nome_candidato,
                     vaga,
@@ -30,6 +43,11 @@ class TalentBankRepositoryMixin:
                 """
             )
             rows = rows_to_dicts(cursor, cursor.fetchall())
+            rows = self._attach_process_context(
+                cursor,
+                rows,
+                timestamp_fields=["data_movimentacao"],
+            )
             result = []
             search_term = normalize_compare_text(search)
             skill_term = normalize_compare_text(skill)
@@ -42,7 +60,11 @@ class TalentBankRepositoryMixin:
                 item["tags"] = profile.get("tags", [])
                 item["habilidades"] = profile.get("habilidades", [])
                 item["observacao_rh"] = profile.get("observacao_rh", "")
-                item["status_entrevista"] = normalize_text(latest_interview.get("status_entrevista"))
+                item["status_entrevista"] = (
+                    canonicalize_candidate_status(latest_interview.get("status_entrevista"))
+                    if normalize_text(latest_interview.get("status_entrevista"))
+                    else ""
+                )
                 item["data_entrevista"] = latest_interview.get("data_entrevista")
                 item["link_entrevista"] = normalize_text(latest_interview.get("link_agendamento"))
 
@@ -83,26 +105,39 @@ class TalentBankRepositoryMixin:
         try:
             cursor = conn.cursor()
             ensure_pipeline_columns(cursor)
+            ensure_process_reference_columns(cursor)
             cursor.execute(
                 """
                 SELECT
+                    id_processo,
+                    id_processo_ref,
                     id_teste,
                     nome_candidato,
                     vaga,
                     pontuacao_final,
-                    origem
+                    origem,
+                    data_movimentacao
                 FROM banco_talentos
                 WHERE id_banco = ?
                 """,
                 (id_banco,),
             )
-            row = cursor.fetchone()
-            if not row:
+            rows = rows_to_dicts(cursor, cursor.fetchall())
+            if not rows:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato do banco de talentos nao encontrado.")
+            row = rows[0]
 
             id_processo = normalize_text(data.get("id_processo"))
             if not id_processo:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo de destino nao informado.")
+            processo = get_process_row(cursor, data.get("id_processo_ref") or id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo de destino nao encontrado.")
+            if is_process_closed(processo.get("status")):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=build_process_closed_message("utilizar o candidato do banco de talentos", id_processo),
+                )
 
             id_registro = get_next_id_registro(cursor)
             cursor.execute(
@@ -111,6 +146,7 @@ class TalentBankRepositoryMixin:
                 (
                     id_registro,
                     id_processo,
+                    id_processo_ref,
                     id_teste,
                     nome_candidato,
                     vaga,
@@ -121,26 +157,27 @@ class TalentBankRepositoryMixin:
                     etapa_pipeline,
                     data_atualizacao_pipeline
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     id_registro,
-                    id_processo,
-                    row[0],
-                    row[1],
-                    row[2],
-                    "Em analise",
-                    row[3],
+                    processo.get("id_processo"),
+                    processo.get("id_processo_ref", ""),
+                    row.get("id_teste"),
+                    row.get("nome_candidato"),
+                    normalize_text(processo.get("vaga")) or row.get("vaga"),
+                    CANDIDATE_STATUS_QUALIFIED,
+                    row.get("pontuacao_final"),
                     "",
-                    row[4] or "Banco de talentos",
-                    "Triagem",
+                    row.get("origem") or "Banco de talentos",
+                    "Prova",
                     datetime.now(),
                 ),
             )
             self._upsert_candidate_profile(
                 cursor,
-                id_teste=row[0],
-                nome_candidato=row[1],
+                id_teste=row.get("id_teste"),
+                nome_candidato=row.get("nome_candidato"),
             )
             cursor.execute("DELETE FROM banco_talentos WHERE id_banco = ?", (id_banco,))
             conn.commit()

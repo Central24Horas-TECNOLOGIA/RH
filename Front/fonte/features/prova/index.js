@@ -3,7 +3,10 @@ import {
   SUGESTOES_NIVEL_POR_VAGA,
   resolverBlueprintProva,
 } from '../../perguntas.js';
-import { lerProcessos, navegarParaTela } from '../../app/controlador-aplicacao.js';
+import {
+  lerProcessos,
+  navegarParaTela,
+} from '../../app/controlador-aplicacao.js';
 import {
   formatarNotaVisual,
   formatarTempoRestante,
@@ -336,7 +339,7 @@ export function TelaCandidato({ controlador }) {
           </aside>
 
           <section class="rh-candidate-main-card">
-            <h2 class="h3 fw-bold mb-2">Instrucoes ao candidato</h2>
+            <h2 class="h3 fw-bold mb-2">Instruções ao candidato</h2>
             <p class="text-muted mb-4">
               Leia atentamente as orientacoes antes de iniciar a prova.
             </p>
@@ -652,10 +655,10 @@ export function TelaConclusao({ controlador }) {
       <div class="rh-finish-screen">
         <div class="rh-finish-shell">
           <div class="rh-finish-badge">Concluido</div>
-          <div class="rh-finish-icon-wrap">
+          <!-- <div class="rh-finish-icon-wrap">
             <div class="rh-finish-icon">OK</div>
-          </div>
-          <h2 class="rh-finish-title">Avaliacao finalizada com sucesso</h2>
+          </div> -->
+          <h2 class="rh-finish-title">Avaliacao finalizada com sucesso !</h2>
           <p class="rh-finish-subtitle">
             A prova foi encerrada e o resultado pode ser salvo no sistema para
             registro definitivo.
@@ -673,6 +676,7 @@ export function TelaConclusao({ controlador }) {
                 Para concluir corretamente esta avaliacao, e obrigatorio salvar
                 o resultado no sistema.
               </p>
+              <br />
               <button
                 type="button"
                 class="btn rh-finish-save-btn"

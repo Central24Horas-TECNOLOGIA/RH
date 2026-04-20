@@ -11,6 +11,7 @@ from .common import BaseSchema
 class InterviewCreateRequest(BaseSchema):
     id_registro: int
     id_processo: str = ""
+    id_processo_ref: str = ""
     data_entrevista: datetime
     status_entrevista: str = "Agendado"
     link_agendamento: str = ""

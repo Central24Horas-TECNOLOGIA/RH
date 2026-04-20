@@ -18,11 +18,25 @@ from ..services.helpers import (
     safe_json_loads,
 )
 from ..services.pipeline import infer_pipeline_stage
+from ..services.process_flow import (
+    CANDIDATE_STATUS_APPROVED,
+    CANDIDATE_STATUS_TALENT_BANK,
+    build_candidate_status_action_label,
+    build_process_closed_message,
+    canonicalize_candidate_status,
+    get_candidate_visible_status,
+    is_process_closed,
+)
 from .bootstrap import (
+    build_process_where_clause,
     describe_database_error,
     ensure_candidate_metadata_table,
+    ensure_process_reference_columns,
     get_gabaritos_payload_column,
+    get_next_id_banco,
     is_deadlock_error,
+    resolve_process_row_for_related_record,
+    sort_process_rows,
 )
 
 
@@ -102,6 +116,7 @@ class BaseRepository:
         return result
 
     def _get_latest_interview_map(self, cursor) -> dict[str, dict]:
+        ensure_process_reference_columns(cursor)
         cursor.execute(
             """
             WITH entrevistas_ordenadas AS (
@@ -110,6 +125,7 @@ class BaseRepository:
                     id_registro,
                     id_entrevista,
                     id_processo,
+                    id_processo_ref,
                     data_entrevista,
                     status_entrevista,
                     link_agendamento,
@@ -127,6 +143,7 @@ class BaseRepository:
                 id_registro,
                 id_entrevista,
                 id_processo,
+                id_processo_ref,
                 data_entrevista,
                 status_entrevista,
                 link_agendamento,
@@ -143,6 +160,28 @@ class BaseRepository:
             if normalize_text(item.get("id_teste"))
         }
 
+    def _attach_process_context(self, cursor, rows: list[dict], *, timestamp_fields: list[str]) -> list[dict]:
+        for item in rows:
+            process_row = resolve_process_row_for_related_record(
+                cursor,
+                id_processo=item.get("id_processo"),
+                id_processo_ref=item.get("id_processo_ref", ""),
+                timestamp_values=[item.get(field_name) for field_name in timestamp_fields],
+            )
+
+            if process_row:
+                item["id_processo_ref"] = normalize_text(item.get("id_processo_ref")) or normalize_text(
+                    process_row.get("id_processo_ref"),
+                )
+                item["status_processo"] = normalize_text(process_row.get("status"))
+                item["link_agendamento_processo"] = normalize_text(process_row.get("link_agendamento"))
+            else:
+                item["id_processo_ref"] = normalize_text(item.get("id_processo_ref"))
+                item["status_processo"] = normalize_text(item.get("status_processo"))
+                item["link_agendamento_processo"] = normalize_text(item.get("link_agendamento_processo"))
+
+        return rows
+
     def _enrich_candidate_records(self, cursor, candidates: list[dict]) -> list[dict]:
         profile_map = self._get_candidate_profile_map(cursor)
         interview_map = self._get_latest_interview_map(cursor)
@@ -151,11 +190,21 @@ class BaseRepository:
             id_teste = normalize_text(candidate.get("id_teste"))
             profile = profile_map.get(id_teste, {})
             latest_interview = interview_map.get(id_teste, {})
+            raw_candidate_status = normalize_text(candidate.get("status_candidato"))
+            raw_interview_status = normalize_text(latest_interview.get("status_entrevista"))
+            candidate_status = canonicalize_candidate_status(raw_candidate_status)
+            interview_status = (
+                canonicalize_candidate_status(raw_interview_status)
+                if raw_interview_status
+                else ""
+            )
 
             candidate["tags"] = profile.get("tags", [])
             candidate["habilidades"] = profile.get("habilidades", [])
             candidate["observacao_rh"] = profile.get("observacao_rh", "")
-            candidate["status_entrevista"] = normalize_text(latest_interview.get("status_entrevista"))
+            candidate["status_candidato"] = candidate_status
+            candidate["status_entrevista"] = interview_status
+            candidate["status_fluxo"] = get_candidate_visible_status(candidate_status, interview_status)
             candidate["data_entrevista"] = latest_interview.get("data_entrevista")
             candidate["link_entrevista"] = normalize_text(latest_interview.get("link_agendamento"))
             candidate["observacoes_entrevista"] = normalize_text(latest_interview.get("observacoes_rh"))
@@ -285,6 +334,7 @@ class BaseRepository:
         return candidates
 
     def _get_process_map(self, cursor) -> dict[str, dict]:
+        ensure_process_reference_columns(cursor)
         cursor.execute(
             """
             SELECT
@@ -298,19 +348,30 @@ class BaseRepository:
                 usa_nota_corte,
                 nota_corte,
                 status,
+                data_criacao,
                 link_agendamento
             FROM processos_seletivos
             """
         )
         rows = rows_to_dicts(cursor, cursor.fetchall())
-        return {normalize_text(item.get("id_processo")): item for item in rows}
+        result = {}
+        for item in sort_process_rows(rows):
+            process_id = normalize_text(item.get("id_processo"))
+            process_ref = normalize_text(item.get("id_processo_ref"))
+            if process_ref:
+                result[process_ref] = item
+            if process_id and process_id not in result:
+                result[process_id] = item
+        return result
 
     def _get_process_candidate_map(self, cursor) -> dict[str, dict]:
+        ensure_process_reference_columns(cursor)
         cursor.execute(
             """
             SELECT
                 id_registro,
                 id_processo,
+                id_processo_ref,
                 id_teste,
                 nome_candidato,
                 vaga,
@@ -326,6 +387,11 @@ class BaseRepository:
         rows = rows_to_dicts(cursor, cursor.fetchall())
         rows = self._hydrate_pipeline_fields(cursor, rows)
         rows = self._enrich_candidate_records(cursor, rows)
+        rows = self._attach_process_context(
+            cursor,
+            rows,
+            timestamp_fields=["data_prova", "data_atualizacao_pipeline"],
+        )
 
         result = {}
         for item in rows:
@@ -354,73 +420,95 @@ class BaseRepository:
         new_stage: str,
         data_movimentacao: str | None = None,
     ) -> None:
-        id_registro = int(current_row[0])
-        id_processo = normalize_text(current_row[1])
-        id_teste = normalize_text(current_row[2])
-        nome_candidato = normalize_text(current_row[3])
-        vaga = normalize_text(current_row[4])
-        old_status = normalize_text(current_row[5])
-        pontuacao_final = current_row[6]
-        origem = normalize_text(current_row[7])
+        id_registro = int(current_row.get("id_registro") or 0)
+        id_processo = normalize_text(current_row.get("id_processo"))
+        id_processo_ref = normalize_text(current_row.get("id_processo_ref"))
+        id_teste = normalize_text(current_row.get("id_teste"))
+        nome_candidato = normalize_text(current_row.get("nome_candidato"))
+        vaga = normalize_text(current_row.get("vaga"))
+        old_status = canonicalize_candidate_status(current_row.get("status_candidato"))
+        pontuacao_final = current_row.get("pontuacao_final")
+        origem = normalize_text(current_row.get("origem"))
+        resolved_new_status = canonicalize_candidate_status(new_status)
 
         if not id_processo:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo do candidato nao encontrado.")
 
-        data_pipeline = datetime.fromisoformat(data_movimentacao) if data_movimentacao else datetime.now()
+        processo = resolve_process_row_for_related_record(
+            cursor,
+            id_processo=id_processo,
+            id_processo_ref=id_processo_ref,
+            timestamp_values=[
+                current_row.get("data_prova"),
+                current_row.get("data_atualizacao_pipeline"),
+                data_movimentacao,
+            ],
+        )
+        if not processo:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo nao encontrado.")
+        if is_process_closed(processo.get("status")):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=build_process_closed_message(
+                    build_candidate_status_action_label(resolved_new_status),
+                    processo.get("id_processo"),
+                ),
+            )
+
+        data_pipeline = (
+            datetime.fromisoformat(str(data_movimentacao).replace("Z", "+00:00"))
+            if data_movimentacao
+            else datetime.now()
+        )
 
         cursor.execute(
             """
             UPDATE candidatos_processos
-            SET status_candidato = ?, etapa_pipeline = ?, data_atualizacao_pipeline = ?
+            SET status_candidato = ?, etapa_pipeline = ?, data_atualizacao_pipeline = ?, id_processo_ref = ?
             WHERE id_registro = ?
             """,
-            (new_status, new_stage, data_pipeline, id_registro),
+            (
+                resolved_new_status,
+                new_stage,
+                data_pipeline,
+                processo.get("id_processo_ref", ""),
+                id_registro,
+            ),
         )
 
-        cursor.execute(
-            """
-            SELECT quantidade_vagas, vagas_preenchidas, status
-            FROM processos_seletivos
-            WHERE id_processo = ?
-            """,
-            (id_processo,),
-        )
-        process_row = cursor.fetchone()
-        if not process_row:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo nao encontrado.")
-
-        quantidade_vagas = int(process_row[0] or 0)
-        vagas_preenchidas = int(process_row[1] or 0)
-        status_processo = normalize_text(process_row[2])
+        quantidade_vagas = int(processo.get("quantidade_vagas") or 0)
+        vagas_preenchidas = int(processo.get("vagas_preenchidas") or 0)
+        status_processo = normalize_text(processo.get("status"))
 
         old_status_normalized = normalize_compare_text(old_status)
-        new_status_normalized = normalize_compare_text(new_status)
+        new_status_normalized = normalize_compare_text(resolved_new_status)
 
-        if old_status_normalized != "aprovado" and new_status_normalized == "aprovado":
+        if old_status_normalized != normalize_compare_text(CANDIDATE_STATUS_APPROVED) and new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_APPROVED):
             vagas_preenchidas += 1
-        elif old_status_normalized == "aprovado" and new_status_normalized != "aprovado":
+        elif old_status_normalized == normalize_compare_text(CANDIDATE_STATUS_APPROVED) and new_status_normalized != normalize_compare_text(CANDIDATE_STATUS_APPROVED):
             vagas_preenchidas = max(0, vagas_preenchidas - 1)
 
+        where_clause, params = build_process_where_clause(processo)
         cursor.execute(
-            """
+            f"""
             UPDATE processos_seletivos
             SET vagas_preenchidas = ?
-            WHERE id_processo = ?
+            WHERE {where_clause}
             """,
-            (vagas_preenchidas, id_processo),
+            (vagas_preenchidas, *params),
         )
 
         if status_processo != "Encerrado" and quantidade_vagas > 0 and vagas_preenchidas >= quantidade_vagas:
             cursor.execute(
-                """
+                f"""
                 UPDATE processos_seletivos
                 SET status = ?
-                WHERE id_processo = ?
+                WHERE {where_clause}
                 """,
-                ("Encerrado", id_processo),
+                ("Encerrado", *params),
             )
 
-        if new_status_normalized != "banco de talentos":
+        if new_status_normalized != normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK):
             cursor.execute(
                 """
                 DELETE FROM banco_talentos
@@ -429,23 +517,51 @@ class BaseRepository:
                 (id_teste,),
             )
 
-        if new_status_normalized == "banco de talentos":
+        if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK):
             cursor.execute(
                 """
-                SELECT COUNT(*)
+                SELECT id_banco
                 FROM banco_talentos
                 WHERE id_teste = ?
                 """,
                 (id_teste,),
             )
-            already_exists = int(cursor.fetchone()[0] or 0)
+            talent_row = cursor.fetchone()
 
-            if not already_exists:
+            if talent_row:
+                cursor.execute(
+                    """
+                    UPDATE banco_talentos
+                    SET
+                        id_processo = ?,
+                        id_processo_ref = ?,
+                        nome_candidato = ?,
+                        vaga = ?,
+                        pontuacao_final = ?,
+                        data_movimentacao = ?,
+                        origem = ?
+                    WHERE id_banco = ?
+                    """,
+                    (
+                        id_processo,
+                        processo.get("id_processo_ref", ""),
+                        nome_candidato,
+                        vaga,
+                        pontuacao_final,
+                        data_movimentacao or datetime.now().isoformat(),
+                        origem or "Prova",
+                        int(talent_row[0]),
+                    ),
+                )
+            else:
+                id_banco = get_next_id_banco(cursor)
                 cursor.execute(
                     """
                     INSERT INTO banco_talentos
                     (
+                        id_banco,
                         id_processo,
+                        id_processo_ref,
                         id_teste,
                         nome_candidato,
                         vaga,
@@ -453,10 +569,12 @@ class BaseRepository:
                         data_movimentacao,
                         origem
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
+                        id_banco,
                         id_processo,
+                        processo.get("id_processo_ref", ""),
                         id_teste,
                         nome_candidato,
                         vaga,

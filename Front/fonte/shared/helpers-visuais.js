@@ -1,4 +1,5 @@
-﻿import { ROTULOS_ETAPAS } from '../perguntas.js';
+import { ROTULOS_ETAPAS } from '../perguntas.js';
+import { canonicalizeCandidateStatus } from './process-flow.js';
 
 export function formatarTempoRestante(segundosTotais) {
   const total = Math.max(0, Number(segundosTotais || 0));
@@ -30,8 +31,10 @@ export function obterClasseEtapaResultado(percentual) {
 }
 
 export function obterClasseStatusProcesso(status) {
-  const valor = String(status || '').trim();
+  const valor = canonicalizeCandidateStatus(status);
   if (valor === 'Aprovado') return 'is-approved';
+  if (valor === 'Qualificado') return 'is-highlight';
+  if (valor === 'Confirmado') return 'is-confirmed';
   if (valor.startsWith('Eliminado') || valor === 'Reprovado') return 'is-eliminated';
   if (valor === 'Banco de talentos') return 'is-talent';
   return 'is-analysis';
@@ -147,4 +150,3 @@ export function montarResumoAnaliticoCv(item) {
 
   return partes.join('\n\n');
 }
-

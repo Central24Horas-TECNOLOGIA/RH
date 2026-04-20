@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import logging
+import re
 import threading
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 
 from ..config import Settings
 from ..db import get_connection
-from ..services.helpers import normalize_compare_text, normalize_text
+from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
 
 
 logger = logging.getLogger(__name__)
 _SCHEMA_BOOTSTRAP_LOCK = threading.Lock()
 _SCHEMA_BOOTSTRAPPED = False
+_SQL_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+PROCESS_REF_SEPARATOR = "@@"
+LOCAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
 def ensure_cv_pre_analises_table(cursor) -> None:
@@ -121,6 +127,89 @@ def ensure_interviews_table(cursor) -> None:
     )
 
 
+def _ensure_process_reference_column(cursor, table_name: str) -> None:
+    safe_table = normalize_text(table_name)
+    if not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_table):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Nao foi possivel preparar a coluna de referencia de processo.",
+        )
+
+    cursor.execute(
+        f"""
+        IF COL_LENGTH('dbo.{safe_table}', 'id_processo_ref') IS NULL
+        BEGIN
+            ALTER TABLE dbo.{safe_table}
+            ADD id_processo_ref NVARCHAR(255) NULL
+        END
+        """
+    )
+
+
+def ensure_process_reference_columns(cursor) -> None:
+    for table_name in (
+        "historico_provas",
+        "candidatos_processos",
+        "entrevistas_agendadas",
+        "cv_pre_analises",
+        "banco_talentos",
+    ):
+        _ensure_process_reference_column(cursor, table_name)
+
+
+def _get_column_type(cursor, table_name: str, column_name: str) -> str:
+    safe_table = normalize_text(table_name)
+    safe_column = normalize_text(column_name)
+
+    for column in cursor.columns(table=safe_table, schema="dbo"):
+        if normalize_compare_text(column.column_name) == normalize_compare_text(safe_column):
+            return normalize_compare_text(column.type_name)
+
+    return ""
+
+
+def _ensure_nullable_decimal_column(cursor, table_name: str, column_name: str, *, precision: int, scale: int) -> None:
+    safe_table = normalize_text(table_name)
+    safe_column = normalize_text(column_name)
+
+    if not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_table) or not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_column):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Nao foi possivel ajustar a tipagem numerica da tabela.",
+        )
+
+    current_type = _get_column_type(cursor, safe_table, safe_column)
+    if current_type in {"decimal", "numeric", "float", "real"}:
+        return
+
+    if current_type not in {"int", "bigint", "smallint", "tinyint"}:
+        return
+
+    cursor.execute(
+        f"""
+        ALTER TABLE dbo.{safe_table}
+        ALTER COLUMN {safe_column} DECIMAL({precision},{scale}) NULL
+        """
+    )
+
+
+def ensure_decimal_process_columns(cursor) -> None:
+    _ensure_nullable_decimal_column(
+        cursor,
+        "processos_seletivos",
+        "nota_corte",
+        precision=5,
+        scale=1,
+    )
+    _ensure_nullable_decimal_column(
+        cursor,
+        "historico_provas",
+        "pontuacao_final",
+        precision=5,
+        scale=1,
+    )
+
+
 def describe_database_error(error: Exception) -> str:
     parts = []
 
@@ -155,6 +244,8 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_candidate_metadata_table(cursor)
             ensure_cv_pre_analises_table(cursor)
             ensure_interviews_table(cursor)
+            ensure_process_reference_columns(cursor)
+            ensure_decimal_process_columns(cursor)
         finally:
             conn.close()
 
@@ -164,9 +255,26 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
 
 
 def get_next_id_registro(cursor) -> int:
-    cursor.execute("SELECT ISNULL(MAX(id_registro), 0) + 1 FROM candidatos_processos")
+    return get_next_numeric_id(cursor, "candidatos_processos", "id_registro")
+
+
+def get_next_numeric_id(cursor, table_name: str, column_name: str) -> int:
+    safe_table = normalize_text(table_name)
+    safe_column = normalize_text(column_name)
+
+    if not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_table) or not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_column):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Nao foi possivel gerar o proximo identificador numerico solicitado.",
+        )
+
+    cursor.execute(f"SELECT ISNULL(MAX({safe_column}), 0) + 1 FROM {safe_table}")
     row = cursor.fetchone()
     return int(row[0] or 1)
+
+
+def get_next_id_banco(cursor) -> int:
+    return get_next_numeric_id(cursor, "banco_talentos", "id_banco")
 
 
 def get_gabaritos_payload_column(cursor) -> str:
@@ -181,9 +289,135 @@ def get_gabaritos_payload_column(cursor) -> str:
     )
 
 
-def get_process_row(cursor, id_processo: str):
-    cursor.execute(
-        """
+def build_process_reference(id_processo: str | None, data_criacao: str | None) -> str:
+    safe_process_id = normalize_text(id_processo)
+    safe_created_at = normalize_text(data_criacao)
+
+    if not safe_process_id:
+        return ""
+    if not safe_created_at:
+        return safe_process_id
+
+    return f"{safe_process_id}{PROCESS_REF_SEPARATOR}{safe_created_at}"
+
+
+def split_process_reference(value: str | None) -> tuple[str, str]:
+    safe_value = normalize_text(value)
+    if not safe_value:
+        return "", ""
+
+    if PROCESS_REF_SEPARATOR not in safe_value:
+        return safe_value, ""
+
+    process_id, created_at = safe_value.split(PROCESS_REF_SEPARATOR, 1)
+    return normalize_text(process_id), normalize_text(created_at)
+
+
+def parse_process_datetime(value) -> datetime | None:
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, datetime):
+        dt_value = value
+    else:
+        safe_value = normalize_text(value)
+        if not safe_value:
+            return None
+
+        normalized = safe_value
+        if normalized.endswith("Z"):
+            normalized = f"{normalized[:-1]}+00:00"
+
+        try:
+            dt_value = datetime.fromisoformat(normalized)
+        except ValueError:
+            for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                try:
+                    dt_value = datetime.strptime(safe_value, fmt)
+                    break
+                except ValueError:
+                    dt_value = None
+            if dt_value is None:
+                return None
+
+    if dt_value.tzinfo is None:
+        dt_value = dt_value.replace(tzinfo=LOCAL_TIMEZONE)
+
+    return dt_value.astimezone(timezone.utc)
+
+
+def decorate_process_row(row: dict | None) -> dict | None:
+    if not row:
+        return row
+
+    decorated = dict(row)
+    decorated["id_processo_ref"] = build_process_reference(
+        decorated.get("id_processo"),
+        decorated.get("data_criacao"),
+    )
+    return decorated
+
+
+def sort_process_rows(rows: list[dict]) -> list[dict]:
+    fallback = datetime.min.replace(tzinfo=timezone.utc)
+    decorated = [decorate_process_row(row) for row in rows]
+    return sorted(
+        decorated,
+        key=lambda item: (
+            parse_process_datetime(item.get("data_criacao")) or fallback,
+            normalize_text(item.get("id_processo")),
+        ),
+    )
+
+
+def _select_process_row_from_rows(
+    rows: list[dict],
+    *,
+    process_ref: str = "",
+    timestamp_values: list | tuple | None = None,
+) -> dict | None:
+    if not rows:
+        return None
+
+    sorted_rows = sort_process_rows(rows)
+    _, reference_created_at = split_process_reference(process_ref)
+
+    if reference_created_at:
+        for row in sorted_rows:
+            if normalize_text(row.get("data_criacao")) == reference_created_at:
+                return row
+
+    timestamps = timestamp_values or []
+    effective_timestamp = None
+    for value in timestamps:
+        effective_timestamp = parse_process_datetime(value)
+        if effective_timestamp is not None:
+            break
+
+    if effective_timestamp is None or len(sorted_rows) == 1:
+        return sorted_rows[-1]
+
+    first_start = parse_process_datetime(sorted_rows[0].get("data_criacao"))
+    if first_start is not None and effective_timestamp < first_start:
+        return sorted_rows[0]
+
+    for index, row in enumerate(sorted_rows):
+        row_start = parse_process_datetime(row.get("data_criacao"))
+        next_start = (
+            parse_process_datetime(sorted_rows[index + 1].get("data_criacao"))
+            if index + 1 < len(sorted_rows)
+            else None
+        )
+        if row_start is None:
+            continue
+        if effective_timestamp >= row_start and (next_start is None or effective_timestamp < next_start):
+            return row
+
+    return sorted_rows[-1]
+
+
+def _select_process_query() -> str:
+    return """
         SELECT
             id_processo,
             vaga,
@@ -198,25 +432,120 @@ def get_process_row(cursor, id_processo: str):
             data_criacao,
             link_agendamento
         FROM processos_seletivos
-        WHERE id_processo = ?
-        """,
-        (id_processo,),
-    )
-    row = cursor.fetchone()
-    if not row:
+    """
+
+
+def get_process_rows(cursor, id_processo_or_ref: str | None = None) -> list[dict]:
+    safe_process_id, _ = split_process_reference(id_processo_or_ref)
+    query = _select_process_query()
+    params = []
+
+    if safe_process_id:
+        query += " WHERE id_processo = ?"
+        params.append(safe_process_id)
+
+    query += " ORDER BY data_criacao ASC, id_processo ASC"
+    cursor.execute(query, tuple(params))
+    return sort_process_rows(rows_to_dicts(cursor, cursor.fetchall()))
+
+
+def get_process_row(cursor, id_processo_or_ref: str):
+    safe_process_id, safe_created_at = split_process_reference(id_processo_or_ref)
+    if not safe_process_id:
         return None
 
-    return dict(zip([column[0] for column in cursor.description], row))
+    rows = get_process_rows(cursor, safe_process_id)
+    if not rows:
+        return None
+
+    if safe_created_at:
+        for row in rows:
+            if normalize_text(row.get("data_criacao")) == safe_created_at:
+                return row
+
+    return rows[-1]
 
 
-def process_auto_close_if_full(cursor, id_processo: str) -> None:
+def resolve_process_row_for_related_record(
+    cursor,
+    *,
+    id_processo: str,
+    id_processo_ref: str = "",
+    timestamp_values: list | tuple | None = None,
+):
+    safe_process_id = normalize_text(id_processo)
+    if not safe_process_id:
+        return None
+
+    rows = get_process_rows(cursor, safe_process_id)
+    return _select_process_row_from_rows(
+        rows,
+        process_ref=id_processo_ref,
+        timestamp_values=timestamp_values,
+    )
+
+
+def build_process_where_clause(process_row_or_ref) -> tuple[str, tuple]:
+    if isinstance(process_row_or_ref, dict):
+        safe_process_id = normalize_text(process_row_or_ref.get("id_processo"))
+        safe_created_at = normalize_text(process_row_or_ref.get("data_criacao"))
+    else:
+        safe_process_id, safe_created_at = split_process_reference(process_row_or_ref)
+
+    if not safe_process_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Identificador do processo nao informado.",
+        )
+
+    if safe_created_at:
+        return "id_processo = ? AND data_criacao = ?", (safe_process_id, safe_created_at)
+
+    return "id_processo = ?", (safe_process_id,)
+
+
+def generate_unique_process_id(cursor, requested_process_id: str) -> str:
+    base_process_id = normalize_text(requested_process_id)
+    if not base_process_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Identificador base do processo nao informado.",
+        )
+
     cursor.execute(
         """
+        SELECT id_processo
+        FROM processos_seletivos
+        WHERE id_processo = ? OR id_processo LIKE ?
+        """,
+        (base_process_id, f"{base_process_id}-%"),
+    )
+    existing_ids = {
+        normalize_text(row[0])
+        for row in cursor.fetchall()
+        if normalize_text(row[0])
+    }
+
+    if base_process_id not in existing_ids:
+        return base_process_id
+
+    suffix = 2
+    while True:
+        candidate = f"{base_process_id}-{suffix:02d}"
+        if candidate not in existing_ids:
+            return candidate
+        suffix += 1
+
+
+def process_auto_close_if_full(cursor, process_row_or_ref) -> None:
+    where_clause, params = build_process_where_clause(process_row_or_ref)
+    cursor.execute(
+        f"""
         SELECT quantidade_vagas, vagas_preenchidas, status
         FROM processos_seletivos
-        WHERE id_processo = ?
+        WHERE {where_clause}
         """,
-        (id_processo,),
+        params,
     )
     row = cursor.fetchone()
     if not row:
@@ -228,10 +557,10 @@ def process_auto_close_if_full(cursor, id_processo: str) -> None:
 
     if status_processo != "Encerrado" and quantidade_vagas > 0 and vagas_preenchidas >= quantidade_vagas:
         cursor.execute(
-            """
+            f"""
             UPDATE processos_seletivos
             SET status = ?
-            WHERE id_processo = ?
+            WHERE {where_clause}
             """,
-            ("Encerrado", id_processo),
+            ("Encerrado", *params),
         )

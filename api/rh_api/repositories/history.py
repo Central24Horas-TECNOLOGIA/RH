@@ -5,8 +5,12 @@ import math
 
 from fastapi import HTTPException, status
 
-from ..services.helpers import normalize_text, rows_to_dicts
-from .bootstrap import get_gabaritos_payload_column
+from ..services.helpers import normalize_text, parse_float_br, rows_to_dicts
+from .bootstrap import (
+    ensure_decimal_process_columns,
+    ensure_process_reference_columns,
+    get_gabaritos_payload_column,
+)
 
 
 class HistoryRepositoryMixin:
@@ -23,6 +27,8 @@ class HistoryRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_process_reference_columns(cursor)
+            ensure_decimal_process_columns(cursor)
             filters = []
             params = []
 
@@ -40,6 +46,7 @@ class HistoryRepositoryMixin:
                 SELECT
                     id_teste,
                     id_processo,
+                    id_processo_ref,
                     nome_candidato,
                     vaga,
                     nivel,
@@ -88,12 +95,15 @@ class HistoryRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_process_reference_columns(cursor)
+            ensure_decimal_process_columns(cursor)
             cursor.execute(
                 """
                 INSERT INTO historico_provas
                 (
                     id_teste,
                     id_processo,
+                    id_processo_ref,
                     nome_candidato,
                     vaga,
                     nivel,
@@ -106,20 +116,21 @@ class HistoryRepositoryMixin:
                     arquivo_gabarito,
                     etapas_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     row.get("id_teste", ""),
                     row.get("id_processo", ""),
+                    row.get("id_processo_ref", ""),
                     row.get("nome_candidato", ""),
                     row.get("vaga", ""),
                     row.get("nivel", ""),
                     row.get("trilha", ""),
                     row.get("data_iso", ""),
                     row.get("data_exibicao", ""),
-                    row.get("pontuacao_final", 0),
+                    parse_float_br(row.get("pontuacao_final", 0)),
                     row.get("status", ""),
-                    row.get("tempo_minutos", 0),
+                    int(float(row.get("tempo_minutos", 0) or 0)),
                     row.get("arquivo_gabarito", ""),
                     row.get("etapas_json", ""),
                 ),

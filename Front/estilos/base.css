@@ -101,6 +101,7 @@ a {
 .rh-login-btn-modern {
   border-color: var(--color-primary);
   background: linear-gradient(135deg, var(--color-primary) 0%, #204f9a 100%);
+  color:white;
 }
 
 .btn-primary:hover,
@@ -204,6 +205,12 @@ a {
   background: var(--color-info-soft);
 }
 
+.rh-status-pill.is-highlight,
+.process-candidate-status-badge.is-highlight {
+  color: var(--color-info);
+  background: var(--color-info-soft);
+}
+
 .process-candidate-status-badge.is-talent {
   color: var(--color-warning);
   background: var(--color-warning-soft);
@@ -217,6 +224,11 @@ a {
 .cv-classification-badge.nao-qualificado {
   color: var(--color-danger);
   background: var(--color-danger-soft);
+}
+
+.cv-classification-badge.qualificado {
+  color: var(--color-success);
+  background: var(--color-success-soft);
 }
 
 .cv-classification-badge.bom-candidato {

@@ -3,6 +3,19 @@ from __future__ import annotations
 from datetime import datetime
 
 from .helpers import normalize_compare_text, normalize_text
+from .process_flow import (
+    CANDIDATE_STATUS_ANALYSIS,
+    CANDIDATE_STATUS_APPROVED,
+    CANDIDATE_STATUS_ATTENDED,
+    CANDIDATE_STATUS_CONFIRMED,
+    CANDIDATE_STATUS_ELIMINATED,
+    CANDIDATE_STATUS_MISSED,
+    CANDIDATE_STATUS_NOT_QUALIFIED,
+    CANDIDATE_STATUS_QUALIFIED,
+    CANDIDATE_STATUS_SCHEDULED,
+    CANDIDATE_STATUS_TALENT_BANK,
+    canonicalize_candidate_status,
+)
 
 
 PIPELINE_STAGES = ("Triagem", "Prova", "Entrevista", "Aprovado", "Reprovado")
@@ -31,23 +44,32 @@ def infer_pipeline_stage(
     origem: str | None,
     current_stage: str | None = None,
 ) -> str:
-    status = normalize_compare_text(status_candidato)
+    status = canonicalize_candidate_status(status_candidato)
     current = normalize_pipeline_stage(current_stage) if current_stage else None
     origem_normalizada = normalize_compare_text(origem)
 
-    if status == "aprovado":
+    if status == CANDIDATE_STATUS_APPROVED:
         return "Aprovado"
 
-    if "eliminado" in status or status == "reprovado":
+    if status in {
+        CANDIDATE_STATUS_ELIMINATED,
+        CANDIDATE_STATUS_NOT_QUALIFIED,
+        CANDIDATE_STATUS_TALENT_BANK,
+    }:
         return "Reprovado"
 
-    if status == "prova":
-        return "Prova"
-
-    if status == "entrevista":
+    if status in {
+        CANDIDATE_STATUS_SCHEDULED,
+        CANDIDATE_STATUS_CONFIRMED,
+        CANDIDATE_STATUS_ATTENDED,
+        CANDIDATE_STATUS_MISSED,
+    }:
         return "Entrevista"
 
-    if status == "triagem":
+    if status == CANDIDATE_STATUS_QUALIFIED:
+        return "Prova"
+
+    if status == CANDIDATE_STATUS_ANALYSIS:
         return "Triagem"
 
     if current in PIPELINE_STAGES:
@@ -64,17 +86,30 @@ def infer_pipeline_stage(
 
 def map_pipeline_stage_to_status(stage: str, current_status: str | None = None) -> str:
     normalized_stage = normalize_pipeline_stage(stage)
-    current_status_safe = normalize_text(current_status)
+    current_status_safe = canonicalize_candidate_status(current_status)
 
-    if normalized_stage in NON_TERMINAL_PIPELINE_STAGES:
-        if normalize_compare_text(current_status_safe) == "banco de talentos":
-            return "Banco de talentos"
-        return "Em analise"
+    if normalized_stage == "Triagem":
+        return CANDIDATE_STATUS_ANALYSIS
+
+    if normalized_stage == "Prova":
+        return CANDIDATE_STATUS_QUALIFIED
+
+    if normalized_stage == "Entrevista":
+        if current_status_safe in {
+            CANDIDATE_STATUS_SCHEDULED,
+            CANDIDATE_STATUS_CONFIRMED,
+            CANDIDATE_STATUS_ATTENDED,
+            CANDIDATE_STATUS_MISSED,
+        }:
+            return current_status_safe
+        return CANDIDATE_STATUS_QUALIFIED
 
     if normalized_stage == "Aprovado":
-        return "Aprovado"
+        return CANDIDATE_STATUS_APPROVED
 
-    return "Eliminado no pipeline"
+    if current_status_safe == CANDIDATE_STATUS_TALENT_BANK:
+        return CANDIDATE_STATUS_TALENT_BANK
+    return CANDIDATE_STATUS_ELIMINATED
 
 
 def build_pipeline_update_payload(stage: str, current_status: str | None = None) -> dict:

@@ -3,6 +3,11 @@ from __future__ import annotations
 import re
 
 from .helpers import normalize_compare_text, normalize_text, parse_float_br, safe_json_loads
+from .process_flow import (
+    CANDIDATE_STATUS_ANALYSIS,
+    get_candidate_visible_status,
+    normalize_process_status,
+)
 
 
 STAGE_IMPORTANCE_BY_ROLE = {
@@ -295,7 +300,11 @@ def build_analysis_from_payload(history_row, process_row, process_candidate_row,
     text_content = extract_analysis_text(safe_payload, history_row)
     text_quality = score_text_quality(text_content)
     process_name = normalize_text(history_row.get("id_processo"))
-    process_status = normalize_text(process_candidate_row.get("status_candidato")) or "Em analise"
+    process_status = get_candidate_visible_status(
+        process_candidate_row.get("status_candidato"),
+        process_candidate_row.get("status_entrevista"),
+    ) or CANDIDATE_STATUS_ANALYSIS
+    process_overall_status = normalize_process_status(process_row.get("status")) if process_row else ""
     cutoff_enabled = int(parse_float_br(process_row.get("usa_nota_corte"))) if process_row else 0
     cutoff_value = None
     if process_row and process_row.get("nota_corte") not in (None, ""):
@@ -353,6 +362,7 @@ def build_analysis_from_payload(history_row, process_row, process_candidate_row,
         "recomendacao": recommendation,
         "parecer_final": final_consideration,
         "status_candidato": process_status,
+        "status_processo": process_overall_status,
         "nota_corte_ativa": bool(cutoff_enabled),
         "nota_corte_valor": cutoff_value,
         "analise_texto": text_quality,
