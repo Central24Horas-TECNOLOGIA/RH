@@ -57,6 +57,16 @@ import {
   montarPayloadGabarito,
   montarResumoRegrasDoCandidato,
 } from '../regras-prova.js';
+import {
+  CANDIDATE_STATUS_ANALYSIS,
+  CANDIDATE_STATUS_ELIMINATED,
+  CANDIDATE_STATUS_TALENT_BANK,
+  canonicalizeCandidateStatus,
+  getCandidateVisibleStatus,
+} from '../shared/process-flow.js';
+import {
+  encontrarProcessoPorReferencia,
+} from '../shared/process-reference.js';
 
 const CHAVE_ESTADO = 'rh_react_state_v1';
 export const TAMANHO_RECENTES = 6;
@@ -80,6 +90,7 @@ export function criarEstadoInicial() {
     barraLateralRecolhida: false,
     candidato: {
       id_processo: '',
+      id_processo_ref: '',
       role: '',
       level: '',
       track: '',
@@ -268,11 +279,13 @@ export async function construirMapaStatusAtual() {
     if (!idTeste) return;
 
     const idProcesso = String(candidato.id_processo || '').trim();
-    const status =
-      String(candidato.status_candidato || '').trim() || 'Em analise';
+    const idProcessoRef = String(
+      candidato.id_processo_ref || candidato.id_processo || '',
+    ).trim();
+    const status = getCandidateVisibleStatus(candidato);
     mapa[idTeste] = {
       status,
-      processId: idProcesso,
+      processId: idProcessoRef,
       label: idProcesso ? `${status} • ${idProcesso}` : status,
     };
   });
@@ -282,16 +295,23 @@ export async function construirMapaStatusAtual() {
     if (!idTeste) return;
 
     const existente = mapa[idTeste];
-    const statusExistente = String(existente?.status || '').trim();
+    const statusExistente = canonicalizeCandidateStatus(existente?.status);
 
-    if (!existente || statusExistente === 'Em analise' || !statusExistente) {
+    if (
+      !existente ||
+      statusExistente === CANDIDATE_STATUS_ANALYSIS ||
+      !statusExistente
+    ) {
       const idProcesso = String(candidato.id_processo || '').trim();
+      const idProcessoRef = String(
+        candidato.id_processo_ref || candidato.id_processo || '',
+      ).trim();
       mapa[idTeste] = {
-        status: 'Banco de talentos',
-        processId: idProcesso,
+        status: CANDIDATE_STATUS_TALENT_BANK,
+        processId: idProcessoRef,
         label: idProcesso
-          ? `Banco de talentos • ${idProcesso}`
-          : 'Banco de talentos',
+          ? `${CANDIDATE_STATUS_TALENT_BANK} • ${idProcesso}`
+          : CANDIDATE_STATUS_TALENT_BANK,
       };
     }
   });
@@ -305,7 +325,7 @@ export function obterRotuloSituacaoAtual(linha, mapaStatus) {
   const mapeado = mapaStatus?.[idTeste];
 
   if (mapeado?.label) return mapeado.label;
-  if (idProcessoHistorico) return `Em analise • ${idProcessoHistorico}`;
+  if (idProcessoHistorico) return `${CANDIDATE_STATUS_ANALYSIS} • ${idProcessoHistorico}`;
   return 'Processo individual';
 }
 
@@ -592,6 +612,7 @@ export function useControladorAplicacao() {
       candidato: {
         ...anterior.candidato,
         id_processo: '',
+        id_processo_ref: '',
         role: '',
         level: '',
         track: '',
@@ -622,13 +643,17 @@ export function useControladorAplicacao() {
   };
 
   const configurarFluxo = ({ role, level, track, time, processId }) => {
-    const resolvedProcessId = processId === 'PROCESSO_UNICO' ? '' : processId;
+    const resolvedProcessRef = processId === 'PROCESSO_UNICO' ? '' : processId;
+    const resolvedProcessId = resolvedProcessRef
+      ? String(resolvedProcessRef).split('@@', 1)[0]
+      : '';
 
     atualizarEstado((anterior) => ({
       ...anterior,
       candidato: {
         ...anterior.candidato,
         id_processo: resolvedProcessId,
+        id_processo_ref: resolvedProcessRef,
         role,
         level,
         time,
@@ -756,17 +781,26 @@ export function useControladorAplicacao() {
       const idResultado = estado.idResultadoAtual || gerarIdResultado();
       const agora = new Date();
       const processoVinculado =
-        estado.candidato.id_processo || estado.processoSelecionado || '';
+        estado.candidato.id_processo_ref ||
+        estado.processoSelecionado ||
+        '';
+      const processoVinculadoBase =
+        estado.candidato.id_processo ||
+        (processoVinculado
+          ? String(processoVinculado).split('@@', 1)[0]
+          : '');
 
-      let statusInicialCandidato = 'Em analise';
+      let statusInicialCandidato = CANDIDATE_STATUS_ANALYSIS;
 
       if (processoVinculado) {
         const processos = await lerProcessos();
-        const processo = processos.find(
-          (item) =>
-            String(item.id_processo || '').trim() ===
-            String(processoVinculado).trim(),
-        );
+        const processo =
+          encontrarProcessoPorReferencia(processos, processoVinculado) ||
+          processos.find(
+            (item) =>
+              String(item.id_processo || '').trim() ===
+              String(processoVinculadoBase).trim(),
+          );
 
         const usaNotaCorte = Number(processo?.usa_nota_corte || 0) === 1;
         const notaCorte = Number(processo?.nota_corte || 0);
@@ -776,14 +810,15 @@ export function useControladorAplicacao() {
           !Number.isNaN(notaCorte) &&
           Number(estado.notaFinalPonderada || 0) < notaCorte
         ) {
-          statusInicialCandidato = 'Eliminado pela nota de corte';
+          statusInicialCandidato = CANDIDATE_STATUS_ELIMINATED;
         }
       }
 
       const linhaHistorico = {
         id_teste: idResultado,
         nome_candidato: estado.candidato.name,
-        id_processo: processoVinculado,
+        id_processo: processoVinculadoBase,
+        id_processo_ref: processoVinculado,
         vaga: estado.candidato.role,
         nivel: estado.candidato.level,
         trilha: blueprint.label,
@@ -815,16 +850,19 @@ export function useControladorAplicacao() {
           }),
         ),
       });
-      await criarCandidatoNoProcesso({
-        id_processo: processoVinculado,
-        id_teste: idResultado,
-        nome_candidato: estado.candidato.name,
-        vaga: estado.candidato.role,
-        status_candidato: statusInicialCandidato,
-        pontuacao_final: estado.notaFinalPonderada.toFixed(1).replace('.', ','),
-        data_prova: agora.toISOString(),
-        origem: 'Prova',
-      });
+      if (processoVinculadoBase || processoVinculado) {
+        await criarCandidatoNoProcesso({
+          id_processo: processoVinculadoBase,
+          id_processo_ref: processoVinculado,
+          id_teste: idResultado,
+          nome_candidato: estado.candidato.name,
+          vaga: estado.candidato.role,
+          status_candidato: statusInicialCandidato,
+          pontuacao_final: estado.notaFinalPonderada.toFixed(1).replace('.', ','),
+          data_prova: agora.toISOString(),
+          origem: 'Prova',
+        });
+      }
 
       atualizarEstado((anterior) => ({
         ...anterior,
@@ -843,6 +881,7 @@ export function useControladorAplicacao() {
       return {
         ok: false,
         mensagem:
+          error?.message ||
           'Nao foi possivel salvar a prova no servidor. Verifique a API e tente novamente.',
       };
     }

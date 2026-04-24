@@ -7,6 +7,7 @@ from .common import BaseSchema
 
 class PipelineCardCreateRequest(BaseSchema):
     id_processo: str
+    id_processo_ref: str = ""
     nome_candidato: str
     vaga: str = ""
     etapa_pipeline: str = "Triagem"

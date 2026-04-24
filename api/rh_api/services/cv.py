@@ -384,15 +384,15 @@ def score_cv_for_role(
         and is_valid_phone(phone_value)
         and experience_strength in ("forte", "media")
     ):
-        classificacao = "Otimo candidato"
-        slug = "otimo-candidato"
+        classificacao = "Qualificado"
+        slug = "qualificado"
     elif (
         score >= 4.5
         and len(keywords_validas) >= max(1, min_keywords - 1)
         and experience_strength in ("forte", "media", "basica")
     ):
-        classificacao = "Bom candidato"
-        slug = "bom-candidato"
+        classificacao = "Qualificado"
+        slug = "qualificado"
     else:
         classificacao = "Nao qualificado"
         slug = "nao-qualificado"

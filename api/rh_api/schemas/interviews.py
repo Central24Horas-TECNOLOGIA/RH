@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from datetime import datetime
 
@@ -11,7 +11,8 @@ from .common import BaseSchema
 class InterviewCreateRequest(BaseSchema):
     id_registro: int
     id_processo: str = ""
-    data_entrevista: datetime
+    id_processo_ref: str = ""
+    data_entrevista: datetime | None = None
     status_entrevista: str = "Agendado"
     link_agendamento: str = ""
     observacoes_rh: str = ""
@@ -25,7 +26,9 @@ class InterviewCreateRequest(BaseSchema):
 
     @field_validator("data_entrevista")
     @classmethod
-    def validate_interview_date(cls, value: datetime) -> datetime:
+    def validate_interview_date(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
         if value < datetime.now():
             raise ValueError("A data da entrevista deve ser futura.")
         return value
@@ -96,8 +99,5 @@ class InterviewUpdateRequest(BaseSchema):
             and self.observacoes_rh is None
         ):
             raise ValueError("Informe ao menos um campo para atualizar a entrevista.")
-
-        if self.data_entrevista is not None and self.data_entrevista < datetime.now():
-            raise ValueError("A data da entrevista deve ser futura.")
 
         return self

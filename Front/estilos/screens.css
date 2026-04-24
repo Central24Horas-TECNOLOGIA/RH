@@ -1,4 +1,4 @@
-.rh-login-page {
+﻿.rh-login-page {
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.78fr);
@@ -14,7 +14,7 @@
   color: #fff;
   background:
     linear-gradient(145deg, rgba(18, 42, 79, 0.95), rgba(21, 61, 138, 0.92)),
-    url('./fundo-login.png') center/cover;
+    url('./Fundo-azul.png') center/cover;
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
@@ -187,6 +187,14 @@
   gap: var(--space-4);
 }
 
+.rh-standalone-page {
+  min-height: 100vh;
+  display: grid;
+  align-items: center;
+  padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+
 .rh-candidate-side-card,
 .rh-candidate-main-card,
 .rh-instruction-card,
@@ -277,7 +285,10 @@
 
 .exam-screen-shell {
   min-height: 100vh;
-  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(0.9rem, 1.8vw, 1.25rem);
   background:
     radial-gradient(circle at top right, rgba(21, 61, 138, 0.12), transparent 28%),
     linear-gradient(180deg, #f7f9fc 0%, var(--color-bg) 100%);
@@ -318,9 +329,9 @@
 }
 
 .exam-screen-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+    width: 63px;
+    height: 56px;
+    border-radius: 0px;
 }
 
 .exam-screen-caption {
@@ -375,16 +386,18 @@
 
 .exam-screen-content {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: var(--space-5);
-  margin-top: var(--space-5);
+  grid-template-columns: minmax(280px, 0.88fr) minmax(340px, 1.12fr);
+  gap: clamp(0.9rem, 2vw, 1.35rem);
+  align-items: stretch;
+  margin-top: clamp(0.9rem, 2vw, 1.2rem);
+  flex: 1;
 }
 
 .exam-question-card,
 .exam-dynamic-area,
 .exam-screen-footer {
   border: 1px solid var(--color-border);
-  padding: var(--space-5);
+  padding: clamp(1rem, 2vw, 1.25rem);
 }
 
 .exam-question-kicker {
@@ -527,8 +540,9 @@
 .exam-screen-footer {
   display: flex;
   justify-content: space-between;
-  gap: var(--space-4);
-  margin-top: var(--space-5);
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: clamp(0.9rem, 1.8vw, 1.15rem);
 }
 
 .exam-screen-footer-actions {
@@ -561,7 +575,7 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: var(--space-6);
+  padding: clamp(1rem, 2vw, 1.5rem);
 }
 
 .rh-finish-shell {
@@ -1063,7 +1077,7 @@
   .rh-login-page,
   .exam-screen-shell,
   .rh-result-screen {
-    padding: 1rem;
+    padding: 0.85rem;
   }
 
   .rh-login-page {
@@ -1108,5 +1122,69 @@
   .rh-result-panel-head {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+
+/* Ajustes de provas e instrucoes */
+.rh-candidate-layout {
+  align-items: stretch;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.rh-candidate-side-card,
+.rh-candidate-main-card {
+  min-height: min(82vh, 860px);
+}
+
+.rh-candidate-main-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.rh-instruction-grid {
+  flex: 1;
+  align-items: stretch;
+}
+
+.exam-screen-shell {
+  width: min(1320px, 100%);
+  margin: 0 auto;
+}
+
+.exam-question-card,
+.exam-dynamic-area {
+  min-height: 100%;
+}
+
+.exam-dynamic-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+}
+
+.rh-editor-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.rh-finish-shell {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 991px) {
+  .rh-standalone-page {
+    align-items: stretch;
+  }
+
+  .rh-candidate-side-card,
+  .rh-candidate-main-card {
+    min-height: auto;
   }
 }

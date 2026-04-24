@@ -15,6 +15,7 @@ import {
 } from '../../shared/helpers-visuais.js';
 import { copiarTexto, toDatetimeLocal } from '../../shared/browser-utils.js';
 import { AcaoSair } from '../../shared/components/actions.js';
+import { isProcessClosed } from '../../shared/process-flow.js';
 import { validarFormularioEntrevista } from '../../shared/validacoes.js';
 import {
   EmptyState,
@@ -25,6 +26,10 @@ import {
   PainelRh,
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
+import {
+  obterChaveProcesso,
+  obterReferenciaProcesso,
+} from '../../shared/process-reference.js';
 
 const STATUS_ENTREVISTA = [
   'Agendado',
@@ -102,6 +107,11 @@ export function TelaEntrevistas({ controlador }) {
   );
 
   const abrirEdicao = (entrevista) => {
+    if (isProcessClosed(entrevista?.status_processo)) {
+      setErro('O processo seletivo desta entrevista esta encerrado e nao permite atualizacao operacional.');
+      return;
+    }
+
     setEntrevistaEdicao(entrevista);
     setFormularioEdicao({
       data_entrevista: toDatetimeLocal(entrevista.data_entrevista),
@@ -114,6 +124,10 @@ export function TelaEntrevistas({ controlador }) {
 
   const salvar = async () => {
     if (!entrevistaEdicao) return;
+    if (isProcessClosed(entrevistaEdicao.status_processo)) {
+      setErro('O processo seletivo desta entrevista esta encerrado e nao permite atualizacao operacional.');
+      return;
+    }
 
     const mensagemErro = validarFormularioEntrevista({
       id_registro: entrevistaEdicao.id_registro,
@@ -133,6 +147,8 @@ export function TelaEntrevistas({ controlador }) {
         status_entrevista: formularioEdicao.status_entrevista,
         link_agendamento: formularioEdicao.link_agendamento,
         observacoes_rh: formularioEdicao.observacoes_rh,
+        id_processo_ref:
+          entrevistaEdicao.id_processo_ref || entrevistaEdicao.id_processo || '',
       });
 
       setEntrevistaEdicao(null);
@@ -204,7 +220,10 @@ export function TelaEntrevistas({ controlador }) {
               <option value="">Todos os processos</option>
               ${processos.map(
                 (processo) => html`
-                  <option key=${processo.id_processo} value=${processo.id_processo}>
+                  <option
+                    key=${obterChaveProcesso(processo)}
+                    value=${obterReferenciaProcesso(processo)}
+                  >
                     ${processo.id_processo} • ${processo.vaga}
                   </option>
                 `,
@@ -244,7 +263,7 @@ export function TelaEntrevistas({ controlador }) {
 
       <${SectionCard}
         title="Agenda operacional"
-        description="Edite status, copie a mensagem base e abra o link de agendamento quando necessario."
+        description="Edite status apenas em processos abertos, copie a mensagem base e acompanhe o momento de cada candidato."
         tourId="interview-agenda"
       >
         ${carregando
@@ -315,6 +334,11 @@ export function TelaEntrevistas({ controlador }) {
                             <td>
                               <div class="rh-cell-stack">
                                 <span>${item.observacoes_rh || 'Sem observacoes.'}</span>
+                                ${isProcessClosed(item.status_processo)
+                                  ? html`
+                                      <small>Processo encerrado: movimentacoes bloqueadas.</small>
+                                    `
+                                  : null}
                                 ${item.observacao_candidato_rh
                                   ? html`
                                       <small>
@@ -343,9 +367,12 @@ export function TelaEntrevistas({ controlador }) {
                                 <button
                                   type="button"
                                   class="btn btn-sm btn-outline-primary"
+                                  disabled=${isProcessClosed(item.status_processo)}
                                   onClick=${() => abrirEdicao(item)}
                                 >
-                                  Atualizar
+                                  ${isProcessClosed(item.status_processo)
+                                    ? 'Processo encerrado'
+                                    : 'Atualizar'}
                                 </button>
                               </div>
                             </td>
@@ -461,10 +488,14 @@ export function TelaEntrevistas({ controlador }) {
                 <button
                   type="button"
                   class="btn btn-primary"
-                  disabled=${salvando}
+                  disabled=${salvando || isProcessClosed(entrevistaEdicao.status_processo)}
                   onClick=${salvar}
                 >
-                  ${salvando ? 'Salvando...' : 'Salvar atualizacao'}
+                  ${salvando
+                    ? 'Salvando...'
+                    : isProcessClosed(entrevistaEdicao.status_processo)
+                      ? 'Processo encerrado'
+                      : 'Salvar atualizacao'}
                 </button>
               </footer>
             `

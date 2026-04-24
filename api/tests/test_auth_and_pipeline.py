@@ -211,6 +211,7 @@ class FakeRepository:
         }
         self.interviews.append(entrevista)
         candidato["etapa_pipeline"] = "Entrevista"
+        candidato["status_candidato"] = entrevista["status_entrevista"]
         candidato["status_entrevista"] = entrevista["status_entrevista"]
         candidato["data_entrevista"] = entrevista["data_entrevista"].isoformat()
         candidato["link_entrevista"] = entrevista["link_agendamento"]
@@ -227,6 +228,7 @@ class FakeRepository:
 
             for card in self.pipeline_cards:
                 if int(card.get("id_registro") or 0) == int(item.get("id_registro") or 0):
+                    card["status_candidato"] = item.get("status_entrevista", "")
                     card["status_entrevista"] = item.get("status_entrevista", "")
                     card["data_entrevista"] = (
                         item["data_entrevista"].isoformat()
@@ -326,7 +328,7 @@ class AuthAndPipelineApiTests(unittest.TestCase):
         cards = get_candidate_pipeline(id_processo="", search="", repository=repository)
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0]["etapa_pipeline"], "Triagem")
-        self.assertEqual(cards[0]["status_candidato"], "Em analise")
+        self.assertEqual(cards[0]["status_candidato"], "Analise")
 
         move_response = move_candidate_pipeline_card(
             1,
@@ -350,7 +352,7 @@ class AuthAndPipelineApiTests(unittest.TestCase):
                 id_processo="PROC.ANL.001",
                 nome_candidato="Ana Souza",
                 vaga="Analista",
-                etapa_pipeline="Triagem",
+                etapa_pipeline="Prova",
             ),
             repository=repository,
         )
@@ -396,6 +398,8 @@ class AuthAndPipelineApiTests(unittest.TestCase):
         )
         self.assertEqual(len(entrevistas), 1)
         self.assertEqual(entrevistas[0]["status_entrevista"], "Agendado")
+        cards = get_candidate_pipeline(id_processo="", search="", repository=repository)
+        self.assertEqual(cards[0]["status_candidato"], "Agendado")
 
         update_payload = update_interview(
             1,
@@ -411,6 +415,8 @@ class AuthAndPipelineApiTests(unittest.TestCase):
             repository=repository,
         )
         self.assertEqual(entrevistas_atualizadas[0]["status_entrevista"], "Confirmado")
+        cards_atualizados = get_candidate_pipeline(id_processo="", search="", repository=repository)
+        self.assertEqual(cards_atualizados[0]["status_candidato"], "Confirmado")
 
     def test_deadlock_error_detection_matches_sql_server_signature(self):
         error = Exception(

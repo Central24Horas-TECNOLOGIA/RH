@@ -60,15 +60,6 @@ export function validarFormularioEntrevista(formulario) {
     return 'Selecione um candidato valido para agendar a entrevista.';
   }
 
-  if (!normalizarTexto(formulario.data_entrevista)) {
-    return 'Informe a data e hora da entrevista.';
-  }
-
-  const dataEntrevista = new Date(formulario.data_entrevista);
-  if (Number.isNaN(dataEntrevista.getTime()) || dataEntrevista.getTime() <= Date.now()) {
-    return 'A data da entrevista deve ser futura.';
-  }
-
   if (
     normalizarTexto(formulario.link_agendamento) &&
     !/^https?:\/\//i.test(normalizarTexto(formulario.link_agendamento))

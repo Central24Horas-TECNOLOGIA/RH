@@ -93,10 +93,11 @@ class ProcessUpdateRequest(BaseSchema):
 
 class ProcessCandidateCreateRequest(BaseSchema):
     id_processo: str = ""
+    id_processo_ref: str = ""
     id_teste: str = ""
     nome_candidato: str = ""
     vaga: str = ""
-    status_candidato: str = "Em analise"
+    status_candidato: str = "Analise"
     pontuacao_final: str | float | int = ""
     data_prova: str = ""
     origem: str = "Prova"
@@ -119,6 +120,7 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
 
 class TalentBankUseRequest(BaseSchema):
     id_processo: str = ""
+    id_processo_ref: str = ""
 
     @field_validator("id_processo")
     @classmethod

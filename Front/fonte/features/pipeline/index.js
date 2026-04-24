@@ -16,6 +16,11 @@ import {
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
 import { AcaoSair } from '../../shared/components/actions.js';
+import {
+  getCandidateVisibleStatus,
+  getPipelineStageLabel,
+  isProcessClosed,
+} from '../../shared/process-flow.js';
 import { validarCardPipeline } from '../../shared/validacoes.js';
 import { formatarNotaAnalise } from '../../utilitarios.js';
 import {
@@ -31,6 +36,11 @@ import {
   PainelRh,
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
+import {
+  montarPayloadProcessoSelecionado,
+  obterChaveProcesso,
+  obterReferenciaProcesso,
+} from '../../shared/process-reference.js';
 
 const ETAPAS_PIPELINE = [
   'Triagem',
@@ -58,6 +68,7 @@ export function TelaPipelineCandidatos({ controlador }) {
     sessionStorage.getItem(CHAVE_PIPELINE_CANDIDATO) || '',
   );
   const [modalCriacaoAberto, setModalCriacaoAberto] = useState(false);
+  const [cardsRecolhidos, setCardsRecolhidos] = useState({});
   const [novoCard, setNovoCard] = useState({
     id_processo: sessionStorage.getItem(CHAVE_PIPELINE_PROCESSO) || '',
     nome_candidato: '',
@@ -110,6 +121,11 @@ export function TelaPipelineCandidatos({ controlador }) {
     return () => window.clearTimeout(timeout);
   }, [candidatoFoco]);
 
+  const processosAbertos = useMemo(
+    () => processos.filter((processo) => !isProcessClosed(processo.status)),
+    [processos],
+  );
+
   const cardsPorEtapa = useMemo(
     () =>
       ETAPAS_PIPELINE.map((etapa) => ({
@@ -133,6 +149,11 @@ export function TelaPipelineCandidatos({ controlador }) {
   }, [cards]);
 
   const mover = async (card, direcao) => {
+    if (isProcessClosed(card.status_processo)) {
+      setErro('O processo seletivo deste candidato esta encerrado e nao permite movimentacao no pipeline.');
+      return;
+    }
+
     const posicaoAtual = indiceEtapa(card.etapa_pipeline);
     const proximaPosicao = posicaoAtual + direcao;
 
@@ -190,8 +211,19 @@ export function TelaPipelineCandidatos({ controlador }) {
     setErro('');
 
     try {
+      const processoSelecionado = montarPayloadProcessoSelecionado(
+        processos,
+        novoCard.id_processo,
+      );
+      if (!processoSelecionado.id_processo) {
+        setErro('Selecione um processo valido para criar o card.');
+        return;
+      }
+
       await criarCardPipeline({
         ...novoCard,
+        id_processo: processoSelecionado.id_processo,
+        id_processo_ref: processoSelecionado.id_processo_ref,
         nome_candidato: novoCard.nome_candidato.trim(),
       });
 
@@ -237,7 +269,7 @@ export function TelaPipelineCandidatos({ controlador }) {
       <${PageIntro}
         kicker="Console • Pipeline"
         title="Pipeline de candidatos"
-        description="Acompanhe cada etapa do funil com persistencia real, exclusao segura do card e leitura integrada de entrevista e perfil RH."
+        description="Acompanhe o fluxo operacional por etapa. Processos encerrados permanecem visiveis, mas sem permitir movimentacao."
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
@@ -249,12 +281,12 @@ export function TelaPipelineCandidatos({ controlador }) {
         <${MetricGrid}
           items=${[
             { label: 'Total', value: resumo.total || 0 },
-            { label: 'Triagem', value: resumo.Triagem || 0, variant: 'is-analysis' },
-            { label: 'Prova', value: resumo.Prova || 0 },
-            { label: 'Entrevista', value: resumo.Entrevista || 0, variant: 'is-highlight' },
+            { label: 'Analise', value: resumo.Triagem || 0, variant: 'is-analysis' },
+            { label: 'Qualificados', value: resumo.Prova || 0, variant: 'is-highlight' },
+            { label: 'Entrevistas', value: resumo.Entrevista || 0, variant: 'is-confirmed' },
             { label: 'Entrevistas agendadas', value: resumo.entrevistasAtivas || 0, variant: 'is-highlight' },
             { label: 'Aprovado', value: resumo.Aprovado || 0, variant: 'is-approved' },
-            { label: 'Reprovado', value: resumo.Reprovado || 0, variant: 'is-eliminated' },
+            { label: 'Finalizados', value: resumo.Reprovado || 0, variant: 'is-eliminated' },
           ]}
         />
       </${SectionCard}>
@@ -274,9 +306,12 @@ export function TelaPipelineCandidatos({ controlador }) {
                 setFiltros({ ...filtros, processo: event.target.value })}
             >
               <option value="">Todos os processos</option>
-              ${processos.map(
+              ${processosAbertos.map(
                 (processo) => html`
-                  <option key=${processo.id_processo} value=${processo.id_processo}>
+                  <option
+                    key=${obterChaveProcesso(processo)}
+                    value=${obterReferenciaProcesso(processo)}
+                  >
                     ${processo.id_processo} • ${processo.vaga}
                   </option>
                 `,
@@ -303,7 +338,7 @@ export function TelaPipelineCandidatos({ controlador }) {
             (coluna) => html`
               <article key=${coluna.etapa} class="rh-pipeline-column">
                 <header class="rh-pipeline-column-header">
-                  <strong>${coluna.etapa}</strong>
+                  <strong>${getPipelineStageLabel(coluna.etapa)}</strong>
                   <span>${coluna.items.length}</span>
                 </header>
 
@@ -320,71 +355,103 @@ export function TelaPipelineCandidatos({ controlador }) {
                           (card) => html`
                             <div
                               key=${card.id_registro}
-                              class=${`rh-pipeline-card ${String(card.id_registro) === String(candidatoFoco) ? 'is-focused' : ''}`.trim()}
+                              class=${`rh-pipeline-card ${String(card.id_registro) === String(candidatoFoco) ? 'is-focused' : ''} ${cardsRecolhidos[card.id_registro] ? 'is-collapsed' : ''}`.trim()}
                             >
                               <div class="rh-pipeline-card-top">
-                                <strong>${card.nome_candidato || '-'}</strong>
+                                <div class="rh-pipeline-card-headline">
+                                  <strong>${card.nome_candidato || '-'}</strong>
+                                  <button
+                                    type="button"
+                                    class="rh-pipeline-collapse-btn"
+                                    aria-label=${cardsRecolhidos[card.id_registro]
+                                      ? 'Expandir card'
+                                      : 'Recolher card'}
+                                    title=${cardsRecolhidos[card.id_registro]
+                                      ? 'Expandir card'
+                                      : 'Recolher card'}
+                                    onClick=${() =>
+                                      setCardsRecolhidos((anterior) => ({
+                                        ...anterior,
+                                        [card.id_registro]:
+                                          !anterior[card.id_registro],
+                                      }))}
+                                  >
+                                    <span class="material-symbols-outlined">
+                                      ${cardsRecolhidos[card.id_registro]
+                                        ? 'keyboard_arrow_down'
+                                        : 'keyboard_arrow_up'}
+                                    </span>
+                                  </button>
+                                </div>
                                 <span class="rh-status-pill">
-                                  ${card.status_candidato || 'Em analise'}
+                                  ${getCandidateVisibleStatus(card) || '-'}
                                 </span>
                               </div>
 
                               <div class="rh-pipeline-card-meta">
                                 <span>${card.id_processo || '-'}</span>
                                 <span>${card.vaga || '-'}</span>
-                              </div>
-
-                              ${card.tags?.length
-                                ? html`
-                                    <div class="rh-chip-wrap mt-3">
-                                      ${card.tags.slice(0, 3).map(
-                                        (tag) => html`
-                                          <span key=${tag} class="rh-chip">${tag}</span>
-                                        `,
-                                      )}
-                                    </div>
-                                  `
-                                : null}
-
-                              <div class="rh-pipeline-card-details">
-                                <span>Origem: ${card.origem || '-'}</span>
-                                <span>
-                                  Nota:
-                                  ${card.pontuacao_final !== undefined &&
-                                  card.pontuacao_final !== null &&
-                                  card.pontuacao_final !== ''
-                                    ? formatarNotaAnalise(card.pontuacao_final)
-                                    : '-'}
-                                </span>
-                                <span>
-                                  Entrevista:
-                                  ${card.status_entrevista
-                                    ? html`
-                                        <span
-                                          class=${`rh-status-pill ${obterClasseStatusEntrevista(card.status_entrevista)}`}
-                                        >
-                                          ${card.status_entrevista}
-                                        </span>
-                                      `
-                                    : 'Nao agendada'}
-                                </span>
-                                ${card.data_entrevista
-                                  ? html`
-                                      <span>
-                                        Data entrevista: ${formatarDataHora(
-                                          card.data_entrevista,
-                                        )}
-                                      </span>
-                                    `
+                                ${isProcessClosed(card.status_processo)
+                                  ? html`<span>Processo encerrado</span>`
                                   : null}
                               </div>
+
+                              ${cardsRecolhidos[card.id_registro]
+                                ? null
+                                : html`
+                                    ${card.tags?.length
+                                      ? html`
+                                          <div class="rh-chip-wrap mt-3">
+                                            ${card.tags.slice(0, 3).map(
+                                              (tag) => html`
+                                                <span key=${tag} class="rh-chip">${tag}</span>
+                                              `,
+                                            )}
+                                          </div>
+                                        `
+                                      : null}
+
+                                    <div class="rh-pipeline-card-details">
+                                      <span>Origem: ${card.origem || '-'}</span>
+                                      <span>
+                                        Nota:
+                                        ${card.pontuacao_final !== undefined &&
+                                        card.pontuacao_final !== null &&
+                                        card.pontuacao_final !== ''
+                                          ? formatarNotaAnalise(card.pontuacao_final)
+                                          : '-'}
+                                      </span>
+                                      <span>
+                                        Entrevista:
+                                        ${card.status_entrevista
+                                          ? html`
+                                              <span
+                                                class=${`rh-status-pill ${obterClasseStatusEntrevista(card.status_entrevista)}`}
+                                              >
+                                                ${card.status_entrevista}
+                                              </span>
+                                            `
+                                          : 'Nao agendada'}
+                                      </span>
+                                      ${card.data_entrevista
+                                        ? html`
+                                            <span>
+                                              Data entrevista: ${formatarDataHora(
+                                                card.data_entrevista,
+                                              )}
+                                            </span>
+                                          `
+                                        : null}
+                                    </div>
+                                  `}
 
                               <div class="rh-pipeline-card-actions">
                                 <button
                                   type="button"
                                   class="btn btn-sm btn-outline-secondary"
                                   disabled=${salvando ||
-                                  indiceEtapa(card.etapa_pipeline) === 0}
+                                  indiceEtapa(card.etapa_pipeline) === 0 ||
+                                  isProcessClosed(card.status_processo)}
                                   onClick=${() => mover(card, -1)}
                                 >
                                   Etapa anterior
@@ -394,7 +461,8 @@ export function TelaPipelineCandidatos({ controlador }) {
                                   class="btn btn-sm btn-primary"
                                   disabled=${salvando ||
                                   indiceEtapa(card.etapa_pipeline) ===
-                                    ETAPAS_PIPELINE.length - 1}
+                                    ETAPAS_PIPELINE.length - 1 ||
+                                  isProcessClosed(card.status_processo)}
                                   onClick=${() => mover(card, 1)}
                                 >
                                   Proxima etapa
@@ -450,7 +518,10 @@ export function TelaPipelineCandidatos({ controlador }) {
               <option value="">Selecione...</option>
               ${processos.map(
                 (processo) => html`
-                  <option key=${processo.id_processo} value=${processo.id_processo}>
+                  <option
+                    key=${obterChaveProcesso(processo)}
+                    value=${obterReferenciaProcesso(processo)}
+                  >
                     ${processo.id_processo} • ${processo.vaga}
                   </option>
                 `,
@@ -484,7 +555,9 @@ export function TelaPipelineCandidatos({ controlador }) {
             >
               ${ETAPAS_PIPELINE.map(
                 (etapa) => html`
-                  <option key=${etapa} value=${etapa}>${etapa}</option>
+                  <option key=${etapa} value=${etapa}>
+                    ${getPipelineStageLabel(etapa)}
+                  </option>
                 `,
               )}
             </select>

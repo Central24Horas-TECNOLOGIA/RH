@@ -1,4 +1,4 @@
-import {
+﻿import {
   html,
   useEffect,
   useRef,
@@ -11,59 +11,37 @@ import {
 } from '../../regras-prova.js';
 
 export function EditorTextoRich({ valor, onChange }) {
-  const editorRef = useRef(null);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
-    const editor = editorRef.current;
-    const proximoValor = valor || '';
-
-    if (editor && editor.innerHTML !== proximoValor) {
-      editor.innerHTML = proximoValor;
+    if (!textareaRef.current) return;
+    const valorSeguro = valor || '';
+    if (textareaRef.current.value !== valorSeguro) {
+      textareaRef.current.value = valorSeguro;
     }
   }, [valor]);
 
-  const executarComando = (comando) => {
-    document.execCommand(comando, false, null);
-    const editor = editorRef.current;
-    if (editor) {
-      editor.focus();
-      onChange(editor.innerHTML || '');
-    }
-  };
-
-  const acoes = [
-    ['bold', html`<strong>B</strong>`],
-    ['italic', html`<em>I</em>`],
-    ['underline', html`<u>U</u>`],
-    ['justifyLeft', 'Esq'],
-    ['justifyCenter', 'Centro'],
-    ['insertUnorderedList', 'Lista'],
-  ];
-
   return html`
     <div class="rh-editor-card">
-      <div class="toolbar rh-editor-toolbar">
-        ${acoes.map(
-          ([comando, rotulo]) => html`
-            <button
-              key=${comando}
-              type="button"
-              class="btn btn-outline-secondary"
-              onClick=${() => executarComando(comando)}
-            >
-              ${rotulo}
-            </button>
-          `,
-        )}
+      <label class="form-label fw-semibold" for="word-answer-textarea">
+        Digite sua resposta
+      </label>
+      <textarea
+        ref=${textareaRef}
+        id="word-answer-textarea"
+        class="form-control word-editor"
+        placeholder="Escreva sua resposta aqui..."
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="sentences"
+        spellcheck="true"
+        onInput=${(event) => {
+          onChange(event.target.value || '');
+        }}
+      >${valor || ''}</textarea>
+      <div class="form-text mt-2">
+        Campo de resposta em texto livre. O sistema considera o conteudo digitado para a avaliacao.
       </div>
-      <div
-        ref=${editorRef}
-        class="word-editor"
-        contenteditable=${true}
-        suppressContentEditableWarning=${true}
-        spellcheck=${false}
-        onInput=${(event) => onChange(event.currentTarget.innerHTML || '')}
-      ></div>
     </div>
   `;
 }

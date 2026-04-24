@@ -6,6 +6,7 @@ from .common import BaseSchema
 class HistoryRecordRequest(BaseSchema):
     id_teste: str = ""
     id_processo: str = ""
+    id_processo_ref: str = ""
     nome_candidato: str = ""
     vaga: str = ""
     nivel: str = ""

@@ -1,12 +1,17 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import math
+from datetime import datetime
 
 from fastapi import HTTPException, status
 
-from ..services.helpers import normalize_text, rows_to_dicts
-from .bootstrap import get_gabaritos_payload_column
+from ..services.helpers import normalize_text, parse_float_br, rows_to_dicts
+from .bootstrap import (
+    ensure_decimal_process_columns,
+    ensure_process_reference_columns,
+    get_gabaritos_payload_column,
+)
 
 
 class HistoryRepositoryMixin:
@@ -23,6 +28,8 @@ class HistoryRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_process_reference_columns(cursor)
+            ensure_decimal_process_columns(cursor)
             filters = []
             params = []
 
@@ -40,6 +47,7 @@ class HistoryRepositoryMixin:
                 SELECT
                     id_teste,
                     id_processo,
+                    id_processo_ref,
                     nome_candidato,
                     vaga,
                     nivel,
@@ -88,41 +96,74 @@ class HistoryRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_process_reference_columns(cursor)
+            ensure_decimal_process_columns(cursor)
+
+            columns_meta = list(cursor.columns(table="historico_provas", schema="dbo"))
+            existing_columns = {str(col.column_name).strip().lower(): str(col.column_name).strip() for col in columns_meta}
+
+            id_teste = row.get("id_teste", "")
+            agora = datetime.now()
+            codigo_legado = row.get("Codigo") or row.get("codigo") or id_teste or f"HIST-{agora.strftime('%Y%m%d%H%M%S')}"
+            arquivo_gabarito = row.get("arquivo_gabarito") or row.get("pontuacao_bruta") or ""
+
+            payload = {
+                "id_teste": id_teste,
+                "id_processo": row.get("id_processo", ""),
+                "id_processo_ref": row.get("id_processo_ref", ""),
+                "nome_candidato": row.get("nome_candidato", ""),
+                "vaga": row.get("vaga", ""),
+                "nivel": row.get("nivel", ""),
+                "trilha": row.get("trilha", ""),
+                "data_iso": row.get("data_iso", ""),
+                "data_exibicao": row.get("data_exibicao", ""),
+                "pontuacao_final": parse_float_br(row.get("pontuacao_final", 0)),
+                "status": row.get("status", ""),
+                "tempo_minutos": int(float(row.get("tempo_minutos", 0) or 0)),
+                "arquivo_gabarito": arquivo_gabarito,
+                "etapas_json": row.get("etapas_json", ""),
+                "codigo": codigo_legado,
+                "Codigo": codigo_legado,
+            }
+
+            ordered_columns = []
+            values = []
+            for alias in (
+                "Codigo",
+                "codigo",
+                "id_teste",
+                "id_processo",
+                "id_processo_ref",
+                "nome_candidato",
+                "vaga",
+                "nivel",
+                "trilha",
+                "data_iso",
+                "data_exibicao",
+                "pontuacao_final",
+                "status",
+                "tempo_minutos",
+                "arquivo_gabarito",
+                "etapas_json",
+            ):
+                lookup_key = str(alias).lower()
+                if lookup_key not in existing_columns:
+                    continue
+                ordered_columns.append(existing_columns[lookup_key])
+                values.append(payload.get(alias, payload.get(existing_columns[lookup_key], "")))
+
+            placeholders = ", ".join(["?"] * len(ordered_columns))
+            columns_sql = ",\n                    ".join(ordered_columns)
+
             cursor.execute(
-                """
+                f"""
                 INSERT INTO historico_provas
                 (
-                    id_teste,
-                    id_processo,
-                    nome_candidato,
-                    vaga,
-                    nivel,
-                    trilha,
-                    data_iso,
-                    data_exibicao,
-                    pontuacao_final,
-                    status,
-                    tempo_minutos,
-                    arquivo_gabarito,
-                    etapas_json
+                    {columns_sql}
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES ({placeholders})
                 """,
-                (
-                    row.get("id_teste", ""),
-                    row.get("id_processo", ""),
-                    row.get("nome_candidato", ""),
-                    row.get("vaga", ""),
-                    row.get("nivel", ""),
-                    row.get("trilha", ""),
-                    row.get("data_iso", ""),
-                    row.get("data_exibicao", ""),
-                    row.get("pontuacao_final", 0),
-                    row.get("status", ""),
-                    row.get("tempo_minutos", 0),
-                    row.get("arquivo_gabarito", ""),
-                    row.get("etapas_json", ""),
-                ),
+                tuple(values),
             )
             conn.commit()
             return {"success": True}

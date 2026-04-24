@@ -42,7 +42,16 @@ import {
 } from '../../shared/helpers-visuais.js';
 import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
+import {
+  getCandidateActionState,
+  getCandidateVisibleStatus,
+  isProcessClosed,
+} from '../../shared/process-flow.js';
 import { obterTourLogin } from '../../shared/tour-config.js';
+import {
+  obterChaveProcesso,
+  obterReferenciaProcesso,
+} from '../../shared/process-reference.js';
 import {
   quebrarListaTexto,
   validarFormularioProcesso,
@@ -924,8 +933,12 @@ export function TelaBancoTalentos({ controlador }) {
     setErro('');
 
     try {
+      const processoSelecionado = processosAbertos.find(
+        (processo) => obterReferenciaProcesso(processo) === processoSelecionadoUso,
+      );
       await usarCandidatoDoBancoTalentos(candidatoParaUtilizar.id_banco, {
-        id_processo: processoSelecionadoUso,
+        id_processo: processoSelecionado?.id_processo || '',
+        id_processo_ref: processoSelecionadoUso,
       });
 
       setCandidatoParaUtilizar(null);
@@ -1130,9 +1143,9 @@ export function TelaBancoTalentos({ controlador }) {
             onChange=${(event) => setProcessoSelecionadoUso(event.target.value)}
           >
             <option value="">Selecione...</option>
-            ${processosAbertos.map(
-              (processo) => html`
-                <option key=${processo.id_processo} value=${processo.id_processo}>
+              ${processosAbertos.map(
+                (processo) => html`
+                <option key=${obterChaveProcesso(processo)} value=${obterReferenciaProcesso(processo)}>
                   ${processo.id_processo} • ${processo.vaga} •
                   ${processo.operacao || processo.trilha || '-'}
                 </option>
@@ -1355,9 +1368,38 @@ export function TelaAnaliseCandidatos({ controlador }) {
   );
 
   const paginado = obterItensPaginados(filtrado, pagina, TAMANHO_ANALISE);
+  const detalheEstadoAcoes = useMemo(
+    () => getCandidateActionState(detalhe || {}, detalhe?.status_processo || ''),
+    [detalhe],
+  );
 
   const aplicarAcao = async (statusCandidato) => {
     if (!detalhe?.id_teste) return;
+    if (detalheEstadoAcoes.processClosed) {
+      window.alert('O processo seletivo deste candidato esta encerrado e nao permite novas movimentacoes.');
+      return;
+    }
+    if (
+      statusCandidato === 'Aprovado' &&
+      !detalheEstadoAcoes.canApprove
+    ) {
+      window.alert('A aprovacao nao esta disponivel para o status atual deste candidato.');
+      return;
+    }
+    if (
+      statusCandidato === 'Eliminado' &&
+      !detalheEstadoAcoes.canEliminate
+    ) {
+      window.alert('A eliminacao nao esta disponivel para o status atual deste candidato.');
+      return;
+    }
+    if (
+      statusCandidato === 'Banco de talentos' &&
+      !detalheEstadoAcoes.canSendToTalentBank
+    ) {
+      window.alert('O envio para banco de talentos nao esta disponivel para o status atual deste candidato.');
+      return;
+    }
 
     const candidatosProcesso = await lerCandidatosProcessos(true);
     const vinculo = candidatosProcesso.find(
@@ -1449,7 +1491,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
 
       <${SectionCard}
         title="Ranking analitico"
-        description="Acoes de aprovacao, eliminacao e envio para banco de talentos continuam disponiveis no modal de detalhe."
+        description="O modal de detalhe respeita o status atual do candidato e bloqueia movimentacoes em processo encerrado."
         tourId="analysis-ranking"
       >
         <div class="table-responsive">
@@ -1485,7 +1527,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                             ${linha.recomendacao || '-'}
                           </span>
                         </td>
-                        <td>${linha.status_candidato || '-'}</td>
+                        <td>${getCandidateVisibleStatus(linha) || '-'}</td>
                         <td class="text-end">
                           <button
                             type="button"
@@ -1550,6 +1592,14 @@ export function TelaAnaliseCandidatos({ controlador }) {
                         </span>
                       `,
                     },
+                    {
+                      label: 'Status atual',
+                      value: getCandidateVisibleStatus(detalhe) || '-',
+                    },
+                    {
+                      label: 'Processo',
+                      value: detalhe.status_processo || 'Aberto',
+                    },
                   ]}
                 />
 
@@ -1581,27 +1631,50 @@ export function TelaAnaliseCandidatos({ controlador }) {
 
               <footer class="rh-modal-footer">
                 <div class="rh-modal-footer-actions">
-                  <button
-                    type="button"
-                    class="btn btn-outline-success"
-                    onClick=${() => aplicarAcao('Aprovado')}
-                  >
-                    Aprovar
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-outline-danger"
-                    onClick=${() => aplicarAcao('Eliminado')}
-                  >
-                    Eliminar
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    onClick=${() => aplicarAcao('Banco de talentos')}
-                  >
-                    Banco de talentos
-                  </button>
+                  ${detalheEstadoAcoes.canApprove
+                    ? html`
+                        <button
+                          type="button"
+                          class="btn btn-outline-success"
+                          onClick=${() => aplicarAcao('Aprovado')}
+                        >
+                          Aprovar
+                        </button>
+                      `
+                    : null}
+                  ${detalheEstadoAcoes.canEliminate
+                    ? html`
+                        <button
+                          type="button"
+                          class="btn btn-outline-danger"
+                          onClick=${() => aplicarAcao('Eliminado')}
+                        >
+                          Eliminar
+                        </button>
+                      `
+                    : null}
+                  ${detalheEstadoAcoes.canSendToTalentBank
+                    ? html`
+                        <button
+                          type="button"
+                          class="btn btn-outline-secondary"
+                          onClick=${() => aplicarAcao('Banco de talentos')}
+                        >
+                          Banco de talentos
+                        </button>
+                      `
+                    : null}
+                  ${!detalheEstadoAcoes.canApprove &&
+                  !detalheEstadoAcoes.canEliminate &&
+                  !detalheEstadoAcoes.canSendToTalentBank
+                    ? html`
+                        <span class="text-muted">
+                          ${isProcessClosed(detalhe?.status_processo)
+                            ? 'Processo encerrado: sem movimentacoes.'
+                            : 'Sem acoes operacionais para o status atual.'}
+                        </span>
+                      `
+                    : null}
                 </div>
                 <button
                   type="button"

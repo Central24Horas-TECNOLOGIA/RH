@@ -34,9 +34,19 @@ import { copiarTexto, toDatetimeLocal } from '../../shared/browser-utils.js';
 import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import {
+  getCandidateActionState,
+  isProcessClosed,
+} from '../../shared/process-flow.js';
+import {
   validarFormularioEntrevista,
   validarFormularioProcesso,
 } from '../../shared/validacoes.js';
+import {
+  encontrarProcessoPorReferencia,
+  obterChaveProcesso,
+  obterReferenciaProcesso,
+  obterReferenciaProcessoDoCandidato,
+} from '../../shared/process-reference.js';
 import { CHAVE_PROCESSO_DETALHE } from './state.js';
 import { CabecalhoSecaoColapsavel } from './components/section-toggle.js';
 import {
@@ -49,6 +59,88 @@ import {
   PainelRh,
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
+
+function montarCandidatoDeFluxo(candidato, processoStatus = '') {
+  const estadoAcoes = getCandidateActionState(candidato, processoStatus);
+
+  return {
+    ...candidato,
+    status_fluxo: estadoAcoes.visibleStatus,
+    status_processo: processoStatus || candidato.status_processo || '',
+    acoes_fluxo: estadoAcoes,
+  };
+}
+
+function renderizarAcoesDoCandidato({
+  candidato,
+  onAtualizarStatus,
+  onAgendarEntrevista,
+}) {
+  const estadoAcoes = candidato.acoes_fluxo || getCandidateActionState(candidato);
+  const botoes = [];
+
+  if (estadoAcoes.canScheduleInterview && typeof onAgendarEntrevista === 'function') {
+    botoes.push(
+      html`
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          onClick=${() => onAgendarEntrevista(candidato)}
+        >
+          Agendar entrevista
+        </button>
+      `,
+    );
+  }
+
+  if (estadoAcoes.canApprove) {
+    botoes.push(
+      html`
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-success"
+          onClick=${() => onAtualizarStatus(candidato, 'Aprovado')}
+        >
+          Aprovar
+        </button>
+      `,
+    );
+  }
+
+  if (estadoAcoes.canEliminate) {
+    botoes.push(
+      html`
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-danger"
+          onClick=${() => onAtualizarStatus(candidato, 'Eliminado')}
+        >
+          Eliminar
+        </button>
+      `,
+    );
+  }
+
+  if (estadoAcoes.canSendToTalentBank) {
+    botoes.push(
+      html`
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          onClick=${() => onAtualizarStatus(candidato, 'Banco de talentos')}
+        >
+          Banco de talentos
+        </button>
+      `,
+    );
+  }
+
+  if (!botoes.length) {
+    return html`<span class="text-muted">Sem acoes disponiveis</span>`;
+  }
+
+  return html`<div class="d-flex justify-content-end gap-2 flex-wrap">${botoes}</div>`;
+}
 
 export function TelaProcessos({ controlador }) {
   const [carregando, setCarregando] = useState(true);
@@ -153,14 +245,37 @@ export function TelaProcessos({ controlador }) {
     [processos],
   );
 
-  const candidatosEmAnalise = useMemo(
+  const processosPorId = useMemo(
     () =>
-      candidatos.filter(
+      processos.reduce((acc, processo) => {
+        const referencia = obterReferenciaProcesso(processo);
+        if (referencia) {
+          acc[referencia] = processo;
+        }
+        return acc;
+      }, {}),
+    [processos],
+  );
+
+  const candidatosComFluxo = useMemo(
+    () =>
+      candidatos.map((candidato) => {
+        const processo =
+          processosPorId[obterReferenciaProcessoDoCandidato(candidato)];
+        return montarCandidatoDeFluxo(candidato, processo?.status || '');
+      }),
+    [candidatos, processosPorId],
+  );
+
+  const candidatosComDecisaoPendente = useMemo(
+    () =>
+      candidatosComFluxo.filter(
         (candidato) =>
-          String(candidato.status_candidato || '').trim() === 'Em analise' ||
-          String(candidato.status_candidato || '').trim() === 'Em análise',
+          candidato.acoes_fluxo?.canApprove ||
+          candidato.acoes_fluxo?.canEliminate ||
+          candidato.acoes_fluxo?.canSendToTalentBank,
       ),
-    [candidatos],
+    [candidatosComFluxo],
   );
 
   const resumo = useMemo(
@@ -168,16 +283,23 @@ export function TelaProcessos({ controlador }) {
       totalProcessos: processos.length,
       abertos: processosAbertos.length,
       encerrados: processosEncerrados.length,
-      candidatosEmAnalise: candidatosEmAnalise.length,
+      candidatosComDecisaoPendente: candidatosComDecisaoPendente.length,
     }),
-    [processos.length, processosAbertos.length, processosEncerrados.length, candidatosEmAnalise.length],
+    [
+      processos.length,
+      processosAbertos.length,
+      processosEncerrados.length,
+      candidatosComDecisaoPendente.length,
+    ],
   );
 
   const atualizarStatus = async (registro, statusCandidato, idProcesso) => {
-    const processo = processos.find(
-      (item) =>
-        String(item.id_processo || '').trim() === String(idProcesso || '').trim(),
-    );
+    const processo = encontrarProcessoPorReferencia(processos, idProcesso);
+
+    if (isProcessClosed(processo)) {
+      window.alert('O processo seletivo esta encerrado e nao permite novas movimentacoes.');
+      return;
+    }
 
     if (
       statusCandidato === 'Aprovado' &&
@@ -211,12 +333,12 @@ export function TelaProcessos({ controlador }) {
       },
       { exigeOperacao: false, exigeTrilha: false, trilhaFixa: '' },
     );
-    if (mensagemErro || !edicao?.id_processo) {
+    if (mensagemErro || !obterReferenciaProcesso(edicao)) {
       setErro(mensagemErro || 'Preencha os campos obrigatorios para editar o processo.');
       return;
     }
 
-    await atualizarProcesso(edicao.id_processo, {
+    await atualizarProcesso(obterReferenciaProcesso(edicao), {
       quantidade_vagas: Number(edicao.quantidade_vagas),
       data_encerramento: edicao.data_encerramento,
       operacao: edicao.operacao || '',
@@ -244,10 +366,15 @@ export function TelaProcessos({ controlador }) {
   const abrirDetalhe = (processo) => {
     sessionStorage.setItem(
       CHAVE_PROCESSO_DETALHE,
-      String(processo.id_processo || '').trim(),
+      obterReferenciaProcesso(processo),
     );
     controlador.irParaTelaProtegida('screen-process-details');
   };
+
+  const processoSelecionadoParaEncerramento = useMemo(
+    () => encontrarProcessoPorReferencia(processos, processoParaEncerrar),
+    [processoParaEncerrar, processos],
+  );
 
   return html`
     <${PainelRh}
@@ -265,7 +392,7 @@ export function TelaProcessos({ controlador }) {
       <${PageIntro}
         kicker="Console • Processos"
         title="Gestao de processos seletivos"
-        description="Controle vagas abertas, encerramentos, candidatos em analise e detalhes do funil."
+        description="Controle processos abertos, acompanhe as etapas do RH e conclua apenas as acoes que ainda estao pendentes."
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
@@ -280,8 +407,8 @@ export function TelaProcessos({ controlador }) {
             { label: 'Abertos', value: resumo.abertos, variant: 'is-approved' },
             { label: 'Encerrados', value: resumo.encerrados, variant: 'is-eliminated' },
             {
-              label: 'Candidatos em analise',
-              value: resumo.candidatosEmAnalise,
+              label: 'Decisoes pendentes',
+              value: resumo.candidatosComDecisaoPendente,
               variant: 'is-analysis',
             },
           ]}
@@ -379,7 +506,7 @@ export function TelaProcessos({ controlador }) {
                       : processosAbertos.length
                         ? processosAbertos.map(
                             (processo) => html`
-                              <tr key=${processo.id_processo}>
+                              <tr key=${obterChaveProcesso(processo)}>
                                 <td>${processo.id_processo || '-'}</td>
                                 <td>${processo.vaga || '-'}</td>
                                 <td>${processo.operacao || '-'}</td>
@@ -436,7 +563,7 @@ export function TelaProcessos({ controlador }) {
                                       class="btn btn-sm btn-outline-danger"
                                       onClick=${() =>
                                         setProcessoParaEncerrar(
-                                          processo.id_processo,
+                                          obterReferenciaProcesso(processo),
                                         )}
                                     >
                                       Encerrar
@@ -493,7 +620,7 @@ export function TelaProcessos({ controlador }) {
                     ${processosEncerrados.length
                       ? processosEncerrados.map(
                           (processo) => html`
-                            <tr key=${processo.id_processo}>
+                              <tr key=${obterChaveProcesso(processo)}>
                               <td>${processo.id_processo || '-'}</td>
                               <td>${processo.vaga || '-'}</td>
                               <td>${processo.operacao || '-'}</td>
@@ -553,7 +680,7 @@ export function TelaProcessos({ controlador }) {
         actions=${html`
           <${CabecalhoSecaoColapsavel}
             aberto=${blocos.candidatos}
-            titulo="Candidatos em analise"
+            titulo="Decisoes finais pendentes"
             onClick=${() =>
               setBlocos({ ...blocos, candidatos: !blocos.candidatos })}
           />
@@ -574,54 +701,31 @@ export function TelaProcessos({ controlador }) {
                     </tr>
                   </thead>
                   <tbody>
-                    ${candidatosEmAnalise.length
-                      ? candidatosEmAnalise.map(
+                    ${candidatosComDecisaoPendente.length
+                      ? candidatosComDecisaoPendente.map(
                           (candidato) => html`
                             <tr key=${candidato.id_registro}>
                               <td>${candidato.id_processo || '-'}</td>
                               <td>${candidato.nome_candidato || '-'}</td>
                               <td>${candidato.vaga || '-'}</td>
                               <td>${candidato.pontuacao_final || '-'}</td>
-                              <td>${candidato.status_candidato || '-'}</td>
+                              <td>
+                                <span
+                                  class=${`process-candidate-status-badge ${obterClasseStatusProcesso(candidato.status_fluxo)}`}
+                                >
+                                  ${candidato.status_fluxo || '-'}
+                                </span>
+                              </td>
                               <td class="text-end">
-                                <div class="d-flex justify-content-end gap-2 flex-wrap">
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-success"
-                                    onClick=${() =>
-                                      atualizarStatus(
-                                        candidato.id_registro,
-                                        'Aprovado',
-                                        candidato.id_processo,
-                                      )}
-                                  >
-                                    Aprovar
-                                  </button>
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-danger"
-                                    onClick=${() =>
-                                      atualizarStatus(
-                                        candidato.id_registro,
-                                        'Eliminado',
-                                        candidato.id_processo,
-                                      )}
-                                  >
-                                    Eliminar
-                                  </button>
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-secondary"
-                                    onClick=${() =>
-                                      atualizarStatus(
-                                        candidato.id_registro,
-                                        'Banco de talentos',
-                                        candidato.id_processo,
-                                      )}
-                                  >
-                                    Banco de talentos
-                                  </button>
-                                </div>
+                                ${renderizarAcoesDoCandidato({
+                                  candidato,
+                                  onAtualizarStatus: (item, status) =>
+                                    atualizarStatus(
+                                      item.id_registro,
+                                      status,
+                                      obterReferenciaProcessoDoCandidato(item),
+                                    ),
+                                })}
                               </td>
                             </tr>
                           `,
@@ -629,7 +733,7 @@ export function TelaProcessos({ controlador }) {
                       : html`
                           <${TabelaVazia}
                             colunas=${6}
-                            texto="Nenhum candidato em analise vinculado a processo."
+                            texto="Nenhum candidato com decisao final pendente."
                           />
                         `}
                   </tbody>
@@ -782,7 +886,7 @@ export function TelaProcessos({ controlador }) {
       >
         <div class="rh-details-body">
           <div class="alert alert-warning mb-0">
-            Deseja realmente encerrar o processo ${processoParaEncerrar || ''}?
+            Deseja realmente encerrar o processo ${processoSelecionadoParaEncerramento?.id_processo || processoParaEncerrar || ''}?
           </div>
         </div>
         <footer class="rh-modal-footer">
@@ -828,10 +932,14 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [formularioEntrevista, setFormularioEntrevista] = useState({
     id_registro: '',
     id_processo: '',
+    id_processo_ref: '',
     data_entrevista: '',
     status_entrevista: 'Agendado',
     link_agendamento: '',
     observacoes_rh: '',
+    email: '',
+    telefone: '',
+    whatsapp: '',
   });
 
   const idProcesso = sessionStorage.getItem(CHAVE_PROCESSO_DETALHE) || '';
@@ -853,16 +961,15 @@ export function TelaDetalhesProcesso({ controlador }) {
         lerEntrevistas({ idProcesso }),
       ]);
 
+      if (detalhe?.processo) {
+        sessionStorage.setItem(
+          CHAVE_PROCESSO_DETALHE,
+          obterReferenciaProcesso(detalhe.processo),
+        );
+      }
       setProcesso(detalhe?.processo || null);
       setResumo(detalhe?.resumo || null);
-      setCandidatos(
-        (Array.isArray(detalhe?.candidatos) ? detalhe.candidatos : []).filter(
-          (item) =>
-            !String(item?.status_candidato || '')
-              .trim()
-              .startsWith('Eliminado'),
-        ),
-      );
+      setCandidatos(Array.isArray(detalhe?.candidatos) ? detalhe.candidatos : []);
       setPreAnalises(
         Array.isArray(listaPreAnalises?.items) ? listaPreAnalises.items : [],
       );
@@ -882,12 +989,26 @@ export function TelaDetalhesProcesso({ controlador }) {
     carregar(1);
   }, []);
 
+  const processoEncerrado = isProcessClosed(processo);
+  const candidatosComFluxo = useMemo(
+    () =>
+      candidatos.map((candidato) =>
+        montarCandidatoDeFluxo(candidato, processo?.status || ''),
+      ),
+    [candidatos, processo?.status],
+  );
+
   const atualizarStatus = async (idRegistro, status) => {
     const statusSeguro = String(status || '').trim();
 
+    if (processoEncerrado) {
+      setErro('O processo seletivo esta encerrado e nao permite novas movimentacoes.');
+      return;
+    }
+
     if (statusSeguro === 'Eliminado') {
       const confirmar = window.confirm(
-        'Deseja realmente eliminar este candidato? Apos confirmar, ele saira da lista desta tela.',
+        'Deseja realmente eliminar este candidato?',
       );
       if (!confirmar) return;
     }
@@ -962,18 +1083,47 @@ export function TelaDetalhesProcesso({ controlador }) {
   };
 
   const abrirAgendamento = (candidato) => {
+    const estadoAcoes = candidato?.acoes_fluxo || getCandidateActionState(candidato, processo?.status || '');
+    if (estadoAcoes.processClosed || !estadoAcoes.canScheduleInterview) {
+      setErro('Somente candidatos qualificados em processo aberto podem seguir para agendamento.');
+      return;
+    }
+
     setAgendamentoSelecionado(candidato);
     setFormularioEntrevista({
       id_registro: candidato.id_registro,
       id_processo: candidato.id_processo,
+      id_processo_ref:
+        obterReferenciaProcessoDoCandidato(candidato) ||
+        obterReferenciaProcesso(processo),
       data_entrevista: '',
       status_entrevista: 'Agendado',
-      link_agendamento: processo?.link_agendamento || '',
+      link_agendamento: processo?.link_agendamento || candidato.link_entrevista || '',
       observacoes_rh: '',
+      email: candidato.email || '',
+      telefone: candidato.telefone || '',
+      whatsapp: candidato.whatsapp || candidato.telefone || '',
     });
   };
 
-  const salvarAgendamento = async () => {
+  const montarMensagemEntrevista = () => {
+    const nome = agendamentoSelecionado?.nome_candidato || 'candidato(a)';
+    const link = formularioEntrevista.link_agendamento || processo?.link_agendamento || '';
+    return [
+      `Olá ${nome}, gostaríamos de reservar uma entrevista com você.`,
+      'Escolha o melhor dia para o contato.',
+      link ? `Link do agendamento: ${link}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  };
+
+  const salvarAgendamento = async (canal = '') => {
+    if (processoEncerrado) {
+      setErro('O processo seletivo esta encerrado e nao permite novas movimentacoes.');
+      return;
+    }
+
     const mensagemErro = validarFormularioEntrevista(formularioEntrevista);
     if (mensagemErro) {
       setErro(mensagemErro);
@@ -986,14 +1136,32 @@ export function TelaDetalhesProcesso({ controlador }) {
     try {
       const resultado = await agendarEntrevista({
         ...formularioEntrevista,
-        data_entrevista: new Date(formularioEntrevista.data_entrevista).toISOString(),
+        data_entrevista: null,
       });
-      if (resultado?.mensagem_base) {
-        await copiarTexto(resultado.mensagem_base).catch(() => null);
-        window.alert(
-          'Entrevista agendada com sucesso. A mensagem base foi gerada e copiada para a area de transferencia.',
-        );
+      const mensagem = resultado?.mensagem_base || montarMensagemEntrevista();
+      await copiarTexto(mensagem).catch(() => null);
+
+      if (canal === 'whatsapp') {
+        const numeroBase = String(formularioEntrevista.whatsapp || formularioEntrevista.telefone || '').replace(/\D/g, '');
+        if (!numeroBase) {
+          throw new Error('O candidato nao possui numero de WhatsApp valido extraido do CV.');
+        }
+        window.open(`https://wa.me/${numeroBase}?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
       }
+
+      if (canal === 'email') {
+        const emailDestino = String(formularioEntrevista.email || '').trim();
+        if (!emailDestino) {
+          throw new Error('O candidato nao possui e-mail valido extraido do CV.');
+        }
+        const assunto = encodeURIComponent('Agendamento de entrevista');
+        window.location.href = `mailto:${emailDestino}?subject=${assunto}&body=${encodeURIComponent(mensagem)}`;
+      }
+
+      if (!canal) {
+        window.alert('Mensagem preparada com sucesso e copiada para a area de transferencia.');
+      }
+
       setAgendamentoSelecionado(null);
       await carregar(paginaPreAnalises);
     } catch (error) {
@@ -1038,10 +1206,17 @@ export function TelaDetalhesProcesso({ controlador }) {
       <${PageIntro}
         kicker="Console • Processo seletivo"
         title="Detalhes do processo"
-        description="Consulte dados do processo, lista de candidatos e pre-analise de CV."
+        description="Acompanhe o fluxo completo do RH: pre-analise, qualificacao, entrevistas, decisao final e fechamento do processo."
       />
 
       ${erro ? html`<div class="alert alert-danger">${erro}</div>` : null}
+      ${processoEncerrado
+        ? html`
+            <div class="rh-inline-alert">
+              Processo encerrado. As movimentacoes operacionais de candidatos ficam bloqueadas.
+            </div>
+          `
+        : null}
 
       <${SectionCard}
         title="Resumo do processo"
@@ -1065,6 +1240,10 @@ export function TelaDetalhesProcesso({ controlador }) {
             { label: 'Vaga', value: processo?.vaga || '-' },
             { label: 'Operacao', value: processo?.operacao || '-' },
             { label: 'Trilha', value: processo?.trilha || '-' },
+            {
+              label: 'Status',
+              value: processo?.status || '-',
+            },
             {
               label: 'Nota de corte',
               value: Number(processo?.usa_nota_corte || 0)
@@ -1097,11 +1276,12 @@ export function TelaDetalhesProcesso({ controlador }) {
           <${MetricGrid}
             items=${[
               { label: 'Total', value: resumo?.total || 0 },
+              { label: 'Em analise', value: resumo?.analise || 0, variant: 'is-analysis' },
+              { label: 'Qualificados', value: resumo?.qualificados || 0, variant: 'is-highlight' },
+              { label: 'Entrevistas', value: resumo?.entrevistas || 0, variant: 'is-confirmed' },
               { label: 'Aprovados', value: resumo?.aprovados || 0, variant: 'is-approved' },
               { label: 'Eliminados', value: resumo?.eliminados || 0, variant: 'is-eliminated' },
               { label: 'Banco de talentos', value: resumo?.banco || 0, variant: 'is-talent' },
-              { label: 'Em analise', value: resumo?.analise || 0, variant: 'is-analysis' },
-              { label: 'Entrevistas', value: entrevistas.length || 0, variant: 'is-highlight' },
             ]}
           />
         </div>
@@ -1199,7 +1379,8 @@ export function TelaDetalhesProcesso({ controlador }) {
                             >
                               Ver CV
                             </button>
-                            ${Number(item.ja_adicionado_ao_processo || 0) !== 1
+                            ${Number(item.ja_adicionado_ao_processo || 0) !== 1 &&
+                            String(item.classificacao || '').trim() === 'Qualificado'
                               ? html`
                                   <button
                                     type="button"
@@ -1242,7 +1423,7 @@ export function TelaDetalhesProcesso({ controlador }) {
 
       <${SectionCard}
         title="Candidatos no processo"
-        description="Atualize status, acompanhe a entrevista e registre o proximo passo sem sair do processo."
+        description="As acoes aparecem somente quando a etapa do candidato permite movimentacao dentro do fluxo do RH."
         tourId="process-candidates"
       >
         <div class="table-responsive">
@@ -1258,8 +1439,8 @@ export function TelaDetalhesProcesso({ controlador }) {
               </tr>
             </thead>
             <tbody>
-              ${candidatos.length
-                ? candidatos.map(
+              ${candidatosComFluxo.length
+                ? candidatosComFluxo.map(
                     (candidato) => html`
                       <tr key=${candidato.id_registro}>
                         <td>
@@ -1280,9 +1461,9 @@ export function TelaDetalhesProcesso({ controlador }) {
                         <td>${candidato.pontuacao_final || '-'}</td>
                         <td>
                           <span
-                            class=${`process-candidate-status-badge ${obterClasseStatusProcesso(candidato.status_candidato)}`}
+                            class=${`process-candidate-status-badge ${obterClasseStatusProcesso(candidato.status_fluxo)}`}
                           >
-                            ${candidato.status_candidato || '-'}
+                            ${candidato.status_fluxo || '-'}
                           </span>
                         </td>
                         <td>
@@ -1297,45 +1478,19 @@ export function TelaDetalhesProcesso({ controlador }) {
                                   <small>${formatarDataHora(candidato.data_entrevista)}</small>
                                 </div>
                               `
-                            : 'Nao agendada'}
+                            : candidato.acoes_fluxo?.canScheduleInterview
+                              ? 'Aguardando agendamento'
+                              : processoEncerrado
+                                ? 'Processo encerrado'
+                                : 'Sem entrevista prevista'}
                         </td>
                         <td class="text-end">
-                          <div class="d-flex justify-content-end gap-2 flex-wrap">
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-primary"
-                              onClick=${() => abrirAgendamento(candidato)}
-                            >
-                              Agendar entrevista
-                            </button>
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-success"
-                              onClick=${() =>
-                                atualizarStatus(candidato.id_registro, 'Aprovado')}
-                            >
-                              Aprovar
-                            </button>
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-danger"
-                              onClick=${() =>
-                                atualizarStatus(candidato.id_registro, 'Eliminado')}
-                            >
-                              Eliminar
-                            </button>
-                            <button
-                              type="button"
-                              class="btn btn-sm btn-outline-secondary"
-                              onClick=${() =>
-                                atualizarStatus(
-                                  candidato.id_registro,
-                                  'Banco de talentos',
-                                )}
-                            >
-                              Banco de talentos
-                            </button>
-                          </div>
+                          ${renderizarAcoesDoCandidato({
+                            candidato,
+                            onAgendarEntrevista: abrirAgendamento,
+                            onAtualizarStatus: (item, status) =>
+                              atualizarStatus(item.id_registro, status),
+                          })}
                         </td>
                       </tr>
                     `,
@@ -1478,19 +1633,6 @@ export function TelaDetalhesProcesso({ controlador }) {
                     </select>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label">Data e hora</label>
-                    <input
-                      class="form-control"
-                      type="datetime-local"
-                      value=${formularioEntrevista.data_entrevista}
-                      onInput=${(event) =>
-                        setFormularioEntrevista({
-                          ...formularioEntrevista,
-                          data_entrevista: event.target.value,
-                        })}
-                    />
-                  </div>
-                  <div class="col-md-6">
                     <label class="form-label">Link de agendamento</label>
                     <input
                       class="form-control"
@@ -1502,6 +1644,48 @@ export function TelaDetalhesProcesso({ controlador }) {
                           link_agendamento: event.target.value,
                         })}
                     />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">WhatsApp extraido do CV</label>
+                    <input
+                      class="form-control"
+                      placeholder="21999999999"
+                      value=${formularioEntrevista.whatsapp || formularioEntrevista.telefone || ''}
+                      onInput=${(event) =>
+                        setFormularioEntrevista({
+                          ...formularioEntrevista,
+                          whatsapp: event.target.value,
+                        })}
+                    />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">E-mail extraido do CV</label>
+                    <input
+                      class="form-control"
+                      placeholder="candidato@email.com"
+                      value=${formularioEntrevista.email || ''}
+                      onInput=${(event) =>
+                        setFormularioEntrevista({
+                          ...formularioEntrevista,
+                          email: event.target.value,
+                        })}
+                    />
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Mensagem que sera enviada</label>
+                    <textarea
+                      class="form-control"
+                      rows="6"
+                      readonly
+                      value=${montarMensagemEntrevista()}
+                    ></textarea>
+                    ${processo?.link_agendamento
+                      ? html`
+                          <div class="form-text">
+                            O link de agendamento do processo sera reaproveitado automaticamente nesta mensagem.
+                          </div>
+                        `
+                      : null}
                   </div>
                   <div class="col-md-12">
                     <label class="form-label">Observacoes RH</label>
@@ -1515,13 +1699,6 @@ export function TelaDetalhesProcesso({ controlador }) {
                           observacoes_rh: event.target.value,
                         })}
                     ></textarea>
-                    ${processo?.link_agendamento
-                      ? html`
-                          <div class="form-text">
-                            O processo ja possui um link base cadastrado e ele sera reaproveitado se voce deixar este campo como esta.
-                          </div>
-                        `
-                      : null}
                   </div>
                 </div>
               </div>
@@ -1535,11 +1712,19 @@ export function TelaDetalhesProcesso({ controlador }) {
                 </button>
                 <button
                   type="button"
-                  class="btn btn-primary"
-                  disabled=${salvandoEntrevista}
-                  onClick=${salvarAgendamento}
+                  class="btn btn-outline-primary"
+                  disabled=${salvandoEntrevista || processoEncerrado}
+                  onClick=${() => salvarAgendamento('email')}
                 >
-                  ${salvandoEntrevista ? 'Salvando...' : 'Agendar entrevista'}
+                  Enviar por e-mail
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-success"
+                  disabled=${salvandoEntrevista || processoEncerrado}
+                  onClick=${() => salvarAgendamento('whatsapp')}
+                >
+                  Enviar por WhatsApp
                 </button>
               </footer>
             `
