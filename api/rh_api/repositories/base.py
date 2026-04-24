@@ -20,6 +20,11 @@ from ..services.helpers import (
 from ..services.pipeline import infer_pipeline_stage
 from ..services.process_flow import (
     CANDIDATE_STATUS_APPROVED,
+    CANDIDATE_STATUS_ATTENDED,
+    CANDIDATE_STATUS_CONFIRMED,
+    CANDIDATE_STATUS_ELIMINATED,
+    CANDIDATE_STATUS_MISSED,
+    CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_TALENT_BANK,
     build_candidate_status_action_label,
     build_process_closed_message,
@@ -532,6 +537,34 @@ class BaseRepository:
                 WHERE {where_clause}
                 """,
                 ("Encerrado", *params),
+            )
+
+        interview_synced_statuses = {
+            normalize_compare_text(CANDIDATE_STATUS_SCHEDULED),
+            normalize_compare_text(CANDIDATE_STATUS_CONFIRMED),
+            normalize_compare_text(CANDIDATE_STATUS_ATTENDED),
+            normalize_compare_text(CANDIDATE_STATUS_MISSED),
+            normalize_compare_text(CANDIDATE_STATUS_APPROVED),
+            normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
+            normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK),
+        }
+        if id_teste and new_status_normalized in interview_synced_statuses:
+            cursor.execute(
+                """
+                UPDATE entrevistas_agendadas
+                SET
+                    status_entrevista = ?,
+                    id_processo_ref = ?,
+                    atualizado_em = GETDATE()
+                WHERE (id_registro = ? AND ? > 0) OR (id_teste = ? AND ISNULL(id_teste, '') <> '')
+                """,
+                (
+                    resolved_new_status,
+                    processo.get("id_processo_ref", ""),
+                    id_registro,
+                    id_registro,
+                    id_teste,
+                ),
             )
 
         if new_status_normalized != normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK):

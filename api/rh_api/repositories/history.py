@@ -6,7 +6,12 @@ from datetime import datetime
 
 from fastapi import HTTPException, status
 
-from ..services.helpers import normalize_text, parse_float_br, rows_to_dicts
+from ..services.helpers import (
+    normalize_compare_text,
+    normalize_text,
+    parse_float_br,
+    rows_to_dicts,
+)
 from .bootstrap import (
     ensure_decimal_process_columns,
     ensure_process_reference_columns,
@@ -15,6 +20,38 @@ from .bootstrap import (
 
 
 class HistoryRepositoryMixin:
+    @staticmethod
+    def _normalize_column_lookup(columns_meta) -> dict[str, str]:
+        result = {}
+        for column in columns_meta:
+            safe_name = normalize_text(getattr(column, "column_name", ""))
+            if safe_name:
+                result[normalize_compare_text(safe_name)] = safe_name
+        return result
+
+    @staticmethod
+    def _resolve_history_column(column_lookup: dict[str, str], *aliases: str) -> str:
+        for alias in aliases:
+            resolved = column_lookup.get(normalize_compare_text(alias))
+            if resolved:
+                return resolved
+        return ""
+
+    @staticmethod
+    def _is_identity_history_column(cursor, column_name: str) -> bool:
+        safe_column = normalize_text(column_name)
+        if not safe_column:
+            return False
+
+        cursor.execute(
+            """
+            SELECT CONVERT(INT, COLUMNPROPERTY(OBJECT_ID('dbo.historico_provas'), ?, 'IsIdentity'))
+            """,
+            (safe_column,),
+        )
+        row = cursor.fetchone()
+        return bool(int(row[0] or 0)) if row else False
+
     def get_gabaritos_columns(self) -> dict:
         conn = self._connect()
         try:
@@ -98,39 +135,58 @@ class HistoryRepositoryMixin:
             cursor = conn.cursor()
             ensure_process_reference_columns(cursor)
             ensure_decimal_process_columns(cursor)
-
             columns_meta = list(cursor.columns(table="historico_provas", schema="dbo"))
-            existing_columns = {str(col.column_name).strip().lower(): str(col.column_name).strip() for col in columns_meta}
+            column_lookup = self._normalize_column_lookup(columns_meta)
+            if not column_lookup:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Nao foi possivel identificar as colunas da tabela historico_provas.",
+                )
 
-            id_teste = row.get("id_teste", "")
+            id_teste = normalize_text(row.get("id_teste"))
             agora = datetime.now()
-            codigo_legado = row.get("Codigo") or row.get("codigo") or id_teste or f"HIST-{agora.strftime('%Y%m%d%H%M%S')}"
-            arquivo_gabarito = row.get("arquivo_gabarito") or row.get("pontuacao_bruta") or ""
+            codigo_legado = (
+                normalize_text(row.get("Codigo"))
+                or normalize_text(row.get("codigo"))
+                or id_teste
+                or f"HIST-{agora.strftime('%Y%m%d%H%M%S')}"
+            )
+            arquivo_gabarito = normalize_text(row.get("arquivo_gabarito")) or normalize_text(
+                row.get("pontuacao_bruta"),
+            )
 
             payload = {
                 "id_teste": id_teste,
-                "id_processo": row.get("id_processo", ""),
-                "id_processo_ref": row.get("id_processo_ref", ""),
-                "nome_candidato": row.get("nome_candidato", ""),
-                "vaga": row.get("vaga", ""),
-                "nivel": row.get("nivel", ""),
-                "trilha": row.get("trilha", ""),
-                "data_iso": row.get("data_iso", ""),
-                "data_exibicao": row.get("data_exibicao", ""),
+                "id_processo": normalize_text(row.get("id_processo")),
+                "id_processo_ref": normalize_text(row.get("id_processo_ref")),
+                "nome_candidato": normalize_text(row.get("nome_candidato")),
+                "vaga": normalize_text(row.get("vaga")),
+                "nivel": normalize_text(row.get("nivel")),
+                "trilha": normalize_text(row.get("trilha")),
+                "data_iso": normalize_text(row.get("data_iso")),
+                "data_exibicao": normalize_text(row.get("data_exibicao")),
                 "pontuacao_final": parse_float_br(row.get("pontuacao_final", 0)),
-                "status": row.get("status", ""),
+                "status": normalize_text(row.get("status")),
                 "tempo_minutos": int(float(row.get("tempo_minutos", 0) or 0)),
                 "arquivo_gabarito": arquivo_gabarito,
-                "etapas_json": row.get("etapas_json", ""),
-                "codigo": codigo_legado,
-                "Codigo": codigo_legado,
+                "etapas_json": normalize_text(row.get("etapas_json")),
             }
+
+            code_column = self._resolve_history_column(
+                column_lookup,
+                "Código",
+                "Codigo",
+                "codigo",
+            )
+            include_code_column = bool(code_column) and not self._is_identity_history_column(cursor, code_column)
 
             ordered_columns = []
             values = []
+            if include_code_column:
+                ordered_columns.append(code_column)
+                values.append(codigo_legado)
+
             for alias in (
-                "Codigo",
-                "codigo",
                 "id_teste",
                 "id_processo",
                 "id_processo_ref",
@@ -146,15 +202,20 @@ class HistoryRepositoryMixin:
                 "arquivo_gabarito",
                 "etapas_json",
             ):
-                lookup_key = str(alias).lower()
-                if lookup_key not in existing_columns:
+                column_name = self._resolve_history_column(column_lookup, alias)
+                if not column_name:
                     continue
-                ordered_columns.append(existing_columns[lookup_key])
-                values.append(payload.get(alias, payload.get(existing_columns[lookup_key], "")))
+                ordered_columns.append(column_name)
+                values.append(payload.get(alias, payload.get(column_name, "")))
+
+            if not ordered_columns:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Nenhuma coluna valida foi encontrada para gravar o historico da prova.",
+                )
 
             placeholders = ", ".join(["?"] * len(ordered_columns))
-            columns_sql = ",\n                    ".join(ordered_columns)
-
+            columns_sql = ",\n                    ".join(f"[{column}]" for column in ordered_columns)
             cursor.execute(
                 f"""
                 INSERT INTO historico_provas

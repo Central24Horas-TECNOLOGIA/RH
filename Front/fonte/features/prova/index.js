@@ -4,10 +4,13 @@ import {
   resolverBlueprintProva,
 } from '../../perguntas.js';
 import {
+  atualizarEntrevista,
+  lerEntrevistas,
   lerProcessos,
   navegarParaTela,
 } from '../../app/controlador-aplicacao.js';
 import {
+  formatarDataHora,
   formatarNotaVisual,
   formatarTempoRestante,
   montarDescricaoFluxo,
@@ -26,17 +29,59 @@ import {
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
 import { CHAVE_REQUISITO_BUSCA } from '../../ui/busca-global.js';
+import {
+  encontrarProcessoPorReferencia,
+  obterChaveProcesso,
+  obterReferenciaProcesso,
+} from '../../shared/process-reference.js';
+
+const STATUS_CANDIDATOS_AGENDADOS = new Set(['Agendado', 'Confirmado']);
+
+function normalizarTexto(valor) {
+  return String(valor || '').trim();
+}
+
+function montarIdentificadorCandidatoAgendado(candidato) {
+  return (
+    normalizarTexto(candidato?.id_entrevista) ||
+    normalizarTexto(candidato?.id_registro) ||
+    normalizarTexto(candidato?.id_teste)
+  );
+}
+
+function deduplicarCandidatosAgendados(lista) {
+  const mapa = new Map();
+
+  (Array.isArray(lista) ? lista : []).forEach((item) => {
+    const chave =
+      montarIdentificadorCandidatoAgendado(item) ||
+      `${normalizarTexto(item?.nome_candidato)}::${normalizarTexto(item?.id_processo_ref || item?.id_processo)}`;
+    if (chave && !mapa.has(chave)) {
+      mapa.set(chave, item);
+    }
+  });
+
+  return Array.from(mapa.values());
+}
 
 export function TelaConfiguracao({ controlador }) {
   const [processosAbertos, setProcessosAbertos] = useState([]);
+  const [candidatosAgendados, setCandidatosAgendados] = useState([]);
+  const [atualizandoCandidatoAgendado, setAtualizandoCandidatoAgendado] =
+    useState(false);
   const [erro, setErro] = useState('');
   const [requisitoBuscado, setRequisitoBuscado] = useState(null);
   const [formulario, setFormulario] = useState(() => ({
     processo:
       controlador.estado.processoSelecionado ||
-      (controlador.estado.candidato.id_processo
-        ? controlador.estado.candidato.id_processo
+      (controlador.estado.candidato.id_processo_ref ||
+      controlador.estado.candidato.id_processo
+        ? controlador.estado.candidato.id_processo_ref ||
+          controlador.estado.candidato.id_processo
         : ''),
+    candidatoAgendado: montarIdentificadorCandidatoAgendado(
+      controlador.estado.candidato,
+    ),
     vaga: controlador.estado.candidato.role || '',
     nivel: controlador.estado.candidato.level || '',
     trilha:
@@ -83,6 +128,118 @@ export function TelaConfiguracao({ controlador }) {
     }
   }, [formulario.vaga, formulario.nivel]);
 
+  const processoSelecionado = useMemo(() => {
+    if (!formulario.processo || formulario.processo === 'PROCESSO_UNICO') {
+      return null;
+    }
+
+    return (
+      encontrarProcessoPorReferencia(processosAbertos, formulario.processo) ||
+      processosAbertos.find(
+        (processo) =>
+          normalizarTexto(processo.id_processo) ===
+          normalizarTexto(formulario.processo),
+      ) ||
+      null
+    );
+  }, [formulario.processo, processosAbertos]);
+
+  useEffect(() => {
+    if (!processoSelecionado) {
+      setCandidatosAgendados([]);
+      setFormulario((anterior) =>
+        anterior.candidatoAgendado
+          ? { ...anterior, candidatoAgendado: '' }
+          : anterior,
+      );
+      return;
+    }
+
+    const referenciaProcesso = obterReferenciaProcesso(processoSelecionado);
+    const vagaProcesso = normalizarTexto(processoSelecionado.vaga);
+
+    setFormulario((anterior) => {
+      const proximoFormulario = { ...anterior };
+      let mudou = false;
+
+      if (
+        referenciaProcesso &&
+        normalizarTexto(anterior.processo) !== referenciaProcesso
+      ) {
+        proximoFormulario.processo = referenciaProcesso;
+        mudou = true;
+      }
+
+      if (vagaProcesso && normalizarTexto(anterior.vaga) !== vagaProcesso) {
+        proximoFormulario.vaga = vagaProcesso;
+        mudou = true;
+      }
+
+      return mudou ? proximoFormulario : anterior;
+    });
+  }, [processoSelecionado]);
+
+  useEffect(() => {
+    let ativo = true;
+
+    if (!processoSelecionado) {
+      return undefined;
+    }
+
+    (async () => {
+      try {
+        const lista = await lerEntrevistas({
+          idProcesso: obterReferenciaProcesso(processoSelecionado),
+        });
+        if (!ativo) return;
+
+        const candidatosFiltrados = deduplicarCandidatosAgendados(
+          (Array.isArray(lista) ? lista : []).filter((item) =>
+            STATUS_CANDIDATOS_AGENDADOS.has(
+              normalizarTexto(item.status_entrevista),
+            ),
+          ),
+        );
+        setCandidatosAgendados(candidatosFiltrados);
+        setFormulario((anterior) => {
+          if (!anterior.candidatoAgendado) {
+            return anterior;
+          }
+
+          const aindaExiste = candidatosFiltrados.some(
+            (item) =>
+              montarIdentificadorCandidatoAgendado(item) ===
+              anterior.candidatoAgendado,
+          );
+          return aindaExiste
+            ? anterior
+            : { ...anterior, candidatoAgendado: '' };
+        });
+      } catch (error) {
+        if (!ativo) return;
+        setCandidatosAgendados([]);
+        setErro(
+          error?.message ||
+            'Nao foi possivel carregar os candidatos agendados deste processo.',
+        );
+      }
+    })();
+
+    return () => {
+      ativo = false;
+    };
+  }, [processoSelecionado]);
+
+  const candidatoAgendadoSelecionado = useMemo(
+    () =>
+      candidatosAgendados.find(
+        (item) =>
+          montarIdentificadorCandidatoAgendado(item) ===
+          formulario.candidatoAgendado,
+      ) || null,
+    [candidatosAgendados, formulario.candidatoAgendado],
+  );
+
   const blueprint = useMemo(() => {
     if (!formulario.vaga || !formulario.nivel) return null;
     return resolverBlueprintProva(
@@ -110,7 +267,57 @@ export function TelaConfiguracao({ controlador }) {
       track: formulario.trilha || '',
       time: Number(formulario.tempo),
       processId: formulario.processo,
+      scheduledCandidate: candidatoAgendadoSelecionado,
     });
+  };
+
+  const selecionarCandidatoAgendado = async (event) => {
+    const identificador = event.target.value;
+    setFormulario((anterior) => ({
+      ...anterior,
+      candidatoAgendado: identificador,
+    }));
+
+    if (!identificador) {
+      return;
+    }
+
+    const candidato = candidatosAgendados.find(
+      (item) => montarIdentificadorCandidatoAgendado(item) === identificador,
+    );
+    if (!candidato?.id_entrevista) {
+      return;
+    }
+
+    if (normalizarTexto(candidato.status_entrevista) === 'Compareceu') {
+      return;
+    }
+
+    setAtualizandoCandidatoAgendado(true);
+    setErro('');
+
+    try {
+      await atualizarEntrevista(candidato.id_entrevista, {
+        status_entrevista: 'Compareceu',
+        id_processo_ref:
+          obterReferenciaProcesso(processoSelecionado) ||
+          normalizarTexto(candidato.id_processo_ref || candidato.id_processo),
+      });
+      setCandidatosAgendados((anterior) =>
+        anterior.map((item) =>
+          montarIdentificadorCandidatoAgendado(item) === identificador
+            ? { ...item, status_entrevista: 'Compareceu' }
+            : item,
+        ),
+      );
+    } catch (error) {
+      setErro(
+        error?.message ||
+          'Nao foi possivel atualizar o status do candidato para Compareceu.',
+      );
+    } finally {
+      setAtualizandoCandidatoAgendado(false);
+    }
   };
 
   return html`
@@ -160,21 +367,54 @@ export function TelaConfiguracao({ controlador }) {
               class="form-select rh-flow-input"
               value=${formulario.processo}
               onChange=${(event) =>
-                setFormulario({ ...formulario, processo: event.target.value })}
+                setFormulario({
+                  ...formulario,
+                  processo: event.target.value,
+                  candidatoAgendado: '',
+                })}
             >
               <option value="">Selecione...</option>
               <option value="PROCESSO_UNICO">Processo unico</option>
               ${processosAbertos.map(
                 (processo) => html`
                   <option
-                    key=${processo.id_processo}
-                    value=${processo.id_processo}
+                    key=${obterChaveProcesso(processo)}
+                    value=${obterReferenciaProcesso(processo)}
                   >
                     ${`${processo.id_processo} • ${processo.vaga} • ${processo.operacao || processo.trilha || '-'} • ${processo.data_encerramento || '-'}`}
                   </option>
                 `,
               )}
             </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Candidato agendado</label>
+            <select
+              class="form-select rh-flow-input"
+              value=${formulario.candidatoAgendado}
+              disabled=${!processoSelecionado || atualizandoCandidatoAgendado}
+              onChange=${selecionarCandidatoAgendado}
+            >
+              <option value="">Opcional</option>
+              ${candidatosAgendados.map(
+                (candidato) => html`
+                  <option
+                    key=${montarIdentificadorCandidatoAgendado(candidato)}
+                    value=${montarIdentificadorCandidatoAgendado(candidato)}
+                  >
+                    ${`${candidato.nome_candidato || '-'} • ${formatarDataHora(candidato.data_entrevista)} • ${candidato.status_entrevista || 'Agendado'}`}
+                  </option>
+                `,
+              )}
+            </select>
+            <div class="form-text">
+              ${processoSelecionado
+                ? atualizandoCandidatoAgendado
+                  ? 'Atualizando o status do candidato para Compareceu...'
+                  : 'Ao selecionar um candidato agendado, o nome sera preenchido automaticamente e a agenda operacional sera atualizada para Compareceu.'
+                : 'Selecione um processo para listar os candidatos com entrevista agendada.'}
+            </div>
           </div>
 
           <div class="col-md-6">

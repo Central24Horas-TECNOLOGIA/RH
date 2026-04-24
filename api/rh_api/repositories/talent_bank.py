@@ -6,7 +6,8 @@ from fastapi import HTTPException, status
 
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
 from ..services.process_flow import (
-    CANDIDATE_STATUS_QUALIFIED,
+    CANDIDATE_STATUS_ANALYSIS,
+    CANDIDATE_STATUS_APPROVED,
     build_process_closed_message,
     canonicalize_candidate_status,
     is_process_closed,
@@ -139,11 +140,14 @@ class TalentBankRepositoryMixin:
                     detail=build_process_closed_message("utilizar o candidato do banco de talentos", id_processo),
                 )
 
-            id_registro = get_next_id_registro(cursor)
+            data_movimentacao = normalize_text(row.get("data_movimentacao")) or datetime.now().isoformat()
+            origem = row.get("origem") or "Banco de talentos"
+            vaga = normalize_text(processo.get("vaga")) or row.get("vaga")
+            id_teste = normalize_text(row.get("id_teste"))
+
             cursor.execute(
                 """
-                INSERT INTO candidatos_processos
-                (
+                SELECT
                     id_registro,
                     id_processo,
                     id_processo_ref,
@@ -156,27 +160,120 @@ class TalentBankRepositoryMixin:
                     origem,
                     etapa_pipeline,
                     data_atualizacao_pipeline
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                FROM candidatos_processos
+                WHERE id_processo = ? AND id_teste = ?
+                ORDER BY id_registro DESC
                 """,
-                (
-                    id_registro,
-                    processo.get("id_processo"),
-                    processo.get("id_processo_ref", ""),
-                    row.get("id_teste"),
-                    row.get("nome_candidato"),
-                    normalize_text(processo.get("vaga")) or row.get("vaga"),
-                    CANDIDATE_STATUS_QUALIFIED,
-                    row.get("pontuacao_final"),
-                    "",
-                    row.get("origem") or "Banco de talentos",
-                    "Prova",
-                    datetime.now(),
-                ),
+                (processo.get("id_processo"), id_teste),
             )
+            existing_rows = rows_to_dicts(cursor, cursor.fetchall())
+            existing = existing_rows[0] if existing_rows else None
+
+            if existing:
+                cursor.execute(
+                    """
+                    UPDATE candidatos_processos
+                    SET
+                        id_processo_ref = ?,
+                        nome_candidato = ?,
+                        vaga = ?,
+                        pontuacao_final = ?,
+                        data_prova = ?,
+                        origem = ?
+                    WHERE id_registro = ?
+                    """,
+                    (
+                        processo.get("id_processo_ref", ""),
+                        row.get("nome_candidato"),
+                        vaga,
+                        row.get("pontuacao_final"),
+                        data_movimentacao,
+                        origem,
+                        int(existing.get("id_registro") or 0),
+                    ),
+                )
+                if (
+                    canonicalize_candidate_status(existing.get("status_candidato")) != CANDIDATE_STATUS_APPROVED
+                    or normalize_text(existing.get("etapa_pipeline")) != "Aprovado"
+                    or normalize_text(existing.get("id_processo_ref")) != normalize_text(processo.get("id_processo_ref"))
+                ):
+                    self._apply_candidate_status_update(
+                        cursor,
+                        current_row={
+                            **existing,
+                            "id_processo": processo.get("id_processo"),
+                            "id_processo_ref": processo.get("id_processo_ref", ""),
+                            "id_teste": id_teste,
+                            "nome_candidato": row.get("nome_candidato"),
+                            "vaga": vaga,
+                            "pontuacao_final": row.get("pontuacao_final"),
+                            "data_prova": data_movimentacao,
+                            "origem": origem,
+                        },
+                        new_status=CANDIDATE_STATUS_APPROVED,
+                        new_stage="Aprovado",
+                        data_movimentacao=data_movimentacao,
+                    )
+            else:
+                id_registro = get_next_id_registro(cursor)
+                cursor.execute(
+                    """
+                    INSERT INTO candidatos_processos
+                    (
+                        id_registro,
+                        id_processo,
+                        id_processo_ref,
+                        id_teste,
+                        nome_candidato,
+                        vaga,
+                        status_candidato,
+                        pontuacao_final,
+                        data_prova,
+                        origem,
+                        etapa_pipeline,
+                        data_atualizacao_pipeline
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        id_registro,
+                        processo.get("id_processo"),
+                        processo.get("id_processo_ref", ""),
+                        id_teste,
+                        row.get("nome_candidato"),
+                        vaga,
+                        CANDIDATE_STATUS_APPROVED,
+                        row.get("pontuacao_final"),
+                        data_movimentacao,
+                        origem,
+                        "Aprovado",
+                        datetime.now(),
+                    ),
+                )
+                self._apply_candidate_status_update(
+                    cursor,
+                    current_row={
+                        "id_registro": id_registro,
+                        "id_processo": processo.get("id_processo"),
+                        "id_processo_ref": processo.get("id_processo_ref", ""),
+                        "id_teste": id_teste,
+                        "nome_candidato": row.get("nome_candidato"),
+                        "vaga": vaga,
+                        "status_candidato": CANDIDATE_STATUS_ANALYSIS,
+                        "pontuacao_final": row.get("pontuacao_final"),
+                        "data_prova": data_movimentacao,
+                        "origem": origem,
+                        "etapa_pipeline": "Triagem",
+                        "data_atualizacao_pipeline": data_movimentacao,
+                    },
+                    new_status=CANDIDATE_STATUS_APPROVED,
+                    new_stage="Aprovado",
+                    data_movimentacao=data_movimentacao,
+                )
+
             self._upsert_candidate_profile(
                 cursor,
-                id_teste=row.get("id_teste"),
+                id_teste=id_teste,
                 nome_candidato=row.get("nome_candidato"),
             )
             cursor.execute("DELETE FROM banco_talentos WHERE id_banco = ?", (id_banco,))

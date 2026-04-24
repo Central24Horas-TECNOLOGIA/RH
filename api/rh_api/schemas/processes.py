@@ -92,6 +92,8 @@ class ProcessUpdateRequest(BaseSchema):
 
 
 class ProcessCandidateCreateRequest(BaseSchema):
+    id_registro: int | None = None
+    id_entrevista: int | None = None
     id_processo: str = ""
     id_processo_ref: str = ""
     id_teste: str = ""

@@ -3,9 +3,26 @@ from __future__ import annotations
 from datetime import datetime
 
 from .helpers import normalize_compare_text, normalize_text
+from .process_flow import (
+    CANDIDATE_STATUS_APPROVED,
+    CANDIDATE_STATUS_ATTENDED,
+    CANDIDATE_STATUS_CONFIRMED,
+    CANDIDATE_STATUS_ELIMINATED,
+    CANDIDATE_STATUS_MISSED,
+    CANDIDATE_STATUS_SCHEDULED,
+    CANDIDATE_STATUS_TALENT_BANK,
+)
 
 
-INTERVIEW_STATUSES = ("Agendado", "Confirmado", "Compareceu", "Faltou")
+INTERVIEW_STATUSES = (
+    CANDIDATE_STATUS_SCHEDULED,
+    CANDIDATE_STATUS_CONFIRMED,
+    CANDIDATE_STATUS_ATTENDED,
+    CANDIDATE_STATUS_MISSED,
+    CANDIDATE_STATUS_APPROVED,
+    CANDIDATE_STATUS_ELIMINATED,
+    CANDIDATE_STATUS_TALENT_BANK,
+)
 
 
 def normalize_interview_status(status: str | None) -> str:
@@ -19,6 +36,12 @@ def normalize_interview_status(status: str | None) -> str:
         return "Compareceu"
     if safe_status == "faltou":
         return "Faltou"
+    if safe_status == "aprovado":
+        return CANDIDATE_STATUS_APPROVED
+    if safe_status == "banco de talentos":
+        return CANDIDATE_STATUS_TALENT_BANK
+    if safe_status == "reprovado" or "eliminado" in safe_status:
+        return CANDIDATE_STATUS_ELIMINATED
 
     return "Agendado"
 

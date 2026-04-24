@@ -39,6 +39,34 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessRepositoryMixin:
+    @staticmethod
+    def _preserve_existing_process_status(current_status: str, requested_status: str) -> str:
+        current = canonicalize_candidate_status(current_status)
+        requested = canonicalize_candidate_status(requested_status)
+
+        if requested in {
+            CANDIDATE_STATUS_APPROVED,
+            CANDIDATE_STATUS_ELIMINATED,
+            CANDIDATE_STATUS_TALENT_BANK,
+        }:
+            return requested
+
+        if current in {
+            CANDIDATE_STATUS_SCHEDULED,
+            CANDIDATE_STATUS_CONFIRMED,
+            CANDIDATE_STATUS_ATTENDED,
+            CANDIDATE_STATUS_MISSED,
+            CANDIDATE_STATUS_APPROVED,
+            CANDIDATE_STATUS_ELIMINATED,
+            CANDIDATE_STATUS_TALENT_BANK,
+        } and requested in {
+            CANDIDATE_STATUS_ANALYSIS,
+            CANDIDATE_STATUS_QUALIFIED,
+        }:
+            return current
+
+        return requested
+
     def list_processes(self) -> list[dict]:
         conn = self._connect()
         try:
@@ -236,18 +264,152 @@ class ProcessRepositoryMixin:
             if not processo:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
 
-            id_registro = get_next_id_registro(cursor)
             requested_stage = data.get("etapa_pipeline")
             stage = (
                 normalize_pipeline_stage(requested_stage)
                 if requested_stage
                 else infer_pipeline_stage(data.get("status_candidato"), data.get("origem"))
             )
-            status_candidato = (
+            requested_status = (
                 canonicalize_candidate_status(data.get("status_candidato"))
                 if normalize_text(data.get("status_candidato"))
                 else map_pipeline_stage_to_status(stage)
             )
+            id_teste = normalize_text(data.get("id_teste"))
+            effective_data_prova = normalize_text(data.get("data_prova")) or datetime.now().isoformat()
+            effective_origin = normalize_text(data.get("origem")) or "Prova"
+            effective_vaga = normalize_text(data.get("vaga")) or normalize_text(processo.get("vaga"))
+
+            current = None
+            provided_id_registro = int(data.get("id_registro") or 0)
+            if provided_id_registro > 0:
+                cursor.execute(
+                    """
+                    SELECT
+                        id_registro,
+                        id_processo,
+                        id_processo_ref,
+                        id_teste,
+                        nome_candidato,
+                        vaga,
+                        status_candidato,
+                        pontuacao_final,
+                        data_prova,
+                        origem,
+                        etapa_pipeline,
+                        data_atualizacao_pipeline
+                    FROM candidatos_processos
+                    WHERE id_registro = ?
+                    """,
+                    (provided_id_registro,),
+                )
+                current_rows = rows_to_dicts(cursor, cursor.fetchall())
+                current = current_rows[0] if current_rows else None
+
+            if not current and id_teste:
+                cursor.execute(
+                    """
+                    SELECT
+                        id_registro,
+                        id_processo,
+                        id_processo_ref,
+                        id_teste,
+                        nome_candidato,
+                        vaga,
+                        status_candidato,
+                        pontuacao_final,
+                        data_prova,
+                        origem,
+                        etapa_pipeline,
+                        data_atualizacao_pipeline
+                    FROM candidatos_processos
+                    WHERE id_processo = ? AND id_teste = ?
+                    ORDER BY id_registro DESC
+                    """,
+                    (processo.get("id_processo", ""), id_teste),
+                )
+                current_rows = rows_to_dicts(cursor, cursor.fetchall())
+                current = current_rows[0] if current_rows else None
+
+            if current:
+                effective_status = self._preserve_existing_process_status(
+                    current.get("status_candidato"),
+                    requested_status,
+                )
+                effective_stage = (
+                    normalize_pipeline_stage(requested_stage)
+                    if requested_stage and effective_status == requested_status
+                    else infer_pipeline_stage(
+                        effective_status,
+                        effective_origin or current.get("origem"),
+                        current_stage=current.get("etapa_pipeline"),
+                    )
+                )
+
+                cursor.execute(
+                    """
+                    UPDATE candidatos_processos
+                    SET
+                        id_processo = ?,
+                        id_processo_ref = ?,
+                        id_teste = ?,
+                        nome_candidato = ?,
+                        vaga = ?,
+                        pontuacao_final = ?,
+                        data_prova = ?,
+                        origem = ?
+                    WHERE id_registro = ?
+                    """,
+                    (
+                        processo.get("id_processo", ""),
+                        processo.get("id_processo_ref", ""),
+                        id_teste or normalize_text(current.get("id_teste")),
+                        data.get("nome_candidato", "") or normalize_text(current.get("nome_candidato")),
+                        effective_vaga or normalize_text(current.get("vaga")),
+                        data.get("pontuacao_final", current.get("pontuacao_final")),
+                        effective_data_prova,
+                        effective_origin or normalize_text(current.get("origem")),
+                        int(current.get("id_registro")),
+                    ),
+                )
+
+                if (
+                    canonicalize_candidate_status(current.get("status_candidato")) != effective_status
+                    or normalize_text(current.get("etapa_pipeline")) != effective_stage
+                    or normalize_text(current.get("id_processo_ref")) != normalize_text(processo.get("id_processo_ref"))
+                ):
+                    self._apply_candidate_status_update(
+                        cursor,
+                        current_row={
+                            **current,
+                            "id_processo": processo.get("id_processo", ""),
+                            "id_processo_ref": processo.get("id_processo_ref", ""),
+                            "id_teste": id_teste or normalize_text(current.get("id_teste")),
+                            "nome_candidato": data.get("nome_candidato", "") or normalize_text(current.get("nome_candidato")),
+                            "vaga": effective_vaga or normalize_text(current.get("vaga")),
+                            "pontuacao_final": data.get("pontuacao_final", current.get("pontuacao_final")),
+                            "data_prova": effective_data_prova,
+                            "origem": effective_origin or normalize_text(current.get("origem")),
+                        },
+                        new_status=effective_status,
+                        new_stage=effective_stage,
+                        data_movimentacao=effective_data_prova,
+                    )
+
+                self._upsert_candidate_profile(
+                    cursor,
+                    id_teste=id_teste or current.get("id_teste", ""),
+                    nome_candidato=data.get("nome_candidato", ""),
+                )
+                conn.commit()
+                logger.info(
+                    "Candidato '%s' atualizado no processo '%s'.",
+                    data.get("nome_candidato", ""),
+                    processo.get("id_processo_ref") or processo.get("id_processo", ""),
+                )
+                return {"success": True, "id_registro": int(current.get("id_registro") or 0)}
+
+            id_registro = get_next_id_registro(cursor)
 
             cursor.execute(
                 """
@@ -272,29 +434,52 @@ class ProcessRepositoryMixin:
                     id_registro,
                     processo.get("id_processo", ""),
                     processo.get("id_processo_ref", ""),
-                    data.get("id_teste", ""),
+                    id_teste,
                     data.get("nome_candidato", ""),
-                    data.get("vaga", ""),
-                    status_candidato,
+                    effective_vaga,
+                    requested_status,
                     data.get("pontuacao_final", ""),
-                    data.get("data_prova", ""),
-                    data.get("origem", "Prova"),
+                    effective_data_prova,
+                    effective_origin,
                     stage,
                     datetime.now(),
                 ),
             )
             self._upsert_candidate_profile(
                 cursor,
-                id_teste=data.get("id_teste", ""),
+                id_teste=id_teste,
                 nome_candidato=data.get("nome_candidato", ""),
             )
+
+            if requested_status != CANDIDATE_STATUS_ANALYSIS or stage != "Triagem":
+                self._apply_candidate_status_update(
+                    cursor,
+                    current_row={
+                        "id_registro": id_registro,
+                        "id_processo": processo.get("id_processo", ""),
+                        "id_processo_ref": processo.get("id_processo_ref", ""),
+                        "id_teste": id_teste,
+                        "nome_candidato": data.get("nome_candidato", ""),
+                        "vaga": effective_vaga,
+                        "status_candidato": CANDIDATE_STATUS_ANALYSIS,
+                        "pontuacao_final": data.get("pontuacao_final", ""),
+                        "data_prova": effective_data_prova,
+                        "origem": effective_origin,
+                        "etapa_pipeline": "Triagem",
+                        "data_atualizacao_pipeline": effective_data_prova,
+                    },
+                    new_status=requested_status,
+                    new_stage=stage,
+                    data_movimentacao=effective_data_prova,
+                )
+
             conn.commit()
             logger.info(
                 "Candidato '%s' vinculado ao processo '%s'.",
                 data.get("nome_candidato", ""),
                 processo.get("id_processo_ref") or processo.get("id_processo", ""),
             )
-            return {"success": True}
+            return {"success": True, "id_registro": id_registro}
         finally:
             conn.close()
 

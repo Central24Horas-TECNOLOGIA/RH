@@ -91,6 +91,9 @@ export function criarEstadoInicial() {
     candidato: {
       id_processo: '',
       id_processo_ref: '',
+      id_registro: '',
+      id_entrevista: '',
+      id_teste: '',
       role: '',
       level: '',
       track: '',
@@ -613,6 +616,9 @@ export function useControladorAplicacao() {
         ...anterior.candidato,
         id_processo: '',
         id_processo_ref: '',
+        id_registro: '',
+        id_entrevista: '',
+        id_teste: '',
         role: '',
         level: '',
         track: '',
@@ -642,7 +648,14 @@ export function useControladorAplicacao() {
     navegarParaTela('screen-config');
   };
 
-  const configurarFluxo = ({ role, level, track, time, processId }) => {
+  const configurarFluxo = ({
+    role,
+    level,
+    track,
+    time,
+    processId,
+    scheduledCandidate = null,
+  }) => {
     const resolvedProcessRef = processId === 'PROCESSO_UNICO' ? '' : processId;
     const resolvedProcessId = resolvedProcessRef
       ? String(resolvedProcessRef).split('@@', 1)[0]
@@ -654,10 +667,14 @@ export function useControladorAplicacao() {
         ...anterior.candidato,
         id_processo: resolvedProcessId,
         id_processo_ref: resolvedProcessRef,
+        id_registro: scheduledCandidate?.id_registro || '',
+        id_entrevista: scheduledCandidate?.id_entrevista || '',
+        id_teste: scheduledCandidate?.id_teste || '',
         role,
         level,
         time,
         track: track || 'automatico',
+        name: scheduledCandidate?.nome_candidato || anterior.candidato.name || '',
       },
       processoSelecionado: processId,
     }));
@@ -778,7 +795,8 @@ export function useControladorAplicacao() {
     }));
 
     try {
-      const idResultado = estado.idResultadoAtual || gerarIdResultado();
+      const idResultado =
+        estado.idResultadoAtual || estado.candidato.id_teste || gerarIdResultado();
       const agora = new Date();
       const processoVinculado =
         estado.candidato.id_processo_ref ||
@@ -852,6 +870,8 @@ export function useControladorAplicacao() {
       });
       if (processoVinculadoBase || processoVinculado) {
         await criarCandidatoNoProcesso({
+          id_registro: estado.candidato.id_registro || null,
+          id_entrevista: estado.candidato.id_entrevista || null,
           id_processo: processoVinculadoBase,
           id_processo_ref: processoVinculado,
           id_teste: idResultado,
@@ -869,9 +889,18 @@ export function useControladorAplicacao() {
         idResultadoAtual: idResultado,
         salvandoResultado: false,
         resultadoSalvo: true,
+        candidato: {
+          ...anterior.candidato,
+          id_teste: idResultado,
+        },
       }));
 
-      invalidarCacheApi('historico', 'gabaritos', 'candidatos-processos');
+      invalidarCacheApi(
+        'historico',
+        'gabaritos',
+        'candidatos-processos',
+        'pipeline-candidatos',
+      );
       return { ok: true };
     } catch (error) {
       atualizarEstado((anterior) => ({

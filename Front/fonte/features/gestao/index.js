@@ -579,7 +579,6 @@ export function TelaCriarProcesso({ controlador }) {
     trilha: '',
     usaNotaCorte: false,
     notaCorte: '',
-    linkAgendamento: '',
   });
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -617,7 +616,7 @@ export function TelaCriarProcesso({ controlador }) {
           : null,
         status: 'Aberto',
         data_criacao: new Date().toISOString(),
-        link_agendamento: formulario.linkAgendamento.trim(),
+        link_agendamento: '',
       });
 
       controlador.irParaTelaProtegida('screen-processes');
@@ -763,22 +762,6 @@ export function TelaCriarProcesso({ controlador }) {
             />
           </div>
 
-          <div class="col-md-12">
-            <label class="form-label">Link de agendamento</label>
-            <input
-              class="form-control rh-flow-input"
-              placeholder="https://bookings.cloud.microsoft/..."
-              value=${formulario.linkAgendamento}
-              onInput=${(event) =>
-                setFormulario({
-                  ...formulario,
-                  linkAgendamento: event.target.value,
-                })}
-            />
-            <div class="form-text">
-              Campo opcional para reaproveitar o link do processo na rotina de entrevistas.
-            </div>
-          </div>
         </div>
 
         ${erro ? html`<div class="alert alert-danger mt-4">${erro}</div>` : null}

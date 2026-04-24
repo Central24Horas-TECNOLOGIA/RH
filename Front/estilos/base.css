@@ -283,7 +283,9 @@ a {
   padding: 0.9rem;
   outline: none;
   line-height: 1.55;
-  resize: vertical;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
   pointer-events: auto;
   user-select: text;
 }
@@ -291,6 +293,17 @@ a {
 .word-editor:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 0.18rem rgba(21, 61, 138, 0.12);
+}
+
+.word-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-muted);
+}
+
+.word-editor ul,
+.word-editor ol {
+  margin: 0.55rem 0;
+  padding-left: 1.35rem;
 }
 
 .muted-list,

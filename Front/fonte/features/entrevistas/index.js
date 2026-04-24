@@ -15,7 +15,10 @@ import {
 } from '../../shared/helpers-visuais.js';
 import { copiarTexto, toDatetimeLocal } from '../../shared/browser-utils.js';
 import { AcaoSair } from '../../shared/components/actions.js';
-import { isProcessClosed } from '../../shared/process-flow.js';
+import {
+  canonicalizeCandidateStatus,
+  isProcessClosed,
+} from '../../shared/process-flow.js';
 import { validarFormularioEntrevista } from '../../shared/validacoes.js';
 import {
   EmptyState,
@@ -36,6 +39,9 @@ const STATUS_ENTREVISTA = [
   'Confirmado',
   'Compareceu',
   'Faltou',
+  'Aprovado',
+  'Eliminado',
+  'Banco de talentos',
 ];
 
 export function TelaEntrevistas({ controlador }) {
@@ -91,16 +97,24 @@ export function TelaEntrevistas({ controlador }) {
     () => ({
       total: entrevistas.length,
       agendadas: entrevistas.filter(
-        (item) => String(item.status_entrevista || '') === 'Agendado',
+        (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Agendado',
       ).length,
       confirmadas: entrevistas.filter(
-        (item) => String(item.status_entrevista || '') === 'Confirmado',
+        (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Confirmado',
       ).length,
       compareceram: entrevistas.filter(
-        (item) => String(item.status_entrevista || '') === 'Compareceu',
+        (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Compareceu',
       ).length,
       faltas: entrevistas.filter(
-        (item) => String(item.status_entrevista || '') === 'Faltou',
+        (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Faltou',
+      ).length,
+      aprovados: entrevistas.filter(
+        (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Aprovado',
+      ).length,
+      bancoTalentos: entrevistas.filter(
+        (item) =>
+          canonicalizeCandidateStatus(item.status_entrevista) ===
+          'Banco de talentos',
       ).length,
     }),
     [entrevistas],
@@ -142,14 +156,20 @@ export function TelaEntrevistas({ controlador }) {
     setErro('');
 
     try {
-      await atualizarEntrevista(entrevistaEdicao.id_entrevista, {
-        data_entrevista: new Date(formularioEdicao.data_entrevista).toISOString(),
+      const payload = {
         status_entrevista: formularioEdicao.status_entrevista,
         link_agendamento: formularioEdicao.link_agendamento,
         observacoes_rh: formularioEdicao.observacoes_rh,
         id_processo_ref:
           entrevistaEdicao.id_processo_ref || entrevistaEdicao.id_processo || '',
-      });
+      };
+      if (formularioEdicao.data_entrevista) {
+        payload.data_entrevista = new Date(
+          formularioEdicao.data_entrevista,
+        ).toISOString();
+      }
+
+      await atualizarEntrevista(entrevistaEdicao.id_entrevista, payload);
 
       setEntrevistaEdicao(null);
       await carregar();
@@ -199,6 +219,12 @@ export function TelaEntrevistas({ controlador }) {
             { label: 'Confirmado', value: resumo.confirmadas || 0, variant: 'is-highlight' },
             { label: 'Compareceu', value: resumo.compareceram || 0, variant: 'is-approved' },
             { label: 'Faltou', value: resumo.faltas || 0, variant: 'is-eliminated' },
+            { label: 'Aprovado', value: resumo.aprovados || 0, variant: 'is-approved' },
+            {
+              label: 'Banco talentos',
+              value: resumo.bancoTalentos || 0,
+              variant: 'is-talent',
+            },
           ]}
         />
       </${SectionCard}>

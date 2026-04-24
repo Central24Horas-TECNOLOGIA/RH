@@ -363,6 +363,7 @@ export function TelaPipelineCandidatos({ controlador }) {
                                   <button
                                     type="button"
                                     class="rh-pipeline-collapse-btn"
+                                    aria-expanded=${!cardsRecolhidos[card.id_registro]}
                                     aria-label=${cardsRecolhidos[card.id_registro]
                                       ? 'Expandir card'
                                       : 'Recolher card'}
@@ -445,37 +446,41 @@ export function TelaPipelineCandidatos({ controlador }) {
                                     </div>
                                   `}
 
-                              <div class="rh-pipeline-card-actions">
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-secondary"
-                                  disabled=${salvando ||
-                                  indiceEtapa(card.etapa_pipeline) === 0 ||
-                                  isProcessClosed(card.status_processo)}
-                                  onClick=${() => mover(card, -1)}
-                                >
-                                  Etapa anterior
-                                </button>
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-primary"
-                                  disabled=${salvando ||
-                                  indiceEtapa(card.etapa_pipeline) ===
-                                    ETAPAS_PIPELINE.length - 1 ||
-                                  isProcessClosed(card.status_processo)}
-                                  onClick=${() => mover(card, 1)}
-                                >
-                                  Proxima etapa
-                                </button>
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-danger"
-                                  disabled=${salvando}
-                                  onClick=${() => remover(card)}
-                                >
-                                  Excluir card
-                                </button>
-                              </div>
+                              ${cardsRecolhidos[card.id_registro]
+                                ? null
+                                : html`
+                                    <div class="rh-pipeline-card-actions">
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        disabled=${salvando ||
+                                        indiceEtapa(card.etapa_pipeline) === 0 ||
+                                        isProcessClosed(card.status_processo)}
+                                        onClick=${() => mover(card, -1)}
+                                      >
+                                        Etapa anterior
+                                      </button>
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-primary"
+                                        disabled=${salvando ||
+                                        indiceEtapa(card.etapa_pipeline) ===
+                                          ETAPAS_PIPELINE.length - 1 ||
+                                        isProcessClosed(card.status_processo)}
+                                        onClick=${() => mover(card, 1)}
+                                      >
+                                        Proxima etapa
+                                      </button>
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        disabled=${salvando}
+                                        onClick=${() => remover(card)}
+                                      >
+                                        Excluir card
+                                      </button>
+                                    </div>
+                                  `}
                             </div>
                           `,
                         )

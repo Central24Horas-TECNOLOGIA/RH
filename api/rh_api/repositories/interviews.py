@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
+from ..services.pipeline import infer_pipeline_stage
 from ..services.interviews import build_interview_message, normalize_interview_status
 from ..services.process_flow import (
     build_process_closed_message,
@@ -222,8 +223,14 @@ class InterviewRepositoryMixin:
                     cursor,
                     current_row=candidate_row,
                     new_status=interview_status,
-                    new_stage="Entrevista",
-                    data_movimentacao=interview_date.isoformat() if isinstance(interview_date, datetime) else datetime.now().isoformat(),
+                    new_stage=infer_pipeline_stage(
+                        interview_status,
+                        candidate_row.get("origem"),
+                        current_stage=candidate_row.get("etapa_pipeline"),
+                    ),
+                    data_movimentacao=interview_date.isoformat()
+                    if isinstance(interview_date, datetime)
+                    else datetime.now().isoformat(),
                 )
 
                 self._upsert_candidate_profile(
@@ -371,7 +378,11 @@ class InterviewRepositoryMixin:
                             cursor,
                             current_row=candidate_row,
                             new_status=interview_status,
-                            new_stage="Entrevista",
+                            new_stage=infer_pipeline_stage(
+                                interview_status,
+                                candidate_row.get("origem"),
+                                current_stage=candidate_row.get("etapa_pipeline"),
+                            ),
                             data_movimentacao=interview_date.isoformat() if isinstance(interview_date, datetime) else str(interview_date),
                         )
                 conn.commit()

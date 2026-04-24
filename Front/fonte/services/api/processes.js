@@ -71,7 +71,12 @@ export async function criarCandidatoNoProcesso(dadosCandidato) {
     body: JSON.stringify(dadosCandidato),
   });
 
-  invalidarCacheApi('candidatos-processos', 'banco-talentos', 'processos');
+  invalidarCacheApi(
+    'candidatos-processos',
+    'banco-talentos',
+    'processos',
+    'pipeline-candidatos',
+  );
   return resultado;
 }
 
@@ -144,7 +149,12 @@ export async function usarCandidatoDoBancoTalentos(idBanco, dadosUso) {
     body: JSON.stringify(dadosUso),
   });
 
-  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos');
+  invalidarCacheApi(
+    'banco-talentos',
+    'candidatos-processos',
+    'processos',
+    'pipeline-candidatos',
+  );
   return resultado;
 }
 

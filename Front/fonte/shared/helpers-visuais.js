@@ -41,9 +41,11 @@ export function obterClasseStatusProcesso(status) {
 }
 
 export function obterClasseStatusEntrevista(status) {
-  const valor = String(status || '').trim();
+  const valor = canonicalizeCandidateStatus(status);
+  if (valor === 'Aprovado') return 'is-approved';
+  if (valor === 'Banco de talentos') return 'is-talent';
   if (valor === 'Compareceu') return 'is-approved';
-  if (valor === 'Faltou') return 'is-eliminated';
+  if (valor === 'Faltou' || valor === 'Eliminado') return 'is-eliminated';
   if (valor === 'Confirmado') return 'is-confirmed';
   return 'is-analysis';
 }

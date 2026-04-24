@@ -47,7 +47,7 @@ const TOUR_TEXTOS = {
     label: 'Novo processo',
     introTitle: 'Novo processo seletivo',
     introText:
-      'Configure a vaga, prazo, regras de corte e link de agendamento preservando a integracao com provas, pipeline e entrevistas.',
+      'Configure a vaga, prazo e regras de corte preservando a integracao com provas, pipeline e entrevistas.',
     primaryActionText:
       'Volte rapidamente para a gestao de processos quando precisar revisar a lista atual.',
     extraSteps: [

@@ -6,39 +6,145 @@
 } from '../../infraestrutura-react.js';
 import {
   baixarModeloExcel,
+  formatarDocumentoRichText,
   obterCapacidadesDaTarefa,
   validarArquivoExcel,
 } from '../../regras-prova.js';
 
+function escaparHtml(valor) {
+  return String(valor || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+function normalizarConteudoRichText(valor) {
+  const conteudo = String(valor || '');
+  if (!conteudo.trim()) return '';
+
+  if (/<\/?[a-z][\s\S]*>/i.test(conteudo)) {
+    return conteudo;
+  }
+
+  return escaparHtml(conteudo).replace(/\n/g, '<br>');
+}
+
+function limparHtmlVazio(valor) {
+  const conteudo = String(valor || '').trim();
+  if (
+    !conteudo ||
+    /^((<div><br><\/div>)|(<br\s*\/?>)|(&nbsp;)|\s)+$/i.test(conteudo)
+  ) {
+    return '';
+  }
+  return conteudo;
+}
+
 export function EditorTextoRich({ valor, onChange }) {
-  const textareaRef = useRef(null);
+  const editorRef = useRef(null);
 
   useEffect(() => {
-    if (!textareaRef.current) return;
-    const valorSeguro = valor || '';
-    if (textareaRef.current.value !== valorSeguro) {
-      textareaRef.current.value = valorSeguro;
+    if (!editorRef.current) return;
+    const valorSeguro = normalizarConteudoRichText(valor);
+    if (editorRef.current.innerHTML !== valorSeguro) {
+      editorRef.current.innerHTML = valorSeguro;
     }
   }, [valor]);
+
+  const aplicarComando = (comando) => (event) => {
+    event.preventDefault();
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    formatarDocumentoRichText(comando);
+    onChange(limparHtmlVazio(editorRef.current.innerHTML));
+  };
+
+  const sincronizarConteudo = () => {
+    if (!editorRef.current) return;
+    onChange(limparHtmlVazio(editorRef.current.innerHTML));
+  };
 
   return html`
     <div class="rh-editor-card">
       <label class="form-label fw-semibold" for="word-answer-textarea">
         Digite sua resposta
       </label>
-      <textarea
-        ref=${textareaRef}
+      <div class="rh-editor-toolbar">
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
+          title="Negrito"
+          aria-label="Aplicar negrito"
+          onMouseDown=${aplicarComando('bold')}
+        >
+          <strong>B</strong>
+        </button>
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
+          title="Italico"
+          aria-label="Aplicar italico"
+          onMouseDown=${aplicarComando('italic')}
+        >
+          <em>I</em>
+        </button>
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
+          title="Alinhar a esquerda"
+          aria-label="Alinhar a esquerda"
+          onMouseDown=${aplicarComando('justifyLeft')}
+        >
+          <span class="material-symbols-outlined">format_align_left</span>
+        </button>
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
+          title="Centralizar"
+          aria-label="Centralizar"
+          onMouseDown=${aplicarComando('justifyCenter')}
+        >
+          <span class="material-symbols-outlined">format_align_center</span>
+        </button>
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
+          title="Alinhar a direita"
+          aria-label="Alinhar a direita"
+          onMouseDown=${aplicarComando('justifyRight')}
+        >
+          <span class="material-symbols-outlined">format_align_right</span>
+        </button>
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
+          title="Lista com marcadores"
+          aria-label="Lista com marcadores"
+          onMouseDown=${aplicarComando('insertUnorderedList')}
+        >
+          <span class="material-symbols-outlined">format_list_bulleted</span>
+        </button>
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
+          title="Lista numerada"
+          aria-label="Lista numerada"
+          onMouseDown=${aplicarComando('insertOrderedList')}
+        >
+          <span class="material-symbols-outlined">format_list_numbered</span>
+        </button>
+      </div>
+      <div
+        ref=${editorRef}
         id="word-answer-textarea"
         class="form-control word-editor"
-        placeholder="Escreva sua resposta aqui..."
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="sentences"
+        contentEditable="true"
+        data-placeholder="Escreva sua resposta aqui..."
         spellcheck="true"
-        onInput=${(event) => {
-          onChange(event.target.value || '');
-        }}
-      >${valor || ''}</textarea>
+        suppressContentEditableWarning=${true}
+        onInput=${sincronizarConteudo}
+        onBlur=${sincronizarConteudo}
+      ></div>
       <div class="form-text mt-2">
         Campo de resposta em texto livre. O sistema considera o conteudo digitado para a avaliacao.
       </div>

@@ -1716,7 +1716,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                   disabled=${salvandoEntrevista || processoEncerrado}
                   onClick=${() => salvarAgendamento('email')}
                 >
-                  Enviar por e-mail
+                  ${salvandoEntrevista ? 'Salvando...' : 'Enviar por e-mail'}
                 </button>
                 <button
                   type="button"
@@ -1724,7 +1724,11 @@ export function TelaDetalhesProcesso({ controlador }) {
                   disabled=${salvandoEntrevista || processoEncerrado}
                   onClick=${() => salvarAgendamento('whatsapp')}
                 >
-                  Enviar por WhatsApp
+                  ${salvandoEntrevista
+                    ? 'Salvando...'
+                    : processoEncerrado
+                      ? 'Processo encerrado'
+                      : 'Enviar por WhatsApp'}
                 </button>
               </footer>
             `
