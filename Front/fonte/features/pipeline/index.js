@@ -244,6 +244,15 @@ export function TelaPipelineCandidatos({ controlador }) {
     }
   };
 
+  const alternarCardRecolhido = (event, idRegistro) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setCardsRecolhidos((anterior) => ({
+      ...anterior,
+      [idRegistro]: !anterior[idRegistro],
+    }));
+  };
+
   return html`
     <${PainelRh}
       screenId="screen-candidate-pipeline"
@@ -364,18 +373,18 @@ export function TelaPipelineCandidatos({ controlador }) {
                                     type="button"
                                     class="rh-pipeline-collapse-btn"
                                     aria-expanded=${!cardsRecolhidos[card.id_registro]}
+                                    aria-pressed=${!!cardsRecolhidos[card.id_registro]}
                                     aria-label=${cardsRecolhidos[card.id_registro]
                                       ? 'Expandir card'
                                       : 'Recolher card'}
                                     title=${cardsRecolhidos[card.id_registro]
                                       ? 'Expandir card'
                                       : 'Recolher card'}
-                                    onClick=${() =>
-                                      setCardsRecolhidos((anterior) => ({
-                                        ...anterior,
-                                        [card.id_registro]:
-                                          !anterior[card.id_registro],
-                                      }))}
+                                    onClick=${(event) =>
+                                      alternarCardRecolhido(
+                                        event,
+                                        card.id_registro,
+                                      )}
                                   >
                                     <span class="material-symbols-outlined">
                                       ${cardsRecolhidos[card.id_registro]

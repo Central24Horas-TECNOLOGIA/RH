@@ -54,8 +54,10 @@ import {
   baixarPacoteDaProva,
   converterBase64ParaUint8Array,
   finalizarProva,
+  montarResumoHistoricoDaProva,
   montarPayloadGabarito,
   montarResumoRegrasDoCandidato,
+  validarEntregaObrigatoriaDaProva,
 } from '../regras-prova.js';
 import {
   CANDIDATE_STATUS_ANALYSIS,
@@ -754,6 +756,14 @@ export function useControladorAplicacao() {
   const encerrarProva = (statusFinalizacao = 'Finalizado') => {
     if (!blueprint) return;
 
+    const validacaoFinalizacao = validarEntregaObrigatoriaDaProva({
+      questoes: estado.questoes,
+      respostas: estado.respostas,
+    });
+    if (!validacaoFinalizacao?.ok) {
+      return validacaoFinalizacao;
+    }
+
     const resultadoFinal = finalizarProva({
       questoes: estado.questoes,
       respostas: estado.respostas,
@@ -775,6 +785,7 @@ export function useControladorAplicacao() {
     }));
 
     navegarParaTela('screen-thanks');
+    return { ok: true };
   };
 
   const atualizarObservacaoRh = (observacaoRh) => {
@@ -787,6 +798,14 @@ export function useControladorAplicacao() {
   const salvarResultado = async () => {
     if (estado.salvandoResultado || estado.resultadoSalvo || !blueprint) {
       return null;
+    }
+
+    const validacaoFinalizacao = validarEntregaObrigatoriaDaProva({
+      questoes: estado.questoes,
+      respostas: estado.respostas,
+    });
+    if (!validacaoFinalizacao?.ok) {
+      return validacaoFinalizacao;
     }
 
     atualizarEstado((anterior) => ({
@@ -832,6 +851,20 @@ export function useControladorAplicacao() {
         }
       }
 
+      const payloadGabarito = montarPayloadGabarito({
+        idResultado,
+        candidato: estado.candidato,
+        blueprint,
+        resumoEtapas: estado.resumoEtapas,
+        totalScore: estado.totalScore,
+        totalMax: estado.totalMax,
+        notaFinalPonderada: estado.notaFinalPonderada,
+        observacaoRh: estado.observacaoRh,
+        questoes: estado.questoes,
+        respostas: estado.respostas,
+        resultados: estado.resultados,
+      });
+
       const linhaHistorico = {
         id_teste: idResultado,
         nome_candidato: estado.candidato.name,
@@ -842,6 +875,12 @@ export function useControladorAplicacao() {
         trilha: blueprint.label,
         pontuacao_final: estado.notaFinalPonderada.toFixed(1).replace('.', ','),
         pontuacao_bruta: `${estado.totalScore}/${estado.totalMax}`,
+        arquivo_gabarito: montarResumoHistoricoDaProva({
+          questoes: estado.questoes,
+          respostas: estado.respostas,
+          totalScore: estado.totalScore,
+          totalMax: estado.totalMax,
+        }),
         tempo_minutos: estado.candidato.time,
         data_iso: agora.toISOString(),
         data_exibicao: agora.toLocaleString('pt-BR'),
@@ -852,21 +891,7 @@ export function useControladorAplicacao() {
       await salvarHistorico(linhaHistorico);
       await salvarArquivoResposta({
         recordId: idResultado,
-        payload: JSON.stringify(
-          montarPayloadGabarito({
-            idResultado,
-            candidato: estado.candidato,
-            blueprint,
-            resumoEtapas: estado.resumoEtapas,
-            totalScore: estado.totalScore,
-            totalMax: estado.totalMax,
-            notaFinalPonderada: estado.notaFinalPonderada,
-            observacaoRh: estado.observacaoRh,
-            questoes: estado.questoes,
-            respostas: estado.respostas,
-            resultados: estado.resultados,
-          }),
-        ),
+        payload: JSON.stringify(payloadGabarito),
       });
       if (processoVinculadoBase || processoVinculado) {
         await criarCandidatoNoProcesso({

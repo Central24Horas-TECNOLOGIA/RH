@@ -46,6 +46,21 @@ function criarResultadoChecklist(tarefas, pontos, notas = []) {
   };
 }
 
+function resumirConclusaoChecklist(completedTasks = []) {
+  const lista = Array.isArray(completedTasks) ? completedTasks : [];
+  const total = lista.length;
+  const concluidas = lista.filter((item) => String(item || '').startsWith('[x]')).length;
+
+  return { total, concluidas };
+}
+
+function possuiValidacaoExcelImplementada(validation) {
+  const notas = Array.isArray(validation?.notes) ? validation.notes : [];
+  return !notas.some((item) =>
+    String(item || '').toLowerCase().includes('validacao nao implementada'),
+  );
+}
+
 function obterPlanilha(workbook, nome) {
   return workbook.Sheets[nome];
 }
@@ -1072,17 +1087,49 @@ export async function validarArquivoExcel(taskId, arquivo, pontos) {
     cellNF: true,
     cellHTML: false,
   });
+  const validation = validarWorkbookPorTarefa(taskId, workbook, pontos);
+  const resumoChecklist = resumirConclusaoChecklist(validation.completedTasks);
+  const validacaoImplementada = possuiValidacaoExcelImplementada(validation);
+  const statusText = validacaoImplementada
+    ? `Arquivo analisado com sucesso. ${resumoChecklist.concluidas}/${resumoChecklist.total} tarefa(s) detectada(s).`
+    : 'Arquivo recebido, mas esta etapa ainda nao possui validacao automatica completa.';
 
   return {
     type: 'excel_external',
     uploaded: true,
     filename: arquivo.name,
-    validation: validarWorkbookPorTarefa(taskId, workbook, pontos),
-    statusText:
-      'Arquivo recebido com sucesso. O RH podera revisar os itens visuais.',
-    statusClass: 'excel-status-ok',
+    validation,
+    statusText,
+    statusClass: validacaoImplementada ? 'excel-status-ok' : 'excel-status-warn',
     uploadedArrayBuffer: arrayBuffer,
   };
+}
+
+export function validarEntregaObrigatoriaDaProva({ questoes, respostas }) {
+  const listaQuestoes = Array.isArray(questoes) ? questoes : [];
+  const listaRespostas = Array.isArray(respostas) ? respostas : [];
+
+  for (let indice = 0; indice < listaQuestoes.length; indice += 1) {
+    const questao = listaQuestoes[indice];
+    if (questao?.type !== 'excel_external') continue;
+
+    const resposta = listaRespostas[indice];
+    if (!resposta?.uploaded || !resposta?.validation || !resposta?.uploadedArrayBuffer) {
+      return {
+        ok: false,
+        mensagem: `Envie o arquivo Excel da etapa "${questao.stage || questao.title || 'Excel'}" antes de finalizar a prova.`,
+      };
+    }
+
+    if (!possuiValidacaoExcelImplementada(resposta.validation)) {
+      return {
+        ok: false,
+        mensagem: `A etapa "${questao.stage || questao.title || 'Excel'}" ainda nao conseguiu ser analisada automaticamente. Envie novamente o arquivo ou valide o checklist configurado.`,
+      };
+    }
+  }
+
+  return { ok: true };
 }
 
 export function formatarDocumentoRichText(comando) {
@@ -1459,6 +1506,38 @@ export function montarTextoCompletoDoGabarito({
   });
 
   return linhas.join('\n');
+}
+
+export function montarResumoHistoricoDaProva({
+  questoes,
+  respostas,
+  totalScore,
+  totalMax,
+}) {
+  const partes = [`Pontuacao bruta: ${totalScore}/${totalMax}`];
+
+  (Array.isArray(questoes) ? questoes : []).forEach((questao, indice) => {
+    if (questao?.type !== 'excel_external') return;
+
+    const resposta = Array.isArray(respostas) ? respostas[indice] : null;
+    if (!resposta?.uploaded || !resposta?.validation) {
+      partes.push(`${questao.stage || 'Excel'}: arquivo nao enviado.`);
+      return;
+    }
+
+    const resumo = resumirConclusaoChecklist(resposta.validation.completedTasks);
+    partes.push(
+      `${questao.stage || 'Excel'}: ${resumo.concluidas}/${resumo.total} tarefa(s) detectada(s) em ${resposta.filename || 'arquivo enviado'}.`,
+    );
+
+    if (resposta.validation.completedTasks?.length) {
+      partes.push(
+        resposta.validation.completedTasks.slice(0, 4).join(" ; "),
+      );
+    }
+  });
+
+  return partes.join(' | ');
 }
 
 export function montarPayloadGabarito({

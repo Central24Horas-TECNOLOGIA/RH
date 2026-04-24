@@ -4,6 +4,8 @@ from .common import BaseSchema
 
 
 class HistoryRecordRequest(BaseSchema):
+    Codigo: str | int = ""
+    codigo: str | int = ""
     id_teste: str = ""
     id_processo: str = ""
     id_processo_ref: str = ""
@@ -14,6 +16,7 @@ class HistoryRecordRequest(BaseSchema):
     data_iso: str = ""
     data_exibicao: str = ""
     pontuacao_final: str | float | int = ""
+    pontuacao_bruta: str = ""
     status: str = ""
     tempo_minutos: int | float = 0
     arquivo_gabarito: str = ""

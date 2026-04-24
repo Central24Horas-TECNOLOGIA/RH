@@ -657,6 +657,7 @@ export function TelaCandidato({ controlador }) {
 
 export function TelaProva({ controlador }) {
   const [confirmarEncerramento, setConfirmarEncerramento] = useState(false);
+  const [erroFinalizacao, setErroFinalizacao] = useState('');
   const indiceAtual = controlador.estado.indiceAtual;
   const questaoAtual = controlador.estado.questoes[indiceAtual];
   const respostaAtual = controlador.estado.respostas[indiceAtual] || null;
@@ -684,24 +685,38 @@ export function TelaProva({ controlador }) {
 
   const avancar = () => {
     if (indiceAtual < controlador.estado.questoes.length - 1) {
+      setErroFinalizacao('');
       controlador.definirIndiceAtual(indiceAtual + 1);
       return;
     }
 
-    controlador.encerrarProva('Finalizado');
+    const resultado = controlador.encerrarProva('Finalizado');
+    if (!resultado?.ok) {
+      setErroFinalizacao(
+        resultado?.mensagem ||
+          'Nao foi possivel finalizar a prova com as respostas atuais.',
+      );
+      return;
+    }
+
+    setErroFinalizacao('');
   };
 
-  const atualizarRespostaDiscursiva = (conteudo) =>
+  const atualizarRespostaDiscursiva = (conteudo) => {
+    setErroFinalizacao('');
     controlador.atualizarResposta(indiceAtual, {
       type: 'word',
       content: conteudo,
     });
+  };
 
-  const atualizarRespostaObjetiva = (selected) =>
+  const atualizarRespostaObjetiva = (selected) => {
+    setErroFinalizacao('');
     controlador.atualizarResposta(indiceAtual, {
       type: 'multiple',
       selected,
     });
+  };
 
   return html`
     <section class="active screen" id="screen-exam">
@@ -729,7 +744,17 @@ export function TelaProva({ controlador }) {
             class="btn btn-danger"
             onClick=${() => {
               setConfirmarEncerramento(false);
-              controlador.encerrarProva('Encerrado pelo candidato');
+              const resultado = controlador.encerrarProva(
+                'Encerrado pelo candidato',
+              );
+              if (!resultado?.ok) {
+                setErroFinalizacao(
+                  resultado?.mensagem ||
+                    'Nao foi possivel encerrar a prova com as respostas atuais.',
+                );
+                return;
+              }
+              setErroFinalizacao('');
             }}
           >
             Encerrar prova
@@ -810,14 +835,24 @@ export function TelaProva({ controlador }) {
                       questao=${questaoAtual}
                       resposta=${respostaAtual}
                       nomeCandidato=${controlador.estado.candidato.name}
-                      onChange=${(resposta) =>
-                        controlador.atualizarResposta(indiceAtual, resposta)}
+                      onChange=${(resposta) => {
+                        setErroFinalizacao('');
+                        controlador.atualizarResposta(indiceAtual, resposta);
+                      }}
                     />
                   `
                 : null
             }
           </div>
         </div>
+
+        ${erroFinalizacao
+          ? html`
+              <div class="container pb-3">
+                <div class="alert alert-danger mb-0">${erroFinalizacao}</div>
+              </div>
+            `
+          : null}
 
         <footer class="exam-screen-footer">
           <div class="exam-screen-footer-actions">
@@ -835,7 +870,10 @@ export function TelaProva({ controlador }) {
             <button
               type="button"
               class="btn exam-nav-btn exam-nav-btn-danger"
-              onClick=${() => setConfirmarEncerramento(true)}
+              onClick=${() => {
+                setErroFinalizacao('');
+                setConfirmarEncerramento(true);
+              }}
             >
               Encerrar agora
             </button>
