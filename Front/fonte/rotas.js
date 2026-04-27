@@ -15,6 +15,7 @@ export const ROTAS_POR_TELA = {
   'screen-thanks': 'conclusao',
   'screen-result': 'resultado',
   'screen-analysis-candidates': 'analise-candidatos',
+  'screen-candidates': 'candidatos',
 };
 
 export const TELAS_POR_ROTA = Object.entries(ROTAS_POR_TELA).reduce(
@@ -41,4 +42,3 @@ export function obterTelaPorHash(hashAtual) {
 export function montarHashDaTela(tela) {
   return `#/${obterRotaPorTela(tela)}`;
 }
-
