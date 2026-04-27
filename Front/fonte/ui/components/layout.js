@@ -13,14 +13,14 @@ function BarraLateral({
     { tela: 'screen-menu', icone: 'home', label: 'Painel' },
     { tela: 'screen-history', icone: 'history', label: 'Historico' },
     {
-      tela: 'screen-candidates',
-      icone: 'groups',
-      label: 'Candidatos',
-    },
-    {
       tela: 'screen-processes',
       icone: 'folder_managed',
       label: 'Processos',
+    },
+    {
+      tela: 'screen-candidates',
+      icone: 'badge',
+      label: 'Candidatos',
     },
     {
       tela: 'screen-candidate-pipeline',

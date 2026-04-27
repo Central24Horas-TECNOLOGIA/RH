@@ -38,6 +38,12 @@ const PAGINAS_BUSCA = [
     descricao: 'Gestao de processos, candidatos e encerramentos.',
   },
   {
+    id: 'pagina-candidatos',
+    tela: 'screen-candidates',
+    titulo: 'Candidatos',
+    descricao: 'Central de candidatos, status e vinculacoes rapidas.',
+  },
+  {
     id: 'pagina-pipeline',
     tela: 'screen-candidate-pipeline',
     titulo: 'Pipeline de candidatos',

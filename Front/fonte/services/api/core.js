@@ -1,6 +1,6 @@
 import { criarLogger } from '../../logger.js';
 
-const URL_API_BASE = window.__RH_API_BASE__ || 'http://127.0.0.1:8000';
+const URL_API_BASE = window.__RH_API_BASE__ || 'http://127.0.0.1:8010';
 const TEMPO_CACHE_MS = 15000;
 const CHAVE_TOKEN_AUTENTICACAO = 'rh_api_access_token';
 const CHAVE_USUARIO_AUTENTICADO = 'rh_api_authenticated_user';

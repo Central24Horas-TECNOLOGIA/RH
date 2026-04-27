@@ -36,6 +36,11 @@ def create_app() -> FastAPI:
     async def lifespan(_: FastAPI):
         try:
             bootstrap_runtime_schema(settings)
+        except pyodbc.Error as exc:
+            logger.exception(
+                "Falha ao preparar o schema complementar do RH na inicializacao: %s",
+                describe_database_error(exc),
+            )
         except Exception as exc:
             logger.exception(
                 "Falha ao preparar o schema complementar do RH na inicializacao: %s",
@@ -88,10 +93,11 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(pyodbc.Error)
     async def handle_database_exception(_: Request, exc: pyodbc.Error):
+        detailed_message = describe_database_error(exc)
         if is_deadlock_error(exc):
             logger.warning(
                 "Deadlock nao tratado interceptado pela API: %s",
-                describe_database_error(exc),
+                detailed_message,
             )
             return JSONResponse(
                 status_code=503,
@@ -103,11 +109,14 @@ def create_app() -> FastAPI:
 
         logger.exception(
             "Erro de banco de dados nao tratado: %s",
-            describe_database_error(exc),
+            detailed_message,
         )
+        message = "Falha ao acessar o banco de dados."
+        if settings.is_development and detailed_message:
+            message = f"{message} {detailed_message}"
         return JSONResponse(
             status_code=500,
-            content={"success": False, "message": "Falha ao acessar o banco de dados."},
+            content={"success": False, "message": message},
         )
 
     app.include_router(system_router)

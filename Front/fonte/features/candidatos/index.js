@@ -4,7 +4,6 @@ import {
   useMemo,
   useState,
 } from '../../infraestrutura-react.js';
-
 import {
   atualizarStatusCandidato,
   criarCandidatoNoProcesso,
@@ -15,7 +14,6 @@ import {
   removerBancoTalentos,
   usarCandidatoDoBancoTalentos,
 } from '../../servico-api.js';
-
 import {
   EmptyState,
   MetricGrid,
@@ -24,22 +22,19 @@ import {
   PainelRh,
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
-
 import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
-
 import {
+  CANDIDATE_STATUS_ANALYSIS,
   CANDIDATE_STATUS_APPROVED,
   CANDIDATE_STATUS_ELIMINATED,
   CANDIDATE_STATUS_TALENT_BANK,
   getCandidateVisibleStatus,
 } from '../../shared/process-flow.js';
-
 import {
   formatarDataHora,
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
-
 import { obterReferenciaProcesso } from '../../shared/process-reference.js';
 
 function normalizarTexto(valor) {
@@ -71,6 +66,14 @@ function obterNotaCandidato(item) {
   );
 }
 
+function obterContatoPrincipal(item) {
+  return item?.email || item?.telefone || item?.whatsapp || '';
+}
+
+function obterClassificacaoCandidato(item) {
+  return item?.classificacao || item?.classificacao_slug || '';
+}
+
 function obterDataCandidato(item) {
   return (
     item?.data_movimentacao ||
@@ -86,7 +89,6 @@ function montarCandidatoDeProcesso(item, processosPorReferencia) {
   const processoReferencia = String(
     item.id_processo_ref || item.id_processo || '',
   ).trim();
-
   const processo =
     processosPorReferencia.get(processoReferencia) ||
     processosPorReferencia.get(String(item.id_processo || '').trim()) ||
@@ -100,15 +102,15 @@ function montarCandidatoDeProcesso(item, processosPorReferencia) {
     nome_candidato: item.nome_candidato || '-',
     status_visivel: getCandidateVisibleStatus(item),
     id_processo_ref: processoReferencia,
-    processo_nome:
-      processo?.nome_processo ||
-      processo?.titulo ||
-      item.nome_processo ||
-      item.id_processo ||
-      '-',
+    processo_nome: processo?.id_processo || item.id_processo || '-',
     vaga: item.vaga || processo?.vaga || '-',
     nota_exibicao: obterNotaCandidato(item),
+    classificacao_exibicao: obterClassificacaoCandidato(item),
     data_exibicao: obterDataCandidato(item),
+    email: item.email || '',
+    telefone: item.telefone || '',
+    whatsapp: item.whatsapp || '',
+    contato_principal: obterContatoPrincipal(item),
     pode_movimentar: true,
     pode_atrelar: true,
     id_registro_processo: item.id_registro,
@@ -127,7 +129,12 @@ function montarCandidatoDoBanco(item) {
     processo_nome: item.id_processo || '-',
     vaga: item.vaga || '-',
     nota_exibicao: obterNotaCandidato(item),
+    classificacao_exibicao: obterClassificacaoCandidato(item),
     data_exibicao: obterDataCandidato(item),
+    email: item.email || '',
+    telefone: item.telefone || '',
+    whatsapp: item.whatsapp || '',
+    contato_principal: obterContatoPrincipal(item),
     pode_movimentar: false,
     pode_atrelar: true,
     id_banco: item.id_banco,
@@ -138,7 +145,7 @@ function montarCandidatoDoHistorico(item) {
   return {
     ...item,
     origem_cadastro: 'historico',
-    origem_rotulo: 'Histórico de prova',
+    origem_rotulo: 'Historico de prova',
     chave: montarChaveCandidato(item),
     nome_candidato: item.nome_candidato || '-',
     status_visivel: item.id_processo ? 'Em processo' : 'Sem processo vinculado',
@@ -146,7 +153,12 @@ function montarCandidatoDoHistorico(item) {
     processo_nome: item.id_processo || '-',
     vaga: item.vaga || '-',
     nota_exibicao: obterNotaCandidato(item),
+    classificacao_exibicao: obterClassificacaoCandidato(item),
     data_exibicao: obterDataCandidato(item),
+    email: item.email || '',
+    telefone: item.telefone || '',
+    whatsapp: item.whatsapp || '',
+    contato_principal: obterContatoPrincipal(item),
     pode_movimentar: false,
     pode_atrelar: true,
   };
@@ -199,9 +211,9 @@ function SelectProcesso({ processos, valor, onChange, disabled = false }) {
       ${processos.map((processo) => {
         const referencia = obterReferenciaProcesso(processo);
         const rotulo = [
-          processo.nome_processo || processo.id_processo || 'Processo',
-          processo.vaga ? `• ${processo.vaga}` : '',
-          processo.operacao ? `• ${processo.operacao}` : '',
+          processo.id_processo || 'Processo',
+          processo.vaga ? `| ${processo.vaga}` : '',
+          processo.operacao ? `| ${processo.operacao}` : '',
         ]
           .filter(Boolean)
           .join(' ');
@@ -234,18 +246,49 @@ export function TelaCandidatos({ controlador }) {
     setErro('');
 
     try {
-      const [historico, candidatosProcessos, bancoTalentos, processos] =
-        await Promise.all([
-          lerHistorico().catch(() => []),
-          lerCandidatosProcessos(true).catch(() => []),
-          lerBancoTalentos({ forcar: true }).catch(() => []),
-          lerProcessos(true).catch(() => []),
-        ]);
+      const resultados = await Promise.allSettled([
+        lerHistorico(),
+        lerCandidatosProcessos(true),
+        lerBancoTalentos({ forcar: true }),
+        lerProcessos(true),
+      ]);
 
-      const processosLista = Array.isArray(processos) ? processos : [];
+      const historico =
+        resultados[0].status === 'fulfilled' && Array.isArray(resultados[0].value)
+          ? resultados[0].value
+          : [];
+      const candidatosProcessos =
+        resultados[1].status === 'fulfilled' && Array.isArray(resultados[1].value)
+          ? resultados[1].value
+          : [];
+      const bancoTalentos =
+        resultados[2].status === 'fulfilled' && Array.isArray(resultados[2].value)
+          ? resultados[2].value
+          : [];
+      const processos =
+        resultados[3].status === 'fulfilled' && Array.isArray(resultados[3].value)
+          ? resultados[3].value
+          : [];
+
+      const falhas = resultados
+        .filter((item) => item.status === 'rejected')
+        .map((item) => item.reason);
+
+      if (
+        falhas.length &&
+        !historico.length &&
+        !candidatosProcessos.length &&
+        !bancoTalentos.length &&
+        !processos.length
+      ) {
+        setErro(
+          falhas[0]?.message ||
+            'Nao foi possivel carregar a pagina de candidatos.',
+        );
+      }
+
       const processosPorReferencia = new Map();
-
-      processosLista.forEach((processo) => {
+      processos.forEach((processo) => {
         const referencia = obterReferenciaProcesso(processo);
         if (referencia) processosPorReferencia.set(referencia, processo);
         if (processo.id_processo) {
@@ -253,39 +296,29 @@ export function TelaCandidatos({ controlador }) {
         }
       });
 
-      const abertos = processosLista.filter(
+      const abertos = processos.filter(
         (processo) => String(processo.status || '').trim() !== 'Encerrado',
       );
 
       const mapa = new Map();
 
-      /**
-       * Prioridade:
-       * 1. Candidato em processo
-       * 2. Banco de talentos
-       * 3. Histórico de prova
-       *
-       * Assim a tela evita duplicidade visual, mas mantém a origem mais operacional.
-       */
-      (Array.isArray(historico) ? historico : []).forEach((item) => {
+      historico.forEach((item) => {
         const candidato = montarCandidatoDoHistorico(item);
         mapa.set(candidato.chave, candidato);
       });
 
-      (Array.isArray(bancoTalentos) ? bancoTalentos : []).forEach((item) => {
+      bancoTalentos.forEach((item) => {
         const candidato = montarCandidatoDoBanco(item);
         mapa.set(candidato.chave, candidato);
       });
 
-      (Array.isArray(candidatosProcessos) ? candidatosProcessos : []).forEach(
-        (item) => {
-          const candidato = montarCandidatoDeProcesso(
-            item,
-            processosPorReferencia,
-          );
-          mapa.set(candidato.chave, candidato);
-        },
-      );
+      candidatosProcessos.forEach((item) => {
+        const candidato = montarCandidatoDeProcesso(
+          item,
+          processosPorReferencia,
+        );
+        mapa.set(candidato.chave, candidato);
+      });
 
       const lista = Array.from(mapa.values()).sort((a, b) =>
         String(b.data_exibicao || '').localeCompare(
@@ -319,12 +352,16 @@ export function TelaCandidatos({ controlador }) {
       const textoBusca = normalizarTexto(
         [
           candidato.nome_candidato,
+          candidato.email,
+          candidato.telefone,
+          candidato.whatsapp,
           candidato.vaga,
           candidato.processo_nome,
           candidato.id_processo,
           candidato.id_teste,
           candidato.status_visivel,
           candidato.origem_rotulo,
+          candidato.classificacao_exibicao,
         ].join(' '),
       );
 
@@ -352,7 +389,6 @@ export function TelaCandidatos({ controlador }) {
         const confirmar = window.confirm(
           `Deseja remover ${candidato.nome_candidato} do banco de talentos?`,
         );
-
         if (!confirmar) return;
 
         setSalvando(true);
@@ -390,7 +426,6 @@ export function TelaCandidatos({ controlador }) {
     const confirmar = window.confirm(
       `Deseja alterar o status de ${candidato.nome_candidato} para "${status}"?`,
     );
-
     if (!confirmar) return;
 
     setSalvando(true);
@@ -413,9 +448,47 @@ export function TelaCandidatos({ controlador }) {
     }
   };
 
+  const enviarParaBanco = async (candidato) => {
+    if (!candidato || candidato.origem_cadastro !== 'processo') {
+      window.alert(
+        'Somente candidatos vinculados a um processo podem ser enviados ao banco de talentos.',
+      );
+      return;
+    }
+
+    await aplicarStatus(candidato, CANDIDATE_STATUS_TALENT_BANK);
+  };
+
   const abrirAtrelar = (candidato) => {
     setCandidatoParaAtrelar(candidato);
     setProcessoSelecionado('');
+  };
+
+  const candidatoJaVinculadoAoProcessoSelecionado = () => {
+    if (!candidatoParaAtrelar || !processoSelecionado) {
+      return false;
+    }
+
+    if (
+      String(candidatoParaAtrelar.id_processo_ref || '').trim() ===
+        String(processoSelecionado || '').trim() &&
+      candidatoParaAtrelar.origem_cadastro === 'processo'
+    ) {
+      return true;
+    }
+
+    const idTeste = String(candidatoParaAtrelar.id_teste || '').trim();
+    if (!idTeste) {
+      return false;
+    }
+
+    return candidatos.some(
+      (item) =>
+        item.origem_cadastro === 'processo' &&
+        String(item.id_teste || '').trim() === idTeste &&
+        String(item.id_processo_ref || '').trim() ===
+          String(processoSelecionado || '').trim(),
+    );
   };
 
   const confirmarAtrelar = async () => {
@@ -427,16 +500,19 @@ export function TelaCandidatos({ controlador }) {
     const processo = processosAbertos.find(
       (item) => obterReferenciaProcesso(item) === processoSelecionado,
     );
-
     if (!processo) {
       window.alert('Processo selecionado nao encontrado.');
       return;
     }
 
-    const confirmar = window.confirm(
-      `Deseja atrelar ${candidatoParaAtrelar.nome_candidato} ao processo ${processo.nome_processo || processo.id_processo}?`,
-    );
+    if (candidatoJaVinculadoAoProcessoSelecionado()) {
+      window.alert('Este candidato ja esta vinculado ao processo selecionado.');
+      return;
+    }
 
+    const confirmar = window.confirm(
+      `Deseja atrelar ${candidatoParaAtrelar.nome_candidato} ao processo ${processo.id_processo || 'selecionado'}?`,
+    );
     if (!confirmar) return;
 
     setSalvando(true);
@@ -455,7 +531,7 @@ export function TelaCandidatos({ controlador }) {
           id_teste: candidatoParaAtrelar.id_teste || '',
           nome_candidato: candidatoParaAtrelar.nome_candidato || '',
           vaga: candidatoParaAtrelar.vaga || processo.vaga || '',
-          status_candidato: 'Analise',
+          status_candidato: CANDIDATE_STATUS_ANALYSIS,
           pontuacao_final:
             candidatoParaAtrelar.pontuacao_final ||
             candidatoParaAtrelar.nota_final ||
@@ -494,7 +570,7 @@ export function TelaCandidatos({ controlador }) {
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Console • Candidatos"
+        kicker="Console | Candidatos"
         title="Central de candidatos"
         description="Atalho operacional para consultar candidatos, ver detalhes e executar acoes principais sem remover as funcoes existentes das outras telas."
       />
@@ -526,7 +602,7 @@ export function TelaCandidatos({ controlador }) {
             <label>Busca geral</label>
             <input
               class="form-control"
-              placeholder="Nome, vaga, processo, status..."
+              placeholder="Nome, email, vaga, processo, status..."
               value=${filtros.busca}
               onInput=${(event) =>
                 setFiltros({ ...filtros, busca: event.target.value })}
@@ -569,7 +645,7 @@ export function TelaCandidatos({ controlador }) {
 
       <${SectionCard}
         title="Lista geral de candidatos"
-        description="Acoes desta tela sao atalhos. As telas antigas continuam funcionando normalmente."
+        description="As acoes desta tela sao atalhos. As telas antigas continuam funcionando normalmente."
         actions=${html`
           <button
             type="button"
@@ -581,130 +657,149 @@ export function TelaCandidatos({ controlador }) {
           </button>
         `}
       >
-        ${
-          carregando
-            ? html`
-                <${EmptyState}
-                  title="Carregando candidatos"
-                  text="Aguarde enquanto o sistema consolida as informacoes."
-                />
-              `
-            : html`
-                <div class="table-responsive">
-                  <table class="table align-middle rh-modern-history-table">
-                    <thead>
-                      <tr>
-                        <th>Candidato</th>
-                        <th>Vaga</th>
-                        <th>Processo</th>
-                        <th>Nota</th>
-                        <th>Status</th>
-                        <th>Origem</th>
-                        <th>Data</th>
-                        <th class="text-end">Acoes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${candidatosFiltrados.length
-                        ? candidatosFiltrados.map(
-                            (candidato) => html`
-                              <tr key=${candidato.chave}>
-                                <td>
-                                  <strong>
-                                    ${candidato.nome_candidato || '-'}
-                                  </strong>
-                                  <div class="text-muted small">
-                                    ${candidato.id_teste || '-'}
-                                  </div>
-                                </td>
-                                <td>${candidato.vaga || '-'}</td>
-                                <td>${candidato.processo_nome || '-'}</td>
-                                <td>${candidato.nota_exibicao || '-'}</td>
-                                <td>
-                                  <span
-                                    class=${`rh-status-pill ${obterClasseStatusEntrevista(
-                                      candidato.status_visivel,
-                                    )}`}
+        ${carregando
+          ? html`
+              <${EmptyState}
+                title="Carregando candidatos"
+                text="Aguarde enquanto o sistema consolida as informacoes."
+              />
+            `
+          : html`
+              <div class="table-responsive">
+                <table class="table align-middle rh-modern-history-table">
+                  <thead>
+                    <tr>
+                      <th>Candidato</th>
+                      <th>Contato</th>
+                      <th>Vaga</th>
+                      <th>Processo</th>
+                      <th>Nota</th>
+                      <th>Status</th>
+                      <th>Origem</th>
+                      <th>Data</th>
+                      <th class="text-end">Acoes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${candidatosFiltrados.length
+                      ? candidatosFiltrados.map(
+                          (candidato) => html`
+                            <tr key=${candidato.chave}>
+                              <td>
+                                <strong>${candidato.nome_candidato || '-'}</strong>
+                                <div class="text-muted small">
+                                  ${candidato.id_teste || '-'}
+                                </div>
+                              </td>
+                              <td>
+                                <div>${candidato.email || '-'}</div>
+                                <div class="text-muted small">
+                                  ${candidato.telefone || candidato.whatsapp || '-'}
+                                </div>
+                              </td>
+                              <td>${candidato.vaga || '-'}</td>
+                              <td>
+                                <div>${candidato.processo_nome || '-'}</div>
+                                <div class="text-muted small">
+                                  ${candidato.id_processo_ref || candidato.id_processo || '-'}
+                                </div>
+                              </td>
+                              <td>
+                                <div>${candidato.nota_exibicao || '-'}</div>
+                                <div class="text-muted small">
+                                  ${candidato.classificacao_exibicao || '-'}
+                                </div>
+                              </td>
+                              <td>
+                                <span
+                                  class=${`rh-status-pill ${obterClasseStatusEntrevista(
+                                    candidato.status_visivel,
+                                  )}`}
+                                >
+                                  ${candidato.status_visivel || '-'}
+                                </span>
+                              </td>
+                              <td>${candidato.origem_rotulo || '-'}</td>
+                              <td>${formatarDataHora(candidato.data_exibicao)}</td>
+                              <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-primary"
+                                    title="Ver detalhes"
+                                    onClick=${() => setDetalhe(candidato)}
                                   >
-                                    ${candidato.status_visivel || '-'}
-                                  </span>
-                                </td>
-                                <td>${candidato.origem_rotulo || '-'}</td>
-                                <td>
-                                  ${formatarDataHora(candidato.data_exibicao)}
-                                </td>
-                                <td class="text-end">
-                                  <div class="btn-group btn-group-sm">
-                                    <button
-                                      type="button"
-                                      class="btn btn-outline-primary"
-                                      title="Ver detalhes"
-                                      onClick=${() => setDetalhe(candidato)}
-                                    >
-                                      Detalhes
-                                    </button>
-                                    <button
-                                      type="button"
-                                      class="btn btn-outline-success"
-                                      title="Aprovar"
-                                      disabled=${salvando}
-                                      onClick=${() =>
-                                        aplicarStatus(
-                                          candidato,
-                                          CANDIDATE_STATUS_APPROVED,
-                                        )}
-                                    >
-                                      Aprovar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      class="btn btn-outline-danger"
-                                      title="Eliminar"
-                                      disabled=${salvando}
-                                      onClick=${() =>
-                                        aplicarStatus(
-                                          candidato,
-                                          CANDIDATE_STATUS_ELIMINATED,
-                                        )}
-                                    >
-                                      Eliminar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      class="btn btn-outline-secondary"
-                                      title="Atrelar a processo"
-                                      disabled=${salvando}
-                                      onClick=${() => abrirAtrelar(candidato)}
-                                    >
-                                      Atrelar
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            `,
-                          )
-                        : html`
-                            <${TabelaVazia}
-                              colunas=${8}
-                              texto="Nenhum candidato encontrado."
-                            />
-                          `}
-                    </tbody>
-                  </table>
-                </div>
-              `
-        }
+                                    Detalhes
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-success"
+                                    title="Aprovar"
+                                    disabled=${salvando}
+                                    onClick=${() =>
+                                      aplicarStatus(
+                                        candidato,
+                                        CANDIDATE_STATUS_APPROVED,
+                                      )}
+                                  >
+                                    Aprovar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-danger"
+                                    title="Eliminar"
+                                    disabled=${salvando}
+                                    onClick=${() =>
+                                      aplicarStatus(
+                                        candidato,
+                                        CANDIDATE_STATUS_ELIMINATED,
+                                      )}
+                                  >
+                                    Eliminar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-warning"
+                                    title="Banco de talentos"
+                                    disabled=${salvando || candidato.origem_cadastro !== 'processo'}
+                                    onClick=${() => enviarParaBanco(candidato)}
+                                  >
+                                    Banco
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-secondary"
+                                    title="Atrelar a processo"
+                                    disabled=${salvando}
+                                    onClick=${() => abrirAtrelar(candidato)}
+                                  >
+                                    Atrelar
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          `,
+                        )
+                      : html`
+                          <${TabelaVazia}
+                            colunas=${9}
+                            texto="Nenhum candidato encontrado."
+                          />
+                        `}
+                  </tbody>
+                </table>
+              </div>
+            `}
       </${SectionCard}>
 
       <${ModalPadrao}
         aberto=${!!detalhe}
-        titulo=${`Detalhes • ${detalhe?.nome_candidato || 'Candidato'}`}
+        titulo=${`Detalhes | ${detalhe?.nome_candidato || 'Candidato'}`}
         subtitulo="Resumo operacional consolidado deste candidato."
         onClose=${() => setDetalhe(null)}
       >
-        ${
-          detalhe
-            ? html`
+        ${detalhe
+          ? html`
               <div class="rh-details-body">
                 <${MetricGrid}
                   items=${[
@@ -725,6 +820,14 @@ export function TelaCandidatos({ controlador }) {
                       value: detalhe.status_visivel || '-',
                     },
                     {
+                      label: 'Email',
+                      value: detalhe.email || '-',
+                    },
+                    {
+                      label: 'Telefone',
+                      value: detalhe.telefone || detalhe.whatsapp || '-',
+                    },
+                    {
                       label: 'Origem',
                       value: detalhe.origem_rotulo || '-',
                     },
@@ -733,8 +836,16 @@ export function TelaCandidatos({ controlador }) {
                       value: detalhe.nota_exibicao || '-',
                     },
                     {
+                      label: 'Classificacao',
+                      value: detalhe.classificacao_exibicao || '-',
+                    },
+                    {
                       label: 'ID da prova',
                       value: detalhe.id_teste || '-',
+                    },
+                    {
+                      label: 'ID processo ref',
+                      value: detalhe.id_processo_ref || detalhe.id_processo || '-',
                     },
                     {
                       label: 'Data',
@@ -742,6 +853,25 @@ export function TelaCandidatos({ controlador }) {
                     },
                   ]}
                 />
+
+                <${SectionCard}
+                  title="Contexto complementar"
+                  description="Informacoes de contato, entrevista e observacoes ja consolidadas no sistema."
+                  className="rh-section-card--flat"
+                >
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <div><strong>Contato principal:</strong> ${detalhe.contato_principal || '-'}</div>
+                      <div><strong>Status entrevista:</strong> ${detalhe.status_entrevista || '-'}</div>
+                      <div><strong>Data entrevista:</strong> ${formatarDataHora(detalhe.data_entrevista)}</div>
+                    </div>
+                    <div class="col-md-6">
+                      <div><strong>Tags:</strong> ${(detalhe.tags || []).join(', ') || '-'}</div>
+                      <div><strong>Habilidades:</strong> ${(detalhe.habilidades || []).join(', ') || '-'}</div>
+                      <div><strong>Observacao RH:</strong> ${detalhe.observacao_rh || '-'}</div>
+                    </div>
+                  </div>
+                </${SectionCard}>
 
                 <${SectionCard}
                   title="Acoes rapidas"
@@ -769,24 +899,14 @@ export function TelaCandidatos({ controlador }) {
                       Eliminar
                     </button>
 
-                    ${
-                      detalhe.origem_cadastro === 'processo'
-                        ? html`
-                            <button
-                              type="button"
-                              class="btn btn-outline-secondary"
-                              disabled=${salvando}
-                              onClick=${() =>
-                                aplicarStatus(
-                                  detalhe,
-                                  CANDIDATE_STATUS_TALENT_BANK,
-                                )}
-                            >
-                              Banco de talentos
-                            </button>
-                          `
-                        : null
-                    }
+                    <button
+                      type="button"
+                      class="btn btn-outline-warning"
+                      disabled=${salvando || detalhe.origem_cadastro !== 'processo'}
+                      onClick=${() => enviarParaBanco(detalhe)}
+                    >
+                      Banco de talentos
+                    </button>
 
                     <button
                       type="button"
@@ -810,13 +930,12 @@ export function TelaCandidatos({ controlador }) {
                 </button>
               </footer>
             `
-            : null
-        }
+          : null}
       </${ModalPadrao}>
 
       <${ModalPadrao}
         aberto=${!!candidatoParaAtrelar}
-        titulo=${`Atrelar candidato • ${
+        titulo=${`Atrelar candidato | ${
           candidatoParaAtrelar?.nome_candidato || 'Candidato'
         }`}
         subtitulo="Selecione um processo seletivo aberto para vincular este candidato."
@@ -874,7 +993,7 @@ export function TelaCandidatos({ controlador }) {
               disabled=${salvando || !processoSelecionado}
               onClick=${confirmarAtrelar}
             >
-              ${salvando ? 'Salvando...' : 'Confirmar vínculo'}
+              ${salvando ? 'Salvando...' : 'Confirmar vinculo'}
             </button>
           </div>
         </footer>

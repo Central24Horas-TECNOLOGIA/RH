@@ -4,6 +4,7 @@ export const ROTAS_POR_TELA = {
   'screen-menu': 'inicio',
   'screen-history': 'historico',
   'screen-processes': 'processos',
+  'screen-candidates': 'candidatos',
   'screen-candidate-pipeline': 'pipeline-candidatos',
   'screen-process-create': 'novo-processo',
   'screen-process-details': 'detalhes-processo',
@@ -15,7 +16,6 @@ export const ROTAS_POR_TELA = {
   'screen-thanks': 'conclusao',
   'screen-result': 'resultado',
   'screen-analysis-candidates': 'analise-candidatos',
-  'screen-candidates': 'candidatos',
 };
 
 export const TELAS_POR_ROTA = Object.entries(ROTAS_POR_TELA).reduce(

@@ -46,12 +46,32 @@ def _split_csv(raw_value: str | None) -> list[str]:
     return [item.strip() for item in raw_value.split(",") if item.strip()]
 
 
+def _read_bool_env(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+
+    normalized = raw_value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
 @dataclass(frozen=True)
 class Settings:
     app_env: str
     sql_server: str
     sql_database: str
     sql_driver: str
+    sql_connection_string: str | None
+    sql_username: str
+    sql_password: str
+    sql_trusted_connection: bool
+    sql_encrypt: str
+    sql_trust_server_certificate: bool
+    sql_timeout_seconds: int
     auth_user: str
     auth_password: str
     auth_token_secret: str
@@ -85,6 +105,13 @@ def get_settings() -> Settings:
         sql_server=os.getenv("RH_SQL_SERVER", r"PAULO_TI\SQLEXPRESS").strip(),
         sql_database=os.getenv("RH_SQL_DATABASE", "RH_Provas").strip(),
         sql_driver=os.getenv("RH_SQL_DRIVER", "ODBC Driver 17 for SQL Server").strip(),
+        sql_connection_string=os.getenv("RH_SQL_CONNECTION_STRING", "").strip() or None,
+        sql_username=os.getenv("RH_SQL_USERNAME", "").strip(),
+        sql_password=os.getenv("RH_SQL_PASSWORD", ""),
+        sql_trusted_connection=_read_bool_env("RH_SQL_TRUSTED_CONNECTION", True),
+        sql_encrypt=os.getenv("RH_SQL_ENCRYPT", "no").strip() or "no",
+        sql_trust_server_certificate=_read_bool_env("RH_SQL_TRUST_SERVER_CERTIFICATE", True),
+        sql_timeout_seconds=max(1, int(os.getenv("RH_SQL_TIMEOUT_SECONDS", "5"))),
         auth_user=os.getenv("RH_AUTH_USER", "").strip(),
         auth_password=os.getenv("RH_AUTH_PASSWORD", "").strip(),
         auth_token_secret=os.getenv("RH_AUTH_TOKEN_SECRET", "").strip()

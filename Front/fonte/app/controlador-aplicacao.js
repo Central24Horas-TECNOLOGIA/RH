@@ -66,9 +66,7 @@ import {
   canonicalizeCandidateStatus,
   getCandidateVisibleStatus,
 } from '../shared/process-flow.js';
-import {
-  encontrarProcessoPorReferencia,
-} from '../shared/process-reference.js';
+import { encontrarProcessoPorReferencia } from '../shared/process-reference.js';
 
 const CHAVE_ESTADO = 'rh_react_state_v1';
 export const TAMANHO_RECENTES = 6;
@@ -330,7 +328,8 @@ export function obterRotuloSituacaoAtual(linha, mapaStatus) {
   const mapeado = mapaStatus?.[idTeste];
 
   if (mapeado?.label) return mapeado.label;
-  if (idProcessoHistorico) return `${CANDIDATE_STATUS_ANALYSIS} • ${idProcessoHistorico}`;
+  if (idProcessoHistorico)
+    return `${CANDIDATE_STATUS_ANALYSIS} • ${idProcessoHistorico}`;
   return 'Processo individual';
 }
 
@@ -676,9 +675,10 @@ export function useControladorAplicacao() {
         level,
         time,
         track: track || 'automatico',
-        name: scheduledCandidate?.nome_candidato || anterior.candidato.name || '',
+        name:
+          scheduledCandidate?.nome_candidato || anterior.candidato.name || '',
       },
-      processoSelecionado: processId,
+      processoSelecionado: resolvedProcessRef,
     }));
 
     navegarParaTela('screen-candidate');
@@ -815,17 +815,28 @@ export function useControladorAplicacao() {
 
     try {
       const idResultado =
-        estado.idResultadoAtual || estado.candidato.id_teste || gerarIdResultado();
+        estado.idResultadoAtual ||
+        estado.candidato.id_teste ||
+        gerarIdResultado();
       const agora = new Date();
+      const processoSelecionadoNormalizado =
+        estado.processoSelecionado === 'PROCESSO_UNICO'
+          ? ''
+          : estado.processoSelecionado || '';
+
       const processoVinculado =
         estado.candidato.id_processo_ref ||
-        estado.processoSelecionado ||
+        processoSelecionadoNormalizado ||
         '';
-      const processoVinculadoBase =
+
+      const processoVinculadoBaseBruto =
         estado.candidato.id_processo ||
-        (processoVinculado
-          ? String(processoVinculado).split('@@', 1)[0]
-          : '');
+        (processoVinculado ? String(processoVinculado).split('@@', 1)[0] : '');
+
+      const processoVinculadoBase =
+        processoVinculadoBaseBruto === 'PROCESSO_UNICO'
+          ? ''
+          : processoVinculadoBaseBruto;
 
       let statusInicialCandidato = CANDIDATE_STATUS_ANALYSIS;
 
@@ -903,7 +914,9 @@ export function useControladorAplicacao() {
           nome_candidato: estado.candidato.name,
           vaga: estado.candidato.role,
           status_candidato: statusInicialCandidato,
-          pontuacao_final: estado.notaFinalPonderada.toFixed(1).replace('.', ','),
+          pontuacao_final: estado.notaFinalPonderada
+            .toFixed(1)
+            .replace('.', ','),
           data_prova: agora.toISOString(),
           origem: 'Prova',
         });

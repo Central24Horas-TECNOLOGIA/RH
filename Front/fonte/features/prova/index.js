@@ -409,11 +409,13 @@ export function TelaConfiguracao({ controlador }) {
               )}
             </select>
             <div class="form-text">
-              ${processoSelecionado
-                ? atualizandoCandidatoAgendado
-                  ? 'Atualizando o status do candidato para Compareceu...'
-                  : 'Ao selecionar um candidato agendado, o nome sera preenchido automaticamente e a agenda operacional sera atualizada para Compareceu.'
-                : 'Selecione um processo para listar os candidatos com entrevista agendada.'}
+              ${
+                processoSelecionado
+                  ? atualizandoCandidatoAgendado
+                    ? 'Atualizando o status do candidato para Compareceu...'
+                    : 'Ao selecionar um candidato agendado, o nome sera preenchido automaticamente e a agenda operacional sera atualizada para Compareceu.'
+                  : 'Selecione um processo para listar os candidatos com entrevista agendada.'
+              }
             </div>
           </div>
 
@@ -587,7 +589,35 @@ export function TelaCandidato({ controlador }) {
             <div class="rh-instruction-grid">
               <article class="rh-instruction-card">
                 <h3>Antes de comecar</h3>
-                <ul class="rules-list">
+<ul class="rules-list">
+  <li>
+    Confira se o nome informado esta correto antes de iniciar a avaliacao.
+  </li>
+  <li>
+    Leia todas as orientacoes da tela e siga somente as instrucoes passadas pelo
+    responsavel do RH.
+  </li>
+  <li>
+    Mantenha aberto apenas o que for necessario para realizar a prova. Evite
+    abas, arquivos ou consultas que nao tenham sido autorizados.
+  </li>
+  <li>
+    Em exercicios de Excel, baixe o arquivo base, edite a sua propria copia e
+    envie a versao respondida quando solicitado.
+  </li>
+  <li>
+    Em exercicios de texto, responda com clareza, organizacao e cuidado com
+    ortografia, pontuacao e formatacao.
+  </li>
+  <li>
+    O cronometro sera iniciado ao comecar a prova. Organize seu tempo antes de
+    avancar.
+  </li>
+  <li>
+    Caso perceba qualquer problema tecnico antes do inicio, avise o responsavel
+    pela aplicacao imediatamente.
+  </li>
+</ul>
                   <li>Leia atentamente cada questao.</li>
                   <li>
                     Em exercicios de Excel, baixe o arquivo e envie a versao
@@ -601,7 +631,40 @@ export function TelaCandidato({ controlador }) {
               </article>
               <article class="rh-instruction-card">
                 <h3>Durante a prova</h3>
-                <ul class="rules-list">
+<ul class="rules-list">
+  <li>
+    Responda com atencao: algumas questoes avaliam conhecimento, outras avaliam
+    raciocinio, escrita, organizacao e pratica.
+  </li>
+  <li>
+    O tempo de prova e controlado pelo sistema. Ao finalizar o prazo, a
+    avaliacao podera ser encerrada pelo responsavel.
+  </li>
+  <li>
+    Nao atualize a pagina, nao feche o navegador e nao utilize o botao voltar do
+    navegador durante a avaliacao.
+  </li>
+  <li>
+    Salve ou anexe os arquivos solicitados somente nos campos indicados. Arquivos
+    enviados fora do local correto podem nao ser considerados.
+  </li>
+  <li>
+    Em questoes praticas, organize o material como faria em uma rotina real de
+    trabalho: nomeie, formate e revise antes de concluir.
+  </li>
+  <li>
+    Se houver travamento, queda de energia, erro no arquivo ou outra dificuldade
+    tecnica, comunique imediatamente o responsavel pela aplicacao.
+  </li>
+  <li>
+    Ao terminar, revise o que for possivel e finalize somente quando tiver
+    certeza de que deseja encerrar a avaliacao.
+  </li>
+  <li>
+    Depois da finalizacao, o resultado ficara disponivel apenas para analise
+    interna do RH.
+  </li>
+</ul>
                   <li>
                     Algumas etapas avaliam pratica, raciocinio e organizacao.
                   </li>
@@ -618,9 +681,11 @@ export function TelaCandidato({ controlador }) {
               </article>
             </div>
 
-            ${erro
-              ? html`<div class="alert alert-danger mt-4">${erro}</div>`
-              : null}
+            ${
+              erro
+                ? html`<div class="alert alert-danger mt-4">${erro}</div>`
+                : null
+            }
 
             <div class="rh-candidate-footer">
               <div class="rh-candidate-disclaimer">
@@ -846,13 +911,15 @@ export function TelaProva({ controlador }) {
           </div>
         </div>
 
-        ${erroFinalizacao
-          ? html`
-              <div class="container pb-3">
-                <div class="alert alert-danger mb-0">${erroFinalizacao}</div>
-              </div>
-            `
-          : null}
+        ${
+          erroFinalizacao
+            ? html`
+                <div class="container pb-3">
+                  <div class="alert alert-danger mb-0">${erroFinalizacao}</div>
+                </div>
+              `
+            : null
+        }
 
         <footer class="exam-screen-footer">
           <div class="exam-screen-footer-actions">

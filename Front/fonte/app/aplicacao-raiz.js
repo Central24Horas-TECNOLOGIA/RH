@@ -94,16 +94,16 @@ export function Aplicacao() {
     return html`<${TelaHistorico} controlador=${controlador} />`;
   }
 
-  if (telaResolvida === 'screen-candidates') {
-    return html`<${TelaCandidatos} controlador=${controlador} />`;
-  }
-
   if (telaResolvida === 'screen-process-create') {
     return html`<${TelaCriarProcesso} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-processes') {
     return html`<${TelaProcessos} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-candidates') {
+    return html`<${TelaCandidatos} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-candidate-pipeline') {
