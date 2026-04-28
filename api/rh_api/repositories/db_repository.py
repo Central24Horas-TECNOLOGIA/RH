@@ -13,6 +13,7 @@ from .interviews import InterviewRepositoryMixin
 from .pipeline import PipelineRepositoryMixin
 from .processes import ProcessRepositoryMixin
 from .profiles import CandidateProfileRepositoryMixin
+from .public_candidacy import PublicCandidacyRepositoryMixin
 from .talent_bank import TalentBankRepositoryMixin
 
 
@@ -25,6 +26,7 @@ class DatabaseRepository(
     AnalyticsRepositoryMixin,
     PipelineRepositoryMixin,
     InterviewRepositoryMixin,
+    PublicCandidacyRepositoryMixin,
     BaseRepository,
 ):
     """Fachada de compatibilidade que agrega os repositorios por dominio."""

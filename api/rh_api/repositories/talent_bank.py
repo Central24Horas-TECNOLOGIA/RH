@@ -28,6 +28,7 @@ class TalentBankRepositoryMixin:
             ensure_process_reference_columns(cursor)
             profile_map = self._get_candidate_profile_map(cursor)
             interview_map = self._get_latest_interview_map(cursor)
+            cv_map = self._get_candidate_cv_map(cursor)
             cursor.execute(
                 """
                 SELECT
@@ -58,9 +59,18 @@ class TalentBankRepositoryMixin:
                 id_teste = normalize_text(item.get("id_teste"))
                 profile = profile_map.get(id_teste, {})
                 latest_interview = interview_map.get(id_teste, {})
+                cv_attachment = cv_map.get(id_teste, {})
                 item["tags"] = profile.get("tags", [])
                 item["habilidades"] = profile.get("habilidades", [])
                 item["observacao_rh"] = profile.get("observacao_rh", "")
+                item["email"] = profile.get("email", "")
+                item["telefone"] = profile.get("telefone", "")
+                item["whatsapp"] = profile.get("whatsapp", "")
+                item["cidade"] = profile.get("cidade", "")
+                item["bairro"] = profile.get("bairro", "")
+                item["cv_disponivel"] = bool(normalize_text(cv_attachment.get("caminho_arquivo")))
+                item["cv_nome_arquivo"] = normalize_text(cv_attachment.get("nome_arquivo_original"))
+                item["cv_tipo_arquivo"] = normalize_text(cv_attachment.get("tipo_arquivo"))
                 item["status_entrevista"] = (
                     canonicalize_candidate_status(latest_interview.get("status_entrevista"))
                     if normalize_text(latest_interview.get("status_entrevista"))

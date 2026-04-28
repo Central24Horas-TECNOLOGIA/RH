@@ -16,6 +16,7 @@ export const ROTAS_POR_TELA = {
   'screen-thanks': 'conclusao',
   'screen-result': 'resultado',
   'screen-analysis-candidates': 'analise-candidatos',
+  'screen-public-candidacy': 'candidatar',
 };
 
 export const TELAS_POR_ROTA = Object.entries(ROTAS_POR_TELA).reduce(
@@ -36,9 +37,23 @@ export function obterTelaPorHash(hashAtual) {
     .trim();
 
   if (!rota) return 'screen-login';
+  if (rota.startsWith('candidatar/')) return 'screen-public-candidacy';
   return TELAS_POR_ROTA[rota] || 'screen-login';
 }
 
 export function montarHashDaTela(tela) {
   return `#/${obterRotaPorTela(tela)}`;
+}
+
+export function obterSlugCandidaturaPorHash(hashAtual) {
+  const rota = String(hashAtual || '')
+    .replace(/^#\/?/, '')
+    .trim();
+
+  if (!rota.startsWith('candidatar/')) return '';
+  return decodeURIComponent(rota.slice('candidatar/'.length));
+}
+
+export function montarHashCandidatura(slug) {
+  return `#/candidatar/${encodeURIComponent(String(slug || '').trim())}`;
 }

@@ -22,6 +22,7 @@ from .routers.history import router as history_router
 from .routers.interviews import router as interviews_router
 from .routers.pipeline import router as pipeline_router
 from .routers.processes import router as processes_router
+from .routers.public_candidacy import router as public_candidacy_router
 from .routers.system import router as system_router
 
 
@@ -123,6 +124,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(history_router)
     app.include_router(processes_router)
+    app.include_router(public_candidacy_router)
     app.include_router(interviews_router)
     app.include_router(analytics_router)
     app.include_router(pipeline_router)

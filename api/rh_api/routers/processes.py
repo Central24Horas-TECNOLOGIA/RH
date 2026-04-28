@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi.responses import FileResponse
 
 from ..dependencies import get_current_user, get_repository
 from ..repositories import DatabaseRepository
@@ -112,6 +113,40 @@ def get_process_details(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.get_process_details(id_processo)
+
+
+@router.post("/processos/{id_processo}/gerar-link-candidatura")
+def generate_public_application_link(
+    id_processo: str,
+    request: Request,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.generate_public_application_link(
+        id_processo,
+        referrer_url=request.headers.get("referer", ""),
+        origin_url=request.headers.get("origin", ""),
+    )
+
+
+@router.patch("/processos/{id_processo}/link-candidatura/desativar")
+def deactivate_public_application_link(
+    id_processo: str,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.deactivate_public_application_link(id_processo)
+
+
+@router.get("/candidate-profiles/{id_teste}/cv")
+def download_candidate_cv(
+    id_teste: str,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    asset = repository.get_candidate_cv_asset(id_teste)
+    return FileResponse(
+        asset["path"],
+        media_type=asset["media_type"],
+        filename=asset["filename"],
+    )
 
 
 @router.get("/processes/{id_processo}/cv-pre-analyses")

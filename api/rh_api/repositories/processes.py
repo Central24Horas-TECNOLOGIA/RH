@@ -167,6 +167,17 @@ class ProcessRepositoryMixin:
                     *params,
                 ),
             )
+            if normalize_process_status(data.get("status", "Aberto")) == "Encerrado":
+                cursor.execute(
+                    f"""
+                    UPDATE processos_seletivos
+                    SET
+                        link_publico_ativo = 0,
+                        link_publico_desativado_em = GETDATE()
+                    WHERE {where_clause}
+                    """,
+                    *params,
+                )
             process_auto_close_if_full(cursor, processo)
             conn.commit()
             logger.info("Processo '%s' atualizado.", processo.get("id_processo_ref") or processo.get("id_processo"))
@@ -186,7 +197,10 @@ class ProcessRepositoryMixin:
             cursor.execute(
                 f"""
                 UPDATE processos_seletivos
-                SET status = ?
+                SET
+                    status = ?,
+                    link_publico_ativo = 0,
+                    link_publico_desativado_em = GETDATE()
                 WHERE {where_clause}
                 """,
                 ("Encerrado", *params),

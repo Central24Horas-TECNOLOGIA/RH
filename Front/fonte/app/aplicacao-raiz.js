@@ -19,6 +19,7 @@ import {
 import { TelaCandidatos } from '../features/candidatos/index.js';
 import { TelaPipelineCandidatos } from '../features/tela-pipeline.js';
 import { TelaEntrevistas } from '../features/tela-entrevistas.js';
+import { TelaCandidaturaPublica } from '../features/public-candidacy/index.js';
 import {
   TelaCandidato,
   TelaConfiguracao,
@@ -29,6 +30,10 @@ import {
 
 function resolverTelaProtegida(telaAtual, controlador) {
   const { estado, blueprint } = controlador;
+
+  if (telaAtual === 'screen-public-candidacy') {
+    return telaAtual;
+  }
 
   if (!estado.autenticado) {
     return 'screen-login';
@@ -69,6 +74,10 @@ export function Aplicacao() {
       navegarParaTela(telaResolvida);
     }
   }, [telaAtual, telaResolvida]);
+
+  if (telaResolvida === 'screen-public-candidacy') {
+    return html`<${TelaCandidaturaPublica} />`;
+  }
 
   if (controlador.estado.validandoSessao) {
     return html`

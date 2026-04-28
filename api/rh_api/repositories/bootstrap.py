@@ -81,6 +81,69 @@ def ensure_process_columns(cursor) -> None:
         END
         """
     )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'link_publico_slug') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD link_publico_slug NVARCHAR(255) NULL
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'link_publico_token') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD link_publico_token NVARCHAR(120) NULL
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'link_publico_ativo') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD link_publico_ativo BIT NOT NULL CONSTRAINT DF_processos_link_publico_ativo DEFAULT 0
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'link_publico_criado_em') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD link_publico_criado_em DATETIME NULL
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'link_publico_desativado_em') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD link_publico_desativado_em DATETIME NULL
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'descricao_publica') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD descricao_publica NVARCHAR(MAX) NULL
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'requisitos_publicos') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD requisitos_publicos NVARCHAR(MAX) NULL
+        END
+        """
+    )
 
 
 def ensure_candidate_metadata_table(cursor) -> None:
@@ -94,8 +157,54 @@ def ensure_candidate_metadata_table(cursor) -> None:
                 habilidades_json NVARCHAR(MAX) NULL,
                 tags_json NVARCHAR(MAX) NULL,
                 observacao_rh NVARCHAR(MAX) NULL,
+                email NVARCHAR(255) NULL,
+                telefone NVARCHAR(50) NULL,
+                whatsapp NVARCHAR(50) NULL,
+                cidade NVARCHAR(120) NULL,
+                bairro NVARCHAR(120) NULL,
                 criado_em DATETIME NOT NULL DEFAULT GETDATE(),
                 atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+
+def ensure_candidate_metadata_columns(cursor) -> None:
+    for column_name, sql_type in (
+        ("email", "NVARCHAR(255)"),
+        ("telefone", "NVARCHAR(50)"),
+        ("whatsapp", "NVARCHAR(50)"),
+        ("cidade", "NVARCHAR(120)"),
+        ("bairro", "NVARCHAR(120)"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.candidatos_metadata', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.candidatos_metadata
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+
+def ensure_candidate_attachments_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.candidatos_anexos', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.candidatos_anexos (
+                id_anexo INT IDENTITY(1,1) PRIMARY KEY,
+                id_teste NVARCHAR(120) NOT NULL,
+                id_processo NVARCHAR(60) NOT NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                nome_arquivo_original NVARCHAR(255) NULL,
+                nome_arquivo_armazenado NVARCHAR(255) NOT NULL,
+                tipo_arquivo NVARCHAR(120) NULL,
+                caminho_arquivo NVARCHAR(500) NOT NULL,
+                tamanho_bytes BIGINT NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
             )
         END
         """
@@ -242,6 +351,8 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_process_columns(cursor)
             ensure_pipeline_columns(cursor)
             ensure_candidate_metadata_table(cursor)
+            ensure_candidate_metadata_columns(cursor)
+            ensure_candidate_attachments_table(cursor)
             ensure_cv_pre_analises_table(cursor)
             ensure_interviews_table(cursor)
             ensure_process_reference_columns(cursor)
@@ -430,7 +541,14 @@ def _select_process_query() -> str:
             nota_corte,
             status,
             data_criacao,
-            link_agendamento
+            link_agendamento,
+            link_publico_slug,
+            link_publico_token,
+            link_publico_ativo,
+            link_publico_criado_em,
+            link_publico_desativado_em,
+            descricao_publica,
+            requisitos_publicos
         FROM processos_seletivos
     """
 
@@ -559,7 +677,10 @@ def process_auto_close_if_full(cursor, process_row_or_ref) -> None:
         cursor.execute(
             f"""
             UPDATE processos_seletivos
-            SET status = ?
+            SET
+                status = ?,
+                link_publico_ativo = 0,
+                link_publico_desativado_em = GETDATE()
             WHERE {where_clause}
             """,
             ("Encerrado", *params),

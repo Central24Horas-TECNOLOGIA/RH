@@ -6,6 +6,7 @@ import {
 } from '../../infraestrutura-react.js';
 import {
   atualizarStatusCandidato,
+  baixarCvCandidato,
   criarCandidatoNoProcesso,
   lerBancoTalentos,
   lerCandidatosProcessos,
@@ -14,6 +15,7 @@ import {
   removerBancoTalentos,
   usarCandidatoDoBancoTalentos,
 } from '../../servico-api.js';
+import { baixarBlob } from '../../utilitarios.js';
 import {
   EmptyState,
   MetricGrid,
@@ -31,6 +33,7 @@ import {
   CANDIDATE_STATUS_TALENT_BANK,
   getCandidateVisibleStatus,
 } from '../../shared/process-flow.js';
+import { abrirBlobEmNovaGuia } from '../../shared/browser-utils.js';
 import {
   formatarDataHora,
   obterClasseStatusEntrevista,
@@ -85,6 +88,10 @@ function obterDataCandidato(item) {
   );
 }
 
+function resolverRotuloOrigem(item, fallback) {
+  return item?.origem || fallback;
+}
+
 function montarCandidatoDeProcesso(item, processosPorReferencia) {
   const processoReferencia = String(
     item.id_processo_ref || item.id_processo || '',
@@ -97,7 +104,7 @@ function montarCandidatoDeProcesso(item, processosPorReferencia) {
   return {
     ...item,
     origem_cadastro: 'processo',
-    origem_rotulo: 'Processo seletivo',
+    origem_rotulo: resolverRotuloOrigem(item, 'Processo seletivo'),
     chave: montarChaveCandidato(item),
     nome_candidato: item.nome_candidato || '-',
     status_visivel: getCandidateVisibleStatus(item),
@@ -110,6 +117,10 @@ function montarCandidatoDeProcesso(item, processosPorReferencia) {
     email: item.email || '',
     telefone: item.telefone || '',
     whatsapp: item.whatsapp || '',
+    cidade: item.cidade || '',
+    bairro: item.bairro || '',
+    cv_disponivel: !!item.cv_disponivel,
+    cv_nome_arquivo: item.cv_nome_arquivo || '',
     contato_principal: obterContatoPrincipal(item),
     pode_movimentar: true,
     pode_atrelar: true,
@@ -121,7 +132,7 @@ function montarCandidatoDoBanco(item) {
   return {
     ...item,
     origem_cadastro: 'banco',
-    origem_rotulo: 'Banco de talentos',
+    origem_rotulo: resolverRotuloOrigem(item, 'Banco de talentos'),
     chave: montarChaveCandidato(item),
     nome_candidato: item.nome_candidato || '-',
     status_visivel: CANDIDATE_STATUS_TALENT_BANK,
@@ -134,6 +145,10 @@ function montarCandidatoDoBanco(item) {
     email: item.email || '',
     telefone: item.telefone || '',
     whatsapp: item.whatsapp || '',
+    cidade: item.cidade || '',
+    bairro: item.bairro || '',
+    cv_disponivel: !!item.cv_disponivel,
+    cv_nome_arquivo: item.cv_nome_arquivo || '',
     contato_principal: obterContatoPrincipal(item),
     pode_movimentar: false,
     pode_atrelar: true,
@@ -145,7 +160,7 @@ function montarCandidatoDoHistorico(item) {
   return {
     ...item,
     origem_cadastro: 'historico',
-    origem_rotulo: 'Historico de prova',
+    origem_rotulo: resolverRotuloOrigem(item, 'Historico de prova'),
     chave: montarChaveCandidato(item),
     nome_candidato: item.nome_candidato || '-',
     status_visivel: item.id_processo ? 'Em processo' : 'Sem processo vinculado',
@@ -158,6 +173,10 @@ function montarCandidatoDoHistorico(item) {
     email: item.email || '',
     telefone: item.telefone || '',
     whatsapp: item.whatsapp || '',
+    cidade: item.cidade || '',
+    bairro: item.bairro || '',
+    cv_disponivel: !!item.cv_disponivel,
+    cv_nome_arquivo: item.cv_nome_arquivo || '',
     contato_principal: obterContatoPrincipal(item),
     pode_movimentar: false,
     pode_atrelar: true,
@@ -240,6 +259,28 @@ export function TelaCandidatos({ controlador }) {
   const [detalhe, setDetalhe] = useState(null);
   const [candidatoParaAtrelar, setCandidatoParaAtrelar] = useState(null);
   const [processoSelecionado, setProcessoSelecionado] = useState('');
+
+  const abrirCurriculo = async (candidato) => {
+    if (!candidato?.id_teste || !candidato?.cv_disponivel) {
+      window.alert('Nao ha curriculo disponivel para este candidato.');
+      return;
+    }
+
+    try {
+      const arquivo = await baixarCvCandidato(candidato.id_teste);
+      const tipo = String(arquivo?.contentType || '').toLowerCase();
+      if (tipo.includes('pdf')) {
+        abrirBlobEmNovaGuia(arquivo.blob);
+        return;
+      }
+
+      baixarBlob(arquivo.filename || 'curriculo', arquivo.blob);
+    } catch (error) {
+      setErro(
+        error?.message || 'Nao foi possivel abrir o curriculo do candidato.',
+      );
+    }
+  };
 
   const carregar = async () => {
     setCarregando(true);
@@ -362,6 +403,8 @@ export function TelaCandidatos({ controlador }) {
           candidato.status_visivel,
           candidato.origem_rotulo,
           candidato.classificacao_exibicao,
+          candidato.cidade,
+          candidato.bairro,
         ].join(' '),
       );
 
@@ -671,12 +714,15 @@ export function TelaCandidatos({ controlador }) {
                     <tr>
                       <th>Candidato</th>
                       <th>Contato</th>
+                      <th>Cidade</th>
+                      <th>Bairro</th>
                       <th>Vaga</th>
                       <th>Processo</th>
                       <th>Nota</th>
                       <th>Status</th>
                       <th>Origem</th>
                       <th>Data</th>
+                      <th>CV</th>
                       <th class="text-end">Acoes</th>
                     </tr>
                   </thead>
@@ -697,6 +743,8 @@ export function TelaCandidatos({ controlador }) {
                                   ${candidato.telefone || candidato.whatsapp || '-'}
                                 </div>
                               </td>
+                              <td>${candidato.cidade || '-'}</td>
+                              <td>${candidato.bairro || '-'}</td>
                               <td>${candidato.vaga || '-'}</td>
                               <td>
                                 <div>${candidato.processo_nome || '-'}</div>
@@ -721,6 +769,19 @@ export function TelaCandidatos({ controlador }) {
                               </td>
                               <td>${candidato.origem_rotulo || '-'}</td>
                               <td>${formatarDataHora(candidato.data_exibicao)}</td>
+                              <td>
+                                ${candidato.cv_disponivel
+                                  ? html`
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        onClick=${() => abrirCurriculo(candidato)}
+                                      >
+                                        Ver CV
+                                      </button>
+                                    `
+                                  : 'Sem CV'}
+                              </td>
                               <td class="text-end">
                                 <div class="btn-group btn-group-sm">
                                   <button
@@ -782,7 +843,7 @@ export function TelaCandidatos({ controlador }) {
                         )
                       : html`
                           <${TabelaVazia}
-                            colunas=${9}
+                            colunas=${12}
                             texto="Nenhum candidato encontrado."
                           />
                         `}
@@ -832,6 +893,14 @@ export function TelaCandidatos({ controlador }) {
                       value: detalhe.origem_rotulo || '-',
                     },
                     {
+                      label: 'Cidade',
+                      value: detalhe.cidade || '-',
+                    },
+                    {
+                      label: 'Bairro',
+                      value: detalhe.bairro || '-',
+                    },
+                    {
                       label: 'Nota',
                       value: detalhe.nota_exibicao || '-',
                     },
@@ -864,12 +933,30 @@ export function TelaCandidatos({ controlador }) {
                       <div><strong>Contato principal:</strong> ${detalhe.contato_principal || '-'}</div>
                       <div><strong>Status entrevista:</strong> ${detalhe.status_entrevista || '-'}</div>
                       <div><strong>Data entrevista:</strong> ${formatarDataHora(detalhe.data_entrevista)}</div>
+                      <div><strong>Curriculo:</strong> ${detalhe.cv_nome_arquivo || 'Sem arquivo anexado.'}</div>
                     </div>
                     <div class="col-md-6">
                       <div><strong>Tags:</strong> ${(detalhe.tags || []).join(', ') || '-'}</div>
                       <div><strong>Habilidades:</strong> ${(detalhe.habilidades || []).join(', ') || '-'}</div>
                       <div><strong>Observacao RH:</strong> ${detalhe.observacao_rh || '-'}</div>
                     </div>
+                  </div>
+                </${SectionCard}>
+
+                <${SectionCard}
+                  title="Curriculo"
+                  description="Acesse o CV enviado pelo candidato quando disponivel."
+                  className="rh-section-card--flat"
+                >
+                  <div class="rh-modal-footer-actions">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      disabled=${!detalhe.cv_disponivel}
+                      onClick=${() => abrirCurriculo(detalhe)}
+                    >
+                      ${detalhe.cv_disponivel ? 'Visualizar ou baixar CV' : 'CV indisponivel'}
+                    </button>
                   </div>
                 </${SectionCard}>
 

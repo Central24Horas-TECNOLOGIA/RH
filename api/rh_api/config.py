@@ -79,6 +79,8 @@ class Settings:
     cors_allow_origins: list[str]
     cors_allow_origin_regex: str | None
     log_level: str
+    public_frontend_base_url: str
+    public_cv_upload_dir: str
 
     @property
     def is_development(self) -> bool:
@@ -88,6 +90,7 @@ class Settings:
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     _load_dotenv()
+    project_root = Path(__file__).resolve().parents[2]
 
     app_env = os.getenv("RH_APP_ENV", "development").strip() or "development"
     dev_mode = app_env.lower() != "production"
@@ -120,4 +123,9 @@ def get_settings() -> Settings:
         cors_allow_origins=cors_allow_origins,
         cors_allow_origin_regex=cors_allow_origin_regex,
         log_level=os.getenv("RH_LOG_LEVEL", "INFO").strip() or "INFO",
+        public_frontend_base_url=os.getenv("RH_PUBLIC_FRONTEND_BASE_URL", "").strip(),
+        public_cv_upload_dir=os.getenv(
+            "RH_PUBLIC_CV_UPLOAD_DIR",
+            str(project_root / "data" / "private" / "public-cvs"),
+        ).strip(),
     )

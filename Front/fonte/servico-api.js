@@ -32,10 +32,13 @@ export {
   atualizarPreAnaliseCv,
   atualizarProcesso,
   atualizarStatusCandidato,
+  baixarCvCandidato,
   criarCandidatoNoProcesso,
   criarProcesso,
+  desativarLinkPublicoCandidatura,
   encerrarProcesso,
   excluirPreAnaliseCv,
+  gerarLinkPublicoCandidatura,
   lerBancoTalentos,
   lerCandidatosProcessos,
   lerDetalheProcesso,
@@ -44,6 +47,10 @@ export {
   removerBancoTalentos,
   usarCandidatoDoBancoTalentos,
 } from './services/api/processes.js';
+export {
+  enviarCandidaturaPublica,
+  lerPaginaPublicaCandidatura,
+} from './services/api/public-candidacy.js';
 export {
   lerAnalisesCandidatos,
   lerDetalheAnaliseCandidato,

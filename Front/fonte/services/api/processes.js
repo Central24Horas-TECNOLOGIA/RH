@@ -2,6 +2,7 @@ import {
   gravarCache,
   invalidarCacheApi,
   lerCache,
+  requisitarArquivo,
   requisitar,
 } from './core.js';
 
@@ -211,4 +212,31 @@ export async function adicionarPreAnaliseAoProcesso(idPreAnalise) {
 
   invalidarCacheApi('processos', 'candidatos-processos');
   return resultado;
+}
+
+export async function gerarLinkPublicoCandidatura(idProcesso) {
+  const resultado = await requisitar(
+    `/processos/${encodeURIComponent(idProcesso)}/gerar-link-candidatura`,
+    { method: 'POST' },
+  );
+
+  invalidarCacheApi('processos');
+  return resultado;
+}
+
+export async function desativarLinkPublicoCandidatura(idProcesso) {
+  const resultado = await requisitar(
+    `/processos/${encodeURIComponent(idProcesso)}/link-candidatura/desativar`,
+    { method: 'PATCH' },
+  );
+
+  invalidarCacheApi('processos');
+  return resultado;
+}
+
+export async function baixarCvCandidato(idTeste) {
+  return requisitarArquivo(
+    `/candidate-profiles/${encodeURIComponent(idTeste)}/cv`,
+    { method: 'GET' },
+  );
 }

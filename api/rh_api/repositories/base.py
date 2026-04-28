@@ -36,6 +36,8 @@ from .bootstrap import (
     build_process_where_clause,
     describe_database_error,
     ensure_candidate_metadata_table,
+    ensure_candidate_metadata_columns,
+    ensure_candidate_attachments_table,
     ensure_process_reference_columns,
     get_gabaritos_payload_column,
     get_next_id_banco,
@@ -102,12 +104,29 @@ class BaseRepository:
             "habilidades": normalize_string_list(safe_json_loads(safe_row.get("habilidades_json"), [])),
             "tags": normalize_string_list(safe_json_loads(safe_row.get("tags_json"), [])),
             "observacao_rh": normalize_text(safe_row.get("observacao_rh")),
+            "email": normalize_text(safe_row.get("email")),
+            "telefone": normalize_text(safe_row.get("telefone")),
+            "whatsapp": normalize_text(safe_row.get("whatsapp")),
+            "cidade": normalize_text(safe_row.get("cidade")),
+            "bairro": normalize_text(safe_row.get("bairro")),
         }
 
     def _get_candidate_profile_map(self, cursor) -> dict[str, dict]:
+        ensure_candidate_metadata_table(cursor)
+        ensure_candidate_metadata_columns(cursor)
         cursor.execute(
             """
-            SELECT id_teste, nome_candidato, habilidades_json, tags_json, observacao_rh
+            SELECT
+                id_teste,
+                nome_candidato,
+                habilidades_json,
+                tags_json,
+                observacao_rh,
+                email,
+                telefone,
+                whatsapp,
+                cidade,
+                bairro
             FROM candidatos_metadata
             """
         )
@@ -119,6 +138,44 @@ class BaseRepository:
                 continue
             result[id_teste] = self._serialize_candidate_profile(row)
         return result
+
+    def _get_candidate_cv_map(self, cursor) -> dict[str, dict]:
+        ensure_candidate_attachments_table(cursor)
+        cursor.execute(
+            """
+            WITH anexos_ordenados AS (
+                SELECT
+                    id_teste,
+                    nome_arquivo_original,
+                    nome_arquivo_armazenado,
+                    tipo_arquivo,
+                    caminho_arquivo,
+                    tamanho_bytes,
+                    criado_em,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY id_teste
+                        ORDER BY criado_em DESC, id_anexo DESC
+                    ) AS ordem
+                FROM candidatos_anexos
+            )
+            SELECT
+                id_teste,
+                nome_arquivo_original,
+                nome_arquivo_armazenado,
+                tipo_arquivo,
+                caminho_arquivo,
+                tamanho_bytes,
+                criado_em
+            FROM anexos_ordenados
+            WHERE ordem = 1
+            """
+        )
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        return {
+            normalize_text(item.get("id_teste")): item
+            for item in rows
+            if normalize_text(item.get("id_teste"))
+        }
 
     def _get_cv_contact_map(self, cursor) -> dict[str, dict]:
         cursor.execute(
@@ -212,12 +269,14 @@ class BaseRepository:
         profile_map = self._get_candidate_profile_map(cursor)
         interview_map = self._get_latest_interview_map(cursor)
         cv_contact_map = self._get_cv_contact_map(cursor)
+        cv_map = self._get_candidate_cv_map(cursor)
 
         for candidate in candidates:
             id_teste = normalize_text(candidate.get("id_teste"))
             profile = profile_map.get(id_teste, {})
             latest_interview = interview_map.get(id_teste, {})
             contato_cv = cv_contact_map.get(id_teste, {})
+            cv_attachment = cv_map.get(id_teste, {})
             raw_candidate_status = normalize_text(candidate.get("status_candidato"))
             raw_interview_status = normalize_text(latest_interview.get("status_entrevista"))
             candidate_status = canonicalize_candidate_status(raw_candidate_status)
@@ -238,9 +297,27 @@ class BaseRepository:
             candidate["observacoes_entrevista"] = normalize_text(latest_interview.get("observacoes_rh"))
             candidate["mensagem_entrevista"] = normalize_text(latest_interview.get("mensagem_base"))
             candidate["id_entrevista"] = latest_interview.get("id_entrevista")
-            candidate["email"] = normalize_text(candidate.get("email")) or contato_cv.get("email", "")
-            candidate["telefone"] = normalize_text(candidate.get("telefone")) or contato_cv.get("telefone", "")
-            candidate["whatsapp"] = normalize_text(candidate.get("whatsapp")) or contato_cv.get("whatsapp", "")
+            candidate["email"] = (
+                normalize_text(candidate.get("email"))
+                or profile.get("email", "")
+                or contato_cv.get("email", "")
+            )
+            candidate["telefone"] = (
+                normalize_text(candidate.get("telefone"))
+                or profile.get("telefone", "")
+                or contato_cv.get("telefone", "")
+            )
+            candidate["whatsapp"] = (
+                normalize_text(candidate.get("whatsapp"))
+                or profile.get("whatsapp", "")
+                or contato_cv.get("whatsapp", "")
+            )
+            candidate["cidade"] = normalize_text(candidate.get("cidade")) or profile.get("cidade", "")
+            candidate["bairro"] = normalize_text(candidate.get("bairro")) or profile.get("bairro", "")
+            candidate["cv_disponivel"] = bool(normalize_text(cv_attachment.get("caminho_arquivo")))
+            candidate["cv_nome_arquivo"] = normalize_text(cv_attachment.get("nome_arquivo_original"))
+            candidate["cv_tipo_arquivo"] = normalize_text(cv_attachment.get("tipo_arquivo"))
+            candidate["cv_tamanho_bytes"] = cv_attachment.get("tamanho_bytes")
 
         return candidates
 
@@ -253,15 +330,30 @@ class BaseRepository:
         habilidades: list[str] | None = None,
         tags: list[str] | None = None,
         observacao_rh: str | None = None,
+        email: str | None = None,
+        telefone: str | None = None,
+        whatsapp: str | None = None,
+        cidade: str | None = None,
+        bairro: str | None = None,
     ) -> None:
         safe_id_teste = normalize_text(id_teste)
         if not safe_id_teste:
             return
 
         ensure_candidate_metadata_table(cursor)
+        ensure_candidate_metadata_columns(cursor)
         cursor.execute(
             """
-            SELECT nome_candidato, habilidades_json, tags_json, observacao_rh
+            SELECT
+                nome_candidato,
+                habilidades_json,
+                tags_json,
+                observacao_rh,
+                email,
+                telefone,
+                whatsapp,
+                cidade,
+                bairro
             FROM candidatos_metadata
             WHERE id_teste = ?
             """,
@@ -276,10 +368,25 @@ class BaseRepository:
                     "habilidades_json": existing[1],
                     "tags_json": existing[2],
                     "observacao_rh": existing[3],
+                    "email": existing[4],
+                    "telefone": existing[5],
+                    "whatsapp": existing[6],
+                    "cidade": existing[7],
+                    "bairro": existing[8],
                 }
             )
             if existing
-            else {"nome_candidato": "", "habilidades": [], "tags": [], "observacao_rh": ""}
+            else {
+                "nome_candidato": "",
+                "habilidades": [],
+                "tags": [],
+                "observacao_rh": "",
+                "email": "",
+                "telefone": "",
+                "whatsapp": "",
+                "cidade": "",
+                "bairro": "",
+            }
         )
 
         merged_name = normalize_text(nome_candidato) or existing_profile.get("nome_candidato", "")
@@ -290,6 +397,11 @@ class BaseRepository:
             if observacao_rh is not None
             else existing_profile.get("observacao_rh", "")
         )
+        merged_email = normalize_text(email) if email is not None else existing_profile.get("email", "")
+        merged_phone = normalize_text(telefone) if telefone is not None else existing_profile.get("telefone", "")
+        merged_whatsapp = normalize_text(whatsapp) if whatsapp is not None else existing_profile.get("whatsapp", "")
+        merged_city = normalize_text(cidade) if cidade is not None else existing_profile.get("cidade", "")
+        merged_neighborhood = normalize_text(bairro) if bairro is not None else existing_profile.get("bairro", "")
 
         if existing:
             cursor.execute(
@@ -300,6 +412,11 @@ class BaseRepository:
                     habilidades_json = ?,
                     tags_json = ?,
                     observacao_rh = ?,
+                    email = ?,
+                    telefone = ?,
+                    whatsapp = ?,
+                    cidade = ?,
+                    bairro = ?,
                     atualizado_em = GETDATE()
                 WHERE id_teste = ?
                 """,
@@ -308,6 +425,11 @@ class BaseRepository:
                     json.dumps(merged_skills, ensure_ascii=False),
                     json.dumps(merged_tags, ensure_ascii=False),
                     merged_observation,
+                    merged_email,
+                    merged_phone,
+                    merged_whatsapp,
+                    merged_city,
+                    merged_neighborhood,
                     safe_id_teste,
                 ),
             )
@@ -320,9 +442,14 @@ class BaseRepository:
                     nome_candidato,
                     habilidades_json,
                     tags_json,
-                    observacao_rh
+                    observacao_rh,
+                    email,
+                    telefone,
+                    whatsapp,
+                    cidade,
+                    bairro
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     safe_id_teste,
@@ -330,6 +457,11 @@ class BaseRepository:
                     json.dumps(merged_skills, ensure_ascii=False),
                     json.dumps(merged_tags, ensure_ascii=False),
                     merged_observation,
+                    merged_email,
+                    merged_phone,
+                    merged_whatsapp,
+                    merged_city,
+                    merged_neighborhood,
                 ),
             )
 

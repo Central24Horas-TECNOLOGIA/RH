@@ -12,8 +12,11 @@ import {
   atualizarProcesso,
   atualizarStatusCandidato,
   analisarCvProcesso,
+  baixarCvCandidato,
+  desativarLinkPublicoCandidatura,
   encerrarProcesso,
   excluirPreAnaliseCv,
+  gerarLinkPublicoCandidatura,
   lerCandidatosProcessos,
   lerDetalheProcesso,
   lerEntrevistas,
@@ -21,6 +24,7 @@ import {
   lerProcessos,
 } from '../../app/controlador-aplicacao.js';
 import {
+  baixarBlob,
   formatarDataParaInput,
   obterItensPaginados,
 } from '../../utilitarios.js';
@@ -30,7 +34,12 @@ import {
   obterClasseStatusEntrevista,
   obterClasseStatusProcesso,
 } from '../../shared/helpers-visuais.js';
-import { copiarTexto, toDatetimeLocal } from '../../shared/browser-utils.js';
+import {
+  abrirBlobEmNovaGuia,
+  copiarTexto,
+  montarUrlPublicaCandidatura,
+  toDatetimeLocal,
+} from '../../shared/browser-utils.js';
 import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import {
@@ -941,8 +950,16 @@ export function TelaDetalhesProcesso({ controlador }) {
     telefone: '',
     whatsapp: '',
   });
+  const [feedbackLinkPublico, setFeedbackLinkPublico] = useState('');
 
   const idProcesso = sessionStorage.getItem(CHAVE_PROCESSO_DETALHE) || '';
+
+  useEffect(() => {
+    if (!feedbackLinkPublico) return undefined;
+
+    const timeout = window.setTimeout(() => setFeedbackLinkPublico(''), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [feedbackLinkPublico]);
 
   const carregar = async (pagina = 1) => {
     if (!idProcesso) {
@@ -990,6 +1007,19 @@ export function TelaDetalhesProcesso({ controlador }) {
   }, []);
 
   const processoEncerrado = isProcessClosed(processo);
+  const urlPublicaCandidatura = useMemo(
+    () =>
+      processo?.link_publico_slug
+        ? montarUrlPublicaCandidatura(processo.link_publico_slug)
+        : '',
+    [processo?.link_publico_slug],
+  );
+  const linkPublicoAtivo = Boolean(processo?.link_publico_ativo) && !processoEncerrado;
+  const statusPaginaPublica = !processo?.link_publico_slug
+    ? 'Nao gerada'
+    : linkPublicoAtivo
+      ? 'Ativa'
+      : 'Inativa';
   const candidatosComFluxo = useMemo(
     () =>
       candidatos.map((candidato) =>
@@ -997,6 +1027,83 @@ export function TelaDetalhesProcesso({ controlador }) {
       ),
     [candidatos, processo?.status],
   );
+
+  const abrirCurriculo = async (candidato) => {
+    if (!candidato?.id_teste || !candidato?.cv_disponivel) {
+      setErro('Nao ha curriculo disponivel para este candidato.');
+      return;
+    }
+
+    try {
+      const arquivo = await baixarCvCandidato(candidato.id_teste);
+      const tipo = String(arquivo?.contentType || '').toLowerCase();
+      if (tipo.includes('pdf')) {
+        abrirBlobEmNovaGuia(arquivo.blob);
+        return;
+      }
+
+      baixarBlob(arquivo.filename || 'curriculo', arquivo.blob);
+    } catch (error) {
+      setErro(
+        error?.message || 'Nao foi possivel abrir o curriculo do candidato.',
+      );
+    }
+  };
+
+  const gerarPaginaPublica = async () => {
+    if (!processo) return;
+
+    try {
+      const resultado = await gerarLinkPublicoCandidatura(
+        obterReferenciaProcesso(processo) || idProcesso,
+      );
+      await carregar(paginaPreAnalises);
+      if (resultado?.url) {
+        setFeedbackLinkPublico('Pagina publica gerada com sucesso.');
+      }
+    } catch (error) {
+      setErro(
+        error?.message ||
+          'Nao foi possivel gerar a pagina publica de candidatura.',
+      );
+    }
+  };
+
+  const copiarLinkPublico = async () => {
+    if (!urlPublicaCandidatura || !linkPublicoAtivo) return;
+
+    try {
+      await copiarTexto(urlPublicaCandidatura);
+      setFeedbackLinkPublico('Link copiado.');
+    } catch (error) {
+      setErro('Nao foi possivel copiar o link publico agora.');
+    }
+  };
+
+  const abrirPaginaPublica = () => {
+    if (!urlPublicaCandidatura) return;
+    window.open(urlPublicaCandidatura, '_blank', 'noopener,noreferrer');
+  };
+
+  const desativarPaginaPublica = async () => {
+    if (!processo) return;
+    if (!window.confirm('Deseja desativar o link publico desta vaga?')) {
+      return;
+    }
+
+    try {
+      await desativarLinkPublicoCandidatura(
+        obterReferenciaProcesso(processo) || idProcesso,
+      );
+      await carregar(paginaPreAnalises);
+      setFeedbackLinkPublico('Link publico desativado.');
+    } catch (error) {
+      setErro(
+        error?.message ||
+          'Nao foi possivel desativar o link publico desta vaga.',
+      );
+    }
+  };
 
   const atualizarStatus = async (idRegistro, status) => {
     const statusSeguro = String(status || '').trim();
@@ -1288,6 +1395,98 @@ export function TelaDetalhesProcesso({ controlador }) {
       </${SectionCard}>
 
       <${SectionCard}
+        title="Pagina publica de candidatura"
+        description="Gere um link exclusivo para esta vaga e acompanhe o status da pagina publica sem expor informacoes administrativas."
+      >
+        <${MetricGrid}
+          items=${[
+            { label: 'Status', value: statusPaginaPublica },
+            {
+              label: 'Slug publico',
+              value: processo?.link_publico_slug || 'Ainda nao gerado',
+            },
+            {
+              label: 'Criado em',
+              value: formatarDataHora(processo?.link_publico_criado_em),
+            },
+          ]}
+        />
+
+        <div class="row g-3 align-items-end mt-1">
+          <div class="col-lg-8">
+            <label class="form-label">Link publico</label>
+            <input
+              class="form-control"
+              readonly
+              value=${urlPublicaCandidatura || 'Gere a pagina para visualizar o link publico.'}
+            />
+            <div class="form-text">
+              A pagina publica exibe a vaga, uma descricao objetiva e o formulario
+              de candidatura. Quando nao houver texto publico cadastrado, o sistema
+              monta um resumo automatico com base na vaga, operacao e trilha.
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+              ${!processo?.link_publico_slug
+                ? html`
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      disabled=${processoEncerrado}
+                      onClick=${gerarPaginaPublica}
+                    >
+                      Gerar pagina de CV
+                    </button>
+                  `
+                : html`
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      disabled=${!linkPublicoAtivo}
+                      onClick=${copiarLinkPublico}
+                    >
+                      Copiar link
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary"
+                      disabled=${!urlPublicaCandidatura}
+                      onClick=${abrirPaginaPublica}
+                    >
+                      Abrir pagina
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger"
+                      disabled=${!linkPublicoAtivo}
+                      onClick=${desativarPaginaPublica}
+                    >
+                      Desativar link
+                    </button>
+                    ${!linkPublicoAtivo && !processoEncerrado
+                      ? html`
+                          <button
+                            type="button"
+                            class="btn btn-primary"
+                            onClick=${gerarPaginaPublica}
+                          >
+                            Gerar nova pagina
+                          </button>
+                        `
+                      : null}
+                  `}
+            </div>
+          </div>
+        </div>
+
+        ${feedbackLinkPublico
+          ? html`<div class="alert alert-success mt-3 mb-0">${feedbackLinkPublico}</div>`
+          : null}
+      </${SectionCard}>
+
+      <${SectionCard}
         title="Pre-analise de CV"
         description="Analise automatica com possibilidade de ajuste manual antes da inclusao no processo."
         tourId="process-cv-preanalysis"
@@ -1431,10 +1630,11 @@ export function TelaDetalhesProcesso({ controlador }) {
             <thead>
               <tr>
                 <th>Candidato</th>
-                <th>Vaga</th>
-                <th>Nota</th>
+                <th>Contato / origem</th>
+                <th>Localidade</th>
                 <th>Status</th>
                 <th>Entrevista</th>
+                <th>CV</th>
                 <th class="text-end">Acoes</th>
               </tr>
             </thead>
@@ -1445,6 +1645,9 @@ export function TelaDetalhesProcesso({ controlador }) {
                       <tr key=${candidato.id_registro}>
                         <td>
                           <strong>${candidato.nome_candidato || '-'}</strong>
+                          <div class="small text-muted mt-1">
+                            ${candidato.vaga || '-'}
+                          </div>
                           ${candidato.tags?.length
                             ? html`
                                 <div class="rh-chip-wrap mt-2">
@@ -1457,8 +1660,21 @@ export function TelaDetalhesProcesso({ controlador }) {
                               `
                             : null}
                         </td>
-                        <td>${candidato.vaga || '-'}</td>
-                        <td>${candidato.pontuacao_final || '-'}</td>
+                        <td>
+                          <div>${candidato.email || '-'}</div>
+                          <div class="small text-muted">
+                            ${candidato.whatsapp || candidato.telefone || '-'}
+                          </div>
+                          <div class="small text-muted">
+                            ${candidato.origem || '-'}
+                          </div>
+                        </td>
+                        <td>
+                          <div>${candidato.cidade || '-'}</div>
+                          <div class="small text-muted">
+                            ${candidato.bairro || '-'}
+                          </div>
+                        </td>
                         <td>
                           <span
                             class=${`process-candidate-status-badge ${obterClasseStatusProcesso(candidato.status_fluxo)}`}
@@ -1483,6 +1699,19 @@ export function TelaDetalhesProcesso({ controlador }) {
                               : processoEncerrado
                                 ? 'Processo encerrado'
                                 : 'Sem entrevista prevista'}
+                        </td>
+                        <td>
+                          ${candidato.cv_disponivel
+                            ? html`
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-secondary"
+                                  onClick=${() => abrirCurriculo(candidato)}
+                                >
+                                  Ver CV
+                                </button>
+                              `
+                            : 'Sem CV'}
                         </td>
                         <td class="text-end">
                           ${renderizarAcoesDoCandidato({
@@ -1940,5 +2169,3 @@ export function TelaDetalhesProcesso({ controlador }) {
     </${PainelRh}>
   `;
 }
-
-

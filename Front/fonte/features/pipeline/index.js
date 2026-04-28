@@ -5,6 +5,7 @@ import {
   useState,
 } from '../../infraestrutura-react.js';
 import {
+  baixarCvCandidato,
   criarCardPipeline,
   excluirCardPipeline,
   lerPipelineCandidatos,
@@ -22,7 +23,8 @@ import {
   isProcessClosed,
 } from '../../shared/process-flow.js';
 import { validarCardPipeline } from '../../shared/validacoes.js';
-import { formatarNotaAnalise } from '../../utilitarios.js';
+import { baixarBlob, formatarNotaAnalise } from '../../utilitarios.js';
+import { abrirBlobEmNovaGuia } from '../../shared/browser-utils.js';
 import {
   CHAVE_PIPELINE_CANDIDATO,
   CHAVE_PIPELINE_PROCESSO,
@@ -75,6 +77,28 @@ export function TelaPipelineCandidatos({ controlador }) {
     vaga: '',
     etapa_pipeline: 'Triagem',
   });
+
+  const abrirCurriculo = async (card) => {
+    if (!card?.id_teste || !card?.cv_disponivel) {
+      setErro('Nao ha curriculo disponivel para este candidato.');
+      return;
+    }
+
+    try {
+      const arquivo = await baixarCvCandidato(card.id_teste);
+      const tipo = String(arquivo?.contentType || '').toLowerCase();
+      if (tipo.includes('pdf')) {
+        abrirBlobEmNovaGuia(arquivo.blob);
+        return;
+      }
+
+      baixarBlob(arquivo.filename || 'curriculo', arquivo.blob);
+    } catch (error) {
+      setErro(
+        error?.message || 'Nao foi possivel abrir o curriculo do candidato.',
+      );
+    }
+  };
 
   const carregar = async (forcar = false) => {
     setCarregando(true);
@@ -452,6 +476,16 @@ export function TelaPipelineCandidatos({ controlador }) {
                                             </span>
                                           `
                                         : null}
+                                      ${(card.cidade || card.bairro)
+                                        ? html`
+                                            <span>
+                                              Localidade:
+                                              ${[card.cidade, card.bairro]
+                                                .filter(Boolean)
+                                                .join(' • ')}
+                                            </span>
+                                          `
+                                        : null}
                                     </div>
                                   `}
 
@@ -459,6 +493,14 @@ export function TelaPipelineCandidatos({ controlador }) {
                                 ? null
                                 : html`
                                     <div class="rh-pipeline-card-actions">
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        disabled=${!card.cv_disponivel}
+                                        onClick=${() => abrirCurriculo(card)}
+                                      >
+                                        ${card.cv_disponivel ? 'Ver CV' : 'Sem CV'}
+                                      </button>
                                       <button
                                         type="button"
                                         class="btn btn-sm btn-outline-secondary"

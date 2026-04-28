@@ -66,7 +66,7 @@ async function lerMensagemErro(resposta) {
   return resposta.text().catch(() => '');
 }
 
-export async function requisitar(caminho, opcoes = {}, configuracao = {}) {
+async function executarRequisicao(caminho, opcoes = {}, configuracao = {}) {
   const { autenticado = true } = configuracao;
   const headers = new Headers(opcoes.headers || {});
   const sessao = lerSessaoAutenticacao();
@@ -109,12 +109,43 @@ export async function requisitar(caminho, opcoes = {}, configuracao = {}) {
     throw new Error(textoErro || `Falha na API (${resposta.status}).`);
   }
 
+  return resposta;
+}
+
+function extrairNomeArquivo(resposta) {
+  const disposition = resposta.headers.get('content-disposition') || '';
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const asciiMatch = disposition.match(/filename="?([^";]+)"?/i);
+  if (asciiMatch?.[1]) {
+    return asciiMatch[1];
+  }
+
+  return 'arquivo';
+}
+
+export async function requisitar(caminho, opcoes = {}, configuracao = {}) {
+  const resposta = await executarRequisicao(caminho, opcoes, configuracao);
+
   const tipo = resposta.headers.get('content-type') || '';
   if (tipo.includes('application/json')) {
     return resposta.json();
   }
 
   return resposta.text();
+}
+
+export async function requisitarArquivo(caminho, opcoes = {}, configuracao = {}) {
+  const resposta = await executarRequisicao(caminho, opcoes, configuracao);
+  return {
+    blob: await resposta.blob(),
+    filename: extrairNomeArquivo(resposta),
+    contentType:
+      resposta.headers.get('content-type') || 'application/octet-stream',
+  };
 }
 
 export function invalidarCacheApi(...chaves) {

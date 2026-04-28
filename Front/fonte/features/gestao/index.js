@@ -9,6 +9,7 @@ import {
   TAMANHO_HISTORICO,
   TAMANHO_RECENTES,
   atualizarStatusCandidato,
+  baixarCvCandidato,
   baixarPacoteHistorico,
   carregarDetalhesProva,
   construirMapaStatusAtual,
@@ -29,12 +30,14 @@ import {
   usarCandidatoDoBancoTalentos,
 } from '../../app/controlador-aplicacao.js';
 import {
+  baixarBlob,
   formatarDataParaInput,
   formatarNotaAnalise,
   formatarPercentualAfinidade,
   formatarPontuacaoDetalhada,
   obterItensPaginados,
 } from '../../utilitarios.js';
+import { abrirBlobEmNovaGuia } from '../../shared/browser-utils.js';
 import {
   formatarDataHora,
   obterClasseAderencia,
@@ -843,6 +846,28 @@ export function TelaBancoTalentos({ controlador }) {
     carregar();
   }, [filtros.busca, filtros.habilidade, filtros.tag]);
 
+  const abrirCurriculo = async (candidato) => {
+    if (!candidato?.id_teste || !candidato?.cv_disponivel) {
+      window.alert('Nao ha curriculo disponivel para este candidato.');
+      return;
+    }
+
+    try {
+      const arquivo = await baixarCvCandidato(candidato.id_teste);
+      const tipo = String(arquivo?.contentType || '').toLowerCase();
+      if (tipo.includes('pdf')) {
+        abrirBlobEmNovaGuia(arquivo.blob);
+        return;
+      }
+
+      baixarBlob(arquivo.filename || 'curriculo', arquivo.blob);
+    } catch (error) {
+      setErro(
+        error?.message || 'Nao foi possivel abrir o curriculo do candidato.',
+      );
+    }
+  };
+
   const remover = async (idBanco) => {
     if (!window.confirm('Deseja eliminar este candidato do banco de talentos?')) {
       return;
@@ -1011,11 +1036,14 @@ export function TelaBancoTalentos({ controlador }) {
                     <tr>
                       <th>Processo</th>
                       <th>Candidato</th>
+                      <th>Cidade</th>
+                      <th>Bairro</th>
                       <th>Vaga</th>
                       <th>Nota</th>
                       <th>Habilidades / tags</th>
                       <th>Observacoes RH</th>
                       <th>Entrevista</th>
+                      <th>CV</th>
                       <th class="text-end">Acoes</th>
                     </tr>
                   </thead>
@@ -1031,6 +1059,8 @@ export function TelaBancoTalentos({ controlador }) {
                                   ${formatarDataHora(linha.data_movimentacao)}
                                 </div>
                               </td>
+                              <td>${linha.cidade || '-'}</td>
+                              <td>${linha.bairro || '-'}</td>
                               <td>${linha.vaga || '-'}</td>
                               <td>${linha.pontuacao_final || '-'}</td>
                               <td>
@@ -1064,6 +1094,19 @@ export function TelaBancoTalentos({ controlador }) {
                                       </div>
                                     `
                                   : 'Nao agendada'}
+                              </td>
+                              <td>
+                                ${linha.cv_disponivel
+                                  ? html`
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        onClick=${() => abrirCurriculo(linha)}
+                                      >
+                                        Ver CV
+                                      </button>
+                                    `
+                                  : 'Sem CV'}
                               </td>
                               <td class="text-end">
                                 <div class="d-flex justify-content-end gap-2 flex-wrap">
@@ -1099,7 +1142,7 @@ export function TelaBancoTalentos({ controlador }) {
                         )
                       : html`
                           <${TabelaVazia}
-                            colunas=${8}
+                            colunas=${11}
                             texto="Nenhum candidato no banco de talentos."
                           />
                         `}
@@ -1673,6 +1716,4 @@ export function TelaAnaliseCandidatos({ controlador }) {
     </${PainelRh}>
   `;
 }
-
-
 
