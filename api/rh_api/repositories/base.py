@@ -24,6 +24,7 @@ from ..services.process_flow import (
     CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_ELIMINATED,
     CANDIDATE_STATUS_MISSED,
+    CANDIDATE_STATUS_RESCHEDULED,
     CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_TALENT_BANK,
     build_candidate_status_action_label,
@@ -674,6 +675,7 @@ class BaseRepository:
         interview_synced_statuses = {
             normalize_compare_text(CANDIDATE_STATUS_SCHEDULED),
             normalize_compare_text(CANDIDATE_STATUS_CONFIRMED),
+            normalize_compare_text(CANDIDATE_STATUS_RESCHEDULED),
             normalize_compare_text(CANDIDATE_STATUS_ATTENDED),
             normalize_compare_text(CANDIDATE_STATUS_MISSED),
             normalize_compare_text(CANDIDATE_STATUS_APPROVED),

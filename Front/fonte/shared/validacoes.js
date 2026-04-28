@@ -60,6 +60,10 @@ export function validarFormularioEntrevista(formulario) {
     return 'Selecione um candidato valido para agendar a entrevista.';
   }
 
+  if (formulario.exige_slot && !Number(formulario.id_slot || 0)) {
+    return 'Selecione um horario disponivel para agendar a entrevista.';
+  }
+
   if (
     normalizarTexto(formulario.link_agendamento) &&
     !/^https?:\/\//i.test(normalizarTexto(formulario.link_agendamento))

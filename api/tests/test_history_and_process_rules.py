@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from rh_api.repositories.history import HistoryRepositoryMixin
 from rh_api.repositories.processes import ProcessRepositoryMixin
-from rh_api.schemas.interviews import InterviewUpdateRequest
+from rh_api.schemas.interviews import InterviewSlotCreateRequest, InterviewUpdateRequest
 
 
 class FakeHistoryCursor:
@@ -168,6 +168,19 @@ class HistoryAndProcessRulesTests(unittest.TestCase):
     def test_interview_update_schema_accepts_final_statuses(self):
         payload = InterviewUpdateRequest(status_entrevista="Banco de talentos")
         self.assertEqual(payload.status_entrevista, "Banco de talentos")
+
+    def test_interview_update_schema_accepts_reschedule_status(self):
+        payload = InterviewUpdateRequest(status_entrevista="Reagendado")
+        self.assertEqual(payload.status_entrevista, "Reagendado")
+
+    def test_interview_slot_schema_validates_minimum_duration(self):
+        payload = InterviewSlotCreateRequest(
+            data="2026-05-01",
+            hora_inicio="09:00",
+            hora_fim="10:00",
+            duracao_minutos=30,
+        )
+        self.assertEqual(payload.duracao_minutos, 30)
 
 
 if __name__ == "__main__":

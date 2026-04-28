@@ -10,6 +10,7 @@ CANDIDATE_STATUS_QUALIFIED = "Qualificado"
 CANDIDATE_STATUS_NOT_QUALIFIED = "Nao qualificado"
 CANDIDATE_STATUS_SCHEDULED = "Agendado"
 CANDIDATE_STATUS_CONFIRMED = "Confirmado"
+CANDIDATE_STATUS_RESCHEDULED = "Reagendado"
 CANDIDATE_STATUS_ATTENDED = "Compareceu"
 CANDIDATE_STATUS_MISSED = "Faltou"
 CANDIDATE_STATUS_APPROVED = "Aprovado"
@@ -19,6 +20,7 @@ CANDIDATE_STATUS_TALENT_BANK = "Banco de talentos"
 INTERVIEW_OPERATIONAL_STATUSES = {
     CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_CONFIRMED,
+    CANDIDATE_STATUS_RESCHEDULED,
     CANDIDATE_STATUS_ATTENDED,
     CANDIDATE_STATUS_MISSED,
 }
@@ -63,8 +65,12 @@ def canonicalize_candidate_status(status: str | None) -> str:
         return CANDIDATE_STATUS_NOT_QUALIFIED
     if safe_status == "agendado":
         return CANDIDATE_STATUS_SCHEDULED
+    if safe_status == "entrevista agendada":
+        return CANDIDATE_STATUS_SCHEDULED
     if safe_status == "confirmado":
         return CANDIDATE_STATUS_CONFIRMED
+    if safe_status == "reagendado":
+        return CANDIDATE_STATUS_RESCHEDULED
     if safe_status == "compareceu":
         return CANDIDATE_STATUS_ATTENDED
     if safe_status == "faltou":

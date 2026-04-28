@@ -22,6 +22,7 @@ import {
   lerEntrevistas,
   lerPreAnalisesCv,
   lerProcessos,
+  lerSlotsEntrevista,
 } from '../../app/controlador-aplicacao.js';
 import {
   baixarBlob,
@@ -504,7 +505,7 @@ export function TelaProcessos({ controlador }) {
                       <th>Valor corte</th>
                       <th>Vagas</th>
                       <th>Encerramento</th>
-                      <th>Link agendamento</th>
+                      <th>Link legado</th>
                       <th>Status</th>
                       <th class="text-end">Acoes</th>
                     </tr>
@@ -620,7 +621,7 @@ export function TelaProcessos({ controlador }) {
                       <th>Valor corte</th>
                       <th>Vagas</th>
                       <th>Encerramento</th>
-                      <th>Link agendamento</th>
+                      <th>Link legado</th>
                       <th>Status</th>
                       <th class="text-end">Acoes</th>
                     </tr>
@@ -853,10 +854,10 @@ export function TelaProcessos({ controlador }) {
                     </select>
                   </div>
                   <div class="col-md-12">
-                    <label class="form-label">Link de agendamento</label>
+                    <label class="form-label">Link legado</label>
                     <input
                       class="form-control"
-                      placeholder="https://bookings.cloud.microsoft/..."
+                      placeholder="https://..."
                       value=${edicao.link_agendamento || ''}
                       onInput=${(event) =>
                         setEdicao({
@@ -927,6 +928,7 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [resumo, setResumo] = useState(null);
   const [candidatos, setCandidatos] = useState([]);
   const [entrevistas, setEntrevistas] = useState([]);
+  const [slotsEntrevista, setSlotsEntrevista] = useState([]);
   const [preAnalises, setPreAnalises] = useState([]);
   const [paginaPreAnalises, setPaginaPreAnalises] = useState(1);
   const [totalPaginasPreAnalises, setTotalPaginasPreAnalises] = useState(1);
@@ -942,6 +944,7 @@ export function TelaDetalhesProcesso({ controlador }) {
     id_registro: '',
     id_processo: '',
     id_processo_ref: '',
+    id_slot: '',
     data_entrevista: '',
     status_entrevista: 'Agendado',
     link_agendamento: '',
@@ -972,10 +975,11 @@ export function TelaDetalhesProcesso({ controlador }) {
     setErro('');
 
     try {
-      const [detalhe, listaPreAnalises, listaEntrevistas] = await Promise.all([
+      const [detalhe, listaPreAnalises, listaEntrevistas, listaSlots] = await Promise.all([
         lerDetalheProcesso(idProcesso),
         lerPreAnalisesCv(idProcesso, pagina, 5),
         lerEntrevistas({ idProcesso }),
+        lerSlotsEntrevista({ idProcesso, statusSlot: 'Disponivel' }),
       ]);
 
       if (detalhe?.processo) {
@@ -993,6 +997,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       setPaginaPreAnalises(Number(listaPreAnalises?.page || 1));
       setTotalPaginasPreAnalises(Number(listaPreAnalises?.total_pages || 1));
       setEntrevistas(Array.isArray(listaEntrevistas) ? listaEntrevistas : []);
+      setSlotsEntrevista(Array.isArray(listaSlots) ? listaSlots : []);
     } catch (error) {
       setErro(
         error.message || 'Nao foi possivel carregar o detalhe do processo.',
@@ -1027,6 +1032,18 @@ export function TelaDetalhesProcesso({ controlador }) {
       ),
     [candidatos, processo?.status],
   );
+  const slotsDisponiveisEntrevista = useMemo(
+    () =>
+      slotsEntrevista.filter(
+        (slot) =>
+          String(slot.status_slot || '').trim() === 'Disponivel' &&
+          !Number(slot.id_entrevista || 0),
+      ),
+    [slotsEntrevista],
+  );
+
+  const formatarHorarioSlotEntrevista = (slot) =>
+    slot ? `${formatarDataHora(slot.inicio)} ate ${formatarDataHora(slot.fim)}` : '-';
 
   const abrirCurriculo = async (candidato) => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
@@ -1203,9 +1220,10 @@ export function TelaDetalhesProcesso({ controlador }) {
       id_processo_ref:
         obterReferenciaProcessoDoCandidato(candidato) ||
         obterReferenciaProcesso(processo),
+      id_slot: '',
       data_entrevista: '',
       status_entrevista: 'Agendado',
-      link_agendamento: processo?.link_agendamento || candidato.link_entrevista || '',
+      link_agendamento: '',
       observacoes_rh: '',
       email: candidato.email || '',
       telefone: candidato.telefone || '',
@@ -1215,14 +1233,20 @@ export function TelaDetalhesProcesso({ controlador }) {
 
   const montarMensagemEntrevista = () => {
     const nome = agendamentoSelecionado?.nome_candidato || 'candidato(a)';
-    const link = formularioEntrevista.link_agendamento || processo?.link_agendamento || '';
-    return [
-      `Olá ${nome}, gostaríamos de reservar uma entrevista com você.`,
-      'Escolha o melhor dia para o contato.',
-      link ? `Link do agendamento: ${link}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
+    const slot = slotsDisponiveisEntrevista.find(
+      (item) => Number(item.id_slot) === Number(formularioEntrevista.id_slot),
+    );
+    if (!slot) {
+      return `Ol\u00e1 ${nome}, sua entrevista foi agendada para data a confirmar \u00e0s horario a confirmar.`;
+    }
+
+    const dataInicio = new Date(slot.inicio);
+    const data = dataInicio.toLocaleDateString('pt-BR');
+    const hora = dataInicio.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return `Ol\u00e1 ${nome}, sua entrevista foi agendada para ${data} \u00e0s ${hora}.`;
   };
 
   const salvarAgendamento = async (canal = '') => {
@@ -1231,7 +1255,10 @@ export function TelaDetalhesProcesso({ controlador }) {
       return;
     }
 
-    const mensagemErro = validarFormularioEntrevista(formularioEntrevista);
+    const mensagemErro = validarFormularioEntrevista({
+      ...formularioEntrevista,
+      exige_slot: true,
+    });
     if (mensagemErro) {
       setErro(mensagemErro);
       return;
@@ -1241,19 +1268,11 @@ export function TelaDetalhesProcesso({ controlador }) {
     setErro('');
 
     try {
-      const resultado = await agendarEntrevista({
-        ...formularioEntrevista,
-        data_entrevista: null,
-      });
-      const mensagem = resultado?.mensagem_base || montarMensagemEntrevista();
-      await copiarTexto(mensagem).catch(() => null);
-
       if (canal === 'whatsapp') {
         const numeroBase = String(formularioEntrevista.whatsapp || formularioEntrevista.telefone || '').replace(/\D/g, '');
         if (!numeroBase) {
           throw new Error('O candidato nao possui numero de WhatsApp valido extraido do CV.');
         }
-        window.open(`https://wa.me/${numeroBase}?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
       }
 
       if (canal === 'email') {
@@ -1261,6 +1280,22 @@ export function TelaDetalhesProcesso({ controlador }) {
         if (!emailDestino) {
           throw new Error('O candidato nao possui e-mail valido extraido do CV.');
         }
+      }
+
+      const resultado = await agendarEntrevista({
+        ...formularioEntrevista,
+        id_slot: Number(formularioEntrevista.id_slot),
+      });
+      const mensagem = resultado?.mensagem_base || montarMensagemEntrevista();
+      await copiarTexto(mensagem).catch(() => null);
+
+      if (canal === 'whatsapp') {
+        const numeroBase = String(formularioEntrevista.whatsapp || formularioEntrevista.telefone || '').replace(/\D/g, '');
+        window.open(`https://wa.me/${numeroBase}?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
+      }
+
+      if (canal === 'email') {
+        const emailDestino = String(formularioEntrevista.email || '').trim();
         const assunto = encodeURIComponent('Agendamento de entrevista');
         window.location.href = `mailto:${emailDestino}?subject=${assunto}&body=${encodeURIComponent(mensagem)}`;
       }
@@ -1363,7 +1398,7 @@ export function TelaDetalhesProcesso({ controlador }) {
               value: processo?.data_encerramento || '-',
             },
             {
-              label: 'Link agendamento',
+              label: 'Link legado',
               value: processo?.link_agendamento
                 ? html`
                     <a
@@ -1737,7 +1772,7 @@ export function TelaDetalhesProcesso({ controlador }) {
 
       <${SectionCard}
         title="Entrevistas agendadas"
-        description="Agenda vinculada ao processo atual, reutilizando o link de agendamento quando disponivel."
+        description="Agenda vinculada ao processo atual, usando horarios internos."
         tourId="process-interviews"
         actions=${html`
           <button
@@ -1765,7 +1800,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                         <th>Candidato</th>
                         <th>Data / hora</th>
                         <th>Status</th>
-                        <th>Link</th>
+                        <th>Agenda</th>
                         <th>Observacoes</th>
                       </tr>
                     </thead>
@@ -1782,20 +1817,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                                 ${entrevista.status_entrevista || '-'}
                               </span>
                             </td>
-                            <td>
-                              ${entrevista.link_agendamento
-                                ? html`
-                                    <a
-                                      href=${entrevista.link_agendamento}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      class="rh-link-inline"
-                                    >
-                                      Abrir
-                                    </a>
-                                  `
-                                : 'Sem link'}
-                            </td>
+                            <td>${entrevista.id_slot ? 'Calendario interno' : 'Registro legado'}</td>
                             <td>${entrevista.observacoes_rh || 'Sem observacoes.'}</td>
                           </tr>
                         `,
@@ -1862,17 +1884,25 @@ export function TelaDetalhesProcesso({ controlador }) {
                     </select>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label">Link de agendamento</label>
-                    <input
-                      class="form-control"
-                      placeholder="https://bookings.cloud.microsoft/..."
-                      value=${formularioEntrevista.link_agendamento}
-                      onInput=${(event) =>
+                    <label class="form-label">Horario disponivel</label>
+                    <select
+                      class="form-select"
+                      value=${formularioEntrevista.id_slot}
+                      onChange=${(event) =>
                         setFormularioEntrevista({
                           ...formularioEntrevista,
-                          link_agendamento: event.target.value,
+                          id_slot: event.target.value,
                         })}
-                    />
+                    >
+                      <option value="">Selecione um slot</option>
+                      ${slotsDisponiveisEntrevista.map(
+                        (slot) => html`
+                          <option key=${slot.id_slot} value=${slot.id_slot}>
+                            ${formatarHorarioSlotEntrevista(slot)}
+                          </option>
+                        `,
+                      )}
+                    </select>
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">WhatsApp extraido do CV</label>
@@ -1908,13 +1938,9 @@ export function TelaDetalhesProcesso({ controlador }) {
                       readonly
                       value=${montarMensagemEntrevista()}
                     ></textarea>
-                    ${processo?.link_agendamento
-                      ? html`
-                          <div class="form-text">
-                            O link de agendamento do processo sera reaproveitado automaticamente nesta mensagem.
-                          </div>
-                        `
-                      : null}
+                    <div class="form-text">
+                      A mensagem usa o horario interno selecionado no calendario.
+                    </div>
                   </div>
                   <div class="col-md-12">
                     <label class="form-label">Observacoes RH</label>
@@ -1942,7 +1968,15 @@ export function TelaDetalhesProcesso({ controlador }) {
                 <button
                   type="button"
                   class="btn btn-outline-primary"
-                  disabled=${salvandoEntrevista || processoEncerrado}
+                  disabled=${salvandoEntrevista || processoEncerrado || !formularioEntrevista.id_slot}
+                  onClick=${() => salvarAgendamento()}
+                >
+                  ${salvandoEntrevista ? 'Salvando...' : 'Salvar e copiar'}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  disabled=${salvandoEntrevista || processoEncerrado || !formularioEntrevista.id_slot}
                   onClick=${() => salvarAgendamento('email')}
                 >
                   ${salvandoEntrevista ? 'Salvando...' : 'Enviar por e-mail'}
@@ -1950,7 +1984,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                 <button
                   type="button"
                   class="btn btn-success"
-                  disabled=${salvandoEntrevista || processoEncerrado}
+                  disabled=${salvandoEntrevista || processoEncerrado || !formularioEntrevista.id_slot}
                   onClick=${() => salvarAgendamento('whatsapp')}
                 >
                   ${salvandoEntrevista

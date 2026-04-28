@@ -10,6 +10,7 @@ from .common import BaseSchema
 
 class InterviewCreateRequest(BaseSchema):
     id_registro: int
+    id_slot: int | None = None
     id_processo: str = ""
     id_processo_ref: str = ""
     data_entrevista: datetime | None = None
@@ -56,6 +57,7 @@ class InterviewCreateRequest(BaseSchema):
 
 
 class InterviewUpdateRequest(BaseSchema):
+    id_slot: int | None = None
     data_entrevista: datetime | None = None
     status_entrevista: str | None = None
     link_agendamento: str | None = None
@@ -94,6 +96,7 @@ class InterviewUpdateRequest(BaseSchema):
     def validate_payload(self):
         if (
             self.data_entrevista is None
+            and self.id_slot is None
             and self.status_entrevista is None
             and self.link_agendamento is None
             and self.observacoes_rh is None
@@ -101,3 +104,37 @@ class InterviewUpdateRequest(BaseSchema):
             raise ValueError("Informe ao menos um campo para atualizar a entrevista.")
 
         return self
+
+
+class InterviewSlotCreateRequest(BaseSchema):
+    id_processo: str = ""
+    id_processo_ref: str = ""
+    data: str
+    hora_inicio: str
+    hora_fim: str
+    duracao_minutos: int = 30
+    observacoes_rh: str = ""
+
+    @field_validator("data", "hora_inicio", "hora_fim")
+    @classmethod
+    def validate_required_text(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            raise ValueError("Informe data e faixa de horario para criar slots.")
+        return safe_value
+
+    @field_validator("duracao_minutos")
+    @classmethod
+    def validate_duration(cls, value: int) -> int:
+        duration = int(value or 0)
+        if duration < 5 or duration > 240:
+            raise ValueError("A duracao do slot deve ficar entre 5 e 240 minutos.")
+        return duration
+
+    @field_validator("observacoes_rh")
+    @classmethod
+    def validate_notes(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 2000:
+            raise ValueError("As observacoes da disponibilidade devem ter no maximo 2000 caracteres.")
+        return safe_value

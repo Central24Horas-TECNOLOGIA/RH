@@ -12,6 +12,7 @@ from .process_flow import (
     CANDIDATE_STATUS_MISSED,
     CANDIDATE_STATUS_NOT_QUALIFIED,
     CANDIDATE_STATUS_QUALIFIED,
+    CANDIDATE_STATUS_RESCHEDULED,
     CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_TALENT_BANK,
     canonicalize_candidate_status,
@@ -61,6 +62,7 @@ def infer_pipeline_stage(
     if status in {
         CANDIDATE_STATUS_SCHEDULED,
         CANDIDATE_STATUS_CONFIRMED,
+        CANDIDATE_STATUS_RESCHEDULED,
         CANDIDATE_STATUS_ATTENDED,
         CANDIDATE_STATUS_MISSED,
     }:
@@ -98,6 +100,7 @@ def map_pipeline_stage_to_status(stage: str, current_status: str | None = None) 
         if current_status_safe in {
             CANDIDATE_STATUS_SCHEDULED,
             CANDIDATE_STATUS_CONFIRMED,
+            CANDIDATE_STATUS_RESCHEDULED,
             CANDIDATE_STATUS_ATTENDED,
             CANDIDATE_STATUS_MISSED,
         }:

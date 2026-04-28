@@ -64,5 +64,7 @@ export {
 export {
   agendarEntrevista,
   atualizarEntrevista,
+  criarSlotsEntrevista,
   lerEntrevistas,
+  lerSlotsEntrevista,
 } from './services/api/interviews.js';

@@ -5,6 +5,7 @@ const CANDIDATE_STATUS_QUALIFIED = 'Qualificado';
 const CANDIDATE_STATUS_NOT_QUALIFIED = 'Nao qualificado';
 const CANDIDATE_STATUS_SCHEDULED = 'Agendado';
 const CANDIDATE_STATUS_CONFIRMED = 'Confirmado';
+const CANDIDATE_STATUS_RESCHEDULED = 'Reagendado';
 const CANDIDATE_STATUS_ATTENDED = 'Compareceu';
 const CANDIDATE_STATUS_MISSED = 'Faltou';
 const CANDIDATE_STATUS_APPROVED = 'Aprovado';
@@ -14,6 +15,7 @@ const CANDIDATE_STATUS_TALENT_BANK = 'Banco de talentos';
 const INTERVIEW_STATUSES = new Set([
   CANDIDATE_STATUS_SCHEDULED,
   CANDIDATE_STATUS_CONFIRMED,
+  CANDIDATE_STATUS_RESCHEDULED,
   CANDIDATE_STATUS_ATTENDED,
   CANDIDATE_STATUS_MISSED,
 ]);
@@ -57,7 +59,9 @@ export function canonicalizeCandidateStatus(status) {
   if (value === 'qualificado') return CANDIDATE_STATUS_QUALIFIED;
   if (value === 'nao qualificado') return CANDIDATE_STATUS_NOT_QUALIFIED;
   if (value === 'agendado') return CANDIDATE_STATUS_SCHEDULED;
+  if (value === 'entrevista agendada') return CANDIDATE_STATUS_SCHEDULED;
   if (value === 'confirmado') return CANDIDATE_STATUS_CONFIRMED;
+  if (value === 'reagendado') return CANDIDATE_STATUS_RESCHEDULED;
   if (value === 'compareceu') return CANDIDATE_STATUS_ATTENDED;
   if (value === 'faltou') return CANDIDATE_STATUS_MISSED;
   if (value === 'aprovado') return CANDIDATE_STATUS_APPROVED;
@@ -166,6 +170,7 @@ export {
   CANDIDATE_STATUS_MISSED,
   CANDIDATE_STATUS_NOT_QUALIFIED,
   CANDIDATE_STATUS_QUALIFIED,
+  CANDIDATE_STATUS_RESCHEDULED,
   CANDIDATE_STATUS_SCHEDULED,
   CANDIDATE_STATUS_TALENT_BANK,
   PROCESS_STATUS_CLOSED,

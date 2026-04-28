@@ -234,6 +234,37 @@ def ensure_interviews_table(cursor) -> None:
         END
         """
     )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.entrevistas_agendadas', 'id_slot') IS NULL
+        BEGIN
+            ALTER TABLE dbo.entrevistas_agendadas
+            ADD id_slot INT NULL
+        END
+        """
+    )
+
+
+def ensure_interview_slots_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.entrevista_slots', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.entrevista_slots (
+                id_slot INT IDENTITY(1,1) PRIMARY KEY,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                inicio DATETIME NOT NULL,
+                fim DATETIME NOT NULL,
+                status_slot NVARCHAR(30) NOT NULL DEFAULT 'Disponivel',
+                id_entrevista INT NULL,
+                observacoes_rh NVARCHAR(MAX) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
 
 
 def _ensure_process_reference_column(cursor, table_name: str) -> None:
@@ -355,6 +386,7 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_candidate_attachments_table(cursor)
             ensure_cv_pre_analises_table(cursor)
             ensure_interviews_table(cursor)
+            ensure_interview_slots_table(cursor)
             ensure_process_reference_columns(cursor)
             ensure_decimal_process_columns(cursor)
         finally:

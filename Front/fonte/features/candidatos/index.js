@@ -10,6 +10,7 @@ import {
   criarCandidatoNoProcesso,
   lerBancoTalentos,
   lerCandidatosProcessos,
+  lerEntrevistas,
   lerHistorico,
   lerProcessos,
   removerBancoTalentos,
@@ -245,12 +246,253 @@ function SelectProcesso({ processos, valor, onChange, disabled = false }) {
   `;
 }
 
+function mesmoCandidato(item, candidato) {
+  const idItem = String(item?.id_teste || '').trim();
+  const idCandidato = String(candidato?.id_teste || '').trim();
+  if (idItem && idCandidato && idItem === idCandidato) return true;
+
+  const nomeItem = normalizarTexto(item?.nome_candidato || item?.nome || '');
+  const nomeCandidato = normalizarTexto(candidato?.nome_candidato || '');
+  return Boolean(nomeItem && nomeCandidato && nomeItem === nomeCandidato);
+}
+
+function obterDataEvento(item) {
+  return (
+    item?.data_entrevista ||
+    item?.data_movimentacao ||
+    item?.data_prova ||
+    item?.data_iso ||
+    item?.data_exibicao ||
+    item?.data ||
+    item?.criado_em ||
+    item?.data_criacao ||
+    ''
+  );
+}
+
+function ordenarEventosDecrescente(a, b) {
+  return String(obterDataEvento(b)).localeCompare(String(obterDataEvento(a)));
+}
+
+function montarDossieCandidato(candidato, fontes) {
+  const processos = (fontes.candidatosProcessos || [])
+    .filter((item) => mesmoCandidato(item, candidato))
+    .sort(ordenarEventosDecrescente);
+  const provas = (fontes.historico || [])
+    .filter((item) => mesmoCandidato(item, candidato))
+    .sort(ordenarEventosDecrescente);
+  const entrevistas = (fontes.entrevistas || [])
+    .filter((item) => mesmoCandidato(item, candidato))
+    .sort(ordenarEventosDecrescente);
+  const bancoTalentos = (fontes.bancoTalentos || [])
+    .filter((item) => mesmoCandidato(item, candidato))
+    .sort(ordenarEventosDecrescente);
+
+  const alertas = [];
+  if (!candidato.contato_principal) {
+    alertas.push('Sem contato principal consolidado.');
+  }
+  if (!candidato.cv_disponivel) {
+    alertas.push('Sem CV anexado ao cadastro consolidado.');
+  }
+  if (
+    normalizarTexto(candidato.status_visivel) === 'qualificado' &&
+    !entrevistas.length
+  ) {
+    alertas.push('Candidato qualificado ainda sem entrevista interna agendada.');
+  }
+  if (entrevistas.some((item) => normalizarTexto(item.status_entrevista) === 'faltou')) {
+    alertas.push('Existe registro de falta em entrevista.');
+  }
+  if (!alertas.length) {
+    alertas.push('Nenhum alerta critico encontrado.');
+  }
+
+  const historicoCompleto = [
+    ...processos.map((item) => ({
+      tipo: 'Processo',
+      data: obterDataEvento(item),
+      descricao: `${item.id_processo || '-'} | ${item.vaga || '-'} | ${item.status_candidato || '-'}`,
+    })),
+    ...provas.map((item) => ({
+      tipo: 'Prova',
+      data: obterDataEvento(item),
+      descricao: `${item.vaga || '-'} | nota ${obterNotaCandidato(item)} | ${item.status || '-'}`,
+    })),
+    ...entrevistas.map((item) => ({
+      tipo: 'Entrevista',
+      data: obterDataEvento(item),
+      descricao: `${item.id_processo || '-'} | ${item.status_entrevista || '-'} | ${item.observacoes_rh || 'Sem observacoes.'}`,
+    })),
+    ...bancoTalentos.map((item) => ({
+      tipo: 'Banco de talentos',
+      data: obterDataEvento(item),
+      descricao: `${item.vaga || '-'} | ${item.origem || '-'}`,
+    })),
+  ].sort(ordenarEventosDecrescente);
+
+  return {
+    processos,
+    provas,
+    entrevistas,
+    bancoTalentos,
+    alertas,
+    historicoCompleto,
+  };
+}
+
+function escaparHtml(valor) {
+  return String(valor || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderizarLinhasFicha(itens, colunas) {
+  if (!itens.length) {
+    return `<tr><td colspan="${colunas.length}">Sem registros.</td></tr>`;
+  }
+
+  return itens
+    .map(
+      (item) => `
+        <tr>
+          ${colunas
+            .map((coluna) => `<td>${escaparHtml(coluna.valor(item))}</td>`)
+            .join('')}
+        </tr>
+      `,
+    )
+    .join('');
+}
+
+function abrirFichaImpressao(candidato, dossie) {
+  const janela = window.open('', '_blank');
+  if (!janela) {
+    window.alert('Nao foi possivel abrir a ficha para impressao.');
+    return;
+  }
+  const ficha = dossie || {
+    alertas: [],
+    processos: [],
+    provas: [],
+    entrevistas: [],
+    historicoCompleto: [],
+  };
+
+  const htmlFicha = `
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8" />
+        <title>Ficha do candidato</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #172033; margin: 32px; }
+          h1 { font-size: 24px; margin: 0 0 6px; }
+          h2 { font-size: 15px; margin: 22px 0 8px; border-bottom: 1px solid #d8dee9; padding-bottom: 4px; }
+          p { margin: 3px 0; }
+          table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+          th, td { border: 1px solid #d8dee9; padding: 7px; font-size: 12px; vertical-align: top; }
+          th { background: #f5f7fb; text-align: left; }
+          .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; margin-top: 14px; }
+          .alerta { background: #fff7e6; border: 1px solid #f2c46d; padding: 8px; margin: 4px 0; }
+          @media print { body { margin: 16mm; } button { display: none; } }
+        </style>
+      </head>
+      <body>
+        <button onclick="window.print()">Imprimir ficha</button>
+        <h1>${escaparHtml(candidato.nome_candidato || 'Candidato')}</h1>
+        <p>Ficha consolidada do candidato</p>
+        <div class="grid">
+          <p><strong>Status:</strong> ${escaparHtml(candidato.status_visivel || '-')}</p>
+          <p><strong>Processo:</strong> ${escaparHtml(candidato.processo_nome || '-')}</p>
+          <p><strong>Vaga:</strong> ${escaparHtml(candidato.vaga || '-')}</p>
+          <p><strong>Nota/score:</strong> ${escaparHtml(candidato.nota_exibicao || '-')}</p>
+          <p><strong>Classificacao:</strong> ${escaparHtml(candidato.classificacao_exibicao || '-')}</p>
+          <p><strong>Email:</strong> ${escaparHtml(candidato.email || '-')}</p>
+          <p><strong>Telefone:</strong> ${escaparHtml(candidato.telefone || candidato.whatsapp || '-')}</p>
+          <p><strong>CV:</strong> ${escaparHtml(candidato.cv_nome_arquivo || 'Sem CV anexado')}</p>
+        </div>
+
+        <h2>Alertas</h2>
+        ${ficha.alertas.map((alerta) => `<div class="alerta">${escaparHtml(alerta)}</div>`).join('')}
+
+        <h2>Processos</h2>
+        <table>
+          <thead><tr><th>Processo</th><th>Vaga</th><th>Status</th><th>Score</th><th>Data</th></tr></thead>
+          <tbody>
+            ${renderizarLinhasFicha(ficha.processos, [
+              { valor: (item) => item.id_processo || '-' },
+              { valor: (item) => item.vaga || '-' },
+              { valor: (item) => item.status_candidato || '-' },
+              { valor: (item) => obterNotaCandidato(item) },
+              { valor: (item) => formatarDataHora(obterDataEvento(item)) },
+            ])}
+          </tbody>
+        </table>
+
+        <h2>Provas</h2>
+        <table>
+          <thead><tr><th>ID</th><th>Vaga</th><th>Nota</th><th>Etapas</th><th>Data</th></tr></thead>
+          <tbody>
+            ${renderizarLinhasFicha(ficha.provas, [
+              { valor: (item) => item.id_teste || '-' },
+              { valor: (item) => item.vaga || '-' },
+              { valor: (item) => obterNotaCandidato(item) },
+              { valor: (item) => item.etapas_json || item.pontuacao_bruta || '-' },
+              { valor: (item) => formatarDataHora(obterDataEvento(item)) },
+            ])}
+          </tbody>
+        </table>
+
+        <h2>Entrevistas</h2>
+        <table>
+          <thead><tr><th>Data</th><th>Status</th><th>Processo</th><th>Observacoes</th></tr></thead>
+          <tbody>
+            ${renderizarLinhasFicha(ficha.entrevistas, [
+              { valor: (item) => formatarDataHora(item.data_entrevista) },
+              { valor: (item) => item.status_entrevista || '-' },
+              { valor: (item) => item.id_processo || '-' },
+              { valor: (item) => item.observacoes_rh || '-' },
+            ])}
+          </tbody>
+        </table>
+
+        <h2>Historico completo</h2>
+        <table>
+          <thead><tr><th>Tipo</th><th>Data</th><th>Descricao</th></tr></thead>
+          <tbody>
+            ${renderizarLinhasFicha(ficha.historicoCompleto, [
+              { valor: (item) => item.tipo },
+              { valor: (item) => formatarDataHora(item.data) },
+              { valor: (item) => item.descricao },
+            ])}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  janela.document.open();
+  janela.document.write(htmlFicha);
+  janela.document.close();
+  janela.focus();
+}
+
 export function TelaCandidatos({ controlador }) {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [candidatos, setCandidatos] = useState([]);
   const [processosAbertos, setProcessosAbertos] = useState([]);
+  const [fontesDossie, setFontesDossie] = useState({
+    historico: [],
+    candidatosProcessos: [],
+    bancoTalentos: [],
+    entrevistas: [],
+  });
   const [filtros, setFiltros] = useState({
     busca: '',
     status: '',
@@ -292,6 +534,7 @@ export function TelaCandidatos({ controlador }) {
         lerCandidatosProcessos(true),
         lerBancoTalentos({ forcar: true }),
         lerProcessos(true),
+        lerEntrevistas(),
       ]);
 
       const historico =
@@ -310,6 +553,10 @@ export function TelaCandidatos({ controlador }) {
         resultados[3].status === 'fulfilled' && Array.isArray(resultados[3].value)
           ? resultados[3].value
           : [];
+      const entrevistas =
+        resultados[4].status === 'fulfilled' && Array.isArray(resultados[4].value)
+          ? resultados[4].value
+          : [];
 
       const falhas = resultados
         .filter((item) => item.status === 'rejected')
@@ -320,7 +567,8 @@ export function TelaCandidatos({ controlador }) {
         !historico.length &&
         !candidatosProcessos.length &&
         !bancoTalentos.length &&
-        !processos.length
+        !processos.length &&
+        !entrevistas.length
       ) {
         setErro(
           falhas[0]?.message ||
@@ -369,12 +617,24 @@ export function TelaCandidatos({ controlador }) {
 
       setCandidatos(lista);
       setProcessosAbertos(abertos);
+      setFontesDossie({
+        historico,
+        candidatosProcessos,
+        bancoTalentos,
+        entrevistas,
+      });
     } catch (error) {
       setErro(
         error?.message || 'Nao foi possivel carregar a pagina de candidatos.',
       );
       setCandidatos([]);
       setProcessosAbertos([]);
+      setFontesDossie({
+        historico: [],
+        candidatosProcessos: [],
+        bancoTalentos: [],
+        entrevistas: [],
+      });
     } finally {
       setCarregando(false);
     }
@@ -422,6 +682,10 @@ export function TelaCandidatos({ controlador }) {
   const resumo = useMemo(
     () => resumirStatus(candidatosFiltrados),
     [candidatosFiltrados],
+  );
+  const dossieDetalhe = useMemo(
+    () => (detalhe ? montarDossieCandidato(detalhe, fontesDossie) : null),
+    [detalhe, fontesDossie],
   );
 
   const aplicarStatus = async (candidato, status) => {
@@ -615,7 +879,7 @@ export function TelaCandidatos({ controlador }) {
       <${PageIntro}
         kicker="Console | Candidatos"
         title="Central de candidatos"
-        description="Atalho operacional para consultar candidatos, ver detalhes e executar acoes principais sem remover as funcoes existentes das outras telas."
+        description="Dossie completo com dados pessoais, CV, provas, score, classificacao, entrevistas, alertas e historico."
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
@@ -945,9 +1209,20 @@ export function TelaCandidatos({ controlador }) {
 
                 <${SectionCard}
                   title="Curriculo"
-                  description="Acesse o CV enviado pelo candidato quando disponivel."
+                  description="CV, score, classificacao e leitura operacional consolidada."
                   className="rh-section-card--flat"
                 >
+                  <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                      <strong>Score:</strong> ${detalhe.nota_exibicao || '-'}
+                    </div>
+                    <div class="col-md-4">
+                      <strong>Classificacao:</strong> ${detalhe.classificacao_exibicao || '-'}
+                    </div>
+                    <div class="col-md-4">
+                      <strong>Arquivo:</strong> ${detalhe.cv_nome_arquivo || 'Sem CV anexado.'}
+                    </div>
+                  </div>
                   <div class="rh-modal-footer-actions">
                     <button
                       type="button"
@@ -957,6 +1232,154 @@ export function TelaCandidatos({ controlador }) {
                     >
                       ${detalhe.cv_disponivel ? 'Visualizar ou baixar CV' : 'CV indisponivel'}
                     </button>
+                  </div>
+                </${SectionCard}>
+
+                <${SectionCard}
+                  title="Alertas"
+                  description="Pontos que o RH deve verificar antes da decisao."
+                  className="rh-section-card--flat"
+                >
+                  <div class="rh-cell-stack">
+                    ${(dossieDetalhe?.alertas || []).map(
+                      (alerta) => html`<span key=${alerta}>${alerta}</span>`,
+                    )}
+                  </div>
+                </${SectionCard}>
+
+                <${SectionCard}
+                  title="Processos"
+                  description="Participacoes do candidato em processos seletivos."
+                  className="rh-section-card--flat"
+                >
+                  <div class="table-responsive">
+                    <table class="table align-middle rh-modern-history-table">
+                      <thead>
+                        <tr>
+                          <th>Processo</th>
+                          <th>Vaga</th>
+                          <th>Status</th>
+                          <th>Score</th>
+                          <th>Data</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${dossieDetalhe?.processos?.length
+                          ? dossieDetalhe.processos.map(
+                              (item) => html`
+                                <tr key=${`${item.id_registro || item.id_teste || item.id_processo}-${obterDataEvento(item)}`}>
+                                  <td>${item.id_processo || '-'}</td>
+                                  <td>${item.vaga || '-'}</td>
+                                  <td>${item.status_candidato || '-'}</td>
+                                  <td>${obterNotaCandidato(item)}</td>
+                                  <td>${formatarDataHora(obterDataEvento(item))}</td>
+                                </tr>
+                              `,
+                            )
+                          : html`<${TabelaVazia} colunas=${5} texto="Sem processos vinculados." />`}
+                      </tbody>
+                    </table>
+                  </div>
+                </${SectionCard}>
+
+                <${SectionCard}
+                  title="Provas"
+                  description="Notas, etapas e historico de provas encontradas."
+                  className="rh-section-card--flat"
+                >
+                  <div class="table-responsive">
+                    <table class="table align-middle rh-modern-history-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Vaga</th>
+                          <th>Nota</th>
+                          <th>Etapas</th>
+                          <th>Data</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${dossieDetalhe?.provas?.length
+                          ? dossieDetalhe.provas.map(
+                              (item) => html`
+                                <tr key=${`${item.id_teste || item.nome_candidato}-${obterDataEvento(item)}`}>
+                                  <td>${item.id_teste || '-'}</td>
+                                  <td>${item.vaga || '-'}</td>
+                                  <td>${obterNotaCandidato(item)}</td>
+                                  <td>${item.etapas_json || item.pontuacao_bruta || '-'}</td>
+                                  <td>${formatarDataHora(obterDataEvento(item))}</td>
+                                </tr>
+                              `,
+                            )
+                          : html`<${TabelaVazia} colunas=${5} texto="Sem provas encontradas." />`}
+                      </tbody>
+                    </table>
+                  </div>
+                </${SectionCard}>
+
+                <${SectionCard}
+                  title="Entrevistas"
+                  description="Agenda interna, status e observacoes."
+                  className="rh-section-card--flat"
+                >
+                  <div class="table-responsive">
+                    <table class="table align-middle rh-modern-history-table">
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>Status</th>
+                          <th>Processo</th>
+                          <th>Agenda</th>
+                          <th>Observacoes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${dossieDetalhe?.entrevistas?.length
+                          ? dossieDetalhe.entrevistas.map(
+                              (item) => html`
+                                <tr key=${item.id_entrevista}>
+                                  <td>${formatarDataHora(item.data_entrevista)}</td>
+                                  <td>${item.status_entrevista || '-'}</td>
+                                  <td>${item.id_processo || '-'}</td>
+                                  <td>${item.id_slot ? 'Calendario interno' : 'Registro legado'}</td>
+                                  <td>${item.observacoes_rh || '-'}</td>
+                                </tr>
+                              `,
+                            )
+                          : html`<${TabelaVazia} colunas=${5} texto="Sem entrevistas encontradas." />`}
+                      </tbody>
+                    </table>
+                  </div>
+                </${SectionCard}>
+
+                <${SectionCard}
+                  title="Historico completo"
+                  description="Linha do tempo consolidada de processos, provas, entrevistas e banco de talentos."
+                  className="rh-section-card--flat"
+                >
+                  <div class="table-responsive">
+                    <table class="table align-middle rh-modern-history-table">
+                      <thead>
+                        <tr>
+                          <th>Tipo</th>
+                          <th>Data</th>
+                          <th>Descricao</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${dossieDetalhe?.historicoCompleto?.length
+                          ? dossieDetalhe.historicoCompleto.map(
+                              (item) => html`
+                                <tr key=${`${item.tipo}-${item.data}-${item.descricao}`}>
+                                  <td>${item.tipo}</td>
+                                  <td>${formatarDataHora(item.data)}</td>
+                                  <td>${item.descricao}</td>
+                                </tr>
+                              `,
+                            )
+                          : html`<${TabelaVazia} colunas=${3} texto="Sem historico consolidado." />`}
+                      </tbody>
+                    </table>
                   </div>
                 </${SectionCard}>
 
@@ -1008,6 +1431,13 @@ export function TelaCandidatos({ controlador }) {
               </div>
 
               <footer class="rh-modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  onClick=${() => abrirFichaImpressao(detalhe, dossieDetalhe)}
+                >
+                  Baixar ficha do candidato
+                </button>
                 <button
                   type="button"
                   class="btn btn-primary"
