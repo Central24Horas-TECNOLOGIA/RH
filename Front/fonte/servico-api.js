@@ -64,6 +64,7 @@ export {
 export {
   agendarEntrevista,
   atualizarEntrevista,
+  atualizarSlotEntrevista,
   criarSlotsEntrevista,
   lerEntrevistas,
   lerSlotsEntrevista,

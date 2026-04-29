@@ -84,27 +84,33 @@ def split_interview_datetime(value: str | datetime | None) -> tuple[str, str]:
 def build_interview_message(
     *,
     candidate_name: str,
-    process_id: str,
     vacancy_name: str,
     interview_datetime: str | datetime | None,
     scheduling_link: str = "",
+    custom_message: str = "",
 ) -> str:
-    name = normalize_text(candidate_name) or "candidato(a)"
-    process_label = normalize_text(process_id)
-    vacancy_label = normalize_text(vacancy_name) or process_label or "processo seletivo"
+    name = normalize_text(candidate_name)
+    vacancy_label = normalize_text(vacancy_name)
     date_label, time_label = split_interview_datetime(interview_datetime)
     link = normalize_text(scheduling_link)
+    custom_text = normalize_text(custom_message)
+
+    if not name or not vacancy_label or not interview_datetime:
+        return ""
 
     message_lines = [
-        f"Ol\u00e1 {name}, sua entrevista foi agendada para {date_label} \u00e0s {time_label}.",
-        f"Vaga/processo: {vacancy_label}.",
+        (
+            f"Ol\u00e1 {name}! Gostar\u00edamos de convoc\u00e1-lo para o nosso processo seletivo "
+            f"para a vaga de: {vacancy_label} no dia {date_label} \u00e0s {time_label}. "
+            "Nosso endere\u00e7o fica na Rua Victor Civita, 77 - Bloco 1, 3\u00b0 Andar. "
+            "Se precisar de apoio, responda esta mensagem para o time de RH."
+        ),
     ]
-
-    if process_label:
-        message_lines.append(f"Processo: {process_label}.")
 
     if link:
         message_lines.append(f"Link de entrevista: {link}")
 
-    message_lines.append("Se precisar de apoio, responda esta mensagem para o time de RH.")
+    if custom_text:
+        message_lines.append(f"Observa\u00e7\u00e3o do RH: {custom_text}")
+
     return "\n".join(message_lines)

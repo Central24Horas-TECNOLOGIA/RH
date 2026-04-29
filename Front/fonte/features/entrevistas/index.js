@@ -6,6 +6,7 @@ import {
 } from '../../infraestrutura-react.js';
 import {
   atualizarEntrevista,
+  atualizarSlotEntrevista,
   criarSlotsEntrevista,
   lerEntrevistas,
   lerProcessos,
@@ -48,6 +49,7 @@ const STATUS_ENTREVISTA = [
 ];
 
 const STATUS_SLOT_DISPONIVEL = 'Disponivel';
+const STATUS_SLOT_BLOQUEADO = 'Bloqueado';
 
 function hojeIsoLocal() {
   const agora = new Date();
@@ -73,10 +75,19 @@ function formatarHorarioSlot(slot) {
 }
 
 function obterSlotDisponivel(slot) {
-  return (
-    normalizarTexto(slot?.status_slot) === normalizarTexto(STATUS_SLOT_DISPONIVEL) &&
-    !Number(slot?.id_entrevista || 0)
-  );
+  const statusSlot = normalizarTexto(slot?.status_calculado || slot?.status_slot);
+  return statusSlot !== normalizarTexto(STATUS_SLOT_BLOQUEADO) && statusSlot !== 'lotado' && Number(slot?.disponiveis ?? 1) > 0;
+}
+
+function obterClasseStatusSlot(slot) {
+  const statusSlot = normalizarTexto(slot?.status_calculado || slot?.status_slot);
+  if (statusSlot === 'lotado' || statusSlot === 'bloqueado') return 'is-eliminated';
+  if (statusSlot === 'parcialmente ocupado') return 'is-analysis';
+  return 'is-highlight';
+}
+
+function formatarOcupacaoSlot(slot) {
+  return `${Number(slot?.ocupados || 0)}/${Number(slot?.capacidade_total || 1)} ocupados`;
 }
 
 export function TelaEntrevistas({ controlador }) {
@@ -98,12 +109,20 @@ export function TelaEntrevistas({ controlador }) {
     hora_inicio: '09:00',
     hora_fim: '12:00',
     duracao_minutos: 30,
+    capacidade_total: 1,
     observacoes_rh: '',
   });
   const [entrevistaEdicao, setEntrevistaEdicao] = useState(null);
   const [formularioEdicao, setFormularioEdicao] = useState({
     id_slot: '',
     status_entrevista: 'Agendado',
+    observacoes_rh: '',
+    mensagem_personalizada: '',
+  });
+  const [slotEdicao, setSlotEdicao] = useState(null);
+  const [formularioSlotEdicao, setFormularioSlotEdicao] = useState({
+    capacidade_total: 1,
+    status_slot: STATUS_SLOT_DISPONIVEL,
     observacoes_rh: '',
   });
 
@@ -153,6 +172,8 @@ export function TelaEntrevistas({ controlador }) {
       total: entrevistas.length,
       disponiveis: slotsDisponiveis.length,
       ocupados: slots.filter((slot) => normalizarTexto(slot.status_slot) === 'ocupado').length,
+      parcialmenteOcupados: slots.filter((slot) => normalizarTexto(slot.status_calculado || slot.status_slot) === 'parcialmente ocupado').length,
+      lotados: slots.filter((slot) => normalizarTexto(slot.status_calculado || slot.status_slot) === 'lotado').length,
       agendadas: entrevistas.filter(
         (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Agendado',
       ).length,
@@ -175,6 +196,10 @@ export function TelaEntrevistas({ controlador }) {
   const criarDisponibilidade = async () => {
     if (!formularioSlots.data || !formularioSlots.hora_inicio || !formularioSlots.hora_fim) {
       setErro('Informe data, hora inicial e hora final para gerar slots.');
+      return;
+    }
+    if (Number(formularioSlots.capacidade_total || 0) < 1) {
+      setErro('A capacidade por slot deve ser maior que zero.');
       return;
     }
 
@@ -203,6 +228,44 @@ export function TelaEntrevistas({ controlador }) {
     }
   };
 
+  const abrirEdicaoSlot = (slot) => {
+    setSlotEdicao(slot);
+    setFormularioSlotEdicao({
+      capacidade_total: Number(slot.capacidade_total || 1),
+      status_slot: slot.status_calculado === STATUS_SLOT_BLOQUEADO ? STATUS_SLOT_BLOQUEADO : (normalizarTexto(slot.status_slot) === 'bloqueado' ? STATUS_SLOT_BLOQUEADO : STATUS_SLOT_DISPONIVEL),
+      observacoes_rh: slot.observacoes_rh || '',
+    });
+  };
+
+  const salvarSlot = async () => {
+    if (!slotEdicao) return;
+    const capacidade = Number(formularioSlotEdicao.capacidade_total || 0);
+    if (capacidade < 1) {
+      setErro('A capacidade do slot deve ser maior que zero.');
+      return;
+    }
+    if (capacidade < Number(slotEdicao.ocupados || 0)) {
+      setErro('A capacidade nao pode ser menor que a quantidade ja ocupada.');
+      return;
+    }
+
+    setSalvando(true);
+    setErro('');
+    try {
+      await atualizarSlotEntrevista(slotEdicao.id_slot, {
+        capacidade_total: capacidade,
+        status_slot: formularioSlotEdicao.status_slot,
+        observacoes_rh: formularioSlotEdicao.observacoes_rh || '',
+      });
+      setSlotEdicao(null);
+      await carregar();
+    } catch (error) {
+      setErro(error?.message || 'Nao foi possivel atualizar o slot.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const abrirEdicao = (entrevista) => {
     if (isProcessClosed(entrevista?.status_processo)) {
       setErro('O processo seletivo desta entrevista esta encerrado e nao permite atualizacao operacional.');
@@ -214,6 +277,7 @@ export function TelaEntrevistas({ controlador }) {
       id_slot: '',
       status_entrevista: entrevista.status_entrevista || 'Agendado',
       observacoes_rh: entrevista.observacoes_rh || '',
+      mensagem_personalizada: entrevista.mensagem_personalizada || '',
     });
   };
 
@@ -240,6 +304,7 @@ export function TelaEntrevistas({ controlador }) {
       const payload = {
         status_entrevista: formularioEdicao.status_entrevista,
         observacoes_rh: formularioEdicao.observacoes_rh,
+        mensagem_personalizada: formularioEdicao.mensagem_personalizada,
       };
       if (formularioEdicao.id_slot) {
         payload.id_slot = Number(formularioEdicao.id_slot);
@@ -295,7 +360,8 @@ export function TelaEntrevistas({ controlador }) {
           items=${[
             { label: 'Entrevistas', value: resumo.total || 0 },
             { label: 'Slots livres', value: resumo.disponiveis || 0, variant: 'is-highlight' },
-            { label: 'Slots ocupados', value: resumo.ocupados || 0, variant: 'is-analysis' },
+            { label: 'Parciais', value: resumo.parcialmenteOcupados || 0, variant: 'is-analysis' },
+            { label: 'Lotados', value: resumo.lotados || 0, variant: 'is-eliminated' },
             { label: 'Agendado', value: resumo.agendadas || 0, variant: 'is-analysis' },
             { label: 'Confirmado', value: resumo.confirmadas || 0, variant: 'is-highlight' },
             { label: 'Reagendado', value: resumo.reagendadas || 0, variant: 'is-analysis' },
@@ -388,6 +454,22 @@ export function TelaEntrevistas({ controlador }) {
                 setFormularioSlots({
                   ...formularioSlots,
                   duracao_minutos: Number(event.target.value || 30),
+                })}
+            />
+          </div>
+          <div class="rh-filter-field">
+            <label>Capacidade por slot</label>
+            <input
+              class="form-control"
+              type="number"
+              min="1"
+              step="1"
+              value=${formularioSlots.capacidade_total}
+              disabled=${salvando}
+              onInput=${(event) =>
+                setFormularioSlots({
+                  ...formularioSlots,
+                  capacidade_total: Number(event.target.value || 1),
                 })}
             />
           </div>
@@ -504,10 +586,12 @@ export function TelaEntrevistas({ controlador }) {
                       <tr>
                         <th>Horario</th>
                         <th>Processo</th>
+                        <th>Ocupacao</th>
                         <th>Status slot</th>
                         <th>Candidato</th>
                         <th>Status entrevista</th>
                         <th>Observacoes</th>
+                        <th class="text-end">Acoes</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -516,20 +600,26 @@ export function TelaEntrevistas({ controlador }) {
                           <tr key=${slot.id_slot}>
                             <td>${formatarHorarioSlot(slot)}</td>
                             <td>${slot.id_processo || 'Geral'}</td>
+                            <td>${formatarOcupacaoSlot(slot)} | ${Number(slot.disponiveis || 0)} disponiveis</td>
                             <td>
                               <span
-                                class=${`rh-status-pill ${
-                                  obterSlotDisponivel(slot)
-                                    ? 'is-highlight'
-                                    : 'is-analysis'
-                                }`}
+                                class=${`rh-status-pill ${obterClasseStatusSlot(slot)}`}
                               >
-                                ${slot.status_slot || '-'}
+                                ${slot.status_calculado || slot.status_slot || '-'}
                               </span>
                             </td>
-                            <td>${slot.nome_candidato || '-'}</td>
+                            <td>${slot.nome_candidato ? `${slot.nome_candidato}${Number(slot.ocupados || 0) > 1 ? ` (+${Number(slot.ocupados || 0) - 1})` : ''}` : '-'}</td>
                             <td>${slot.status_entrevista || '-'}</td>
                             <td>${slot.observacoes_rh || '-'}</td>
+                            <td class="text-end">
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                onClick=${() => abrirEdicaoSlot(slot)}
+                              >
+                                Editar slot
+                              </button>
+                            </td>
                           </tr>
                         `,
                       )}
@@ -728,14 +818,27 @@ export function TelaEntrevistas({ controlador }) {
                         })}
                     >
                       <option value="">Manter horario atual</option>
-                      ${slotsDisponiveis.map(
+                            ${slotsDisponiveis.map(
                         (slot) => html`
                           <option key=${slot.id_slot} value=${slot.id_slot}>
-                            ${formatarHorarioSlot(slot)} | ${slot.id_processo || 'Geral'}
+                            ${formatarHorarioSlot(slot)} | ${formatarOcupacaoSlot(slot)} | ${slot.id_processo || 'Geral'}
                           </option>
                         `,
                       )}
                     </select>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Mensagem personalizada</label>
+                    <textarea
+                      class="form-control"
+                      rows="3"
+                      value=${formularioEdicao.mensagem_personalizada}
+                      onInput=${(event) =>
+                        setFormularioEdicao({
+                          ...formularioEdicao,
+                          mensagem_personalizada: event.target.value,
+                        })}
+                    ></textarea>
                   </div>
                   <div class="col-md-12">
                     <label class="form-label">Observacoes RH</label>
@@ -771,6 +874,81 @@ export function TelaEntrevistas({ controlador }) {
                     : isProcessClosed(entrevistaEdicao.status_processo)
                       ? 'Processo encerrado'
                       : 'Salvar atualizacao'}
+                </button>
+              </footer>
+            `
+          : null}
+      </${ModalPadrao}>
+
+      <${ModalPadrao}
+        aberto=${!!slotEdicao}
+        titulo="Editar slot"
+        subtitulo="Altere capacidade, status operacional e observacoes do horario."
+        onClose=${() => setSlotEdicao(null)}
+      >
+        ${slotEdicao
+          ? html`
+              <div class="rh-details-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Horario</label>
+                    <input class="form-control" readonly value=${formatarHorarioSlot(slotEdicao)} />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Ocupados</label>
+                    <input class="form-control" readonly value=${Number(slotEdicao.ocupados || 0)} />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Capacidade</label>
+                    <input
+                      class="form-control"
+                      type="number"
+                      min=${Math.max(1, Number(slotEdicao.ocupados || 0))}
+                      step="1"
+                      value=${formularioSlotEdicao.capacidade_total}
+                      onInput=${(event) =>
+                        setFormularioSlotEdicao({
+                          ...formularioSlotEdicao,
+                          capacidade_total: Number(event.target.value || 1),
+                        })}
+                    />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Status</label>
+                    <select
+                      class="form-select"
+                      value=${formularioSlotEdicao.status_slot}
+                      onChange=${(event) =>
+                        setFormularioSlotEdicao({
+                          ...formularioSlotEdicao,
+                          status_slot: event.target.value,
+                        })}
+                    >
+                      <option value=${STATUS_SLOT_DISPONIVEL}>Disponivel</option>
+                      <option value=${STATUS_SLOT_BLOQUEADO}>Bloqueado</option>
+                    </select>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Observacoes</label>
+                    <textarea
+                      class="form-control"
+                      rows="4"
+                      value=${formularioSlotEdicao.observacoes_rh}
+                      onInput=${(event) =>
+                        setFormularioSlotEdicao({
+                          ...formularioSlotEdicao,
+                          observacoes_rh: event.target.value,
+                        })}
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+              <footer class="rh-modal-footer">
+                <button type="button" class="btn btn-outline-secondary" onClick=${() => setSlotEdicao(null)}>
+                  Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${salvarSlot}>
+                  ${salvando ? 'Salvando...' : 'Salvar slot'}
                 </button>
               </footer>
             `

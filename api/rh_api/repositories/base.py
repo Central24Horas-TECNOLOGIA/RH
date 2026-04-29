@@ -290,6 +290,11 @@ class BaseRepository:
             candidate["tags"] = profile.get("tags", [])
             candidate["habilidades"] = profile.get("habilidades", [])
             candidate["observacao_rh"] = profile.get("observacao_rh", "")
+            candidate["nome_candidato"] = (
+                profile.get("nome_candidato", "")
+                or normalize_text(candidate.get("nome_candidato"))
+                or contato_cv.get("nome_candidato", "")
+            )
             candidate["status_candidato"] = candidate_status
             candidate["status_entrevista"] = interview_status
             candidate["status_fluxo"] = get_candidate_visible_status(candidate_status, interview_status)
@@ -299,22 +304,22 @@ class BaseRepository:
             candidate["mensagem_entrevista"] = normalize_text(latest_interview.get("mensagem_base"))
             candidate["id_entrevista"] = latest_interview.get("id_entrevista")
             candidate["email"] = (
-                normalize_text(candidate.get("email"))
-                or profile.get("email", "")
+                profile.get("email", "")
+                or normalize_text(candidate.get("email"))
                 or contato_cv.get("email", "")
             )
             candidate["telefone"] = (
-                normalize_text(candidate.get("telefone"))
-                or profile.get("telefone", "")
+                profile.get("telefone", "")
+                or normalize_text(candidate.get("telefone"))
                 or contato_cv.get("telefone", "")
             )
             candidate["whatsapp"] = (
-                normalize_text(candidate.get("whatsapp"))
-                or profile.get("whatsapp", "")
+                profile.get("whatsapp", "")
+                or normalize_text(candidate.get("whatsapp"))
                 or contato_cv.get("whatsapp", "")
             )
-            candidate["cidade"] = normalize_text(candidate.get("cidade")) or profile.get("cidade", "")
-            candidate["bairro"] = normalize_text(candidate.get("bairro")) or profile.get("bairro", "")
+            candidate["cidade"] = profile.get("cidade", "") or normalize_text(candidate.get("cidade"))
+            candidate["bairro"] = profile.get("bairro", "") or normalize_text(candidate.get("bairro"))
             candidate["cv_disponivel"] = bool(normalize_text(cv_attachment.get("caminho_arquivo")))
             candidate["cv_nome_arquivo"] = normalize_text(cv_attachment.get("nome_arquivo_original"))
             candidate["cv_tipo_arquivo"] = normalize_text(cv_attachment.get("tipo_arquivo"))
@@ -465,6 +470,72 @@ class BaseRepository:
                     merged_neighborhood,
                 ),
             )
+
+    def _sync_candidate_identity_copies(
+        self,
+        cursor,
+        *,
+        id_teste: str,
+        nome_candidato: str = "",
+        email: str | None = None,
+        telefone: str | None = None,
+        whatsapp: str | None = None,
+    ) -> None:
+        safe_id_teste = normalize_text(id_teste)
+        safe_name = normalize_text(nome_candidato)
+        if not safe_id_teste:
+            return
+
+        if safe_name:
+            for table_name in (
+                "candidatos_processos",
+                "banco_talentos",
+                "entrevistas_agendadas",
+                "historico_provas",
+            ):
+                cursor.execute(
+                    f"""
+                    IF OBJECT_ID('dbo.{table_name}', 'U') IS NOT NULL
+                    BEGIN
+                        UPDATE dbo.{table_name}
+                        SET nome_candidato = ?
+                        WHERE id_teste = ?
+                    END
+                    """,
+                    (safe_name, safe_id_teste),
+                )
+
+        if safe_id_teste.startswith("CV-"):
+            id_pre_analise = safe_id_teste[3:]
+            if id_pre_analise.isdigit():
+                update_fields = []
+                params = []
+                if safe_name:
+                    update_fields.append("nome_candidato = ?")
+                    params.append(safe_name)
+                if email is not None:
+                    update_fields.append("email = ?")
+                    params.append(normalize_text(email))
+                if telefone is not None:
+                    update_fields.append("telefone = ?")
+                    params.append(normalize_text(telefone))
+                if whatsapp is not None:
+                    update_fields.append("whatsapp = ?")
+                    params.append(normalize_text(whatsapp))
+
+                if update_fields:
+                    params.append(int(id_pre_analise))
+                    cursor.execute(
+                        f"""
+                        IF OBJECT_ID('dbo.cv_pre_analises', 'U') IS NOT NULL
+                        BEGIN
+                            UPDATE dbo.cv_pre_analises
+                            SET {", ".join(update_fields)}
+                            WHERE id_pre_analise = ?
+                        END
+                        """,
+                        tuple(params),
+                    )
 
     def _hydrate_pipeline_fields(self, cursor, candidates: list[dict]) -> list[dict]:
         mutated = False

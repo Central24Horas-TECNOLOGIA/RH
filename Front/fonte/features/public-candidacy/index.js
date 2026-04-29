@@ -30,6 +30,8 @@ export function TelaCandidaturaPublica() {
     nome_completo: '',
     email: '',
     telefone: '',
+    area_interesse: '',
+    resumo_profissional: '',
     cidade: '',
     bairro: '',
     lgpd_aceito: false,
@@ -59,6 +61,13 @@ export function TelaCandidaturaPublica() {
       try {
         const resposta = await lerPaginaPublicaCandidatura(slug);
         setDados(resposta || null);
+        if (resposta?.vaga) {
+          setFormulario((anterior) => ({
+            ...anterior,
+            area_interesse: resposta.vaga,
+          }));
+          document.title = `Envie seu currículo — Central 24h — Vaga: ${resposta.vaga}`;
+        }
       } catch (error) {
         setDados(null);
         setErro(
@@ -78,10 +87,39 @@ export function TelaCandidaturaPublica() {
     [dados],
   );
 
+  const responsabilidades = useMemo(
+    () => quebrarTextoEmLinhas(dados?.responsabilidades_publicas || ''),
+    [dados],
+  );
+
+  const observacoesRh = useMemo(
+    () => quebrarTextoEmLinhas(dados?.observacoes_publicas_vaga || ''),
+    [dados],
+  );
+
   const descricaoLinhas = useMemo(
     () => quebrarTextoEmLinhas(dados?.descricao_publica || ''),
     [dados],
   );
+
+  const tituloPagina = `Envie seu currículo — Central 24h — Vaga: ${
+    dados?.vaga || 'Carregando vaga'
+  }`;
+
+  const validarArquivoCurriculo = (arquivo) => {
+    if (!arquivo) return 'Anexe o curriculo antes de enviar a candidatura.';
+
+    const extensao = `.${String(arquivo.name || '').split('.').pop() || ''}`.toLowerCase();
+    if (!['.pdf', '.doc', '.docx'].includes(extensao)) {
+      return 'Envie um curriculo em PDF, DOC ou DOCX.';
+    }
+
+    if (arquivo.size > 5 * 1024 * 1024) {
+      return 'O curriculo excede o limite de 5 MB permitido.';
+    }
+
+    return '';
+  };
 
   const atualizarCampo = (campo, valor) =>
     setFormulario((anterior) => ({
@@ -93,8 +131,9 @@ export function TelaCandidaturaPublica() {
     event?.preventDefault?.();
     if (!slug || !dados?.disponivel) return;
 
-    if (!formulario.curriculo) {
-      setErro('Anexe o curriculo antes de enviar a candidatura.');
+    const erroArquivo = validarArquivoCurriculo(formulario.curriculo);
+    if (erroArquivo) {
+      setErro(erroArquivo);
       return;
     }
 
@@ -106,6 +145,8 @@ export function TelaCandidaturaPublica() {
       formData.append('nome_completo', formulario.nome_completo);
       formData.append('email', formulario.email);
       formData.append('telefone', formulario.telefone);
+      formData.append('area_interesse', formulario.area_interesse || dados?.vaga || '');
+      formData.append('resumo_profissional', formulario.resumo_profissional);
       formData.append('cidade', formulario.cidade);
       formData.append('bairro', formulario.bairro);
       formData.append('lgpd_aceito', formulario.lgpd_aceito ? '1' : '0');
@@ -120,6 +161,8 @@ export function TelaCandidaturaPublica() {
         nome_completo: '',
         email: '',
         telefone: '',
+        area_interesse: dados?.vaga || '',
+        resumo_profissional: '',
         cidade: '',
         bairro: '',
         lgpd_aceito: false,
@@ -142,44 +185,21 @@ export function TelaCandidaturaPublica() {
   return html`
     <section class="active screen" id="screen-public-candidacy">
       <div class="rh-public-application-shell">
-        <aside class="rh-public-application-hero">
+        <header class="rh-public-application-header">
           <div class="rh-public-application-brand">
             <img
-              alt="Conecta C24h"
+              alt="Central 24h"
               class="rh-public-application-logo"
-              src="estilos/logo-conecta-c24h.png"
+              src="estilos/logo_conecta_padrao.png"
             />
-            <span class="rh-public-application-badge">
-              Candidatura publica
-            </span>
           </div>
-
-          <div>
-            <h1 class="rh-public-application-title">
-              ${dados?.vaga || 'Candidatura Conecta C24h'}
-            </h1>
-            <p class="rh-public-application-text">
-              Candidate-se a esta oportunidade em poucos minutos. Seus dados
-              serao usados exclusivamente para este processo seletivo.
-            </p>
-          </div>
-
-          <div class="rh-public-application-points">
-            <span>Formulario responsivo</span>
-            <span>Upload seguro do curriculo</span>
-            <span>Retorno pelo RH</span>
-          </div>
-        </aside>
+        </header>
 
         <main class="rh-public-application-main">
-          <article class="rh-public-card">
-            <div class="rh-public-card-header">
-              <div>
-                <p class="rh-modern-kicker">Vaga</p>
-                <h2 class="rh-public-card-title">
-                  ${dados?.vaga || 'Carregando vaga'}
-                </h2>
-              </div>
+          <section class="rh-public-application-info">
+            <div class="rh-public-application-title-row">
+              <p class="rh-modern-kicker">Candidatura publica</p>
+              <h1 class="rh-public-application-title">${tituloPagina}</h1>
               ${dados
                 ? html`
                     <span
@@ -218,8 +238,15 @@ export function TelaCandidaturaPublica() {
                             `}
                       </section>
 
+                      <section class="rh-public-privacy-card">
+                        <h3 class="rh-public-copy-title">Privacidade garantida</h3>
+                        <p class="rh-public-copy-text">
+                          Seus dados pessoais e profissionais serão utilizados exclusivamente para fins de recrutamento e seleção, seguindo as diretrizes da LGPD.
+                        </p>
+                      </section>
+
                       <section>
-                        <h3 class="rh-public-copy-title">Requisitos</h3>
+                        <h3 class="rh-public-copy-title">Requisitos da vaga</h3>
                         ${requisitos.length
                           ? html`
                               <ul class="rh-public-copy-list">
@@ -236,15 +263,49 @@ export function TelaCandidaturaPublica() {
                               </p>
                             `}
                       </section>
+
+                      <section>
+                        <h3 class="rh-public-copy-title">Responsabilidades da vaga</h3>
+                        ${responsabilidades.length
+                          ? html`
+                              <ul class="rh-public-copy-list">
+                                ${responsabilidades.map(
+                                  (item, indice) => html`
+                                    <li key=${indice}>${item}</li>
+                                  `,
+                                )}
+                              </ul>
+                            `
+                          : html`
+                              <p class="rh-public-copy-text">
+                                As responsabilidades serao detalhadas pelo RH durante o processo.
+                              </p>
+                            `}
+                      </section>
+
+                      ${observacoesRh.length
+                        ? html`
+                            <section>
+                              <h3 class="rh-public-copy-title">Observações específicas do RH</h3>
+                              <ul class="rh-public-copy-list">
+                                ${observacoesRh.map(
+                                  (item, indice) => html`
+                                    <li key=${indice}>${item}</li>
+                                  `,
+                                )}
+                              </ul>
+                            </section>
+                          `
+                        : null}
                     </div>
                   `}
-          </article>
+          </section>
 
           <article class="rh-public-card">
             <div class="rh-public-card-header">
               <div>
                 <p class="rh-modern-kicker">Formulario</p>
-                <h2 class="rh-public-card-title">Envie sua candidatura</h2>
+                <h2 class="rh-public-card-title">Enviar candidatura</h2>
               </div>
             </div>
 
@@ -283,7 +344,19 @@ export function TelaCandidaturaPublica() {
                         </div>
 
                         <div class="col-md-6">
-                          <label class="form-label">Telefone / WhatsApp</label>
+                          <label class="form-label">E-mail</label>
+                          <input
+                            class="form-control"
+                            type="email"
+                            required
+                            value=${formulario.email}
+                            onInput=${(event) =>
+                              atualizarCampo('email', event.target.value)}
+                          />
+                        </div>
+
+                        <div class="col-md-6">
+                          <label class="form-label">Telefone</label>
                           <input
                             class="form-control"
                             required
@@ -293,15 +366,13 @@ export function TelaCandidaturaPublica() {
                           />
                         </div>
 
-                        <div class="col-md-6">
-                          <label class="form-label">E-mail</label>
+                        <div class="col-md-12">
+                          <label class="form-label">Area de interesse</label>
                           <input
                             class="form-control"
-                            type="email"
-                            required
-                            value=${formulario.email}
+                            value=${formulario.area_interesse || dados?.vaga || ''}
                             onInput=${(event) =>
-                              atualizarCampo('email', event.target.value)}
+                              atualizarCampo('area_interesse', event.target.value)}
                           />
                         </div>
 
@@ -328,19 +399,36 @@ export function TelaCandidaturaPublica() {
                         </div>
 
                         <div class="col-md-12">
-                          <label class="form-label">Curriculo</label>
-                          <input
-                            id="candidatura-curriculo"
+                          <label class="form-label">Breve resumo profissional</label>
+                          <textarea
                             class="form-control"
-                            type="file"
-                            accept=".pdf,.doc,.docx"
-                            required
-                            onChange=${(event) =>
+                            rows="4"
+                            value=${formulario.resumo_profissional}
+                            onInput=${(event) =>
                               atualizarCampo(
-                                'curriculo',
-                                event.target.files?.[0] || null,
+                                'resumo_profissional',
+                                event.target.value,
                               )}
-                          />
+                          ></textarea>
+                        </div>
+
+                        <div class="col-md-12">
+                          <label class="form-label">Curriculo</label>
+                          <div class="rh-public-upload-box">
+                            <input
+                              id="candidatura-curriculo"
+                              class="form-control"
+                              type="file"
+                              accept=".pdf,.doc,.docx"
+                              required
+                              onChange=${(event) => {
+                                const arquivo = event.target.files?.[0] || null;
+                                const mensagem = validarArquivoCurriculo(arquivo);
+                                atualizarCampo('curriculo', arquivo);
+                                setErro(mensagem);
+                              }}
+                            />
+                          </div>
                           <div class="form-text">
                             Formatos aceitos: PDF, DOC ou DOCX. Tamanho maximo: 5 MB.
                           </div>

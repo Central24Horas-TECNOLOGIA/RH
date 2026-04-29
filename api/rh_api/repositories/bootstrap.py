@@ -144,6 +144,24 @@ def ensure_process_columns(cursor) -> None:
         END
         """
     )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'responsabilidades_publicas') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD responsabilidades_publicas NVARCHAR(MAX) NULL
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'observacoes_publicas_vaga') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD observacoes_publicas_vaga NVARCHAR(MAX) NULL
+        END
+        """
+    )
 
 
 def ensure_candidate_metadata_table(cursor) -> None:
@@ -243,6 +261,15 @@ def ensure_interviews_table(cursor) -> None:
         END
         """
     )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.entrevistas_agendadas', 'mensagem_personalizada') IS NULL
+        BEGIN
+            ALTER TABLE dbo.entrevistas_agendadas
+            ADD mensagem_personalizada NVARCHAR(MAX) NULL
+        END
+        """
+    )
 
 
 def ensure_interview_slots_table(cursor) -> None:
@@ -256,6 +283,7 @@ def ensure_interview_slots_table(cursor) -> None:
                 id_processo_ref NVARCHAR(255) NULL,
                 inicio DATETIME NOT NULL,
                 fim DATETIME NOT NULL,
+                capacidade_total INT NOT NULL DEFAULT 1,
                 status_slot NVARCHAR(30) NOT NULL DEFAULT 'Disponivel',
                 id_entrevista INT NULL,
                 observacoes_rh NVARCHAR(MAX) NULL,
@@ -263,6 +291,22 @@ def ensure_interview_slots_table(cursor) -> None:
                 atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
             )
         END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.entrevista_slots', 'capacidade_total') IS NULL
+        BEGIN
+            ALTER TABLE dbo.entrevista_slots
+            ADD capacidade_total INT NOT NULL CONSTRAINT DF_entrevista_slots_capacidade_total DEFAULT 1
+        END
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.entrevista_slots
+        SET capacidade_total = 1
+        WHERE capacidade_total IS NULL OR capacidade_total < 1
         """
     )
 
@@ -580,7 +624,9 @@ def _select_process_query() -> str:
             link_publico_criado_em,
             link_publico_desativado_em,
             descricao_publica,
-            requisitos_publicos
+            requisitos_publicos,
+            responsabilidades_publicas,
+            observacoes_publicas_vaga
         FROM processos_seletivos
     """
 

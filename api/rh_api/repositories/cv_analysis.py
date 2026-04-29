@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import math
 from datetime import datetime
 
 from fastapi import HTTPException, UploadFile, status
 
 from ..services.cv import (
+    CvTextExtractionError,
     extract_candidate_name,
     extract_education_strength,
     extract_email,
@@ -16,6 +18,8 @@ from ..services.cv import (
     extract_phone,
     extract_text_from_uploaded_file,
     extract_whatsapp,
+    is_valid_email,
+    is_valid_phone,
     normalize_cv_text,
     score_cv_for_role,
     serialize_cv_problems,
@@ -30,6 +34,8 @@ from .bootstrap import (
     get_process_row,
     resolve_process_row_for_related_record,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CvAnalysisRepositoryMixin:
@@ -112,12 +118,28 @@ class CvAnalysisRepositoryMixin:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
 
             content = await arquivo.read()
-            texto_extraido = extract_text_from_uploaded_file(arquivo.filename, content)
+            try:
+                texto_extraido = extract_text_from_uploaded_file(
+                    arquivo.filename,
+                    content,
+                    arquivo.content_type or "",
+                )
+            except CvTextExtractionError as exc:
+                logger.warning(
+                    "Falha ao extrair texto do CV: arquivo=%s mime=%s detalhe=%s",
+                    arquivo.filename,
+                    arquivo.content_type or "",
+                    exc.technical_message,
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=exc.user_message,
+                ) from exc
             texto_normalizado = normalize_cv_text(texto_extraido)
             if not texto_normalizado:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Nao foi possivel extrair texto do CV. Para PDF, verifique se o arquivo possui texto selecionavel. Para DOCX, confirme se a biblioteca python-docx esta instalada.",
+                    detail="Arquivo vazio ou corrompido.",
                 )
 
             nome_candidato = extract_candidate_name(texto_normalizado)
@@ -271,7 +293,7 @@ class CvAnalysisRepositoryMixin:
             ensure_process_reference_columns(cursor)
             cursor.execute(
                 """
-                SELECT id_processo, id_processo_ref, email, criado_em
+                SELECT id_processo, id_processo_ref, nome_candidato, email, telefone, whatsapp, criado_em
                 FROM cv_pre_analises
                 WHERE id_pre_analise = ?
                 """,
@@ -290,7 +312,21 @@ class CvAnalysisRepositoryMixin:
             )
             if not processo:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado para a pre-analise.")
-            novo_email = normalize_text(data.get("email"))
+            novo_nome = normalize_text(data.get("nome_candidato"))
+            if not novo_nome:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe o nome do candidato.")
+
+            novo_email = normalize_text(data.get("email")) or normalize_text(row.get("email"))
+            if novo_email and not is_valid_email(novo_email):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail valido.")
+
+            novo_telefone = normalize_text(data.get("telefone")) or normalize_text(row.get("telefone"))
+            novo_whatsapp = normalize_text(data.get("whatsapp")) or normalize_text(row.get("whatsapp"))
+            if novo_telefone and not is_valid_phone(novo_telefone):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone valido.")
+            if novo_whatsapp and not is_valid_phone(novo_whatsapp):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um WhatsApp valido.")
+
             if novo_email:
                 cursor.execute(
                     """
@@ -315,15 +351,41 @@ class CvAnalysisRepositoryMixin:
                 WHERE id_pre_analise = ?
                 """,
                 (
-                    data.get("nome_candidato", ""),
+                    novo_nome,
                     novo_email,
-                    data.get("telefone", ""),
-                    data.get("whatsapp", ""),
+                    novo_telefone,
+                    novo_whatsapp,
                     id_pre_analise,
                 ),
             )
+            id_teste = f"CV-{id_pre_analise}"
+            self._upsert_candidate_profile(
+                cursor,
+                id_teste=id_teste,
+                nome_candidato=novo_nome,
+                email=novo_email,
+                telefone=novo_telefone,
+                whatsapp=novo_whatsapp,
+            )
+            self._sync_candidate_identity_copies(
+                cursor,
+                id_teste=id_teste,
+                nome_candidato=novo_nome,
+                email=novo_email,
+                telefone=novo_telefone,
+                whatsapp=novo_whatsapp,
+            )
             conn.commit()
-            return {"success": True}
+            return {
+                "success": True,
+                "candidato": {
+                    "id_teste": id_teste,
+                    "nome_candidato": novo_nome,
+                    "email": novo_email,
+                    "telefone": novo_telefone,
+                    "whatsapp": novo_whatsapp,
+                },
+            }
         finally:
             conn.close()
 

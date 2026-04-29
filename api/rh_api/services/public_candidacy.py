@@ -11,6 +11,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 from fastapi import HTTPException, status
 
 from .helpers import normalize_text
+from .public_job_texts import get_default_public_job_texts
 
 
 PUBLIC_CANDIDACY_ROUTE = "candidatar"
@@ -122,17 +123,7 @@ def resolve_public_process_description(processo: dict | None) -> str:
     if descricao_publica:
         return descricao_publica
 
-    vaga = normalize_text(safe_process.get("vaga")) or "Vaga"
-    operacao = normalize_text(safe_process.get("operacao"))
-    trilha = normalize_text(safe_process.get("trilha"))
-
-    partes = [f"Processo seletivo aberto para {vaga}."]
-    if operacao:
-        partes.append(f"Operacao: {operacao}.")
-    if trilha:
-        partes.append(f"Trilha: {trilha}.")
-    partes.append("Preencha seus dados e envie o curriculo para avaliacao do RH.")
-    return " ".join(partes)
+    return get_default_public_job_texts(safe_process)["descricao"]
 
 
 def resolve_public_process_requirements(processo: dict | None) -> str:
@@ -141,10 +132,16 @@ def resolve_public_process_requirements(processo: dict | None) -> str:
     if requisitos_publicos:
         return requisitos_publicos
 
-    vaga = normalize_text(safe_process.get("vaga"))
-    if vaga:
-        return f"Requisitos especificos desta vaga podem ser detalhados pelo RH durante as proximas etapas para {vaga}."
-    return ""
+    return "\n".join(get_default_public_job_texts(safe_process)["requisitos"])
+
+
+def resolve_public_process_responsibilities(processo: dict | None) -> str:
+    safe_process = processo or {}
+    responsabilidades_publicas = normalize_text(safe_process.get("responsabilidades_publicas"))
+    if responsabilidades_publicas:
+        return responsabilidades_publicas
+
+    return "\n".join(get_default_public_job_texts(safe_process)["responsabilidades"])
 
 
 def validate_public_cv_upload(

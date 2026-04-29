@@ -39,6 +39,20 @@ export async function criarSlotsEntrevista(payload) {
   return resultado;
 }
 
+export async function atualizarSlotEntrevista(idSlot, payload) {
+  const resultado = await requisitar(
+    `/interview-slots/${encodeURIComponent(idSlot)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos');
+  return resultado;
+}
+
 export async function agendarEntrevista(payload) {
   const resultado = await requisitar('/interviews', {
     method: 'POST',

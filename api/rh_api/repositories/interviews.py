@@ -31,8 +31,14 @@ from .bootstrap import (
 logger = logging.getLogger(__name__)
 
 SLOT_STATUS_AVAILABLE = "Disponivel"
-SLOT_STATUS_OCCUPIED = "Ocupado"
+SLOT_STATUS_PARTIAL = "Parcialmente ocupado"
+SLOT_STATUS_FULL = "Lotado"
 SLOT_STATUS_BLOCKED = "Bloqueado"
+OCCUPYING_INTERVIEW_STATUSES = (
+    CANDIDATE_STATUS_SCHEDULED,
+    CANDIDATE_STATUS_CONFIRMED,
+    CANDIDATE_STATUS_RESCHEDULED,
+)
 
 
 class InterviewRepositoryMixin:
@@ -50,11 +56,65 @@ class InterviewRepositoryMixin:
 
     def _normalize_slot_status(self, value: str | None) -> str:
         safe_value = normalize_compare_text(value)
-        if safe_value == "ocupado":
-            return SLOT_STATUS_OCCUPIED
+        if safe_value in {"ocupado", "parcialmente ocupado"}:
+            return SLOT_STATUS_PARTIAL
+        if safe_value == "lotado":
+            return SLOT_STATUS_FULL
         if safe_value == "bloqueado":
             return SLOT_STATUS_BLOCKED
         return SLOT_STATUS_AVAILABLE
+
+    def _calculate_slot_status(self, status_slot: str | None, capacidade_total: int, ocupados: int) -> str:
+        if self._normalize_slot_status(status_slot) == SLOT_STATUS_BLOCKED:
+            return SLOT_STATUS_BLOCKED
+
+        capacity = max(1, int(capacidade_total or 1))
+        occupied = max(0, int(ocupados or 0))
+        if occupied <= 0:
+            return SLOT_STATUS_AVAILABLE
+        if occupied >= capacity:
+            return SLOT_STATUS_FULL
+        return SLOT_STATUS_PARTIAL
+
+    def _count_slot_occupancy(self, cursor, id_slot: int, *, current_interview_id: int | None = None) -> int:
+        cursor.execute(
+            """
+            SELECT COUNT(1)
+            FROM entrevistas_agendadas
+            WHERE id_slot = ?
+              AND id_entrevista <> ?
+              AND status_entrevista IN (?, ?, ?)
+            """,
+            (
+                int(id_slot or 0),
+                int(current_interview_id or 0),
+                *OCCUPYING_INTERVIEW_STATUSES,
+            ),
+        )
+        return int(cursor.fetchone()[0] or 0)
+
+    def _refresh_slot_status(self, cursor, id_slot: int | None) -> None:
+        if not int(id_slot or 0):
+            return
+
+        slot = self._select_slot_for_update(cursor, int(id_slot))
+        if self._normalize_slot_status(slot.get("status_slot")) == SLOT_STATUS_BLOCKED:
+            return
+
+        occupied = self._count_slot_occupancy(cursor, int(id_slot))
+        calculated_status = self._calculate_slot_status(
+            slot.get("status_slot"),
+            slot.get("capacidade_total"),
+            occupied,
+        )
+        cursor.execute(
+            """
+            UPDATE entrevista_slots
+            SET status_slot = ?, id_entrevista = NULL, atualizado_em = GETDATE()
+            WHERE id_slot = ?
+            """,
+            (calculated_status, int(id_slot)),
+        )
 
     def _select_slot_for_update(self, cursor, id_slot: int) -> dict:
         cursor.execute(
@@ -66,6 +126,7 @@ class InterviewRepositoryMixin:
                 inicio,
                 fim,
                 status_slot,
+                capacidade_total,
                 id_entrevista,
                 observacoes_rh
             FROM entrevista_slots WITH (UPDLOCK, ROWLOCK)
@@ -78,13 +139,18 @@ class InterviewRepositoryMixin:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Horario de entrevista nao encontrado.")
         return rows[0]
 
-    def _assert_slot_available(self, slot: dict, *, current_interview_id: int | None = None) -> None:
-        linked_interview_id = int(slot.get("id_entrevista") or 0)
-        if linked_interview_id and linked_interview_id != int(current_interview_id or 0):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este horario ja esta ocupado por outro candidato.")
-
-        if self._normalize_slot_status(slot.get("status_slot")) != SLOT_STATUS_AVAILABLE and linked_interview_id != int(current_interview_id or 0):
+    def _assert_slot_available(self, cursor, slot: dict, *, current_interview_id: int | None = None) -> None:
+        if self._normalize_slot_status(slot.get("status_slot")) == SLOT_STATUS_BLOCKED:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este horario nao esta disponivel para agendamento.")
+
+        occupied = self._count_slot_occupancy(
+            cursor,
+            int(slot.get("id_slot") or 0),
+            current_interview_id=current_interview_id,
+        )
+        capacity = max(1, int(slot.get("capacidade_total") or 1))
+        if occupied >= capacity:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este horario esta lotado.")
 
     def _assert_slot_matches_process(self, slot: dict, process_row: dict) -> None:
         slot_process_ref = normalize_text(slot.get("id_processo_ref"))
@@ -104,11 +170,12 @@ class InterviewRepositoryMixin:
         cursor.execute(
             """
             UPDATE entrevista_slots
-            SET status_slot = ?, id_entrevista = NULL, atualizado_em = GETDATE()
+            SET id_entrevista = NULL, atualizado_em = GETDATE()
             WHERE id_slot = ? AND (id_entrevista = ? OR id_entrevista IS NULL)
             """,
-            (SLOT_STATUS_AVAILABLE, int(id_slot), int(id_entrevista or 0)),
+            (int(id_slot), int(id_entrevista or 0)),
         )
+        self._refresh_slot_status(cursor, int(id_slot))
 
     def _occupy_slot(self, cursor, id_slot: int | None, id_entrevista: int) -> None:
         if not int(id_slot or 0):
@@ -117,11 +184,12 @@ class InterviewRepositoryMixin:
         cursor.execute(
             """
             UPDATE entrevista_slots
-            SET status_slot = ?, id_entrevista = ?, atualizado_em = GETDATE()
+            SET id_entrevista = ?, atualizado_em = GETDATE()
             WHERE id_slot = ?
             """,
-            (SLOT_STATUS_OCCUPIED, int(id_entrevista), int(id_slot)),
+            (int(id_entrevista), int(id_slot)),
         )
+        self._refresh_slot_status(cursor, int(id_slot))
 
     def _assert_datetime_without_conflict(
         self,
@@ -174,20 +242,44 @@ class InterviewRepositoryMixin:
                         s.id_processo_ref,
                         s.inicio,
                         s.fim,
+                        s.capacidade_total,
                         s.status_slot,
                         s.id_entrevista,
                         s.observacoes_rh,
                         s.criado_em,
                         s.atualizado_em,
+                        ISNULL(o.ocupados, 0) AS ocupados,
+                        CASE
+                            WHEN ISNULL(s.capacidade_total, 1) - ISNULL(o.ocupados, 0) < 0 THEN 0
+                            ELSE ISNULL(s.capacidade_total, 1) - ISNULL(o.ocupados, 0)
+                        END AS disponiveis,
                         e.id_registro,
                         e.id_teste,
                         e.nome_candidato,
                         e.vaga,
                         e.status_entrevista
                     FROM entrevista_slots s
-                    LEFT JOIN entrevistas_agendadas e ON e.id_entrevista = s.id_entrevista
+                    OUTER APPLY (
+                        SELECT COUNT(1) AS ocupados
+                        FROM entrevistas_agendadas ea
+                        WHERE ea.id_slot = s.id_slot
+                          AND ea.status_entrevista IN (?, ?, ?)
+                    ) o
+                    OUTER APPLY (
+                        SELECT TOP 1
+                            ea.id_registro,
+                            ea.id_teste,
+                            ea.nome_candidato,
+                            ea.vaga,
+                            ea.status_entrevista
+                        FROM entrevistas_agendadas ea
+                        WHERE ea.id_slot = s.id_slot
+                          AND ea.status_entrevista IN (?, ?, ?)
+                        ORDER BY ea.data_entrevista ASC, ea.id_entrevista ASC
+                    ) e
                     ORDER BY s.inicio ASC, s.id_slot ASC
-                    """
+                    """,
+                    (*OCCUPYING_INTERVIEW_STATUSES, *OCCUPYING_INTERVIEW_STATUSES),
                 )
                 rows = rows_to_dicts(cursor, cursor.fetchall())
                 rows = self._attach_process_context(
@@ -207,7 +299,19 @@ class InterviewRepositoryMixin:
                         if process_value and process_filter not in normalize_compare_text(process_value):
                             continue
 
-                    if status_filter and status_filter != normalize_compare_text(item.get("status_slot")):
+                    calculated_status = self._calculate_slot_status(
+                        item.get("status_slot"),
+                        item.get("capacidade_total"),
+                        item.get("ocupados"),
+                    )
+                    item["capacidade_total"] = max(1, int(item.get("capacidade_total") or 1))
+                    item["ocupados"] = max(0, int(item.get("ocupados") or 0))
+                    item["disponiveis"] = max(0, int(item.get("disponiveis") or 0))
+                    item["status_calculado"] = calculated_status
+                    if self._normalize_slot_status(item.get("status_slot")) != SLOT_STATUS_BLOCKED:
+                        item["status_slot"] = calculated_status
+
+                    if status_filter and status_filter != normalize_compare_text(calculated_status):
                         continue
 
                     if date_filter:
@@ -254,9 +358,12 @@ class InterviewRepositoryMixin:
                 start = self._parse_slot_datetime(data.get("data"), data.get("hora_inicio"))
                 end = self._parse_slot_datetime(data.get("data"), data.get("hora_fim"))
                 duration = int(data.get("duracao_minutos") or 30)
+                capacity = int(data.get("capacidade_total") or 1)
 
                 if end <= start:
                     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A hora final deve ser maior que a hora inicial.")
+                if capacity < 1:
+                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A capacidade do slot deve ser maior que zero.")
 
                 created = 0
                 skipped = 0
@@ -283,16 +390,18 @@ class InterviewRepositoryMixin:
                                 id_processo_ref,
                                 inicio,
                                 fim,
+                                capacidade_total,
                                 status_slot,
                                 observacoes_rh
                             )
-                            VALUES (?, ?, ?, ?, ?, ?)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
                             """,
                             (
                                 process_row.get("id_processo", "") if process_row else "",
                                 process_row.get("id_processo_ref", "") if process_row else "",
                                 current,
                                 slot_end,
+                                capacity,
                                 SLOT_STATUS_AVAILABLE,
                                 normalize_text(data.get("observacoes_rh")),
                             ),
@@ -310,6 +419,73 @@ class InterviewRepositoryMixin:
             operation,
             retries=1,
             final_message="Nao foi possivel criar os horarios agora por conta de concorrencia no banco. Tente novamente em instantes.",
+        )
+
+    def update_interview_slot(self, id_slot: int, data: dict) -> dict:
+        def operation() -> dict:
+            conn = self._connect()
+            try:
+                cursor = conn.cursor()
+                ensure_interviews_table(cursor)
+                ensure_interview_slots_table(cursor)
+
+                slot = self._select_slot_for_update(cursor, id_slot)
+                occupied = self._count_slot_occupancy(cursor, id_slot)
+
+                new_capacity = (
+                    int(data.get("capacidade_total"))
+                    if "capacidade_total" in data
+                    else int(slot.get("capacidade_total") or 1)
+                )
+                if new_capacity < 1:
+                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A capacidade do slot deve ser maior que zero.")
+                if new_capacity < occupied:
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A capacidade nao pode ser menor que a quantidade ja ocupada.")
+
+                new_status = (
+                    self._normalize_slot_status(data.get("status_slot"))
+                    if "status_slot" in data
+                    else self._normalize_slot_status(slot.get("status_slot"))
+                )
+                if new_status not in {SLOT_STATUS_AVAILABLE, SLOT_STATUS_BLOCKED}:
+                    new_status = SLOT_STATUS_AVAILABLE
+
+                new_notes = (
+                    normalize_text(data.get("observacoes_rh"))
+                    if "observacoes_rh" in data
+                    else normalize_text(slot.get("observacoes_rh"))
+                )
+
+                cursor.execute(
+                    """
+                    UPDATE entrevista_slots
+                    SET
+                        capacidade_total = ?,
+                        status_slot = ?,
+                        observacoes_rh = ?,
+                        atualizado_em = GETDATE()
+                    WHERE id_slot = ?
+                    """,
+                    (new_capacity, new_status, new_notes, id_slot),
+                )
+                self._refresh_slot_status(cursor, id_slot)
+                conn.commit()
+                return {
+                    "success": True,
+                    "id_slot": id_slot,
+                    "capacidade_total": new_capacity,
+                    "ocupados": occupied,
+                    "disponiveis": max(0, new_capacity - occupied),
+                    "status_calculado": self._calculate_slot_status(new_status, new_capacity, occupied),
+                }
+            finally:
+                conn.close()
+
+        return self._run_with_deadlock_retry(
+            f"atualizar slot de entrevista {id_slot}",
+            operation,
+            retries=1,
+            final_message="Nao foi possivel atualizar o horario agora por conta de concorrencia no banco. Tente novamente em instantes.",
         )
 
     def list_interviews(
@@ -342,11 +518,13 @@ class InterviewRepositoryMixin:
                         e.link_agendamento,
                         e.observacoes_rh,
                         e.mensagem_base,
+                        e.mensagem_personalizada,
                         e.criado_em,
                         e.atualizado_em,
                         s.inicio AS slot_inicio,
                         s.fim AS slot_fim,
-                        s.status_slot
+                        s.status_slot,
+                        s.capacidade_total AS slot_capacidade_total
                     FROM entrevistas_agendadas e
                     LEFT JOIN entrevista_slots s ON s.id_slot = e.id_slot
                     ORDER BY CASE WHEN e.data_entrevista IS NULL THEN 1 ELSE 0 END, e.data_entrevista ASC, e.id_entrevista DESC
@@ -464,23 +642,45 @@ class InterviewRepositoryMixin:
                 id_slot = int(data.get("id_slot") or 0)
                 slot_row = self._select_slot_for_update(cursor, id_slot) if id_slot else None
                 if slot_row:
-                    self._assert_slot_available(slot_row)
+                    self._assert_slot_available(cursor, slot_row)
                     self._assert_slot_matches_process(slot_row, process_row)
                     interview_date = slot_row.get("inicio")
                 else:
                     interview_date = data.get("data_entrevista") or datetime.now()
                     self._assert_datetime_without_conflict(cursor, interview_date)
 
+                cursor.execute(
+                    """
+                    SELECT COUNT(1)
+                    FROM entrevistas_agendadas
+                    WHERE id_registro = ?
+                      AND id_processo_ref = ?
+                      AND id_slot = ?
+                      AND status_entrevista IN (?, ?, ?)
+                    """,
+                    (
+                        int(candidate_row.get("id_registro") or 0),
+                        process_row.get("id_processo_ref", ""),
+                        id_slot or 0,
+                        *OCCUPYING_INTERVIEW_STATUSES,
+                    ),
+                )
+                if int(cursor.fetchone()[0] or 0):
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este candidato ja esta agendado neste slot para este processo.")
+
                 link_agendamento = normalize_text(data.get("link_agendamento"))
                 interview_status = normalize_interview_status(data.get("status_entrevista"))
                 observacoes_rh = normalize_text(data.get("observacoes_rh"))
+                mensagem_personalizada = normalize_text(data.get("mensagem_personalizada"))
                 mensagem_base = build_interview_message(
                     candidate_name=candidate_row.get("nome_candidato"),
-                    process_id=process_row.get("id_processo"),
                     vacancy_name=candidate_row.get("vaga") or process_row.get("vaga", ""),
                     interview_datetime=interview_date,
                     scheduling_link=link_agendamento,
+                    custom_message=mensagem_personalizada,
                 )
+                if not mensagem_base:
+                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Nao foi possivel gerar a mensagem: confirme nome, vaga, data e horario.")
 
                 cursor.execute(
                     """
@@ -498,10 +698,11 @@ class InterviewRepositoryMixin:
                         link_agendamento,
                         observacoes_rh,
                         mensagem_base,
+                        mensagem_personalizada,
                         atualizado_em
                     )
                     OUTPUT INSERTED.id_entrevista
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
                     """,
                     (
                         id_slot or None,
@@ -516,6 +717,7 @@ class InterviewRepositoryMixin:
                         link_agendamento,
                         observacoes_rh,
                         mensagem_base,
+                        mensagem_personalizada,
                     ),
                 )
                 id_entrevista = int(cursor.fetchone()[0])
@@ -587,6 +789,7 @@ class InterviewRepositoryMixin:
                         status_entrevista,
                         link_agendamento,
                         observacoes_rh,
+                        mensagem_personalizada,
                         criado_em,
                         atualizado_em
                     FROM entrevistas_agendadas
@@ -620,12 +823,32 @@ class InterviewRepositoryMixin:
 
                 if slot_changed and new_slot_id:
                     slot_row = self._select_slot_for_update(cursor, new_slot_id)
-                    self._assert_slot_available(slot_row, current_interview_id=id_entrevista)
+                    self._assert_slot_available(cursor, slot_row, current_interview_id=id_entrevista)
                     self._assert_slot_matches_process(slot_row, process_row)
                     interview_date = slot_row.get("inicio")
                     interview_status = normalize_interview_status(
                         data.get("status_entrevista") or CANDIDATE_STATUS_RESCHEDULED,
                     )
+                    cursor.execute(
+                        """
+                        SELECT COUNT(1)
+                        FROM entrevistas_agendadas
+                        WHERE id_registro = ?
+                          AND id_processo_ref = ?
+                          AND id_slot = ?
+                          AND id_entrevista <> ?
+                          AND status_entrevista IN (?, ?, ?)
+                        """,
+                        (
+                            int(current.get("id_registro") or 0),
+                            process_row.get("id_processo_ref", "") or current.get("id_processo_ref", ""),
+                            new_slot_id,
+                            id_entrevista,
+                            *OCCUPYING_INTERVIEW_STATUSES,
+                        ),
+                    )
+                    if int(cursor.fetchone()[0] or 0):
+                        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este candidato ja esta agendado neste slot para este processo.")
                 else:
                     interview_date = data.get("data_entrevista", current.get("data_entrevista")) or current.get("data_entrevista") or datetime.now()
                     interview_status = normalize_interview_status(
@@ -648,13 +871,20 @@ class InterviewRepositoryMixin:
                     if "observacoes_rh" in data
                     else normalize_text(current.get("observacoes_rh"))
                 )
+                mensagem_personalizada = (
+                    normalize_text(data.get("mensagem_personalizada"))
+                    if "mensagem_personalizada" in data
+                    else normalize_text(current.get("mensagem_personalizada"))
+                )
                 mensagem_base = build_interview_message(
                     candidate_name=current.get("nome_candidato"),
-                    process_id=current.get("id_processo"),
                     vacancy_name=current.get("vaga"),
                     interview_datetime=interview_date,
                     scheduling_link=link_agendamento,
+                    custom_message=mensagem_personalizada,
                 )
+                if not mensagem_base:
+                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Nao foi possivel gerar a mensagem: confirme nome, vaga, data e horario.")
 
                 cursor.execute(
                     """
@@ -666,6 +896,7 @@ class InterviewRepositoryMixin:
                         link_agendamento = ?,
                         observacoes_rh = ?,
                         mensagem_base = ?,
+                        mensagem_personalizada = ?,
                         id_processo_ref = ?,
                         atualizado_em = GETDATE()
                     WHERE id_entrevista = ?
@@ -677,6 +908,7 @@ class InterviewRepositoryMixin:
                         link_agendamento,
                         observacoes_rh,
                         mensagem_base,
+                        mensagem_personalizada,
                         process_row.get("id_processo_ref", "") or current.get("id_processo_ref", ""),
                         id_entrevista,
                     ),
@@ -684,6 +916,8 @@ class InterviewRepositoryMixin:
                 if slot_changed:
                     self._release_slot(cursor, current_slot_id, id_entrevista=id_entrevista)
                     self._occupy_slot(cursor, new_slot_id, id_entrevista)
+                else:
+                    self._refresh_slot_status(cursor, current_slot_id)
 
                 if int(current.get("id_registro") or 0):
                     cursor.execute(

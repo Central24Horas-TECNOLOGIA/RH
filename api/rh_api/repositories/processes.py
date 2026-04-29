@@ -152,7 +152,8 @@ class ProcessRepositoryMixin:
                     usa_nota_corte = ?,
                     nota_corte = ?,
                     status = ?,
-                    link_agendamento = ?
+                    link_agendamento = ?,
+                    observacoes_publicas_vaga = ?
                 WHERE {where_clause}
                 """,
                 (
@@ -164,6 +165,9 @@ class ProcessRepositoryMixin:
                     data.get("nota_corte", None),
                     normalize_process_status(data.get("status", "Aberto")),
                     data.get("link_agendamento", ""),
+                    data.get("observacoes_publicas_vaga")
+                    if data.get("observacoes_publicas_vaga") is not None
+                    else processo.get("observacoes_publicas_vaga", ""),
                     *params,
                 ),
             )

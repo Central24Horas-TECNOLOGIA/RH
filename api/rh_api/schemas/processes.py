@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from pydantic import field_validator, model_validator
 
 from .common import BaseSchema
@@ -59,6 +61,7 @@ class ProcessUpdateRequest(BaseSchema):
     nota_corte: float | None = None
     status: str = "Aberto"
     link_agendamento: str = ""
+    observacoes_publicas_vaga: str | None = None
 
     @field_validator("data_encerramento")
     @classmethod
@@ -81,6 +84,16 @@ class ProcessUpdateRequest(BaseSchema):
         safe_value = str(value or "").strip()
         if safe_value and not safe_value.lower().startswith(("http://", "https://")):
             raise ValueError("Informe um link de agendamento valido.")
+        return safe_value
+
+    @field_validator("observacoes_publicas_vaga")
+    @classmethod
+    def validate_public_observation(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 3000:
+            raise ValueError("As observacoes especificas da vaga devem ter no maximo 3000 caracteres.")
         return safe_value
 
     @model_validator(mode="after")
@@ -139,12 +152,42 @@ class CvPreAnalysisUpdateRequest(BaseSchema):
     telefone: str = ""
     whatsapp: str = ""
 
+    @field_validator("nome_candidato")
+    @classmethod
+    def validate_candidate_name(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            raise ValueError("Informe o nome do candidato.")
+        return safe_value
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if safe_value and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", safe_value):
+            raise ValueError("Informe um e-mail valido.")
+        return safe_value
+
+    @field_validator("telefone", "whatsapp")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        digits = re.sub(r"\D", "", safe_value)
+        if safe_value and len(digits) not in (10, 11, 12, 13):
+            raise ValueError("Informe um telefone ou WhatsApp valido.")
+        return safe_value
+
 
 class CandidateProfileUpdateRequest(BaseSchema):
     nome_candidato: str = ""
     habilidades: list[str] = []
     tags: list[str] = []
     observacao_rh: str = ""
+    email: str = ""
+    telefone: str = ""
+    whatsapp: str = ""
+    cidade: str = ""
+    bairro: str = ""
 
     @field_validator("habilidades", "tags")
     @classmethod
@@ -160,4 +203,29 @@ class CandidateProfileUpdateRequest(BaseSchema):
         safe_value = str(value or "").strip()
         if len(safe_value) > 3000:
             raise ValueError("A observacao RH deve ter no maximo 3000 caracteres.")
+        return safe_value
+
+    @field_validator("email")
+    @classmethod
+    def validate_profile_email(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if safe_value and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", safe_value):
+            raise ValueError("Informe um e-mail valido.")
+        return safe_value
+
+    @field_validator("telefone", "whatsapp")
+    @classmethod
+    def validate_profile_phone(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        digits = re.sub(r"\D", "", safe_value)
+        if safe_value and len(digits) not in (10, 11, 12, 13):
+            raise ValueError("Informe um telefone ou WhatsApp valido.")
+        return safe_value
+
+    @field_validator("cidade", "bairro")
+    @classmethod
+    def validate_location(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 120:
+            raise ValueError("Cidade e bairro devem ter no maximo 120 caracteres.")
         return safe_value

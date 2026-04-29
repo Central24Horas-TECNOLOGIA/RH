@@ -139,7 +139,7 @@ export async function atualizarPerfilCandidato(idTeste, payload) {
     },
   );
 
-  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos');
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos');
   return resultado;
 }
 
@@ -191,11 +191,14 @@ export async function analisarCvProcesso(idProcesso, formData) {
 }
 
 export async function atualizarPreAnaliseCv(idPreAnalise, payload) {
-  return requisitar(`/cv-pre-analyses/${encodeURIComponent(idPreAnalise)}`, {
+  const resultado = await requisitar(`/cv-pre-analyses/${encodeURIComponent(idPreAnalise)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos');
+  return resultado;
 }
 
 export async function excluirPreAnaliseCv(idPreAnalise) {

@@ -18,6 +18,7 @@ from ..services.public_candidacy import (
     generate_public_token,
     resolve_public_process_description,
     resolve_public_process_requirements,
+    resolve_public_process_responsibilities,
     resolve_public_frontend_base_url,
     validate_public_cv_upload,
 )
@@ -56,7 +57,9 @@ class PublicCandidacyRepositoryMixin:
                 link_publico_criado_em,
                 link_publico_desativado_em,
                 descricao_publica,
-                requisitos_publicos
+                requisitos_publicos,
+                responsabilidades_publicas,
+                observacoes_publicas_vaga
             FROM processos_seletivos
             WHERE link_publico_slug = ?
             ORDER BY data_criacao DESC
@@ -77,6 +80,8 @@ class PublicCandidacyRepositoryMixin:
             "vaga": normalize_text(processo.get("vaga")),
             "descricao_publica": resolve_public_process_description(processo),
             "requisitos_publicos": resolve_public_process_requirements(processo),
+            "responsabilidades_publicas": resolve_public_process_responsibilities(processo),
+            "observacoes_publicas_vaga": normalize_text(processo.get("observacoes_publicas_vaga")),
             "disponivel": self._is_public_link_active(processo),
             "status": "Ativa" if self._is_public_link_active(processo) else "Inativa",
             "mensagem": ""
@@ -353,6 +358,8 @@ class PublicCandidacyRepositoryMixin:
         nome_completo: str,
         email: str,
         telefone: str,
+        area_interesse: str = "",
+        resumo_profissional: str = "",
         cidade: str,
         bairro: str,
         lgpd_aceito: str,
@@ -361,6 +368,7 @@ class PublicCandidacyRepositoryMixin:
         safe_name = normalize_text(nome_completo)
         safe_email = normalize_text(email)
         safe_phone = normalize_text(telefone)
+        safe_summary = normalize_text(resumo_profissional)
         safe_city = normalize_text(cidade)
         safe_neighborhood = normalize_text(bairro)
         accepted_lgpd = normalize_text(lgpd_aceito).lower() in {"1", "true", "on", "sim", "yes"}
@@ -449,6 +457,7 @@ class PublicCandidacyRepositoryMixin:
                         email=safe_email,
                         telefone=safe_phone,
                         whatsapp=safe_phone,
+                        observacao_rh=safe_summary,
                         cidade=safe_city,
                         bairro=safe_neighborhood,
                     )
@@ -511,6 +520,7 @@ class PublicCandidacyRepositoryMixin:
                     email=safe_email,
                     telefone=safe_phone,
                     whatsapp=safe_phone,
+                    observacao_rh=safe_summary,
                     cidade=safe_city,
                     bairro=safe_neighborhood,
                 )

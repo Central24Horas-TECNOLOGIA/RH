@@ -130,6 +130,8 @@ class PublicCandidacyTests(unittest.TestCase):
                 "link_publico_ativo": 1,
                 "descricao_publica": "",
                 "requisitos_publicos": "",
+                "responsabilidades_publicas": "",
+                "observacoes_publicas_vaga": "Necessario disponibilidade para escala 6x1.",
                 "link_publico_slug": "vaga-operador-k7d92a9p",
             }
         )
@@ -137,6 +139,11 @@ class PublicCandidacyTests(unittest.TestCase):
         self.assertFalse(payload["disponivel"])
         self.assertEqual(payload["status"], "Inativa")
         self.assertEqual(payload["mensagem"], PUBLIC_APPLICATION_CLOSED_MESSAGE)
+        self.assertIn("responsabilidades_publicas", payload)
+        self.assertEqual(
+            payload["observacoes_publicas_vaga"],
+            "Necessario disponibilidade para escala 6x1.",
+        )
 
     def test_generate_public_link_router_forwards_request_headers(self):
         repository = FakePublicRouterRepository()
@@ -175,6 +182,8 @@ class PublicCandidacyTests(unittest.TestCase):
                 nome_completo="Ana Souza",
                 email="ana@teste.com",
                 telefone="21999999999",
+                area_interesse="Operador",
+                resumo_profissional="Experiencia com atendimento.",
                 cidade="Rio de Janeiro",
                 bairro="Centro",
                 lgpd_aceito="1",
@@ -186,6 +195,7 @@ class PublicCandidacyTests(unittest.TestCase):
         self.assertTrue(response["success"])
         self.assertEqual(repository.submit_calls[0]["slug"], "vaga-operador-k7d92a9p")
         self.assertEqual(repository.submit_calls[0]["nome_completo"], "Ana Souza")
+        self.assertEqual(repository.submit_calls[0]["resumo_profissional"], "Experiencia com atendimento.")
         self.assertEqual(repository.submit_calls[0]["curriculo"].filename, "curriculo.pdf")
 
     def test_public_get_router_returns_repository_payload(self):

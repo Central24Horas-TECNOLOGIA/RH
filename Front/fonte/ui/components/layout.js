@@ -57,9 +57,9 @@ function BarraLateral({
           onClick=${() => controlador.irParaMenu()}
         >
           <img
-            alt="Conecta C24h"
+            alt="Central 24h"
             class="rh-modern-logo"
-            src="estilos/logo-conecta-c24h-branca.png"
+            src="estilos/logo_conecta_branco.png"
           />
         </button>
         <button

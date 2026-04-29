@@ -832,9 +832,9 @@ export function TelaProva({ controlador }) {
           <div class="exam-screen-header-inner">
             <div class="exam-screen-brand">
               <img
-                alt="Conecta C24h"
+                alt="Central 24h"
                 class="exam-screen-logo"
-                src="estilos/logo-conecta-c24h.png"
+                src="estilos/logo_conecta_padrao.png"
               />
               <div class="exam-screen-brand-copy">
                 <span class="exam-screen-caption">Prova em andamento</span>

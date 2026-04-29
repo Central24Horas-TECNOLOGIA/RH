@@ -2,9 +2,43 @@ from __future__ import annotations
 
 import io
 import json
+import logging
+import mimetypes
 import re
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+from zipfile import BadZipFile
 
 from .helpers import normalize_compare_text, normalize_text
+
+
+logger = logging.getLogger(__name__)
+
+CV_MAX_BYTES = 10 * 1024 * 1024
+SUPPORTED_CV_EXTENSIONS = {
+    ".pdf",
+    ".docx",
+    ".doc",
+    ".txt",
+    ".rtf",
+    ".odt",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tif",
+    ".tiff",
+    ".bmp",
+}
+IMAGE_CV_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
+
+
+class CvTextExtractionError(Exception):
+    def __init__(self, user_message: str, *, technical_message: str = ""):
+        super().__init__(technical_message or user_message)
+        self.user_message = user_message
+        self.technical_message = technical_message or user_message
 
 
 CV_KEYWORDS = [
@@ -409,40 +443,335 @@ def score_cv_for_role(
     }
 
 
-def extract_text_from_uploaded_file(filename, content_bytes):
-    nome = normalize_text(filename).lower()
+def _detect_cv_file(filename: str, content_type: str = "") -> tuple[str, str]:
+    safe_name = normalize_text(filename)
+    extension = Path(safe_name).suffix.lower()
+    mime_type = normalize_text(content_type).lower()
+    if not mime_type:
+        guessed_type, _ = mimetypes.guess_type(safe_name)
+        mime_type = normalize_text(guessed_type).lower()
+    return extension, mime_type or "application/octet-stream"
 
-    if nome.endswith(".txt"):
+
+def _ensure_supported_cv_file(filename: str, content_bytes: bytes, content_type: str = "") -> tuple[str, str, bytes]:
+    extension, mime_type = _detect_cv_file(filename, content_type)
+    if extension not in SUPPORTED_CV_EXTENSIONS:
+        raise CvTextExtractionError(
+            "Formato nao suportado para analise automatica. Envie PDF com texto selecionavel, DOCX, DOC, TXT, RTF ou ODT."
+        )
+
+    safe_content = content_bytes or b""
+    if not safe_content:
+        raise CvTextExtractionError("Arquivo vazio ou corrompido.")
+
+    if len(safe_content) > CV_MAX_BYTES:
+        raise CvTextExtractionError("Arquivo excede o tamanho maximo permitido para analise de CV.")
+
+    return extension, mime_type, safe_content
+
+
+def _normalize_extracted_text(text: str) -> str:
+    return normalize_cv_text(text)
+
+
+def _extract_txt(content_bytes: bytes) -> str:
+    for encoding in ("utf-8", "latin-1", "cp1252"):
         try:
-            return content_bytes.decode("utf-8", errors="ignore")
-        except Exception:
-            return ""
+            return content_bytes.decode(encoding).strip()
+        except UnicodeDecodeError:
+            continue
+    raise CvTextExtractionError("Arquivo TXT vazio ou corrompido.", technical_message="TXT decoding failed.")
 
-    if nome.endswith(".pdf"):
+
+def _extract_pdf(content_bytes: bytes, filename: str) -> str:
+    try:
         try:
             from pypdf import PdfReader
+        except ImportError:
+            try:
+                from PyPDF2 import PdfReader
+            except ImportError as exc:
+                raise CvTextExtractionError(
+                    "Biblioteca pypdf/PyPDF2 nao instalada.",
+                    technical_message="Neither pypdf nor PyPDF2 is installed.",
+                ) from exc
 
-            reader = PdfReader(io.BytesIO(content_bytes))
-            partes = []
-            for page in reader.pages:
-                texto_pagina = page.extract_text() or ""
-                if texto_pagina.strip():
-                    partes.append(texto_pagina)
-            return "\n".join(partes).strip()
-        except Exception:
+        reader = PdfReader(io.BytesIO(content_bytes))
+        parts = []
+        for page in reader.pages:
+            page_text = page.extract_text() or ""
+            if page_text.strip():
+                parts.append(page_text)
+        text = _normalize_extracted_text("\n".join(parts))
+        if text:
+            return text
+    except CvTextExtractionError:
+        raise
+    except PermissionError as exc:
+        raise CvTextExtractionError(
+            "Falha ao ler o arquivo por permissao de acesso.",
+            technical_message=f"Permission denied reading PDF: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise CvTextExtractionError(
+            "Arquivo vazio ou corrompido.",
+            technical_message=f"PDF extraction failed: {type(exc).__name__}: {exc}",
+        ) from exc
+
+    ocr_text = _try_ocr_image_or_pdf(content_bytes, filename, ".pdf")
+    if ocr_text:
+        return ocr_text
+
+    raise CvTextExtractionError("PDF sem texto selecionavel. OCR nao esta habilitado neste servidor.")
+
+
+def _extract_docx(content_bytes: bytes) -> str:
+    try:
+        from docx import Document
+    except ImportError as exc:
+        raise CvTextExtractionError(
+            "Biblioteca python-docx nao instalada.",
+            technical_message="python-docx is not installed.",
+        ) from exc
+
+    try:
+        document = Document(io.BytesIO(content_bytes))
+    except (BadZipFile, ValueError, KeyError) as exc:
+        raise CvTextExtractionError(
+            "Arquivo vazio ou corrompido.",
+            technical_message=f"DOCX is invalid: {type(exc).__name__}: {exc}",
+        ) from exc
+    except PermissionError as exc:
+        raise CvTextExtractionError(
+            "Falha ao ler o arquivo por permissao de acesso.",
+            technical_message=f"Permission denied reading DOCX: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise CvTextExtractionError(
+            "Arquivo vazio ou corrompido.",
+            technical_message=f"DOCX extraction failed: {type(exc).__name__}: {exc}",
+        ) from exc
+
+    parts = [paragraph.text for paragraph in document.paragraphs if normalize_text(paragraph.text)]
+    for table in document.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                cell_text = normalize_text(cell.text)
+                if cell_text:
+                    parts.append(cell_text)
+    return _normalize_extracted_text("\n".join(parts))
+
+
+def _extract_doc_with_command(command: list[str], content_bytes: bytes, suffix: str) -> str:
+    with tempfile.TemporaryDirectory(prefix="rh-cv-doc-") as temp_dir:
+        input_path = Path(temp_dir) / f"curriculo{suffix}"
+        input_path.write_bytes(content_bytes)
+        completed = subprocess.run(
+            command(input_path) if callable(command) else command,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if completed.returncode != 0:
+            logger.info(
+                "Conversor DOC retornou codigo %s: %s",
+                completed.returncode,
+                normalize_text(completed.stderr),
+            )
             return ""
+        return _normalize_extracted_text(completed.stdout)
 
-    if nome.endswith(".docx"):
+
+def _extract_doc_with_libreoffice(content_bytes: bytes) -> str:
+    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    if not soffice:
+        return ""
+
+    with tempfile.TemporaryDirectory(prefix="rh-cv-doc-lo-") as temp_dir:
+        input_path = Path(temp_dir) / "curriculo.doc"
+        output_dir = Path(temp_dir) / "out"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        input_path.write_bytes(content_bytes)
+        completed = subprocess.run(
+            [
+                soffice,
+                "--headless",
+                "--convert-to",
+                "txt:Text",
+                "--outdir",
+                str(output_dir),
+                str(input_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=45,
+            check=False,
+        )
+        if completed.returncode != 0:
+            logger.info("LibreOffice DOC conversion failed: %s", normalize_text(completed.stderr))
+            return ""
+        output_files = list(output_dir.glob("*.txt"))
+        if not output_files:
+            return ""
+        return _extract_txt(output_files[0].read_bytes())
+
+
+def _extract_doc(content_bytes: bytes) -> str:
+    antiword = shutil.which("antiword")
+    if antiword:
+        text = _extract_doc_with_command(lambda path: [antiword, str(path)], content_bytes, ".doc")
+        if text:
+            return text
+
+    text = _extract_doc_with_libreoffice(content_bytes)
+    if text:
+        return text
+
+    raise CvTextExtractionError(
+        "Arquivo .doc antigo nao pode ser lido neste ambiente. Converta para .docx ou habilite o conversor definido no backend.",
+        technical_message="No DOC extractor available. Install antiword or LibreOffice and expose it in PATH.",
+    )
+
+
+def _extract_rtf(content_bytes: bytes) -> str:
+    raw_text = _extract_txt(content_bytes)
+    try:
+        from striprtf.striprtf import rtf_to_text
+
+        return _normalize_extracted_text(rtf_to_text(raw_text))
+    except ImportError:
+        logger.info("striprtf nao instalado; usando fallback simples para RTF.")
+    except Exception as exc:
+        logger.info("Falha no striprtf para RTF: %s", exc)
+
+    without_controls = re.sub(r"\\'[0-9a-fA-F]{2}", " ", raw_text)
+    without_controls = re.sub(r"\\[a-zA-Z]+\d* ?", " ", without_controls)
+    without_controls = without_controls.replace("{", " ").replace("}", " ")
+    return _normalize_extracted_text(without_controls)
+
+
+def _extract_odt(content_bytes: bytes) -> str:
+    try:
+        from odf import text as odf_text
+        from odf.opendocument import load
+    except ImportError as exc:
+        raise CvTextExtractionError(
+            "Biblioteca odfpy nao instalada.",
+            technical_message="odfpy is not installed.",
+        ) from exc
+
+    try:
+        document = load(io.BytesIO(content_bytes))
+        parts = []
+        for element in document.getElementsByType(odf_text.P):
+            parts.append("".join(node.data for node in element.childNodes if hasattr(node, "data")))
+        for element in document.getElementsByType(odf_text.H):
+            parts.append("".join(node.data for node in element.childNodes if hasattr(node, "data")))
+        return _normalize_extracted_text("\n".join(parts))
+    except PermissionError as exc:
+        raise CvTextExtractionError(
+            "Falha ao ler o arquivo por permissao de acesso.",
+            technical_message=f"Permission denied reading ODT: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise CvTextExtractionError(
+            "Arquivo vazio ou corrompido.",
+            technical_message=f"ODT extraction failed: {type(exc).__name__}: {exc}",
+        ) from exc
+
+
+def _try_ocr_image_or_pdf(content_bytes: bytes, filename: str, extension: str) -> str:
+    tesseract = shutil.which("tesseract")
+    if not tesseract:
+        return ""
+
+    try:
+        import pytesseract
+        from PIL import Image
+    except ImportError:
+        logger.info(
+            "OCR indisponivel para %s: instale pytesseract e Pillow; para PDF escaneado, instale tambem pdf2image/poppler.",
+            filename,
+        )
+        return ""
+
+    if extension == ".pdf":
         try:
-            from docx import Document
-
-            document = Document(io.BytesIO(content_bytes))
-            partes = [paragraph.text for paragraph in document.paragraphs if normalize_text(paragraph.text)]
-            return "\n".join(partes).strip()
-        except Exception:
+            from pdf2image import convert_from_bytes
+        except ImportError:
+            logger.info("OCR de PDF indisponivel para %s: pdf2image/poppler nao instalado.", filename)
+            return ""
+        try:
+            images = convert_from_bytes(content_bytes, first_page=1, last_page=5)
+            return _normalize_extracted_text("\n".join(pytesseract.image_to_string(image) for image in images))
+        except Exception as exc:
+            logger.info("OCR de PDF falhou para %s: %s", filename, exc)
             return ""
 
-    return ""
+    try:
+        image = Image.open(io.BytesIO(content_bytes))
+        return _normalize_extracted_text(pytesseract.image_to_string(image))
+    except Exception as exc:
+        logger.info("OCR de imagem falhou para %s: %s", filename, exc)
+        return ""
+
+
+def extract_text_from_uploaded_file(filename, content_bytes, content_type=""):
+    extension, mime_type, safe_content = _ensure_supported_cv_file(filename, content_bytes, content_type)
+    logger.info(
+        "Iniciando extracao de CV: arquivo=%s extensao=%s mime=%s tamanho_bytes=%s",
+        normalize_text(filename) or "(sem nome)",
+        extension,
+        mime_type,
+        len(safe_content),
+    )
+
+    try:
+        if extension == ".txt":
+            text = _extract_txt(safe_content)
+        elif extension == ".pdf":
+            text = _extract_pdf(safe_content, normalize_text(filename))
+        elif extension == ".docx":
+            text = _extract_docx(safe_content)
+        elif extension == ".doc":
+            text = _extract_doc(safe_content)
+        elif extension == ".rtf":
+            text = _extract_rtf(safe_content)
+        elif extension == ".odt":
+            text = _extract_odt(safe_content)
+        elif extension in IMAGE_CV_EXTENSIONS:
+            text = _try_ocr_image_or_pdf(safe_content, normalize_text(filename), extension)
+            if not text:
+                raise CvTextExtractionError("Imagem recebida, mas OCR nao esta habilitado neste servidor.")
+        else:
+            raise CvTextExtractionError(
+                "Formato nao suportado para analise automatica. Envie PDF com texto selecionavel, DOCX, DOC, TXT, RTF ou ODT."
+            )
+    except CvTextExtractionError:
+        raise
+    except PermissionError as exc:
+        raise CvTextExtractionError(
+            "Falha ao ler o arquivo por permissao de acesso.",
+            technical_message=f"Permission denied extracting CV: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise CvTextExtractionError(
+            "Arquivo vazio ou corrompido.",
+            technical_message=f"Unexpected CV extraction error: {type(exc).__name__}: {exc}",
+        ) from exc
+
+    text = _normalize_extracted_text(text)
+    if not text:
+        raise CvTextExtractionError("Arquivo vazio ou corrompido.", technical_message="Extractor returned empty text.")
+
+    logger.info(
+        "Extracao de CV concluida: arquivo=%s extensao=%s caracteres=%s",
+        normalize_text(filename) or "(sem nome)",
+        extension,
+        len(text),
+    )
+    return text
 
 
 def serialize_cv_problems(avaliacao: dict) -> str:

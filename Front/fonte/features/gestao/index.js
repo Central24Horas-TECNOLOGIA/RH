@@ -115,9 +115,9 @@ export function TelaLogin({ controlador }) {
         >
           <div class="rh-login-brand-block rh-login-brand-block-centered">
             <img
-              alt="Conecta C24h"
+              alt="Central 24h"
               class="rh-login-brand-image"
-              src="estilos/logo-conecta-c24h.png"
+              src="estilos/logo_conecta_padrao.png"
             />
           </div>
 
@@ -187,7 +187,7 @@ export function TelaLogin({ controlador }) {
           </div>
 
           <div class="rh-login-footer-meta">
-            <span>© 2026 Conecta C24h</span>
+            <span>© 2026 Central 24h</span>
             <span>Privacidade</span>
             <span>Termos</span>
             <span>Suporte</span>
@@ -233,7 +233,7 @@ export function TelaInicio({ controlador }) {
     <${PainelRh}
       screenId="screen-menu"
       navAtiva="screen-menu"
-      subtituloMarca="Conecta C24h"
+      subtituloMarca="Central 24h"
       placeholderBusca="Painel executivo do RH"
       controlador=${controlador}
       acaoPrimaria=${{
@@ -1716,4 +1716,3 @@ export function TelaAnaliseCandidatos({ controlador }) {
     </${PainelRh}>
   `;
 }
-

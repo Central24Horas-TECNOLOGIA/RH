@@ -7,6 +7,7 @@ from ..repositories import DatabaseRepository
 from ..schemas.interviews import (
     InterviewCreateRequest,
     InterviewSlotCreateRequest,
+    InterviewSlotUpdateRequest,
     InterviewUpdateRequest,
 )
 
@@ -48,6 +49,15 @@ def create_interview_slots(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.create_interview_slots(payload.model_dump())
+
+
+@router.put("/interview-slots/{id_slot}")
+def update_interview_slot(
+    id_slot: int,
+    payload: InterviewSlotUpdateRequest,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.update_interview_slot(id_slot, payload.model_dump(exclude_none=True))
 
 
 @router.post("/interviews")

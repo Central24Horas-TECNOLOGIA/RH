@@ -183,91 +183,73 @@
 
 .rh-public-application-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
-  gap: var(--space-5);
-  padding: var(--space-5);
-  background:
-    radial-gradient(circle at top right, rgba(21, 61, 138, 0.16), transparent 28%),
-    linear-gradient(180deg, #f7f9fc 0%, var(--color-bg) 100%);
-}
-
-.rh-public-application-hero {
-  border-radius: var(--radius-lg);
-  padding: clamp(1.4rem, 3vw, 2.4rem);
-  color: #fff;
-  background:
-    linear-gradient(145deg, rgba(18, 42, 79, 0.96), rgba(21, 61, 138, 0.94)),
-    url('./Fundo-azul.png') center/cover;
-  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: var(--space-4);
+  padding: clamp(1rem, 3vw, 2rem);
+  background: #f6f8fb;
+}
+
+.rh-public-application-header {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
 }
 
 .rh-public-application-brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  text-decoration: none;
 }
 
 .rh-public-application-logo {
-  width: 156px;
+  display: block;
+  width: auto;
+  height: 42px;
+  object-fit: contain;
 }
 
-.rh-public-application-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.45rem 0.85rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.rh-public-application-main {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+  gap: clamp(1.25rem, 3vw, 2.4rem);
+  align-items: start;
+}
+
+.rh-public-application-info {
+  padding: clamp(0.25rem, 1vw, 0.75rem) 0;
+}
+
+.rh-public-application-title-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.2rem;
 }
 
 .rh-public-application-title {
-  margin: 0 0 0.8rem;
-  font-size: clamp(1.9rem, 4vw, 3rem);
-  line-height: 1.02;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 2.25rem;
+  line-height: 1.12;
   font-weight: 700;
 }
 
 .rh-public-application-text {
   margin: 0;
   max-width: 52ch;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--color-text-soft);
   line-height: 1.6;
-}
-
-.rh-public-application-points {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.rh-public-application-points span {
-  padding: 0.4rem 0.72rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 0.82rem;
-}
-
-.rh-public-application-main {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
 }
 
 .rh-public-card {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.96);
-  padding: clamp(1rem, 2vw, 1.35rem);
+  border-radius: 8px;
+  background: #fff;
+  padding: clamp(1rem, 2vw, 1.5rem);
   box-shadow: var(--shadow-sm);
 }
 
@@ -288,12 +270,13 @@
 .rh-public-copy-stack {
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
+  gap: 1.25rem;
 }
 
 .rh-public-copy-title {
   margin: 0 0 0.45rem;
-  font-size: 0.95rem;
+  color: var(--color-text);
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -310,6 +293,18 @@
   line-height: 1.65;
 }
 
+.rh-public-privacy-card,
+.rh-public-upload-box {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 1rem;
+}
+
+.rh-public-upload-box {
+  background: #f8fafc;
+}
+
 .rh-public-form {
   display: flex;
   flex-direction: column;
@@ -319,7 +314,7 @@
 .rh-public-lgpd-check {
   padding: 0.9rem 1rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   background: var(--color-surface-soft);
 }
 
@@ -1305,11 +1300,14 @@
 
 @media (max-width: 1199.98px) {
   .rh-login-page,
-  .rh-public-application-shell,
   .rh-result-screen,
   .rh-candidate-layout,
   .exam-screen-content,
   .rh-result-body-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rh-public-application-main {
     grid-template-columns: 1fr;
   }
 
@@ -1345,6 +1343,10 @@
 
   .rh-login-hero-title {
     max-width: none;
+  }
+
+  .rh-public-application-title {
+    font-size: 1.65rem;
   }
 
   .rh-public-card-header,

@@ -360,6 +360,7 @@ export function TelaProcessos({ controlador }) {
           : null,
       status: edicao.status || 'Aberto',
       link_agendamento: edicao.link_agendamento || '',
+      observacoes_publicas_vaga: edicao.observacoes_publicas_vaga || '',
     });
 
     setEdicao(null);
@@ -949,11 +950,15 @@ export function TelaDetalhesProcesso({ controlador }) {
     status_entrevista: 'Agendado',
     link_agendamento: '',
     observacoes_rh: '',
+    mensagem_personalizada: '',
     email: '',
     telefone: '',
     whatsapp: '',
   });
   const [feedbackLinkPublico, setFeedbackLinkPublico] = useState('');
+  const [observacoesPublicasVaga, setObservacoesPublicasVaga] = useState('');
+  const [salvandoObservacoesPublicas, setSalvandoObservacoesPublicas] =
+    useState(false);
 
   const idProcesso = sessionStorage.getItem(CHAVE_PROCESSO_DETALHE) || '';
 
@@ -979,7 +984,7 @@ export function TelaDetalhesProcesso({ controlador }) {
         lerDetalheProcesso(idProcesso),
         lerPreAnalisesCv(idProcesso, pagina, 5),
         lerEntrevistas({ idProcesso }),
-        lerSlotsEntrevista({ idProcesso, statusSlot: 'Disponivel' }),
+        lerSlotsEntrevista({ idProcesso }),
       ]);
 
       if (detalhe?.processo) {
@@ -989,6 +994,9 @@ export function TelaDetalhesProcesso({ controlador }) {
         );
       }
       setProcesso(detalhe?.processo || null);
+      setObservacoesPublicasVaga(
+        detalhe?.processo?.observacoes_publicas_vaga || '',
+      );
       setResumo(detalhe?.resumo || null);
       setCandidatos(Array.isArray(detalhe?.candidatos) ? detalhe.candidatos : []);
       setPreAnalises(
@@ -1035,15 +1043,35 @@ export function TelaDetalhesProcesso({ controlador }) {
   const slotsDisponiveisEntrevista = useMemo(
     () =>
       slotsEntrevista.filter(
-        (slot) =>
-          String(slot.status_slot || '').trim() === 'Disponivel' &&
-          !Number(slot.id_entrevista || 0),
+        (slot) => {
+          const statusSlot = String(slot.status_calculado || slot.status_slot || '').trim();
+          return statusSlot !== 'Bloqueado' && statusSlot !== 'Lotado' && Number(slot.disponiveis ?? 1) > 0;
+        },
       ),
     [slotsEntrevista],
   );
 
   const formatarHorarioSlotEntrevista = (slot) =>
-    slot ? `${formatarDataHora(slot.inicio)} ate ${formatarDataHora(slot.fim)}` : '-';
+    slot
+      ? `${formatarDataHora(slot.inicio)} ate ${formatarDataHora(slot.fim)} | ${slot.ocupados || 0}/${slot.capacidade_total || 1} ocupados`
+      : '-';
+
+  const montarDataEntrevistaIso = (slot) => {
+    const inicio = String(slot?.inicio || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(inicio)) {
+      return inicio.slice(0, 19).length === 16 ? `${inicio.slice(0, 16)}:00` : inicio.slice(0, 19);
+    }
+
+    const data = new Date(inicio);
+    if (Number.isNaN(data.getTime())) return '';
+
+    const pad = (value) => String(value).padStart(2, '0');
+    return [
+      data.getFullYear(),
+      pad(data.getMonth() + 1),
+      pad(data.getDate()),
+    ].join('-') + `T${pad(data.getHours())}:${pad(data.getMinutes())}:00`;
+  };
 
   const abrirCurriculo = async (candidato) => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
@@ -1119,6 +1147,37 @@ export function TelaDetalhesProcesso({ controlador }) {
         error?.message ||
           'Nao foi possivel desativar o link publico desta vaga.',
       );
+    }
+  };
+
+  const salvarObservacoesPublicasVaga = async () => {
+    if (!processo) return;
+
+    try {
+      setSalvandoObservacoesPublicas(true);
+      await atualizarProcesso(obterReferenciaProcesso(processo) || idProcesso, {
+        quantidade_vagas: Number(processo.quantidade_vagas || 0),
+        data_encerramento: processo.data_encerramento || '',
+        operacao: processo.operacao || '',
+        trilha: processo.trilha || '',
+        usa_nota_corte: Number(processo.usa_nota_corte || 0),
+        nota_corte:
+          processo.nota_corte !== '' && processo.nota_corte !== null
+            ? Number(processo.nota_corte)
+            : null,
+        status: processo.status || 'Aberto',
+        link_agendamento: processo.link_agendamento || '',
+        observacoes_publicas_vaga: observacoesPublicasVaga,
+      });
+      await carregar(paginaPreAnalises);
+      setFeedbackLinkPublico('Observacoes especificas da vaga salvas.');
+    } catch (error) {
+      setErro(
+        error?.message ||
+          'Nao foi possivel salvar as observacoes especificas da vaga.',
+      );
+    } finally {
+      setSalvandoObservacoesPublicas(false);
     }
   };
 
@@ -1225,6 +1284,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       status_entrevista: 'Agendado',
       link_agendamento: '',
       observacoes_rh: '',
+      mensagem_personalizada: '',
       email: candidato.email || '',
       telefone: candidato.telefone || '',
       whatsapp: candidato.whatsapp || candidato.telefone || '',
@@ -1237,7 +1297,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       (item) => Number(item.id_slot) === Number(formularioEntrevista.id_slot),
     );
     if (!slot) {
-      return `Ol\u00e1 ${nome}, sua entrevista foi agendada para data a confirmar \u00e0s horario a confirmar.`;
+      return `Ol\u00e1 ${nome}! Gostar\u00edamos de convoc\u00e1-lo para o nosso processo seletivo para a vaga de: ${processo?.vaga || agendamentoSelecionado?.vaga || ''} no dia data a confirmar \u00e0s horario a confirmar. Nosso endere\u00e7o fica na Rua Victor Civita, 77 - Bloco 1, 3\u00b0 Andar. Se precisar de apoio, responda esta mensagem para o time de RH.`;
     }
 
     const dataInicio = new Date(slot.inicio);
@@ -1246,7 +1306,11 @@ export function TelaDetalhesProcesso({ controlador }) {
       hour: '2-digit',
       minute: '2-digit',
     });
-    return `Ol\u00e1 ${nome}, sua entrevista foi agendada para ${data} \u00e0s ${hora}.`;
+    const mensagemBase = `Ol\u00e1 ${nome}! Gostar\u00edamos de convoc\u00e1-lo para o nosso processo seletivo para a vaga de: ${processo?.vaga || agendamentoSelecionado?.vaga || ''} no dia ${data} \u00e0s ${hora}. Nosso endere\u00e7o fica na Rua Victor Civita, 77 - Bloco 1, 3\u00b0 Andar. Se precisar de apoio, responda esta mensagem para o time de RH.`;
+    const mensagemPersonalizada = String(formularioEntrevista.mensagem_personalizada || '').trim();
+    return mensagemPersonalizada
+      ? `${mensagemBase}\nObserva\u00e7\u00e3o do RH: ${mensagemPersonalizada}`
+      : mensagemBase;
   };
 
   const salvarAgendamento = async (canal = '') => {
@@ -1282,9 +1346,24 @@ export function TelaDetalhesProcesso({ controlador }) {
         }
       }
 
+      const slotSelecionado = slotsDisponiveisEntrevista.find(
+        (item) => Number(item.id_slot) === Number(formularioEntrevista.id_slot),
+      );
+      const dataEntrevista = montarDataEntrevistaIso(slotSelecionado);
+      if (!dataEntrevista) {
+        throw new Error('Selecione um horario valido para agendar a entrevista.');
+      }
+
       const resultado = await agendarEntrevista({
-        ...formularioEntrevista,
+        id_registro: Number(formularioEntrevista.id_registro),
+        id_processo: formularioEntrevista.id_processo || '',
+        id_processo_ref: formularioEntrevista.id_processo_ref || '',
         id_slot: Number(formularioEntrevista.id_slot),
+        data_entrevista: dataEntrevista,
+        status_entrevista: formularioEntrevista.status_entrevista || 'Agendado',
+        link_agendamento: formularioEntrevista.link_agendamento || '',
+        observacoes_rh: formularioEntrevista.observacoes_rh || '',
+        mensagem_personalizada: formularioEntrevista.mensagem_personalizada || '',
       });
       const mensagem = resultado?.mensagem_base || montarMensagemEntrevista();
       await copiarTexto(mensagem).catch(() => null);
@@ -1513,6 +1592,33 @@ export function TelaDetalhesProcesso({ controlador }) {
                       : null}
                   `}
             </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-2">
+          <div class="col-12">
+            <label class="form-label">Observações específicas da vaga</label>
+            <textarea
+              class="form-control"
+              rows="4"
+              placeholder="Ex.: Necessario disponibilidade para escala 6x1."
+              value=${observacoesPublicasVaga}
+              onInput=${(event) =>
+                setObservacoesPublicasVaga(event.target.value)}
+            ></textarea>
+            <div class="form-text">
+              Campo opcional exibido na pagina publica somente quando preenchido.
+            </div>
+          </div>
+          <div class="col-12 text-end">
+            <button
+              type="button"
+              class="btn btn-outline-primary"
+              disabled=${salvandoObservacoesPublicas}
+              onClick=${salvarObservacoesPublicasVaga}
+            >
+              ${salvandoObservacoesPublicas ? 'Salvando...' : 'Salvar observacoes'}
+            </button>
           </div>
         </div>
 
@@ -1929,6 +2035,20 @@ export function TelaDetalhesProcesso({ controlador }) {
                           email: event.target.value,
                         })}
                     />
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Mensagem personalizada</label>
+                    <textarea
+                      class="form-control"
+                      rows="3"
+                      placeholder="Opcional"
+                      value=${formularioEntrevista.mensagem_personalizada}
+                      onInput=${(event) =>
+                        setFormularioEntrevista({
+                          ...formularioEntrevista,
+                          mensagem_personalizada: event.target.value,
+                        })}
+                    ></textarea>
                   </div>
                   <div class="col-md-12">
                     <label class="form-label">Mensagem que sera enviada</label>
