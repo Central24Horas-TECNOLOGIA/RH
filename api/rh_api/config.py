@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import configparser
 import os
 import secrets
 from dataclasses import dataclass
@@ -38,6 +39,61 @@ def _load_dotenv() -> None:
             key = key.strip()
             value = raw_value.strip().strip('"').strip("'")
             os.environ.setdefault(key, value)
+
+def _load_runtime_ini() -> configparser.ConfigParser:
+    """
+    Lê o config.ini central da pasta da Interface.
+
+    Ordem de procura:
+    1. Caminho informado em RH_CONFIG_INI
+    2. config.ini na pasta pai do projeto RH
+       Exemplo:
+       central_servicos_c24h/
+         config.ini
+         RH/
+           api/
+    """
+    parser = configparser.ConfigParser()
+
+    api_dir = Path(__file__).resolve().parents[1]
+    project_root = api_dir.parent
+
+    candidates = []
+
+    env_path = os.getenv("RH_CONFIG_INI", "").strip()
+    if env_path:
+        candidates.append(Path(env_path))
+
+    candidates.append(project_root.parent / "config.ini")
+
+    for ini_path in candidates:
+        if ini_path.exists():
+            parser.read(ini_path, encoding="utf-8-sig")
+            break
+
+    return parser
+
+
+def _ini_value(
+    parser: configparser.ConfigParser,
+    section: str,
+    option: str,
+    default: str = "",
+) -> str:
+    if parser.has_option(section, option):
+        return parser.get(section, option, fallback=default).strip()
+    return default
+
+
+def _ini_bool(
+    parser: configparser.ConfigParser,
+    section: str,
+    option: str,
+    default: bool,
+) -> bool:
+    if parser.has_option(section, option):
+        return parser.getboolean(section, option, fallback=default)
+    return default
 
 
 def _split_csv(raw_value: str | None) -> list[str]:
@@ -90,6 +146,9 @@ class Settings:
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     _load_dotenv()
+    runtime_ini = _load_runtime_ini()
+    has_ini_db = runtime_ini.has_section("RH_DATABASE")
+
     project_root = Path(__file__).resolve().parents[2]
 
     app_env = os.getenv("RH_APP_ENV", "development").strip() or "development"
@@ -101,22 +160,53 @@ def get_settings() -> Settings:
 
     cors_allow_origin_regex = os.getenv("RH_CORS_ALLOW_ORIGIN_REGEX", "").strip() or None
     if dev_mode and not cors_allow_origin_regex:
-        cors_allow_origin_regex = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+        cors_allow_origin_regex = r"https?://(localhost|127\.0\.0\.1|192\.168\.5\.19)(:\d+)?"
+
+    if has_ini_db:
+        sql_server = _ini_value(runtime_ini, "RH_DATABASE", "server", r"PAULO_TI\SQLEXPRESS")
+        sql_database = _ini_value(runtime_ini, "RH_DATABASE", "database", "RH_Provas")
+        sql_driver = _ini_value(runtime_ini, "RH_DATABASE", "driver", "ODBC Driver 17 for SQL Server")
+        sql_connection_string = _ini_value(runtime_ini, "RH_DATABASE", "connection_string", "") or None
+        sql_username = _ini_value(runtime_ini, "RH_DATABASE", "username", "")
+        sql_password = _ini_value(runtime_ini, "RH_DATABASE", "password", "")
+        sql_trusted_connection = _ini_bool(runtime_ini, "RH_DATABASE", "trusted_connection", True)
+        sql_encrypt = _ini_value(runtime_ini, "RH_DATABASE", "encrypt", "no") or "no"
+        sql_trust_server_certificate = _ini_bool(
+            runtime_ini,
+            "RH_DATABASE",
+            "trust_server_certificate",
+            True,
+        )
+        sql_timeout_seconds = max(
+            1,
+            int(_ini_value(runtime_ini, "RH_DATABASE", "timeout_seconds", "5")),
+        )
+    else:
+        sql_server = os.getenv("RH_SQL_SERVER", r"PAULO_TI\SQLEXPRESS").strip()
+        sql_database = os.getenv("RH_SQL_DATABASE", "RH_Provas").strip()
+        sql_driver = os.getenv("RH_SQL_DRIVER", "ODBC Driver 17 for SQL Server").strip()
+        sql_connection_string = os.getenv("RH_SQL_CONNECTION_STRING", "").strip() or None
+        sql_username = os.getenv("RH_SQL_USERNAME", "").strip()
+        sql_password = os.getenv("RH_SQL_PASSWORD", "")
+        sql_trusted_connection = _read_bool_env("RH_SQL_TRUSTED_CONNECTION", True)
+        sql_encrypt = os.getenv("RH_SQL_ENCRYPT", "no").strip() or "no"
+        sql_trust_server_certificate = _read_bool_env("RH_SQL_TRUST_SERVER_CERTIFICATE", True)
+        sql_timeout_seconds = max(1, int(os.getenv("RH_SQL_TIMEOUT_SECONDS", "5")))
 
     return Settings(
         app_env=app_env,
-        sql_server=os.getenv("RH_SQL_SERVER", r"PAULO_TI\SQLEXPRESS").strip(),
-        sql_database=os.getenv("RH_SQL_DATABASE", "RH_Provas").strip(),
-        sql_driver=os.getenv("RH_SQL_DRIVER", "ODBC Driver 17 for SQL Server").strip(),
-        sql_connection_string=os.getenv("RH_SQL_CONNECTION_STRING", "").strip() or None,
-        sql_username=os.getenv("RH_SQL_USERNAME", "").strip(),
-        sql_password=os.getenv("RH_SQL_PASSWORD", ""),
-        sql_trusted_connection=_read_bool_env("RH_SQL_TRUSTED_CONNECTION", True),
-        sql_encrypt=os.getenv("RH_SQL_ENCRYPT", "no").strip() or "no",
-        sql_trust_server_certificate=_read_bool_env("RH_SQL_TRUST_SERVER_CERTIFICATE", True),
-        sql_timeout_seconds=max(1, int(os.getenv("RH_SQL_TIMEOUT_SECONDS", "5"))),
-        auth_user=os.getenv("RH_AUTH_USER", "").strip(),
-        auth_password=os.getenv("RH_AUTH_PASSWORD", "").strip(),
+        sql_server=sql_server,
+        sql_database=sql_database,
+        sql_driver=sql_driver,
+        sql_connection_string=sql_connection_string,
+        sql_username=sql_username,
+        sql_password=sql_password,
+        sql_trusted_connection=sql_trusted_connection,
+        sql_encrypt=sql_encrypt,
+        sql_trust_server_certificate=sql_trust_server_certificate,
+        sql_timeout_seconds=sql_timeout_seconds,
+        auth_user=os.getenv("RH_AUTH_USER", "rh").strip(),
+        auth_password=os.getenv("RH_AUTH_PASSWORD", "1234").strip(),
         auth_token_secret=os.getenv("RH_AUTH_TOKEN_SECRET", "").strip()
         or secrets.token_urlsafe(32),
         auth_token_ttl_minutes=int(os.getenv("RH_AUTH_TOKEN_TTL_MINUTES", "480")),
