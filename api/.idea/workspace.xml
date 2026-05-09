@@ -5,30 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c0c892ec-9aa8-4758-8489-402a24173792" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../Front/estilos/base.css" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/estilos/base.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/estilos/screens.css" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/estilos/screens.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/fonte/app/controlador-aplicacao.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/app/controlador-aplicacao.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/fonte/features/entrevistas/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/features/entrevistas/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/fonte/features/gestao/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/features/gestao/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/fonte/features/pipeline/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/features/pipeline/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/fonte/features/processos/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/features/processos/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/fonte/features/prova/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/features/prova/index.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/fonte/principal.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/principal.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../Front/fonte/shared/helpers-visuais.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/shared/helpers-visuais.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/repositories/analytics.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/repositories/analytics.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/repositories/base.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/repositories/base.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/repositories/bootstrap.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/repositories/bootstrap.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/repositories/cv_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/repositories/cv_analysis.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/repositories/interviews.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/repositories/interviews.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/repositories/pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/repositories/pipeline.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/repositories/processes.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/repositories/processes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/repositories/talent_bank.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/repositories/talent_bank.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/schemas/processes.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/schemas/processes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/services/analytics.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/services/analytics.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/services/cv.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/services/cv.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rh_api/services/pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/services/pipeline.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_auth_and_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_auth_and_pipeline.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,6 +52,7 @@
   &quot;keyToString&quot;: {
     &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.Endoview_Agendamentos.executor&quot;: &quot;Run&quot;,
     &quot;Python.Painel_TV.executor&quot;: &quot;Run&quot;,
     &quot;Python.api_c24h (1).executor&quot;: &quot;Run&quot;,
     &quot;Python.app.executor&quot;: &quot;Run&quot;,
@@ -87,7 +65,29 @@
     &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
 }</component>
-  <component name="RunManager" selected="Python.Painel_TV">
+  <component name="RunManager" selected="Python.Endoview_Agendamentos">
+    <configuration name="Endoview_Agendamentos" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="api" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../../API TESTE" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../../API TESTE/Endoview_Agendamentos.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="Painel_TV" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="api" />
       <option name="ENV_FILES" value="" />
@@ -124,28 +124,6 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/api_c24h.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="api_c24h" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="api" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="C:\Users\psilva\OneDrive - Empresa Brasileira de Soluções e Serviços em Teleatendimento Ltda\Projetos\RH\api\api_c24h.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -200,11 +178,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.Endoview_Agendamentos" />
         <item itemvalue="Python.Painel_TV" />
         <item itemvalue="Python.debug_gabaritos" />
         <item itemvalue="Python.app" />
         <item itemvalue="Python.api_c24h (1)" />
-        <item itemvalue="Python.api_c24h" />
       </list>
     </recent_temporary>
   </component>
