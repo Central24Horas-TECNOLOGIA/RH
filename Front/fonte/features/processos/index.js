@@ -9,6 +9,7 @@ import {
   agendarEntrevista,
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
+  analisarCvEmailRecebido,
   atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
   atualizarProcesso,
@@ -21,13 +22,17 @@ import {
   encerrarProcesso,
   excluirPreAnaliseCv,
   enviarPreAnaliseParaBancoTalentos,
+  enviarEmailAprovacao,
   gerarLinkPublicoCandidatura,
+  lerEmailsRecebidosProcesso,
   lerCandidatosProcessos,
   lerDetalheProcesso,
   lerEntrevistas,
   lerPreAnalisesCv,
   lerProcessos,
   lerSlotsEntrevista,
+  limparListaPreAnalisesCv,
+  registrarWhatsappAprovacao,
 } from '../../app/controlador-aplicacao.js';
 import {
   baixarBlob,
@@ -88,6 +93,7 @@ const MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO =
   'Este candidato já foi aprovado. Para alterar sua situação, será necessário um novo cadastro ou atualização manual.';
 const AVISO_URL_PUBLICA_NAO_CONFIGURADA =
   'URL pública ainda não configurada. Defina PUBLIC_CANDIDATE_BASE_URL no servidor para liberar inscrições externas.';
+const EXIBIR_PAGINA_PUBLICA_CANDIDATURA = false;
 const REQUISITOS_PUBLICOS_PADRAO = [
   'Ensino médio completo ou formação compatível com a vaga.',
   'Experiência anterior em atividades relacionadas será considerada um diferencial.',
@@ -114,11 +120,32 @@ function normalizarTextoComparacao(valor) {
 
 function obterNotaProvaCandidato(candidato) {
   return (
+    candidato?.nota_prova ||
     candidato?.pontuacao_final ||
     candidato?.nota_final ||
     candidato?.nota_exibicao ||
     ''
   );
+}
+
+function formatarOrigemCandidato(candidato) {
+  const rotulo = String(candidato?.origem_rotulo || '').trim();
+  if (rotulo) return rotulo;
+
+  const origem = normalizarTextoComparacao(candidato?.origem);
+  if (!origem) return 'Processo Único';
+  if (origem.includes('pagina') && (origem.includes('candidatura') || origem.includes('inscricao'))) {
+    return 'Página de inscrição';
+  }
+  if (origem.includes('pre analise') || origem.includes('pre-analise') || origem.includes('analise direta')) {
+    return 'Análise direta do CV';
+  }
+  if (origem.includes('banco') && origem.includes('talento')) return 'Banco de Talentos';
+  if (origem.includes('recebimento') && origem.includes('email')) return 'Recebimento de e-mail';
+  if (origem.includes('processo unico') || origem.includes('processo_unico') || origem === 'prova') {
+    return 'Processo Único';
+  }
+  return String(candidato?.origem || '-').trim() || '-';
 }
 
 function montarFormularioCandidato(candidato) {
@@ -134,6 +161,9 @@ function montarFormularioCandidato(candidato) {
 
 function candidatoTemProvaSalva(candidato) {
   const idTeste = String(candidato?.id_teste || '').trim();
+  if (candidato?.prova_disponivel || candidato?.id_teste_prova) {
+    return Boolean(idTeste || candidato?.id_teste_prova);
+  }
   const origem = normalizarTextoComparacao(candidato?.origem);
   const nota = String(obterNotaProvaCandidato(candidato) || '').trim();
 
@@ -230,10 +260,12 @@ function renderizarAcoesDoCandidato({
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-primary"
+          class="btn btn-sm btn-outline-primary rh-action-btn"
+          title="Agendar entrevista"
           onClick=${() => onAgendarEntrevista(candidato)}
         >
-          Agendar entrevista
+          <span class="material-symbols-outlined">event</span>
+          Agendar
         </button>
       `,
     );
@@ -244,12 +276,14 @@ function renderizarAcoesDoCandidato({
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-success"
+          class="btn btn-sm btn-outline-success rh-action-btn"
+          title="Aprovar candidato"
           onClick=${() =>
             typeof onAprovar === 'function'
               ? onAprovar(candidato)
               : onAtualizarStatus(candidato, 'Aprovado')}
         >
+          <span class="material-symbols-outlined">check_circle</span>
           Aprovar
         </button>
       `,
@@ -261,9 +295,11 @@ function renderizarAcoesDoCandidato({
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-danger"
+          class="btn btn-sm btn-outline-danger rh-action-btn"
+          title="Eliminar candidato"
           onClick=${() => onAtualizarStatus(candidato, 'Eliminado')}
         >
+          <span class="material-symbols-outlined">cancel</span>
           Eliminar
         </button>
       `,
@@ -275,10 +311,12 @@ function renderizarAcoesDoCandidato({
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-secondary"
+          class="btn btn-sm btn-outline-secondary rh-action-btn"
+          title="Enviar para Banco de Talentos"
           onClick=${() => onAtualizarStatus(candidato, 'Banco de Talentos')}
         >
-          Banco de Talentos
+          <span class="material-symbols-outlined">inventory_2</span>
+          Banco
         </button>
       `,
     );
@@ -289,9 +327,11 @@ function renderizarAcoesDoCandidato({
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-secondary"
+          class="btn btn-sm btn-outline-secondary rh-action-btn"
+          title="Editar dados do candidato"
           onClick=${() => onEditar(candidato)}
         >
+          <span class="material-symbols-outlined">edit</span>
           Editar
         </button>
       `,
@@ -308,7 +348,7 @@ function renderizarAcoesDoCandidato({
     `;
   }
 
-  return html`<div class="d-flex justify-content-end gap-2 flex-wrap">${botoes}</div>`;
+  return html`<div class="rh-action-cluster">${botoes}</div>`;
 }
 
 function SecaoDetalheExpansivel({
@@ -1190,6 +1230,19 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [preAnalises, setPreAnalises] = useState([]);
   const [paginaPreAnalises, setPaginaPreAnalises] = useState(1);
   const [totalPaginasPreAnalises, setTotalPaginasPreAnalises] = useState(1);
+  const [classificacoesPreAnalises, setClassificacoesPreAnalises] = useState([]);
+  const [filtrosPreAnalises, setFiltrosPreAnalises] = useState({
+    nome: '',
+    scoreMin: '',
+    scoreMax: '',
+    classificacao: '',
+    mostrarOcultos: false,
+  });
+  const [emailsRecebidos, setEmailsRecebidos] = useState([]);
+  const [statusEmailRecebido, setStatusEmailRecebido] = useState(null);
+  const [avisosSecoes, setAvisosSecoes] = useState({});
+  const [carregandoEmails, setCarregandoEmails] = useState(false);
+  const [analisandoEmailUid, setAnalisandoEmailUid] = useState('');
   const [arquivoCv, setArquivoCv] = useState(null);
   const [guardarCvOriginal, setGuardarCvOriginal] = useState(false);
   const [analisandoCv, setAnalisandoCv] = useState(false);
@@ -1208,6 +1261,7 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState(null);
   const [aprovacaoSelecionada, setAprovacaoSelecionada] = useState(null);
   const [salvandoAprovacao, setSalvandoAprovacao] = useState(false);
+  const [enviandoCanalAprovacao, setEnviandoCanalAprovacao] = useState('');
   const [formularioEntrevista, setFormularioEntrevista] = useState({
     id_registro: '',
     id_processo: '',
@@ -1235,7 +1289,8 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [salvandoObservacoesPublicas, setSalvandoObservacoesPublicas] =
     useState(false);
   const [secoesExpandidas, setSecoesExpandidas] = useState({
-    paginaPublica: true,
+    paginaPublica: false,
+    recebimentoEmail: true,
     candidatosInscritos: true,
     preAnaliseCv: true,
     candidatosProcesso: true,
@@ -1258,7 +1313,27 @@ export function TelaDetalhesProcesso({ controlador }) {
     return () => window.clearTimeout(timeout);
   }, [feedbackLinkPublico]);
 
-  const carregar = async (pagina = 1) => {
+  const carregarEmailsDoProcesso = async () => {
+    if (!idProcesso) return;
+    setCarregandoEmails(true);
+    try {
+      const payload = await lerEmailsRecebidosProcesso(idProcesso, 12);
+      setStatusEmailRecebido(payload || null);
+      setEmailsRecebidos(Array.isArray(payload?.items) ? payload.items : []);
+    } catch (error) {
+      setStatusEmailRecebido({
+        configured: false,
+        message:
+          error?.message ||
+          'Recebimento de e-mail ainda não configurado ou indisponível no momento.',
+      });
+      setEmailsRecebidos([]);
+    } finally {
+      setCarregandoEmails(false);
+    }
+  };
+
+  const carregar = async (pagina = 1, filtrosCv = filtrosPreAnalises) => {
     if (!idProcesso) {
       setErro('Processo não identificado.');
       setCarregando(false);
@@ -1267,14 +1342,56 @@ export function TelaDetalhesProcesso({ controlador }) {
 
     setCarregando(true);
     setErro('');
+    setAvisosSecoes({});
 
     try {
-      const [detalhe, listaPreAnalises, listaEntrevistas, listaSlots] = await Promise.all([
+      const [
+        resultadoDetalhe,
+        resultadoPreAnalises,
+        resultadoEntrevistas,
+        resultadoSlots,
+      ] = await Promise.allSettled([
         lerDetalheProcesso(idProcesso),
-        lerPreAnalisesCv(idProcesso, pagina, 5),
+        lerPreAnalisesCv(idProcesso, pagina, 5, filtrosCv),
         lerEntrevistas({ idProcesso }),
         lerSlotsEntrevista({ idProcesso }),
       ]);
+
+      if (resultadoDetalhe.status !== 'fulfilled') {
+        throw resultadoDetalhe.reason;
+      }
+
+      const detalhe = resultadoDetalhe.value || {};
+      const listaPreAnalises =
+        resultadoPreAnalises.status === 'fulfilled'
+          ? resultadoPreAnalises.value
+          : {};
+      const listaEntrevistas =
+        resultadoEntrevistas.status === 'fulfilled'
+          ? resultadoEntrevistas.value
+          : [];
+      const listaSlots =
+        resultadoSlots.status === 'fulfilled' ? resultadoSlots.value : [];
+      const novosAvisos = {};
+
+      if (resultadoPreAnalises.status !== 'fulfilled') {
+        console.error('Erro ao carregar pré-análise do processo.', resultadoPreAnalises.reason);
+        novosAvisos.preAnaliseCv =
+          'Não foi possível carregar a pré-análise de CV agora.';
+      }
+
+      if (resultadoEntrevistas.status !== 'fulfilled') {
+        console.error('Erro ao carregar entrevistas do processo.', resultadoEntrevistas.reason);
+        novosAvisos.entrevistas =
+          'Não foi possível carregar as entrevistas agora.';
+      }
+
+      if (resultadoSlots.status !== 'fulfilled') {
+        console.error('Erro ao carregar horários de entrevista.', resultadoSlots.reason);
+        novosAvisos.entrevistas =
+          novosAvisos.entrevistas ||
+          'Não foi possível carregar os horários de entrevista agora.';
+      }
 
       if (detalhe?.processo) {
         sessionStorage.setItem(
@@ -1307,8 +1424,14 @@ export function TelaDetalhesProcesso({ controlador }) {
       );
       setPaginaPreAnalises(Number(listaPreAnalises?.page || 1));
       setTotalPaginasPreAnalises(Number(listaPreAnalises?.total_pages || 1));
+      setClassificacoesPreAnalises(
+        Array.isArray(listaPreAnalises?.classificacoes)
+          ? listaPreAnalises.classificacoes
+          : [],
+      );
       setEntrevistas(Array.isArray(listaEntrevistas) ? listaEntrevistas : []);
       setSlotsEntrevista(Array.isArray(listaSlots) ? listaSlots : []);
+      setAvisosSecoes(novosAvisos);
     } catch (error) {
       setErro(
         error.message || 'Não foi possível carregar o detalhe do processo.',
@@ -1490,8 +1613,12 @@ export function TelaDetalhesProcesso({ controlador }) {
 
     try {
       setErro('');
-      setCarregandoDetalheProva(String(candidato.id_registro || candidato.id_teste || ''));
-      const detalhe = await carregarDetalhesProva(candidato.id_teste);
+      const idTesteProva = candidato.id_teste_prova || candidato.id_teste;
+      setCarregandoDetalheProva(String(candidato.id_registro || idTesteProva || ''));
+      const detalhe = await carregarDetalhesProva(
+        idTesteProva,
+        obterReferenciaProcesso(processo) || idProcesso,
+      );
       const processoAtualRef = String(obterReferenciaProcesso(processo) || idProcesso || '').trim();
       const processoProvaRef = String(
         detalhe?.linha?.id_processo_ref || detalhe?.linha?.id_processo || '',
@@ -1705,6 +1832,41 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
   };
 
+  const enviarAprovacaoWhatsApp = async (dadosAprovacao) => {
+    if (!aprovacaoSelecionada) return;
+    const numero = String(
+      aprovacaoSelecionada.whatsapp || aprovacaoSelecionada.telefone || '',
+    ).replace(/\D/g, '');
+    if (!numero) {
+      throw new Error('O candidato não possui número de WhatsApp cadastrado.');
+    }
+
+    setEnviandoCanalAprovacao('whatsapp');
+    try {
+      await registrarWhatsappAprovacao(aprovacaoSelecionada.id_registro, dadosAprovacao);
+      window.open(
+        `https://wa.me/${numero}?text=${encodeURIComponent(dadosAprovacao.mensagem_aprovacao || '')}`,
+        '_blank',
+        'noopener,noreferrer',
+      );
+    } finally {
+      setEnviandoCanalAprovacao('');
+    }
+  };
+
+  const enviarAprovacaoEmail = async (dadosAprovacao) => {
+    if (!aprovacaoSelecionada) return;
+    setEnviandoCanalAprovacao('email');
+    try {
+      await enviarEmailAprovacao(aprovacaoSelecionada.id_registro, {
+        ...dadosAprovacao,
+        assunto: `Aprovação no processo seletivo - ${processo?.vaga || aprovacaoSelecionada.vaga || ''}`,
+      });
+    } finally {
+      setEnviandoCanalAprovacao('');
+    }
+  };
+
   const enviarCv = async () => {
     if (processoEncerrado) {
       setErro('O processo seletivo está encerrado e não permite novas movimentações.');
@@ -1876,6 +2038,66 @@ export function TelaDetalhesProcesso({ controlador }) {
       await carregar(paginaPreAnalises);
     } catch (error) {
       window.alert(error?.message || 'Não foi possível enviar para o Banco de Talentos.');
+    }
+  };
+
+  const aplicarFiltrosPreAnalise = async (novosFiltros = filtrosPreAnalises) => {
+    setFiltrosPreAnalises(novosFiltros);
+    await carregar(1, novosFiltros);
+  };
+
+  const limparFiltrosPreAnalise = async () => {
+    const filtrosLimpos = {
+      nome: '',
+      scoreMin: '',
+      scoreMax: '',
+      classificacao: '',
+      mostrarOcultos: false,
+    };
+    setFiltrosPreAnalises(filtrosLimpos);
+    await carregar(1, filtrosLimpos);
+  };
+
+  const limparListaPreAnalise = async () => {
+    const confirmar = window.confirm(
+      'Esta ação apenas limpará a visualização da lista. Os currículos e históricos não serão excluídos.',
+    );
+    if (!confirmar) return;
+
+    try {
+      const filtrosAposLimpeza = { ...filtrosPreAnalises, mostrarOcultos: false };
+      await limparListaPreAnalisesCv(obterReferenciaProcesso(processo) || idProcesso);
+      setFiltrosPreAnalises(filtrosAposLimpeza);
+      await carregar(1, filtrosAposLimpeza);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível limpar a visualização da pré-análise.');
+    }
+  };
+
+  const analisarCvDoEmail = async (emailItem, anexo = null) => {
+    if (processoEncerrado) {
+      setErro('O processo seletivo está encerrado e não permite novas movimentações.');
+      return;
+    }
+
+    if (!emailItem?.possui_anexo) {
+      setErro('Sem anexo de CV neste e-mail.');
+      return;
+    }
+
+    try {
+      setErro('');
+      setAnalisandoEmailUid(emailItem.uid);
+      await analisarCvEmailRecebido(obterReferenciaProcesso(processo) || idProcesso, {
+        uid: emailItem.uid,
+        attachment_name: anexo?.nome || emailItem.nome_anexo || '',
+      });
+      await carregar(1);
+      await carregarEmailsDoProcesso();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível analisar o CV recebido por e-mail.');
+    } finally {
+      setAnalisandoEmailUid('');
     }
   };
 
@@ -2129,7 +2351,8 @@ export function TelaDetalhesProcesso({ controlador }) {
         </div>
       </${SectionCard}>
 
-      <${SecaoDetalheExpansivel}
+      ${EXIBIR_PAGINA_PUBLICA_CANDIDATURA
+        ? html`<${SecaoDetalheExpansivel}
         aberto=${secoesExpandidas.paginaPublica}
         titulo="Página pública de candidatura"
         description="Gere um link exclusivo para esta vaga e acompanhe o status da página pública sem expor informações administrativas."
@@ -2310,7 +2533,130 @@ export function TelaDetalhesProcesso({ controlador }) {
         ${feedbackLinkPublico
           ? html`<div class="alert alert-success mt-3 mb-0">${feedbackLinkPublico}</div>`
           : null}
-      </${SecaoDetalheExpansivel}>
+      </${SecaoDetalheExpansivel}>`
+        : null}
+
+      ${false ? html`<${SecaoDetalheExpansivel}
+        aberto=${secoesExpandidas.recebimentoEmail}
+        titulo="Recebimento de e-mail"
+        description="Caixa de entrada configuravel para curriculos recebidos por e-mail."
+        onToggle=${() => alternarSecao('recebimentoEmail')}
+      >
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+          <div class="text-muted small">
+            Endereco monitorado:
+            ${statusEmailRecebido?.email_address || 'posilvahp7@gmail.com'}
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            disabled=${carregandoEmails}
+            onClick=${carregarEmailsDoProcesso}
+          >
+            ${carregandoEmails ? 'Atualizando...' : 'Atualizar e-mails'}
+          </button>
+        </div>
+
+        ${!statusEmailRecebido?.configured
+          ? html`
+              <div class="alert alert-warning">
+                ${statusEmailRecebido?.message ||
+                'Recebimento de e-mail ainda não configurado ou indisponível no momento.'}
+              </div>
+            `
+          : null}
+
+        <div class="table-responsive">
+          <table class="table align-middle rh-modern-history-table">
+            <thead>
+              <tr>
+                <th>Remetente</th>
+                <th>Assunto / resumo</th>
+                <th>Data</th>
+                <th>Dados encontrados</th>
+                <th>Anexo</th>
+                <th>Status</th>
+                <th class="text-end">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${emailsRecebidos.length
+                ? emailsRecebidos.map((emailItem) => {
+                    const anexos = Array.isArray(emailItem?.anexos)
+                      ? emailItem.anexos
+                      : [];
+                    const anexosCv = anexos.filter((anexo) => anexo?.cv_compativel);
+                    const anexoPrincipal = anexosCv[0] || null;
+                    return html`
+                      <tr key=${emailItem.uid}>
+                        <td>
+                          <strong>${emailItem.remetente || '-'}</strong>
+                          <div class="small text-muted">${emailItem.email_encontrado || '-'}</div>
+                        </td>
+                        <td>
+                          <div>${emailItem.assunto || '-'}</div>
+                          <div class="small text-muted">${emailItem.resumo || '-'}</div>
+                        </td>
+                        <td>${formatarDataHora(emailItem.data_hora)}</td>
+                        <td>
+                          <div>${emailItem.nome_candidato_possivel || '-'}</div>
+                          <div class="small text-muted">${emailItem.vaga_pretendida_possivel || '-'}</div>
+                          <div class="small text-muted">${emailItem.telefone_encontrado || '-'}</div>
+                        </td>
+                        <td>
+                          ${emailItem.possui_anexo
+                            ? html`
+                                <div>${emailItem.nome_anexo || 'Anexo recebido'}</div>
+                                <div class="small text-muted">
+                                  ${anexosCv.length ? 'CV compativel' : 'Sem anexo de CV compativel'}
+                                </div>
+                              `
+                            : 'Sem anexo'}
+                        </td>
+                        <td>
+                          <span class="process-candidate-status-badge is-pending">
+                            ${emailItem.status_analise || 'Pendente'}
+                          </span>
+                        </td>
+                        <td class="text-end">
+                          <div class="rh-table-actions">
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-dark rh-action-btn"
+                              onClick=${() => setStatusEmailRecebido({
+                                ...(statusEmailRecebido || {}),
+                                message: emailItem.resumo || 'Sem corpo para exibir.',
+                              })}
+                            >
+                              <span class="material-symbols-outlined">visibility</span>
+                              Detalhes
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-primary rh-action-btn"
+                              disabled=${processoEncerrado || !anexoPrincipal || analisandoEmailUid === emailItem.uid}
+                              onClick=${() => analisarCvDoEmail(emailItem, anexoPrincipal)}
+                            >
+                              <span class="material-symbols-outlined">auto_awesome</span>
+                              ${analisandoEmailUid === emailItem.uid ? 'Analisando...' : 'Analisar CV'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  })
+                : html`
+                    <${TabelaVazia}
+                      colunas=${7}
+                      texto=${carregandoEmails
+                        ? 'Carregando e-mails recebidos.'
+                        : 'Nenhum e-mail recebido para listar.'}
+                    />
+                  `}
+            </tbody>
+          </table>
+        </div>
+      </${SecaoDetalheExpansivel}>` : null}
 
       <${SecaoDetalheExpansivel}
         aberto=${secoesExpandidas.candidatosInscritos}
@@ -2365,7 +2711,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                         </td>
                         <td>${analise?.score_final ?? '-'}</td>
                         <td class="text-end">
-                          <div class="d-flex justify-content-end gap-2 flex-wrap">
+                          <div class="rh-table-actions">
                             <button
                               type="button"
                               class="btn btn-sm btn-outline-secondary"
@@ -2406,7 +2752,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                                   </button>
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-secondary"
+                                    class="btn btn-sm btn-outline-secondary rh-action-btn"
                                     onClick=${() => enviarPreAnaliseAoBancoTalentos(analise)}
                                   >
                                     Banco de Talentos
@@ -2436,6 +2782,9 @@ export function TelaDetalhesProcesso({ controlador }) {
         tourId="process-cv-preanalysis"
         onToggle=${() => alternarSecao('preAnaliseCv')}
       >
+        ${avisosSecoes.preAnaliseCv
+          ? html`<div class="alert alert-warning">${avisosSecoes.preAnaliseCv}</div>`
+          : null}
         <div class="row g-3 align-items-end">
           <div class="col-md-6">
             <label class="form-label">Adicionar CV</label>
@@ -2473,6 +2822,115 @@ export function TelaDetalhesProcesso({ controlador }) {
                 : analisandoCv
                   ? 'Analisando...'
                   : 'Analisar CV'}
+            </button>
+          </div>
+        </div>
+
+        <div class="rh-filter-grid rh-filter-grid--wide mt-4">
+          <div class="rh-filter-field">
+            <label>Nome</label>
+            <input
+              class="form-control"
+              placeholder="Buscar candidato"
+              value=${filtrosPreAnalises.nome}
+              onInput=${(event) =>
+                setFiltrosPreAnalises({
+                  ...filtrosPreAnalises,
+                  nome: event.target.value,
+                })}
+            />
+          </div>
+          <div class="rh-filter-field">
+            <label>Score minimo</label>
+            <input
+              class="form-control"
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              value=${filtrosPreAnalises.scoreMin}
+              onInput=${(event) =>
+                setFiltrosPreAnalises({
+                  ...filtrosPreAnalises,
+                  scoreMin: event.target.value,
+                })}
+            />
+          </div>
+          <div class="rh-filter-field">
+            <label>Score maximo</label>
+            <input
+              class="form-control"
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              value=${filtrosPreAnalises.scoreMax}
+              onInput=${(event) =>
+                setFiltrosPreAnalises({
+                  ...filtrosPreAnalises,
+                  scoreMax: event.target.value,
+                })}
+            />
+          </div>
+          <div class="rh-filter-field">
+            <label>Classificacao</label>
+            <select
+              class="form-select"
+              value=${filtrosPreAnalises.classificacao}
+              onChange=${(event) =>
+                setFiltrosPreAnalises({
+                  ...filtrosPreAnalises,
+                  classificacao: event.target.value,
+                })}
+            >
+              <option value="">Todas</option>
+              ${classificacoesPreAnalises.map(
+                (classificacao) => html`
+                  <option value=${classificacao} key=${classificacao}>
+                    ${classificacao}
+                  </option>
+                `,
+              )}
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between gap-2 flex-wrap mt-3">
+          <label class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              checked=${filtrosPreAnalises.mostrarOcultos}
+              onChange=${(event) =>
+                aplicarFiltrosPreAnalise({
+                  ...filtrosPreAnalises,
+                  mostrarOcultos: event.target.checked,
+                })}
+            />
+            <span class="form-check-label">Mostrar itens limpos</span>
+          </label>
+          <div class="d-flex gap-2 flex-wrap">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              onClick=${limparFiltrosPreAnalise}
+            >
+              Limpar filtros
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              onClick=${() => aplicarFiltrosPreAnalise()}
+            >
+              Aplicar filtros
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-danger btn-sm"
+              disabled=${processoEncerrado || !preAnalises.length}
+              onClick=${limparListaPreAnalise}
+            >
+              Limpar lista
             </button>
           </div>
         </div>
@@ -2527,14 +2985,14 @@ export function TelaDetalhesProcesso({ controlador }) {
                               : null}
                             <button
                               type="button"
-                              class="btn btn-sm btn-outline-dark"
+                              class="btn btn-sm btn-outline-dark rh-action-btn"
                               onClick=${() => setResultadoAnaliseSelecionado(item)}
                             >
                               Resultado
                             </button>
                             <button
                               type="button"
-                              class="btn btn-sm btn-outline-info"
+                              class="btn btn-sm btn-outline-info rh-action-btn"
                               onClick=${() => setVisualizacaoCv(item)}
                             >
                               Ver CV
@@ -2545,7 +3003,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                               ? html`
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-success"
+                                    class="btn btn-sm btn-outline-success rh-action-btn"
                                     onClick=${() =>
                                       incluirNoProcesso(item)}
                                   >
@@ -2559,7 +3017,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                               ? html`
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-warning"
+                                    class="btn btn-sm btn-outline-warning rh-action-btn"
                                     onClick=${() =>
                                       utilizarCandidatoNaoQualificado(item)}
                                   >
@@ -2567,7 +3025,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                                   </button>
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-secondary"
+                                    class="btn btn-sm btn-outline-secondary rh-action-btn"
                                     onClick=${() =>
                                       enviarPreAnaliseAoBancoTalentos(item)}
                                   >
@@ -2579,7 +3037,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                               ? html`
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-danger"
+                                    class="btn btn-sm btn-outline-danger rh-action-btn"
                                     onClick=${() => excluirPreAnalise(item.id_pre_analise)}
                                   >
                                     Excluir
@@ -2632,17 +3090,21 @@ export function TelaDetalhesProcesso({ controlador }) {
             <tbody>
               ${candidatosOperacionais.length
                 ? candidatosOperacionais.map(
-                    (candidato) => html`
+                    (candidato) => {
+                      const tagsCandidato = Array.isArray(candidato?.tags)
+                        ? candidato.tags
+                        : [];
+                      return html`
                       <tr key=${candidato.id_registro}>
                         <td>
                           <strong>${candidato.nome_candidato || '-'}</strong>
                           <div class="small text-muted mt-1">
                             ${candidato.vaga || '-'}
                           </div>
-                          ${candidato.tags?.length
+                          ${tagsCandidato.length
                             ? html`
                                 <div class="rh-chip-wrap mt-2">
-                                  ${candidato.tags.slice(0, 3).map(
+                                  ${tagsCandidato.slice(0, 3).map(
                                     (tag) => html`
                                       <span key=${tag} class="rh-chip">${tag}</span>
                                     `,
@@ -2657,8 +3119,17 @@ export function TelaDetalhesProcesso({ controlador }) {
                             ${candidato.whatsapp || candidato.telefone || '-'}
                           </div>
                           <div class="small text-muted">
-                            ${candidato.origem || '-'}
+                            Origem: ${formatarOrigemCandidato(candidato)}
                           </div>
+                          ${formatarOrigemCandidato(candidato) === 'Banco de Talentos' &&
+                          (candidato.processo_origem || candidato.id_processo_origem)
+                            ? html`
+                                <div class="small text-muted">
+                                  Processo anterior:
+                                  ${candidato.processo_origem || candidato.id_processo_origem}
+                                </div>
+                              `
+                            : null}
                         </td>
                         <td>
                           <div>${candidato.cidade || '-'}</div>
@@ -2681,21 +3152,23 @@ export function TelaDetalhesProcesso({ controlador }) {
                                   <div class="d-flex gap-2 flex-wrap">
                                     <button
                                       type="button"
-                                      class="btn btn-sm btn-outline-dark"
+                                      class="btn btn-sm btn-outline-dark rh-action-btn"
                                       disabled=${carregandoDetalheProva ===
                                       String(candidato.id_registro || candidato.id_teste || '')}
                                       onClick=${() => abrirDetalheProva(candidato)}
                                     >
+                                      <span class="material-symbols-outlined">analytics</span>
                                       Notas
                                     </button>
                                     <button
                                       type="button"
-                                      class="btn btn-sm btn-outline-primary"
+                                      class="btn btn-sm btn-outline-primary rh-action-btn"
                                       disabled=${carregandoDetalheProva ===
                                       String(candidato.id_registro || candidato.id_teste || '')}
                                       onClick=${() => abrirDetalheProva(candidato)}
                                     >
-                                      Ver resultado
+                                      <span class="material-symbols-outlined">visibility</span>
+                                      Resultado
                                     </button>
                                   </div>
                                 </div>
@@ -2725,9 +3198,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                             ? html`
                                 <button
                                   type="button"
-                                  class="btn btn-sm btn-outline-secondary"
+                                  class="btn btn-sm btn-outline-secondary rh-action-btn"
                                   onClick=${() => abrirCurriculo(candidato)}
                                 >
+                                  <span class="material-symbols-outlined">description</span>
                                   Ver CV
                                 </button>
                               `
@@ -2744,7 +3218,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                           })}
                         </td>
                       </tr>
-                    `,
+                    `},
                   )
                 : html`
                     <${TabelaVazia}
@@ -3091,8 +3565,11 @@ export function TelaDetalhesProcesso({ controlador }) {
         candidato=${aprovacaoSelecionada}
         processo=${processo}
         salvando=${salvandoAprovacao}
+        enviandoCanal=${enviandoCanalAprovacao}
         onClose=${() => setAprovacaoSelecionada(null)}
         onConfirm=${confirmarAprovacao}
+        onSendWhatsApp=${enviarAprovacaoWhatsApp}
+        onSendEmail=${enviarAprovacaoEmail}
       />
 
       <${ModalPadrao}

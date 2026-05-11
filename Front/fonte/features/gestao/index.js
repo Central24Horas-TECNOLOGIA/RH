@@ -26,10 +26,17 @@ import {
   obterRegrasFormularioProcesso,
   obterRotuloSituacaoAtual,
   atualizarPerfilCandidato,
+  baixarAnexoEmailRecebido,
   baixarRelatorioCandidatos,
   baixarRelatorioProcessos,
+  analisarCvEmailRecebidoGeral,
+  enviarEmailRecebidoBancoTalentos,
+  ignorarEmailRecebido,
+  lerDetalheEmailRecebido,
+  lerEmailsRecebidos,
   removerBancoTalentos,
   usarCandidatoDoBancoTalentos,
+  vincularEmailRecebidoProcesso,
   lerRelatorioCandidatos,
   lerRelatorioProcessos,
 } from '../../app/controlador-aplicacao.js';
@@ -77,6 +84,417 @@ import {
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
 import { BotaoAjudaTour, TourGuiado } from '../../ui/tour-guiado.js';
+
+const MENSAGEM_EMAIL_NAO_CONFIGURADO =
+  'Caixa de e-mail corporativa ainda não configurada. Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor.';
+
+function normalizarTextoPainel(valor) {
+  return String(valor || '').trim();
+}
+
+function obterClasseStatusEmail(status) {
+  const texto = normalizarTextoPainel(status).toLowerCase();
+  if (texto.includes('banco')) return 'is-talent';
+  if (texto.includes('vinculado') || texto.includes('analisado')) return 'is-highlight';
+  if (texto.includes('erro') || texto.includes('ignorado')) return 'is-eliminated';
+  if (texto.includes('sem anexo')) return 'is-pending';
+  return 'is-analysis';
+}
+
+function obterClasseAlertaEmail(payload) {
+  const status = normalizarTextoPainel(payload?.status).toLowerCase();
+  if (status === 'error' || payload?.error) return 'alert-danger';
+  if (payload && payload.configured === false) return 'alert-warning';
+  return 'alert-info';
+}
+
+function SecaoCurriculosRecebidosEmail() {
+  const [aberta, setAberta] = useState(true);
+  const [carregando, setCarregando] = useState(true);
+  const [payloadEmail, setPayloadEmail] = useState(null);
+  const [emails, setEmails] = useState([]);
+  const [processosAbertos, setProcessosAbertos] = useState([]);
+  const [selecoesProcesso, setSelecoesProcesso] = useState({});
+  const [acaoEmAndamento, setAcaoEmAndamento] = useState('');
+  const [detalheEmail, setDetalheEmail] = useState(null);
+  const [mostrarIgnorados, setMostrarIgnorados] = useState(false);
+
+  const carregarEmails = async () => {
+    setCarregando(true);
+    try {
+      const [resultadoEmails, resultadoProcessos] = await Promise.allSettled([
+        lerEmailsRecebidos({ limite: 50, mostrarIgnorados }),
+        lerProcessos(true),
+      ]);
+
+      if (resultadoEmails.status === 'fulfilled') {
+        const payload = resultadoEmails.value || {};
+        setPayloadEmail(payload);
+        setEmails(Array.isArray(payload.items) ? payload.items : []);
+      } else {
+        setPayloadEmail({
+          configured: false,
+          message:
+            resultadoEmails.reason?.message || MENSAGEM_EMAIL_NAO_CONFIGURADO,
+        });
+        setEmails([]);
+      }
+
+      if (resultadoProcessos.status === 'fulfilled') {
+        setProcessosAbertos(
+          (Array.isArray(resultadoProcessos.value)
+            ? resultadoProcessos.value
+            : []
+          ).filter((processo) => !isProcessClosed(processo)),
+        );
+      } else {
+        setProcessosAbertos([]);
+      }
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarEmails();
+  }, [mostrarIgnorados]);
+
+  const registrarErroAcao = (error, fallback) => {
+    setPayloadEmail((atual) => ({
+      ...(atual || {}),
+      configured: atual?.configured !== false,
+      status: 'error',
+      message: error?.message || fallback,
+    }));
+  };
+
+  const executarAcao = async (chave, acao) => {
+    setAcaoEmAndamento(chave);
+    try {
+      await acao();
+      await carregarEmails();
+    } finally {
+      setAcaoEmAndamento('');
+    }
+  };
+
+  const analisarEmail = async (item) => {
+    if (!item?.possui_anexo) {
+      registrarErroAcao(null, 'Este e-mail não possui anexo de currículo.');
+      return;
+    }
+    try {
+      await executarAcao(`analisar:${item.id}`, () =>
+        analisarCvEmailRecebidoGeral(item.id),
+      );
+    } catch (error) {
+      registrarErroAcao(error, 'Não foi possível analisar o CV recebido.');
+    }
+  };
+
+  const vincularEmail = async (item) => {
+    const idProcesso = selecoesProcesso[item.id] || '';
+    if (!idProcesso) {
+      registrarErroAcao(null, 'Selecione um processo aberto para vincular.');
+      return;
+    }
+    try {
+      await executarAcao(`vincular:${item.id}`, () =>
+        vincularEmailRecebidoProcesso(item.id, { id_processo: idProcesso }),
+      );
+      setSelecoesProcesso((anteriores) => ({ ...anteriores, [item.id]: '' }));
+    } catch (error) {
+      registrarErroAcao(error, 'Não foi possível vincular este candidato.');
+    }
+  };
+
+  const enviarParaBanco = async (item) => {
+    try {
+      await executarAcao(`banco:${item.id}`, () =>
+        enviarEmailRecebidoBancoTalentos(item.id),
+      );
+    } catch (error) {
+      registrarErroAcao(
+        error,
+        'Não foi possível enviar este candidato para o Banco de Talentos.',
+      );
+    }
+  };
+
+  const abrirCvEmail = async (item) => {
+    if (!item?.possui_anexo) {
+      registrarErroAcao(null, 'Este e-mail não possui anexo de currículo.');
+      return;
+    }
+    try {
+      setAcaoEmAndamento(`cv:${item.id}`);
+      const anexo = Array.isArray(item.anexos) ? item.anexos[0] : null;
+      const resposta = await baixarAnexoEmailRecebido(item.id, anexo?.id || '');
+      abrirBlobEmNovaGuia(resposta.blob);
+      await carregarEmails();
+    } catch (error) {
+      registrarErroAcao(error, 'Não foi possível abrir o CV recebido.');
+    } finally {
+      setAcaoEmAndamento('');
+    }
+  };
+
+  const ignorarEmail = async (item) => {
+    try {
+      await executarAcao(`ignorar:${item.id}`, () =>
+        ignorarEmailRecebido(item.id),
+      );
+    } catch (error) {
+      registrarErroAcao(error, 'Não foi possível ignorar este e-mail.');
+    }
+  };
+
+  const abrirDetalhesEmail = async (item) => {
+    try {
+      const resposta = await lerDetalheEmailRecebido(item.id);
+      setDetalheEmail(resposta?.item || item);
+    } catch (error) {
+      setDetalheEmail(item);
+      registrarErroAcao(error, 'Não foi possível carregar os detalhes do e-mail.');
+    }
+  };
+
+  return html`
+    <${SectionCard}
+      title="Caixa de Currículos"
+      description="Currículos recebidos na caixa de e-mail configurada."
+      actions=${html`
+        <div class="rh-email-panel-actions">
+          <label class="form-check rh-email-toggle-ignored">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              checked=${mostrarIgnorados}
+              onChange=${(event) => setMostrarIgnorados(event.target.checked)}
+            />
+            <span class="form-check-label">Mostrar ignorados</span>
+          </label>
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm rh-action-btn"
+            disabled=${carregando}
+            onClick=${carregarEmails}
+          >
+            <span class="material-symbols-outlined">refresh</span>
+            ${carregando ? 'Atualizando...' : 'Atualizar'}
+            ${carregando ? '' : ' e-mails'}
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm rh-action-btn"
+            onClick=${() => setAberta((valor) => !valor)}
+          >
+            <span class="material-symbols-outlined">
+              ${aberta ? 'expand_less' : 'expand_more'}
+            </span>
+            ${aberta ? 'Recolher' : 'Expandir'}
+          </button>
+        </div>
+      `}
+      tourId="home-email-inbox"
+    >
+      ${aberta
+        ? html`
+            ${payloadEmail && !payloadEmail.configured
+              ? html`
+                  <div class="alert alert-warning">
+                    ${payloadEmail?.message || MENSAGEM_EMAIL_NAO_CONFIGURADO}
+                  </div>
+                `
+              : payloadEmail?.message
+                ? html`<div class=${`alert ${obterClasseAlertaEmail(payloadEmail)}`}>
+                    ${payloadEmail.message}
+                  </div>`
+                : null}
+
+            <div class="table-responsive">
+              <table class="table align-middle rh-modern-history-table rh-email-inbox-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Remetente</th>
+                    <th>Assunto</th>
+                    <th>Nome detectado</th>
+                    <th>Vaga detectada</th>
+                    <th>Contato detectado</th>
+                    <th>Anexo/CV</th>
+                    <th>Status</th>
+                    <th class="text-end">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${emails.length
+                    ? emails.map(
+                        (item) => html`
+                          <tr key=${item.id}>
+                            <td>${formatarDataHora(item.data_recebimento)}</td>
+                            <td>
+                              <strong>${item.remetente || 'Remetente não informado'}</strong>
+                            </td>
+                            <td>
+                              <div>${item.assunto || 'Sem assunto'}</div>
+                              <div class="small text-muted">${item.resumo_corpo || '-'}</div>
+                            </td>
+                            <td>${item.nome_detectado || '-'}</td>
+                            <td>${item.vaga_detectada || '-'}</td>
+                            <td>
+                              <div>${item.telefone_detectado || '-'}</div>
+                              <div class="small text-muted">${item.email_detectado || '-'}</div>
+                            </td>
+                            <td>${item.possui_anexo ? item.nome_anexo || 'Anexo recebido' : 'Sem anexo'}</td>
+                            <td>
+                              <span class=${`process-candidate-status-badge ${obterClasseStatusEmail(item.status)}`}>
+                                ${item.status || 'Recebido'}
+                              </span>
+                            </td>
+                            <td class="text-end">
+                              <div class="rh-table-actions rh-email-actions">
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-dark rh-action-btn"
+                                  onClick=${() => abrirDetalhesEmail(item)}
+                                >
+                                  <span class="material-symbols-outlined">visibility</span>
+                                  Ver e-mail
+                                </button>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-dark rh-action-btn"
+                                  disabled=${!item.possui_anexo || acaoEmAndamento === `cv:${item.id}`}
+                                  onClick=${() => abrirCvEmail(item)}
+                                >
+                                  <span class="material-symbols-outlined">description</span>
+                                  ${acaoEmAndamento === `cv:${item.id}` ? 'Abrindo...' : 'Ver CV'}
+                                </button>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-primary rh-action-btn"
+                                  disabled=${!item.possui_anexo || acaoEmAndamento === `analisar:${item.id}`}
+                                  onClick=${() => analisarEmail(item)}
+                                >
+                                  <span class="material-symbols-outlined">auto_awesome</span>
+                                  ${acaoEmAndamento === `analisar:${item.id}` ? 'Analisando...' : 'Analisar CV'}
+                                </button>
+                                <select
+                                  class="form-select form-select-sm rh-email-process-select"
+                                  value=${selecoesProcesso[item.id] || ''}
+                                  onChange=${(event) =>
+                                    setSelecoesProcesso((anteriores) => ({
+                                      ...anteriores,
+                                      [item.id]: event.target.value,
+                                    }))}
+                                >
+                                  <option value="">Processo aberto</option>
+                                  ${processosAbertos.map(
+                                    (processo) => html`
+                                      <option
+                                        key=${obterChaveProcesso(processo)}
+                                        value=${obterReferenciaProcesso(processo)}
+                                      >
+                                        ${processo.id_processo || processo.vaga || 'Processo'}
+                                      </option>
+                                    `,
+                                  )}
+                                </select>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-primary rh-action-btn"
+                                  disabled=${!selecoesProcesso[item.id] || acaoEmAndamento === `vincular:${item.id}`}
+                                  onClick=${() => vincularEmail(item)}
+                                >
+                                  <span class="material-symbols-outlined">link</span>
+                                  Vincular
+                                </button>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-secondary rh-action-btn"
+                                  disabled=${acaoEmAndamento === `banco:${item.id}`}
+                                  onClick=${() => enviarParaBanco(item)}
+                                >
+                                  <span class="material-symbols-outlined">group</span>
+                                  Banco
+                                </button>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-danger rh-action-btn"
+                                  disabled=${acaoEmAndamento === `ignorar:${item.id}`}
+                                  onClick=${() => ignorarEmail(item)}
+                                >
+                                  <span class="material-symbols-outlined">visibility_off</span>
+                                  Ignorar
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        `,
+                      )
+                    : html`
+                        <tr>
+                          <td class="text-center text-muted py-4" colSpan="9">
+                            ${carregando
+                              ? 'Carregando currículos recebidos.'
+                              : 'Nenhum currículo recebido por e-mail para listar.'}
+                          </td>
+                        </tr>
+                      `}
+                </tbody>
+              </table>
+            </div>
+          `
+        : null}
+
+      <${ModalPadrao}
+        aberto=${!!detalheEmail}
+        titulo=${`E-mail recebido | ${detalheEmail?.assunto || 'Sem assunto'}`}
+        subtitulo=${detalheEmail?.remetente || 'Remetente não informado'}
+        onClose=${() => setDetalheEmail(null)}
+      >
+        <div class="rh-details-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Data de recebimento</label>
+              <div>${formatarDataHora(detalheEmail?.data_recebimento)}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Anexo/CV</label>
+              <div>${detalheEmail?.nome_anexo || 'Sem anexo'}</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nome detectado</label>
+              <div>${detalheEmail?.nome_detectado || '-'}</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Telefone detectado</label>
+              <div>${detalheEmail?.telefone_detectado || '-'}</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">E-mail detectado</label>
+              <div>${detalheEmail?.email_detectado || '-'}</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Corpo do e-mail</label>
+              <pre class="rh-email-body-preview">${detalheEmail?.corpo || detalheEmail?.resumo_corpo || ''}</pre>
+            </div>
+          </div>
+        </div>
+        <footer class="rh-modal-footer">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            onClick=${() => setDetalheEmail(null)}
+          >
+            Fechar
+          </button>
+        </footer>
+      </${ModalPadrao}>
+    </${SectionCard}>
+  `;
+}
 
 export function TelaLogin({ controlador }) {
   const [usuario, setUsuario] = useState('');
@@ -316,6 +734,8 @@ export function TelaInicio({ controlador }) {
           </button>
         </div>
       </${SectionCard}>
+
+      <${SecaoCurriculosRecebidosEmail} />
 
       <${SectionCard}
         title="Registros recentes"
@@ -1648,8 +2068,11 @@ export function TelaAnaliseCandidatos({ controlador }) {
                       <th>Candidato</th>
                       <th>Processo</th>
                       <th>Vaga</th>
+                      <th>Origem</th>
+                      <th>Movimentações</th>
                       <th>Nota</th>
                       <th>Status</th>
+                      <th>Última movimentação</th>
                       <th>Aprovação</th>
                       <th>Eliminação/Reprovação</th>
                       <th>Banco</th>
@@ -1664,8 +2087,15 @@ export function TelaAnaliseCandidatos({ controlador }) {
                               <td>${linha.nome_candidato || '-'}</td>
                               <td>${linha.processo || '-'}</td>
                               <td>${linha.vaga || '-'}</td>
+                              <td>${linha.origem_inicial || '-'}</td>
+                              <td>${linha.movimentacoes || '-'}</td>
                               <td>${linha.nota_prova || 'Sem prova'}</td>
-                              <td>${linha.status || '-'}</td>
+                              <td>
+                                <span class=${`rh-status-pill ${obterClasseStatusEntrevista(linha.status_atual || linha.status)}`}>
+                                  ${linha.status_atual || linha.status || '-'}
+                                </span>
+                              </td>
+                              <td>${formatarDataHora(linha.data_movimentacao)}</td>
                               <td>${formatarDataHora(linha.data_aprovacao)}</td>
                               <td>${formatarDataHora(linha.data_eliminacao_reprovacao)}</td>
                               <td>${formatarDataHora(linha.data_banco_talentos)}</td>
@@ -1676,7 +2106,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                             </tr>
                           `,
                         )
-                      : html`<${TabelaVazia} colunas=${9} texto="Nenhum candidato no periodo." />`}
+                      : html`<${TabelaVazia} colunas=${12} texto="Nenhum candidato no periodo." />`}
                   </tbody>
                 </table>
               </div>

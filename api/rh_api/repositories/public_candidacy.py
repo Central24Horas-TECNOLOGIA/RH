@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from datetime import datetime
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from .bootstrap import (
     build_process_where_clause,
     decorate_process_row,
     ensure_candidate_attachments_table,
+    ensure_cv_pre_analises_table,
     ensure_pipeline_columns,
     ensure_process_columns,
     ensure_process_reference_columns,
@@ -563,6 +565,42 @@ class PublicCandidacyRepositoryMixin:
             )
             rows = rows_to_dicts(cursor, cursor.fetchall())
             if not rows:
+                safe_id_teste = normalize_text(id_teste)
+                if safe_id_teste.upper().startswith("CV-") and safe_id_teste[3:].isdigit():
+                    ensure_cv_pre_analises_table(cursor)
+                    cursor.execute(
+                        """
+                        SELECT TOP 1
+                            nome_arquivo,
+                            mime_type,
+                            arquivo_original_base64
+                        FROM cv_pre_analises
+                        WHERE id_pre_analise = ?
+                          AND ISNULL(arquivo_original_base64, '') <> ''
+                        """,
+                        (int(safe_id_teste[3:]),),
+                    )
+                    pre_rows = rows_to_dicts(cursor, cursor.fetchall())
+                    if pre_rows:
+                        pre_row = pre_rows[0]
+                        try:
+                            content = base64.b64decode(
+                                normalize_text(pre_row.get("arquivo_original_base64")),
+                                validate=True,
+                            )
+                        except Exception as exc:
+                            raise HTTPException(
+                                status_code=status.HTTP_404_NOT_FOUND,
+                                detail="O curriculo salvo na pre-analise nao esta disponivel.",
+                            ) from exc
+
+                        return {
+                            "bytes": content,
+                            "filename": normalize_text(pre_row.get("nome_arquivo")) or "curriculo",
+                            "media_type": normalize_text(pre_row.get("mime_type")) or "application/octet-stream",
+                            "size_bytes": len(content),
+                        }
+
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Curriculo do candidato nao encontrado.")
 
             row = rows[0]

@@ -824,6 +824,7 @@ export function TelaCandidato({ controlador }) {
 
 export function TelaProva({ controlador }) {
   const [confirmarEncerramento, setConfirmarEncerramento] = useState(false);
+  const [confirmarExcelAusente, setConfirmarExcelAusente] = useState(null);
   const [erroFinalizacao, setErroFinalizacao] = useState('');
   const indiceAtual = controlador.estado.indiceAtual;
   const questaoAtual = controlador.estado.questoes[indiceAtual];
@@ -868,6 +869,11 @@ export function TelaProva({ controlador }) {
 
     const resultado = controlador.encerrarProva('Finalizado');
     if (!resultado?.ok) {
+      if (resultado?.tipo === 'excel_nao_enviado') {
+        setConfirmarExcelAusente(resultado);
+        setErroFinalizacao('');
+        return;
+      }
       setErroFinalizacao(
         resultado?.mensagem ||
           'Nao foi possivel finalizar a prova com as respostas atuais.',
@@ -935,6 +941,54 @@ export function TelaProva({ controlador }) {
             }}
           >
             Encerrar prova
+          </button>
+        </footer>
+      </${ModalPadrao}>
+
+      <${ModalPadrao}
+        aberto=${!!confirmarExcelAusente}
+        titulo="Excel nao enviado"
+        subtitulo="A etapa de Excel pode ser finalizada com nota zero se o candidato decidir continuar."
+        onClose=${() => setConfirmarExcelAusente(null)}
+      >
+        <div class="rh-details-body">
+          <div class="alert alert-warning mb-0">
+            Voce ainda nao enviou a prova de Excel. Essa etapa recebera nota zero e impactara sua nota final. Deseja finalizar mesmo assim?
+          </div>
+        </div>
+        <footer class="rh-modal-footer">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            onClick=${() => {
+              setConfirmarExcelAusente(null);
+              const indiceExcel = Number(confirmarExcelAusente?.indice);
+              if (!Number.isNaN(indiceExcel)) {
+                controlador.definirIndiceAtual(indiceExcel);
+              }
+            }}
+          >
+            Voltar e enviar Excel
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            onClick=${() => {
+              setConfirmarExcelAusente(null);
+              const resultado = controlador.encerrarProva('Finalizado', {
+                permitirExcelZero: true,
+              });
+              if (!resultado?.ok) {
+                setErroFinalizacao(
+                  resultado?.mensagem ||
+                    'Nao foi possivel finalizar a prova com as respostas atuais.',
+                );
+                return;
+              }
+              setErroFinalizacao('');
+            }}
+          >
+            Finalizar mesmo assim
           </button>
         </footer>
       </${ModalPadrao}>

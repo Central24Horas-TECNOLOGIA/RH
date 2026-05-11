@@ -4,6 +4,8 @@ __pycache__/
 *.pyc.*
 .pytest_cache/
 pytest-cache-files-*/
+.pytest-tmp/
+.pytest-email-tmp-*/
 .coverage
 
 # Ambientes e segredos
@@ -25,6 +27,7 @@ env/
 .edge-dom.html
 .edge-headless/
 .edge-*.png
+data/email-inbox-test-runtime/
 Thumbs.db
 .DS_Store
 

@@ -200,6 +200,19 @@ a {
   background: var(--color-primary-soft);
 }
 
+.rh-status-pill.is-confirmed,
+.rh-status-pill.is-scheduled,
+.process-candidate-status-badge.is-scheduled {
+  color: #6f42c1;
+  background: #f0eafd;
+}
+
+.rh-status-pill.is-pending,
+.process-candidate-status-badge.is-pending {
+  color: var(--color-text-muted);
+  background: #eef3f9;
+}
+
 .rh-status-pill.is-confirmed {
   color: var(--color-info);
   background: var(--color-info-soft);
@@ -214,6 +227,12 @@ a {
 .process-candidate-status-badge.is-talent {
   color: var(--color-warning);
   background: var(--color-warning-soft);
+}
+
+.process-candidate-status-badge.is-not-qualified,
+.rh-status-pill.is-not-qualified {
+  color: var(--color-danger);
+  background: #fff2f4;
 }
 
 .cv-classification-badge {
@@ -239,6 +258,26 @@ a {
 .cv-classification-badge.otimo-candidato {
   color: var(--color-success);
   background: var(--color-success-soft);
+}
+
+.rh-table-actions,
+.rh-action-cluster {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.rh-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  white-space: nowrap;
+}
+
+.rh-action-btn .material-symbols-outlined {
+  font-size: 16px;
+  line-height: 1;
 }
 
 .rh-aderencia-tag.is-low {

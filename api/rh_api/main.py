@@ -19,6 +19,7 @@ from .repositories import (
 )
 from .routers.analytics import router as analytics_router
 from .routers.auth import router as auth_router
+from .routers.email_inbox import router as email_inbox_router
 from .routers.history import router as history_router
 from .routers.interviews import router as interviews_router
 from .routers.pipeline import router as pipeline_router
@@ -158,6 +159,7 @@ def create_app() -> FastAPI:
     app.include_router(system_router)
     app.include_router(auth_router)
     app.include_router(history_router)
+    app.include_router(email_inbox_router)
     app.include_router(processes_router)
     app.include_router(public_candidacy_router)
     app.include_router(interviews_router)

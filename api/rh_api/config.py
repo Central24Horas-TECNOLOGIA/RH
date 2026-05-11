@@ -64,6 +64,7 @@ def _load_runtime_ini() -> configparser.ConfigParser:
     if env_path:
         candidates.append(Path(env_path))
 
+    candidates.append(project_root / "config.ini")
     candidates.append(project_root.parent / "config.ini")
 
     for ini_path in candidates:
@@ -140,6 +141,39 @@ class Settings:
     public_cv_upload_dir: str
     doc_converter: str
     libreoffice_path: str
+    email_inbox_enabled: bool
+    email_inbox_mode: str
+    email_inbox_path: str
+    email_inbox_provider: str
+    email_inbox_protocol: str
+    email_inbox_address: str
+    email_inbox_imap_host: str
+    email_inbox_imap_port: int
+    email_inbox_username: str
+    email_inbox_auth_mode: str
+    email_inbox_password_env: str
+    email_inbox_mailbox: str
+    email_inbox_tenant_id: str
+    email_inbox_client_id: str
+    email_inbox_client_secret_env: str
+    email_inbox_oauth_scope: str
+    email_inbox_attachments_dir: str
+    email_inbox_max_messages: int
+    email_inbox_max_attachment_mb: int
+    email_graph_tenant_id: str
+    email_graph_client_id: str
+    email_graph_client_secret_env: str
+    email_graph_mailbox: str
+    email_graph_scope: str
+    email_graph_base_url: str
+    email_smtp_enabled: bool
+    email_smtp_host: str
+    email_smtp_port: int
+    email_smtp_username: str
+    email_smtp_password_env: str
+    email_smtp_from: str
+    email_smtp_use_tls: bool
+    email_smtp_use_ssl: bool
 
     @property
     def is_development(self) -> bool:
@@ -164,6 +198,23 @@ def get_settings() -> Settings:
     cors_allow_origin_regex = os.getenv("RH_CORS_ALLOW_ORIGIN_REGEX", "").strip() or None
     if dev_mode and not cors_allow_origin_regex:
         cors_allow_origin_regex = r"https?://(localhost|127\.0\.0\.1|192\.168\.5\.19)(:\d+)?"
+
+    email_inbox_provider = (
+        os.getenv("RH_EMAIL_INBOX_PROVIDER", "").strip()
+        or _ini_value(runtime_ini, "EMAIL_INBOX", "PROVIDER", "microsoft365")
+        or "microsoft365"
+    )
+    email_inbox_protocol = (
+        os.getenv("RH_EMAIL_INBOX_PROTOCOL", "").strip()
+        or _ini_value(runtime_ini, "EMAIL_INBOX", "PROTOCOL", "imap")
+        or "imap"
+    )
+    email_inbox_mode = (
+        os.getenv("RH_EMAIL_INBOX_MODE", "").strip()
+        or _ini_value(runtime_ini, "EMAIL_INBOX", "MODE", "")
+        or email_inbox_protocol
+        or "imap"
+    )
 
     if has_ini_db:
         sql_server = _ini_value(runtime_ini, "RH_DATABASE", "server", r"PAULO_TI\SQLEXPRESS")
@@ -236,5 +287,156 @@ def get_settings() -> Settings:
             os.getenv("LIBREOFFICE_PATH", "").strip()
             or os.getenv("RH_LIBREOFFICE_PATH", "").strip()
             or _ini_value(runtime_ini, "CV", "LIBREOFFICE_PATH", "")
+        ),
+        email_inbox_enabled=_read_bool_env(
+            "RH_EMAIL_INBOX_ENABLED",
+            _ini_bool(runtime_ini, "EMAIL_INBOX", "ENABLED", False),
+        ),
+        email_inbox_mode=email_inbox_mode,
+        email_inbox_path=(
+            os.getenv("RH_EMAIL_INBOX_PATH", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "INBOX_PATH", "")
+        ),
+        email_inbox_provider=email_inbox_provider,
+        email_inbox_protocol=email_inbox_protocol,
+        email_inbox_address=(
+            os.getenv("RH_EMAIL_INBOX_ADDRESS", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "EMAIL_ADDRESS", "")
+        ),
+        email_inbox_imap_host=(
+            os.getenv("RH_EMAIL_INBOX_IMAP_HOST", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "IMAP_HOST", "outlook.office365.com")
+            or "outlook.office365.com"
+        ),
+        email_inbox_imap_port=int(
+            os.getenv("RH_EMAIL_INBOX_IMAP_PORT", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "IMAP_PORT", "993")
+            or "993"
+        ),
+        email_inbox_username=(
+            os.getenv("RH_EMAIL_INBOX_USERNAME", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "USERNAME", "")
+        ),
+        email_inbox_auth_mode=(
+            os.getenv("RH_EMAIL_INBOX_AUTH_MODE", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "AUTH_MODE", "oauth2")
+            or "oauth2"
+        ),
+        email_inbox_password_env=(
+            os.getenv("RH_EMAIL_INBOX_PASSWORD_ENV", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "EMAIL_PASSWORD_ENV", "")
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "PASSWORD_ENV", "RH_EMAIL_PASSWORD")
+            or "RH_EMAIL_PASSWORD"
+        ),
+        email_inbox_mailbox=(
+            os.getenv("RH_EMAIL_INBOX_MAILBOX", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "MAILBOX", "INBOX")
+            or "INBOX"
+        ),
+        email_inbox_tenant_id=(
+            os.getenv("RH_EMAIL_INBOX_TENANT_ID", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "TENANT_ID", "")
+            or os.getenv("RH_EMAIL_GRAPH_TENANT_ID", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_GRAPH", "TENANT_ID", "")
+        ),
+        email_inbox_client_id=(
+            os.getenv("RH_EMAIL_INBOX_CLIENT_ID", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "CLIENT_ID", "")
+            or os.getenv("RH_EMAIL_GRAPH_CLIENT_ID", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_GRAPH", "CLIENT_ID", "")
+        ),
+        email_inbox_client_secret_env=(
+            os.getenv("RH_EMAIL_INBOX_CLIENT_SECRET_ENV", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "CLIENT_SECRET_ENV", "RH_EMAIL_CLIENT_SECRET")
+            or "RH_EMAIL_CLIENT_SECRET"
+        ),
+        email_inbox_oauth_scope=(
+            os.getenv("RH_EMAIL_INBOX_OAUTH_SCOPE", "").strip()
+            or os.getenv("RH_EMAIL_INBOX_SCOPES", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "SCOPES", "")
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "OAUTH_SCOPE", "https://outlook.office365.com/.default")
+            or "https://outlook.office365.com/.default"
+        ),
+        email_inbox_attachments_dir=(
+            os.getenv("RH_EMAIL_INBOX_ATTACHMENTS_DIR", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_INBOX", "ATTACHMENTS_DIR", "")
+            or str(project_root / "data" / "private" / "email_attachments")
+        ),
+        email_inbox_max_messages=max(
+            1,
+            int(
+                os.getenv("RH_EMAIL_INBOX_MAX_MESSAGES", "").strip()
+                or _ini_value(runtime_ini, "EMAIL_INBOX", "MAX_MESSAGES", "50")
+                or "50"
+            ),
+        ),
+        email_inbox_max_attachment_mb=max(
+            1,
+            int(
+                os.getenv("RH_EMAIL_INBOX_MAX_ATTACHMENT_MB", "").strip()
+                or _ini_value(runtime_ini, "EMAIL_INBOX", "MAX_ATTACHMENT_MB", "10")
+                or "10"
+            ),
+        ),
+        email_graph_tenant_id=(
+            os.getenv("RH_EMAIL_GRAPH_TENANT_ID", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_GRAPH", "TENANT_ID", "")
+        ),
+        email_graph_client_id=(
+            os.getenv("RH_EMAIL_GRAPH_CLIENT_ID", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_GRAPH", "CLIENT_ID", "")
+        ),
+        email_graph_client_secret_env=(
+            os.getenv("RH_EMAIL_GRAPH_CLIENT_SECRET_ENV", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_GRAPH", "CLIENT_SECRET_ENV", "RH_EMAIL_GRAPH_CLIENT_SECRET")
+            or "RH_EMAIL_GRAPH_CLIENT_SECRET"
+        ),
+        email_graph_mailbox=(
+            os.getenv("RH_EMAIL_GRAPH_MAILBOX", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_GRAPH", "MAILBOX", "")
+        ),
+        email_graph_scope=(
+            os.getenv("RH_EMAIL_GRAPH_SCOPE", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_GRAPH", "SCOPE", "https://graph.microsoft.com/.default")
+            or "https://graph.microsoft.com/.default"
+        ),
+        email_graph_base_url=(
+            os.getenv("RH_EMAIL_GRAPH_BASE_URL", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_GRAPH", "BASE_URL", "https://graph.microsoft.com/v1.0")
+            or "https://graph.microsoft.com/v1.0"
+        ),
+        email_smtp_enabled=_read_bool_env(
+            "RH_EMAIL_SMTP_ENABLED",
+            _ini_bool(runtime_ini, "EMAIL_SMTP", "ENABLED", False),
+        ),
+        email_smtp_host=(
+            os.getenv("RH_EMAIL_SMTP_HOST", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_SMTP", "SMTP_HOST", "")
+        ),
+        email_smtp_port=int(
+            os.getenv("RH_EMAIL_SMTP_PORT", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_SMTP", "SMTP_PORT", "587")
+            or "587"
+        ),
+        email_smtp_username=(
+            os.getenv("RH_EMAIL_SMTP_USERNAME", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_SMTP", "USERNAME", "")
+        ),
+        email_smtp_password_env=(
+            os.getenv("RH_EMAIL_SMTP_PASSWORD_ENV", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_SMTP", "PASSWORD_ENV", "RH_EMAIL_APP_PASSWORD")
+            or "RH_EMAIL_APP_PASSWORD"
+        ),
+        email_smtp_from=(
+            os.getenv("RH_EMAIL_SMTP_FROM", "").strip()
+            or _ini_value(runtime_ini, "EMAIL_SMTP", "FROM", "")
+        ),
+        email_smtp_use_tls=_read_bool_env(
+            "RH_EMAIL_SMTP_USE_TLS",
+            _ini_bool(runtime_ini, "EMAIL_SMTP", "USE_TLS", True),
+        ),
+        email_smtp_use_ssl=_read_bool_env(
+            "RH_EMAIL_SMTP_USE_SSL",
+            _ini_bool(runtime_ini, "EMAIL_SMTP", "USE_SSL", False),
         ),
     )
