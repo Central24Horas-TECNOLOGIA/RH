@@ -79,6 +79,7 @@ export {
   registrarWhatsappAprovacao,
   removerBancoTalentos,
   usarCandidatoDoBancoTalentos,
+  excluirEmailRecebido,
   vincularEmailRecebidoProcesso,
 } from './services/api/processes.js';
 export {

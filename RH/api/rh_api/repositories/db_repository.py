@@ -8,6 +8,8 @@ from .bootstrap import (
     is_deadlock_error,
 )
 from .cv_analysis import CvAnalysisRepositoryMixin
+from .email_inbox import EmailInboxRepositoryMixin
+from .communications import CommunicationRepositoryMixin
 from .history import HistoryRepositoryMixin
 from .interviews import InterviewRepositoryMixin
 from .pipeline import PipelineRepositoryMixin
@@ -23,6 +25,8 @@ class DatabaseRepository(
     TalentBankRepositoryMixin,
     CandidateProfileRepositoryMixin,
     CvAnalysisRepositoryMixin,
+    EmailInboxRepositoryMixin,
+    CommunicationRepositoryMixin,
     AnalyticsRepositoryMixin,
     PipelineRepositoryMixin,
     InterviewRepositoryMixin,

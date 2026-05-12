@@ -1117,6 +1117,8 @@ export function validarEntregaObrigatoriaDaProva({ questoes, respostas }) {
     if (!resposta?.uploaded || !resposta?.validation || !resposta?.uploadedArrayBuffer) {
       return {
         ok: false,
+        tipo: 'excel_nao_enviado',
+        indice,
         mensagem: `Envie o arquivo Excel da etapa "${questao.stage || questao.title || 'Excel'}" antes de finalizar a prova.`,
       };
     }
@@ -1124,6 +1126,8 @@ export function validarEntregaObrigatoriaDaProva({ questoes, respostas }) {
     if (!possuiValidacaoExcelImplementada(resposta.validation)) {
       return {
         ok: false,
+        tipo: 'excel_sem_validacao',
+        indice,
         mensagem: `A etapa "${questao.stage || questao.title || 'Excel'}" ainda nao conseguiu ser analisada automaticamente. Envie novamente o arquivo ou valide o checklist configurado.`,
       };
     }
@@ -1643,4 +1647,3 @@ export async function baixarPacoteDaProva({
   const blob = await zip.generateAsync({ type: 'blob' });
   baixarBlob(`prova_${nomeBase}.zip`, blob);
 }
-

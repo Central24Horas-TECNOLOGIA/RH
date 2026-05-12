@@ -10,6 +10,8 @@ import {
   agendarEntrevista,
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
+  analisarCvEmailRecebido,
+  analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
@@ -18,6 +20,7 @@ import {
   atualizarStatusCandidato,
   atualizarStatusCandidatoAvulso,
   analisarCvProcesso,
+  baixarAnexoEmailRecebido,
   baixarCvCandidato,
   criarCandidatoNoProcesso,
   criarCardPipeline,
@@ -29,18 +32,24 @@ import {
   excluirCardPipeline,
   excluirPreAnaliseCv,
   excluirSlotEntrevista,
+  enviarEmailRecebidoBancoTalentos,
   enviarPreAnaliseParaBancoTalentos,
+  enviarEmailAprovacao,
   fazerLoginApi,
   gerarLinkPublicoCandidatura,
   invalidarCacheApi,
   baixarRelatorioCandidatos,
   baixarRelatorioProcessos,
+  ignorarEmailRecebido,
   lerAnalisesCandidatos,
   lerArquivosResposta,
   lerBancoTalentos,
   lerCandidatosProcessos,
   lerDetalheAnaliseCandidato,
+  lerDetalheEmailRecebido,
   lerDetalheProcesso,
+  lerEmailsRecebidos,
+  lerEmailsRecebidosProcesso,
   lerEntrevistas,
   lerHistorico,
   lerHistoricoPaginado,
@@ -51,12 +60,16 @@ import {
   lerRelatorioProcessos,
   lerProcessos,
   lerSlotsEntrevista,
+  limparListaPreAnalisesCv,
   moverCardPipeline,
+  registrarWhatsappAprovacao,
+  vincularEmailRecebidoProcesso,
   possuiSessaoAutenticada,
   removerBancoTalentos,
   salvarArquivoResposta,
   salvarHistorico,
   usarCandidatoDoBancoTalentos,
+  excluirEmailRecebido,
   verificarSessaoApi,
 } from '../servico-api.js';
 import { criarLogger } from '../logger.js';
@@ -132,6 +145,7 @@ export function criarEstadoInicial() {
     observacaoRh: '',
     statusFinalizacao: 'Finalizado',
     modoFinalizacao: 'normal',
+    excelNaoEnviadoConfirmado: false,
     salvandoResultado: false,
     resultadoSalvo: false,
     acessoRhLiberadoAposProva: false,
@@ -358,17 +372,28 @@ export function lerJsonSeguro(texto, fallback = null) {
   }
 }
 
-export async function carregarDetalhesProva(idTeste) {
+export async function carregarDetalhesProva(idTeste, idProcessoRef = '') {
   const [historico, arquivos, mapaStatus] = await Promise.all([
     lerHistorico(),
     lerArquivosResposta().catch(() => ({})),
     construirMapaStatusAtual(),
   ]);
 
-  const linha = (Array.isArray(historico) ? historico : []).find(
+  const linhasMesmoId = (Array.isArray(historico) ? historico : []).filter(
     (item) =>
       String(item.id_teste || '').trim() === String(idTeste || '').trim(),
   );
+  const processoFiltro = String(idProcessoRef || '').trim();
+  const linha = processoFiltro
+    ? linhasMesmoId.find((item) => {
+      const ref = String(item.id_processo_ref || item.id_processo || '').trim();
+      return (
+        ref === processoFiltro ||
+        ref === processoFiltro.split('@@', 1)[0] ||
+        ref.split('@@', 1)[0] === processoFiltro.split('@@', 1)[0]
+      );
+    })
+    : linhasMesmoId[0];
 
   if (!linha) {
     throw new Error('Prova nao encontrada.');
@@ -549,6 +574,7 @@ export function useControladorAplicacao() {
             timestampTermino: null,
             statusFinalizacao: 'Encerrado automaticamente',
             modoFinalizacao: 'normal',
+            excelNaoEnviadoConfirmado: true,
             resultados: resultadoFinal.resultados,
             totalScore: resultadoFinal.totalScore,
             totalMax: resultadoFinal.totalMax,
@@ -684,6 +710,7 @@ export function useControladorAplicacao() {
       observacaoRh: '',
       statusFinalizacao: 'Finalizado',
       modoFinalizacao: 'normal',
+      excelNaoEnviadoConfirmado: false,
       salvandoResultado: false,
       resultadoSalvo: false,
       acessoRhLiberadoAposProva: false,
@@ -772,6 +799,7 @@ export function useControladorAplicacao() {
       observacaoRh: '',
       statusFinalizacao: 'Finalizado',
       modoFinalizacao: 'normal',
+      excelNaoEnviadoConfirmado: false,
       resultadoSalvo: false,
       acessoRhLiberadoAposProva: false,
     }));
@@ -807,7 +835,13 @@ export function useControladorAplicacao() {
         questoes: estado.questoes,
         respostas: estado.respostas,
       });
-      if (!validacaoFinalizacao?.ok) {
+      if (
+        !validacaoFinalizacao?.ok &&
+        !(
+          validacaoFinalizacao?.tipo === 'excel_nao_enviado' &&
+          opcoes?.permitirExcelZero
+        )
+      ) {
         return validacaoFinalizacao;
       }
     }
@@ -825,6 +859,8 @@ export function useControladorAplicacao() {
       segundosRestantes: 0,
       statusFinalizacao,
       modoFinalizacao: modoDesistencia ? 'desistencia' : 'normal',
+      excelNaoEnviadoConfirmado:
+        Boolean(opcoes?.permitirExcelZero) || anterior.excelNaoEnviadoConfirmado,
       resultados: resultadoFinal.resultados,
       totalScore: resultadoFinal.totalScore,
       totalMax: resultadoFinal.totalMax,
@@ -855,7 +891,13 @@ export function useControladorAplicacao() {
         questoes: estado.questoes,
         respostas: estado.respostas,
       });
-      if (!validacaoFinalizacao?.ok) {
+      if (
+        !validacaoFinalizacao?.ok &&
+        !(
+          validacaoFinalizacao?.tipo === 'excel_nao_enviado' &&
+          estado.excelNaoEnviadoConfirmado
+        )
+      ) {
         return validacaoFinalizacao;
       }
     }
@@ -1047,6 +1089,8 @@ export {
   agendarEntrevista,
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
+  analisarCvEmailRecebido,
+  analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
@@ -1054,6 +1098,7 @@ export {
   atualizarProcesso,
   atualizarStatusCandidato,
   analisarCvProcesso,
+  baixarAnexoEmailRecebido,
   baixarCvCandidato,
   baixarRelatorioCandidatos,
   baixarRelatorioProcessos,
@@ -1065,13 +1110,19 @@ export {
   excluirCardPipeline,
   excluirPreAnaliseCv,
   excluirSlotEntrevista,
+  enviarEmailAprovacao,
+  enviarEmailRecebidoBancoTalentos,
   enviarPreAnaliseParaBancoTalentos,
   gerarLinkPublicoCandidatura,
+  ignorarEmailRecebido,
   lerAnalisesCandidatos,
   lerBancoTalentos,
   lerCandidatosProcessos,
   lerDetalheAnaliseCandidato,
+  lerDetalheEmailRecebido,
   lerDetalheProcesso,
+  lerEmailsRecebidos,
+  lerEmailsRecebidosProcesso,
   lerEntrevistas,
   lerHistorico,
   lerHistoricoPaginado,
@@ -1081,7 +1132,11 @@ export {
   lerRelatorioProcessos,
   lerProcessos,
   lerSlotsEntrevista,
+  limparListaPreAnalisesCv,
   moverCardPipeline,
+  registrarWhatsappAprovacao,
   removerBancoTalentos,
+  excluirEmailRecebido,
   usarCandidatoDoBancoTalentos,
+  vincularEmailRecebidoProcesso,
 };

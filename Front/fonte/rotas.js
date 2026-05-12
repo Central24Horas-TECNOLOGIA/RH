@@ -2,6 +2,7 @@
 export const ROTAS_POR_TELA = {
   'screen-login': 'login',
   'screen-menu': 'inicio',
+  'screen-email-inbox': 'caixa-email',
   'screen-history': 'historico',
   'screen-processes': 'processos',
   'screen-candidates': 'candidatos',

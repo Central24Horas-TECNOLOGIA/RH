@@ -332,6 +332,7 @@ class AnalyticsRepositoryMixin:
             ensure_process_reference_columns(cursor)
             processos = self._get_process_map(cursor)
             profile_map = self._get_candidate_profile_map(cursor)
+            movements_map = self._get_candidate_movements_map(cursor)
             linhas: list[dict] = []
             used_history_ids: set[str] = set()
             safe_process_filter = normalize_compare_text(id_processo)
@@ -381,13 +382,26 @@ class AnalyticsRepositoryMixin:
 
                 processo = processos.get(process_ref) or processos.get(process_id) or {}
                 used_history_ids.add(normalize_text(item.get("id_teste")))
+                movement_summary = self._summarize_candidate_movements(
+                    item,
+                    movements_map.get(normalize_text(item.get("id_teste")), []),
+                )
                 linhas.append(
                     {
                         "nome_candidato": item.get("nome_candidato") or "",
                         "processo": process_ref or process_id or "",
                         "vaga": item.get("vaga") or processo.get("vaga") or "",
-                        "nota_prova": item.get("pontuacao_final") or "",
+                        "origem_inicial": movement_summary.get("origem_inicial") or item.get("origem_rotulo") or item.get("origem") or "",
+                        "movimentacoes": movement_summary.get("movimentacoes") or "",
+                        "data_movimentacao": movement_summary.get("data_movimentacao") or "",
+                        "status_anterior": movement_summary.get("status_anterior") or "",
+                        "status_novo": movement_summary.get("status_novo") or status_candidato,
+                        "usuario_responsavel": movement_summary.get("usuario_responsavel") or "",
+                        "observacao_motivo": movement_summary.get("observacao_motivo") or "",
+                        "processo_destino": movement_summary.get("processo_destino") or "",
+                        "nota_prova": item.get("nota_prova") or item.get("pontuacao_final") or "",
                         "status": status_candidato,
+                        "status_atual": status_candidato,
                         "data_aprovacao": item.get("aprovado_em") if status_candidato == CANDIDATE_STATUS_APPROVED else "",
                         "data_eliminacao_reprovacao": data_evento
                         if status_candidato in {
@@ -434,13 +448,26 @@ class AnalyticsRepositoryMixin:
 
                 profile = profile_map.get(normalize_text(item.get("id_teste")), {})
                 used_history_ids.add(normalize_text(item.get("id_teste")))
+                movement_summary = self._summarize_candidate_movements(
+                    {**item, "status_candidato": CANDIDATE_STATUS_TALENT_BANK},
+                    movements_map.get(normalize_text(item.get("id_teste")), []),
+                )
                 linhas.append(
                     {
                         "nome_candidato": item.get("nome_candidato") or "",
                         "processo": process_ref or process_id or "",
                         "vaga": item.get("vaga") or "",
+                        "origem_inicial": movement_summary.get("origem_inicial") or self._format_candidate_origin(item),
+                        "movimentacoes": movement_summary.get("movimentacoes") or "Candidato enviado para Banco de Talentos",
+                        "data_movimentacao": movement_summary.get("data_movimentacao") or item.get("data_movimentacao") or "",
+                        "status_anterior": movement_summary.get("status_anterior") or "",
+                        "status_novo": movement_summary.get("status_novo") or CANDIDATE_STATUS_TALENT_BANK,
+                        "usuario_responsavel": movement_summary.get("usuario_responsavel") or "",
+                        "observacao_motivo": movement_summary.get("observacao_motivo") or "",
+                        "processo_destino": movement_summary.get("processo_destino") or "",
                         "nota_prova": item.get("pontuacao_final") or "",
                         "status": CANDIDATE_STATUS_TALENT_BANK,
+                        "status_atual": CANDIDATE_STATUS_TALENT_BANK,
                         "data_aprovacao": "",
                         "data_eliminacao_reprovacao": "",
                         "data_banco_talentos": item.get("data_movimentacao") or "",
@@ -480,13 +507,32 @@ class AnalyticsRepositoryMixin:
                     continue
 
                 profile = profile_map.get(id_teste, {})
+                movement_summary = self._summarize_candidate_movements(
+                    {
+                        **item,
+                        "status_candidato": status_candidato,
+                        "origem": "Processo Unico",
+                        "prova_disponivel": True,
+                        "nota_prova": item.get("pontuacao_final"),
+                    },
+                    movements_map.get(id_teste, []),
+                )
                 linhas.append(
                     {
                         "nome_candidato": item.get("nome_candidato") or "",
                         "processo": processo_label,
                         "vaga": item.get("vaga") or "",
+                        "origem_inicial": movement_summary.get("origem_inicial") or "Processo Unico",
+                        "movimentacoes": movement_summary.get("movimentacoes") or "Prova realizada",
+                        "data_movimentacao": movement_summary.get("data_movimentacao") or item.get("data_iso") or "",
+                        "status_anterior": movement_summary.get("status_anterior") or "",
+                        "status_novo": movement_summary.get("status_novo") or status_candidato,
+                        "usuario_responsavel": movement_summary.get("usuario_responsavel") or "",
+                        "observacao_motivo": movement_summary.get("observacao_motivo") or "",
+                        "processo_destino": movement_summary.get("processo_destino") or "",
                         "nota_prova": item.get("pontuacao_final") or "",
                         "status": status_candidato,
+                        "status_atual": status_candidato,
                         "data_aprovacao": item.get("data_iso") if status_candidato == CANDIDATE_STATUS_APPROVED else "",
                         "data_eliminacao_reprovacao": item.get("data_iso")
                         if status_candidato in {
@@ -531,11 +577,19 @@ class AnalyticsRepositoryMixin:
             ("Nome do candidato", "nome_candidato"),
             ("Processo em que estava concorrendo", "processo"),
             ("Vaga", "vaga"),
+            ("Origem inicial", "origem_inicial"),
+            ("Movimentacoes realizadas", "movimentacoes"),
+            ("Data da movimentacao", "data_movimentacao"),
+            ("Status anterior", "status_anterior"),
+            ("Status novo", "status_novo"),
+            ("Usuario/RH responsavel", "usuario_responsavel"),
+            ("Observacao/motivo", "observacao_motivo"),
             ("Nota da prova", "nota_prova"),
-            ("Status", "status"),
+            ("Status atual", "status_atual"),
             ("Data da aprovacao", "data_aprovacao"),
             ("Data da eliminacao/reprovacao", "data_eliminacao_reprovacao"),
             ("Data de envio ao Banco de Talentos", "data_banco_talentos"),
+            ("Processo de destino", "processo_destino"),
             ("E-mail", "email"),
             ("Telefone", "telefone"),
         ]

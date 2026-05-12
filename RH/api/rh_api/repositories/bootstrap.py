@@ -43,6 +43,14 @@ def ensure_cv_pre_analises_table(cursor) -> None:
                 mime_type NVARCHAR(120) NULL,
                 arquivo_original_base64 NVARCHAR(MAX) NULL,
                 ja_adicionado_ao_processo BIT NULL,
+                oculto_na_lista BIT NULL,
+                origem NVARCHAR(120) NULL,
+                email_uid NVARCHAR(120) NULL,
+                email_message_id NVARCHAR(255) NULL,
+                email_attachment_name NVARCHAR(255) NULL,
+                email_remetente NVARCHAR(255) NULL,
+                email_assunto NVARCHAR(500) NULL,
+                email_data DATETIME NULL,
                 criado_em DATETIME NULL
             )
         END
@@ -67,6 +75,14 @@ def ensure_cv_pre_analises_table(cursor) -> None:
         ("mime_type", "NVARCHAR(120)"),
         ("arquivo_original_base64", "NVARCHAR(MAX)"),
         ("ja_adicionado_ao_processo", "BIT"),
+        ("oculto_na_lista", "BIT"),
+        ("origem", "NVARCHAR(120)"),
+        ("email_uid", "NVARCHAR(120)"),
+        ("email_message_id", "NVARCHAR(255)"),
+        ("email_attachment_name", "NVARCHAR(255)"),
+        ("email_remetente", "NVARCHAR(255)"),
+        ("email_assunto", "NVARCHAR(500)"),
+        ("email_data", "DATETIME"),
         ("criado_em", "DATETIME"),
     ):
         cursor.execute(
@@ -84,6 +100,22 @@ def ensure_cv_pre_analises_table(cursor) -> None:
         UPDATE dbo.cv_pre_analises
         SET ja_adicionado_ao_processo = 0
         WHERE ja_adicionado_ao_processo IS NULL
+        """
+    )
+
+    cursor.execute(
+        """
+        UPDATE dbo.cv_pre_analises
+        SET oculto_na_lista = 0
+        WHERE oculto_na_lista IS NULL
+        """
+    )
+
+    cursor.execute(
+        """
+        UPDATE dbo.cv_pre_analises
+        SET origem = 'Analise direta do CV'
+        WHERE origem IS NULL OR LTRIM(RTRIM(origem)) = ''
         """
     )
 
@@ -128,6 +160,10 @@ def ensure_candidate_approval_columns(cursor) -> None:
         ("anexo_aprovacao_tamanho", "BIGINT"),
         ("anexo_aprovacao_base64", "NVARCHAR(MAX)"),
         ("aprovado_em", "DATETIME"),
+        ("eliminado_em", "DATETIME"),
+        ("banco_talentos_em", "DATETIME"),
+        ("mensagem_aprovacao_enviada_whatsapp_em", "DATETIME"),
+        ("mensagem_aprovacao_enviada_email_em", "DATETIME"),
     ):
         cursor.execute(
             f"""
@@ -356,6 +392,201 @@ def ensure_candidate_attachments_table(cursor) -> None:
         WHERE atualizado_em IS NULL
         """
     )
+
+
+def ensure_email_inbox_items_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.email_inbox_items', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.email_inbox_items (
+                id NVARCHAR(120) NOT NULL PRIMARY KEY,
+                message_uid NVARCHAR(120) NULL,
+                message_id NVARCHAR(500) NULL,
+                remetente NVARCHAR(500) NULL,
+                remetente_nome NVARCHAR(255) NULL,
+                assunto NVARCHAR(500) NULL,
+                data_recebimento DATETIME NULL,
+                resumo NVARCHAR(MAX) NULL,
+                corpo_texto NVARCHAR(MAX) NULL,
+                nome_detectado NVARCHAR(255) NULL,
+                telefone_detectado NVARCHAR(50) NULL,
+                email_detectado NVARCHAR(255) NULL,
+                vaga_detectada NVARCHAR(255) NULL,
+                status NVARCHAR(80) NULL,
+                origem NVARCHAR(120) NULL,
+                caminho_anexo NVARCHAR(500) NULL,
+                nome_anexo NVARCHAR(255) NULL,
+                content_type NVARCHAR(120) NULL,
+                tamanho_anexo BIGINT NULL,
+                attachments_json NVARCHAR(MAX) NULL,
+                metadata_path NVARCHAR(500) NULL,
+                processo_id NVARCHAR(255) NULL,
+                candidato_id NVARCHAR(120) NULL,
+                id_pre_analise INT NULL,
+                id_registro INT NULL,
+                id_banco INT NULL,
+                criado_em DATETIME NULL,
+                atualizado_em DATETIME NULL,
+                ignorado BIT NULL
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("id", "NVARCHAR(120)"),
+        ("message_uid", "NVARCHAR(120)"),
+        ("message_id", "NVARCHAR(500)"),
+        ("remetente", "NVARCHAR(500)"),
+        ("remetente_nome", "NVARCHAR(255)"),
+        ("assunto", "NVARCHAR(500)"),
+        ("data_recebimento", "DATETIME"),
+        ("resumo", "NVARCHAR(MAX)"),
+        ("corpo_texto", "NVARCHAR(MAX)"),
+        ("nome_detectado", "NVARCHAR(255)"),
+        ("telefone_detectado", "NVARCHAR(50)"),
+        ("email_detectado", "NVARCHAR(255)"),
+        ("vaga_detectada", "NVARCHAR(255)"),
+        ("status", "NVARCHAR(80)"),
+        ("origem", "NVARCHAR(120)"),
+        ("caminho_anexo", "NVARCHAR(500)"),
+        ("nome_anexo", "NVARCHAR(255)"),
+        ("content_type", "NVARCHAR(120)"),
+        ("tamanho_anexo", "BIGINT"),
+        ("attachments_json", "NVARCHAR(MAX)"),
+        ("metadata_path", "NVARCHAR(500)"),
+        ("processo_id", "NVARCHAR(255)"),
+        ("candidato_id", "NVARCHAR(120)"),
+        ("id_pre_analise", "INT"),
+        ("id_registro", "INT"),
+        ("id_banco", "INT"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+        ("ignorado", "BIT"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.email_inbox_items', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.email_inbox_items
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        UPDATE dbo.email_inbox_items
+        SET status = 'Recebido'
+        WHERE status IS NULL OR LTRIM(RTRIM(status)) = ''
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.email_inbox_items
+        SET origem = 'Recebimento de e-mail'
+        WHERE origem IS NULL OR LTRIM(RTRIM(origem)) = ''
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.email_inbox_items
+        SET criado_em = GETDATE()
+        WHERE criado_em IS NULL
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.email_inbox_items
+        SET atualizado_em = GETDATE()
+        WHERE atualizado_em IS NULL
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.email_inbox_items
+        SET ignorado = 0
+        WHERE ignorado IS NULL
+        """
+    )
+
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'IX_email_inbox_items_message_id'
+              AND object_id = OBJECT_ID('dbo.email_inbox_items')
+        )
+        BEGIN
+            CREATE INDEX IX_email_inbox_items_message_id
+            ON dbo.email_inbox_items(message_id)
+        END
+        """
+    )
+
+
+def ensure_candidate_movements_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.candidatos_movimentacoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.candidatos_movimentacoes (
+                id_movimentacao INT IDENTITY(1,1) PRIMARY KEY,
+                id_teste NVARCHAR(120) NULL,
+                id_registro INT NULL,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                nome_candidato NVARCHAR(255) NULL,
+                vaga NVARCHAR(255) NULL,
+                origem_inicial NVARCHAR(120) NULL,
+                tipo_movimentacao NVARCHAR(120) NULL,
+                status_anterior NVARCHAR(80) NULL,
+                status_novo NVARCHAR(80) NULL,
+                observacao NVARCHAR(MAX) NULL,
+                usuario_responsavel NVARCHAR(120) NULL,
+                processo_destino NVARCHAR(255) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("id_teste", "NVARCHAR(120)"),
+        ("id_registro", "INT"),
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("nome_candidato", "NVARCHAR(255)"),
+        ("vaga", "NVARCHAR(255)"),
+        ("origem_inicial", "NVARCHAR(120)"),
+        ("tipo_movimentacao", "NVARCHAR(120)"),
+        ("status_anterior", "NVARCHAR(80)"),
+        ("status_novo", "NVARCHAR(80)"),
+        ("observacao", "NVARCHAR(MAX)"),
+        ("usuario_responsavel", "NVARCHAR(120)"),
+        ("processo_destino", "NVARCHAR(255)"),
+        ("criado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.candidatos_movimentacoes', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.candidatos_movimentacoes
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        UPDATE dbo.candidatos_movimentacoes
+        SET criado_em = GETDATE()
+        WHERE criado_em IS NULL
+        """
+    )
+
 
 def ensure_interviews_table(cursor) -> None:
     cursor.execute(
@@ -635,9 +866,11 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_candidate_metadata_table(cursor)
             ensure_candidate_metadata_columns(cursor)
             ensure_candidate_attachments_table(cursor)
+            ensure_email_inbox_items_table(cursor)
             ensure_cv_pre_analises_table(cursor)
             ensure_interviews_table(cursor)
             ensure_interview_slots_table(cursor)
+            ensure_candidate_movements_table(cursor)
             ensure_process_reference_columns(cursor)
             ensure_decimal_process_columns(cursor)
         finally:

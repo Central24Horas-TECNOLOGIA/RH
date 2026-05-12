@@ -136,8 +136,11 @@ export function ModalAprovacaoCandidato({
   candidato,
   processo = null,
   salvando = false,
+  enviandoCanal = '',
   onClose,
   onConfirm,
+  onSendWhatsApp,
+  onSendEmail,
 }) {
   const [dataComparecimento, setDataComparecimento] = useState('');
   const [documentos, setDocumentos] = useState([]);
@@ -193,23 +196,23 @@ export function ModalAprovacaoCandidato({
     );
   };
 
-  const confirmar = async () => {
+  const montarPayload = async () => {
     const mensagemFinal = String(mensagem || '').trim();
     if (!mensagemFinal) {
       setErro('Informe a mensagem de aprovação antes de confirmar.');
-      return;
+      return null;
     }
 
     const erroAnexo = validarAnexoAprovacao(anexo);
     if (erroAnexo) {
       setErro(erroAnexo);
-      return;
+      return null;
     }
 
     try {
       setErro('');
       const anexoBase64 = await lerArquivoComoBase64(anexo);
-      await onConfirm({
+      return {
         mensagem_aprovacao: mensagemFinal,
         data_comparecimento_aprovacao: dataComparecimento || '',
         documentos_aprovacao: documentos,
@@ -217,11 +220,26 @@ export function ModalAprovacaoCandidato({
         anexo_aprovacao_tipo: anexo?.type || '',
         anexo_aprovacao_tamanho: anexo?.size || 0,
         anexo_aprovacao_base64: anexoBase64 || '',
-      });
+      };
     } catch (error) {
       setErro(error?.message || 'Não foi possível confirmar a aprovação.');
     }
   };
+
+  const executarAcao = async (acao, mensagemErro) => {
+    if (typeof acao !== 'function') return;
+
+    try {
+      const payload = await montarPayload();
+      if (!payload) return;
+      await acao(payload);
+    } catch (error) {
+      setErro(error?.message || mensagemErro);
+    }
+  };
+
+  const confirmar = () =>
+    executarAcao(onConfirm, 'Nao foi possivel confirmar a aprovacao.');
 
   return html`
     <${ModalPadrao}
@@ -310,15 +328,47 @@ export function ModalAprovacaoCandidato({
         <button
           type="button"
           class="btn btn-outline-secondary"
-          disabled=${salvando}
+          disabled=${salvando || !!enviandoCanal}
           onClick=${onClose}
         >
           Cancelar
         </button>
+        ${typeof onSendWhatsApp === 'function'
+          ? html`
+              <button
+                type="button"
+                class="btn btn-outline-success"
+                disabled=${salvando || !!enviandoCanal}
+                onClick=${() =>
+                  executarAcao(
+                    onSendWhatsApp,
+                    'Nao foi possivel enviar a mensagem por WhatsApp.',
+                  )}
+              >
+                ${enviandoCanal === 'whatsapp' ? 'Enviando...' : 'Enviar por WhatsApp'}
+              </button>
+            `
+          : null}
+        ${typeof onSendEmail === 'function'
+          ? html`
+              <button
+                type="button"
+                class="btn btn-outline-primary"
+                disabled=${salvando || !!enviandoCanal}
+                onClick=${() =>
+                  executarAcao(
+                    onSendEmail,
+                    'Nao foi possivel enviar a mensagem por e-mail.',
+                  )}
+              >
+                ${enviandoCanal === 'email' ? 'Enviando...' : 'Enviar por E-mail'}
+              </button>
+            `
+          : null}
         <button
           type="button"
           class="btn btn-success"
-          disabled=${salvando}
+          disabled=${salvando || !!enviandoCanal}
           onClick=${confirmar}
         >
           ${salvando ? 'Confirmando...' : 'Confirmar aprovação'}

@@ -1,5 +1,7 @@
 import React, {
   createContext,
+  lazy,
+  Suspense,
   useContext,
   useEffect,
   useMemo,
@@ -21,6 +23,8 @@ const html = htm.bind(criarElementoReact);
 
 export {
   React,
+  lazy,
+  Suspense,
   createContext,
   createRoot,
   html,

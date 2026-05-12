@@ -9,6 +9,7 @@ import {
   agendarEntrevista,
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
+  analisarCvEmailRecebido,
   atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
   atualizarProcesso,
@@ -21,13 +22,17 @@ import {
   encerrarProcesso,
   excluirPreAnaliseCv,
   enviarPreAnaliseParaBancoTalentos,
+  enviarEmailAprovacao,
   gerarLinkPublicoCandidatura,
+  lerEmailsRecebidosProcesso,
   lerCandidatosProcessos,
   lerDetalheProcesso,
   lerEntrevistas,
   lerPreAnalisesCv,
   lerProcessos,
   lerSlotsEntrevista,
+  limparListaPreAnalisesCv,
+  registrarWhatsappAprovacao,
 } from '../../app/controlador-aplicacao.js';
 import {
   baixarBlob,
@@ -88,6 +93,7 @@ const MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO =
   'Este candidato já foi aprovado. Para alterar sua situação, será necessário um novo cadastro ou atualização manual.';
 const AVISO_URL_PUBLICA_NAO_CONFIGURADA =
   'URL pública ainda não configurada. Defina PUBLIC_CANDIDATE_BASE_URL no servidor para liberar inscrições externas.';
+const EXIBIR_PAGINA_PUBLICA_CANDIDATURA = false;
 const REQUISITOS_PUBLICOS_PADRAO = [
   'Ensino médio completo ou formação compatível com a vaga.',
   'Experiência anterior em atividades relacionadas será considerada um diferencial.',
@@ -114,11 +120,32 @@ function normalizarTextoComparacao(valor) {
 
 function obterNotaProvaCandidato(candidato) {
   return (
+    candidato?.nota_prova ||
     candidato?.pontuacao_final ||
     candidato?.nota_final ||
     candidato?.nota_exibicao ||
     ''
   );
+}
+
+function formatarOrigemCandidato(candidato) {
+  const rotulo = String(candidato?.origem_rotulo || '').trim();
+  if (rotulo) return rotulo;
+
+  const origem = normalizarTextoComparacao(candidato?.origem);
+  if (!origem) return 'Processo Único';
+  if (origem.includes('pagina') && (origem.includes('candidatura') || origem.includes('inscricao'))) {
+    return 'Página de inscrição';
+  }
+  if (origem.includes('pre analise') || origem.includes('pre-analise') || origem.includes('analise direta')) {
+    return 'Análise direta do CV';
+  }
+  if (origem.includes('banco') && origem.includes('talento')) return 'Banco de Talentos';
+  if (origem.includes('recebimento') && origem.includes('email')) return 'Recebimento de e-mail';
+  if (origem.includes('processo unico') || origem.includes('processo_unico') || origem === 'prova') {
+    return 'Processo Único';
+  }
+  return String(candidato?.origem || '-').trim() || '-';
 }
 
 function montarFormularioCandidato(candidato) {
@@ -134,14 +161,17 @@ function montarFormularioCandidato(candidato) {
 
 function candidatoTemProvaSalva(candidato) {
   const idTeste = String(candidato?.id_teste || '').trim();
+  if (candidato?.prova_disponivel || candidato?.id_teste_prova) {
+    return Boolean(idTeste || candidato?.id_teste_prova);
+  }
   const origem = normalizarTextoComparacao(candidato?.origem);
   const nota = String(obterNotaProvaCandidato(candidato) || '').trim();
 
   return Boolean(
     idTeste &&
-      !idTeste.toUpperCase().startsWith('CV-') &&
-      nota &&
-      (origem.includes('prova') || !origem.includes('pre-analise')),
+    !idTeste.toUpperCase().startsWith('CV-') &&
+    nota &&
+    (origem.includes('prova') || !origem.includes('pre-analise')),
   );
 }
 
@@ -225,15 +255,21 @@ function renderizarAcoesDoCandidato({
   const estadoAcoes = candidato.acoes_fluxo || getCandidateActionState(candidato);
   const botoes = [];
 
-  if (estadoAcoes.canScheduleInterview && typeof onAgendarEntrevista === 'function') {
+  if (
+    !estadoAcoes.processClosed &&
+    estadoAcoes.isActive &&
+    typeof onAgendarEntrevista === 'function'
+  ) {
     botoes.push(
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-primary"
+          class="btn btn-sm btn-outline-primary rh-action-btn"
+          title="Agendar entrevista"
           onClick=${() => onAgendarEntrevista(candidato)}
         >
-          Agendar entrevista
+          <span class="material-symbols-outlined">event</span>
+          Entrevista
         </button>
       `,
     );
@@ -244,12 +280,14 @@ function renderizarAcoesDoCandidato({
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-success"
+          class="btn btn-sm btn-outline-success rh-action-btn"
+          title="Aprovar candidato"
           onClick=${() =>
-            typeof onAprovar === 'function'
-              ? onAprovar(candidato)
-              : onAtualizarStatus(candidato, 'Aprovado')}
+          typeof onAprovar === 'function'
+            ? onAprovar(candidato)
+            : onAtualizarStatus(candidato, 'Aprovado')}
         >
+          <span class="material-symbols-outlined">check_circle</span>
           Aprovar
         </button>
       `,
@@ -261,9 +299,11 @@ function renderizarAcoesDoCandidato({
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-danger"
+          class="btn btn-sm btn-outline-danger rh-action-btn"
+          title="Eliminar candidato"
           onClick=${() => onAtualizarStatus(candidato, 'Eliminado')}
         >
+          <span class="material-symbols-outlined">cancel</span>
           Eliminar
         </button>
       `,
@@ -275,10 +315,12 @@ function renderizarAcoesDoCandidato({
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-secondary"
+          class="btn btn-sm btn-outline-secondary rh-action-btn"
+          title="Enviar para Banco de Talentos"
           onClick=${() => onAtualizarStatus(candidato, 'Banco de Talentos')}
         >
-          Banco de Talentos
+          <span class="material-symbols-outlined">inventory_2</span>
+          Banco
         </button>
       `,
     );
@@ -289,9 +331,11 @@ function renderizarAcoesDoCandidato({
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-secondary"
+          class="btn btn-sm btn-outline-secondary rh-action-btn"
+          title="Editar dados do candidato"
           onClick=${() => onEditar(candidato)}
         >
+          <span class="material-symbols-outlined">edit</span>
           Editar
         </button>
       `,
@@ -302,13 +346,13 @@ function renderizarAcoesDoCandidato({
     return html`
       <span class="text-muted">
         ${estadoAcoes.processClosed
-          ? 'Processo encerrado. Movimentações não são permitidas.'
-          : 'Sem ações disponíveis'}
+        ? 'Processo encerrado. Movimentações não são permitidas.'
+        : 'Sem ações disponíveis'}
       </span>
     `;
   }
 
-  return html`<div class="d-flex justify-content-end gap-2 flex-wrap">${botoes}</div>`;
+  return html`<div class="rh-action-cluster">${botoes}</div>`;
 }
 
 function SecaoDetalheExpansivel({
@@ -329,8 +373,8 @@ function SecaoDetalheExpansivel({
             onClick=${onToggle}
           />
           ${description
-            ? html`<p class="rh-section-card-description">${description}</p>`
-            : null}
+      ? html`<p class="rh-section-card-description">${description}</p>`
+      : null}
         </div>
       </div>
       ${aberto ? html`<div class="mt-3">${children}</div>` : null}
@@ -380,7 +424,7 @@ export function TelaProcessos({ controlador }) {
         setProcessos([]);
         mensagensErro.push(
           resultadoProcessos.reason?.message ||
-            'Não foi possível carregar os processos seletivos.',
+          'Não foi possível carregar os processos seletivos.',
         );
       }
 
@@ -394,7 +438,7 @@ export function TelaProcessos({ controlador }) {
         setCandidatos([]);
         mensagensErro.push(
           resultadoCandidatos.reason?.message ||
-            'Não foi possível carregar os candidatos vinculados.',
+          'Não foi possível carregar os candidatos vinculados.',
         );
       }
 
@@ -638,9 +682,9 @@ export function TelaProcessos({ controlador }) {
       placeholderBusca="Gerenciamento de processos e candidatos"
       controlador=${controlador}
       acaoPrimaria=${{
-        label: 'Novo processo',
-        onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
-      }}
+      label: 'Novo processo',
+      onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
+    }}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
@@ -657,15 +701,15 @@ export function TelaProcessos({ controlador }) {
       >
         <${MetricGrid}
           items=${[
-            { label: 'Processos totais', value: resumo.totalProcessos },
-            { label: 'Abertos', value: resumo.abertos, variant: 'is-approved' },
-            { label: 'Encerrados', value: resumo.encerrados, variant: 'is-eliminated' },
-            {
-              label: 'Decisões pendentes',
-              value: resumo.candidatosComDecisaoPendente,
-              variant: 'is-analysis',
-            },
-          ]}
+      { label: 'Processos totais', value: resumo.totalProcessos },
+      { label: 'Abertos', value: resumo.abertos, variant: 'is-approved' },
+      { label: 'Encerrados', value: resumo.encerrados, variant: 'is-eliminated' },
+      {
+        label: 'Decisões pendentes',
+        value: resumo.candidatosComDecisaoPendente,
+        variant: 'is-analysis',
+      },
+    ]}
         />
       </${SectionCard}>
 
@@ -682,7 +726,7 @@ export function TelaProcessos({ controlador }) {
               value=${filtros.vaga}
               placeholder="Filtrar por vaga"
               onInput=${(event) =>
-                setFiltros({ ...filtros, vaga: event.target.value })}
+      setFiltros({ ...filtros, vaga: event.target.value })}
             />
           </div>
           <div class="rh-filter-field">
@@ -692,7 +736,7 @@ export function TelaProcessos({ controlador }) {
               value=${filtros.operacao}
               placeholder="Filtrar por operação"
               onInput=${(event) =>
-                setFiltros({ ...filtros, operacao: event.target.value })}
+      setFiltros({ ...filtros, operacao: event.target.value })}
             />
           </div>
           <div class="rh-filter-field">
@@ -701,7 +745,7 @@ export function TelaProcessos({ controlador }) {
               class="form-select"
               value=${filtros.notaCorte}
               onChange=${(event) =>
-                setFiltros({ ...filtros, notaCorte: event.target.value })}
+      setFiltros({ ...filtros, notaCorte: event.target.value })}
             >
               <option value="">Todos</option>
               <option value="sim">Sim</option>
@@ -714,7 +758,7 @@ export function TelaProcessos({ controlador }) {
               class="form-select"
               value=${filtros.status}
               onChange=${(event) =>
-                setFiltros({ ...filtros, status: event.target.value })}
+      setFiltros({ ...filtros, status: event.target.value })}
             >
               <option value="">Todos</option>
               <option value="aberto">Aberto</option>
@@ -736,7 +780,7 @@ export function TelaProcessos({ controlador }) {
         `}
       >
         ${blocos.abertos
-          ? html`
+      ? html`
               <div class="table-responsive">
                 <table class="table align-middle rh-modern-history-table">
                   <thead>
@@ -756,10 +800,10 @@ export function TelaProcessos({ controlador }) {
                   </thead>
                   <tbody>
                     ${carregando
-                      ? html`<${TabelaVazia} colunas=${11} texto="Carregando processos..." />`
-                      : processosAbertos.length
-                        ? processosAbertos.map(
-                            (processo) => html`
+          ? html`<${TabelaVazia} colunas=${11} texto="Carregando processos..." />`
+          : processosAbertos.length
+            ? processosAbertos.map(
+              (processo) => html`
                               <tr key=${obterChaveProcesso(processo)}>
                                 <td>${processo.id_processo || '-'}</td>
                                 <td>${processo.vaga || '-'}</td>
@@ -777,7 +821,7 @@ export function TelaProcessos({ controlador }) {
                                 <td>${processo.data_encerramento || '-'}</td>
                                 <td>
                                   ${processo.link_agendamento
-                                    ? html`
+                  ? html`
                                         <a
                                           href=${processo.link_agendamento}
                                           target="_blank"
@@ -787,7 +831,7 @@ export function TelaProcessos({ controlador }) {
                                           Abrir
                                         </a>
                                       `
-                                    : 'Não informado'}
+                  : 'Não informado'}
                                 </td>
                                 <td>
                                   <span class="rh-status-pill is-finished">
@@ -800,12 +844,12 @@ export function TelaProcessos({ controlador }) {
                                       type="button"
                                       class="btn btn-sm btn-outline-secondary"
                                       onClick=${() =>
-                                        setEdicao({
-                                          ...processo,
-                                          data_encerramento: formatarDataParaInput(
-                                            processo.data_encerramento,
-                                          ),
-                                        })}
+                  setEdicao({
+                    ...processo,
+                    data_encerramento: formatarDataParaInput(
+                      processo.data_encerramento,
+                    ),
+                  })}
                                     >
                                       Editar
                                     </button>
@@ -820,9 +864,9 @@ export function TelaProcessos({ controlador }) {
                                       type="button"
                                       class="btn btn-sm btn-outline-danger"
                                       onClick=${() =>
-                                        setProcessoParaEncerrar(
-                                          obterReferenciaProcesso(processo),
-                                        )}
+                  setProcessoParaEncerrar(
+                    obterReferenciaProcesso(processo),
+                  )}
                                     >
                                       Encerrar
                                     </button>
@@ -830,8 +874,8 @@ export function TelaProcessos({ controlador }) {
                                 </td>
                               </tr>
                             `,
-                          )
-                        : html`
+            )
+            : html`
                             <${TabelaVazia}
                               colunas=${11}
                               texto="Nenhum processo aberto encontrado."
@@ -841,7 +885,7 @@ export function TelaProcessos({ controlador }) {
                 </table>
               </div>
             `
-          : null}
+      : null}
       </${SectionCard}>
 
       <${SectionCard}
@@ -851,12 +895,12 @@ export function TelaProcessos({ controlador }) {
             aberto=${blocos.encerrados}
             titulo="Processos encerrados"
             onClick=${() =>
-              setBlocos({ ...blocos, encerrados: !blocos.encerrados })}
+        setBlocos({ ...blocos, encerrados: !blocos.encerrados })}
           />
         `}
       >
         ${blocos.encerrados
-          ? html`
+      ? html`
               <div class="table-responsive">
                 <table class="table align-middle rh-modern-history-table">
                   <thead>
@@ -876,8 +920,8 @@ export function TelaProcessos({ controlador }) {
                   </thead>
                   <tbody>
                     ${processosEncerrados.length
-                      ? processosEncerrados.map(
-                          (processo) => html`
+          ? processosEncerrados.map(
+            (processo) => html`
                               <tr key=${obterChaveProcesso(processo)}>
                               <td>${processo.id_processo || '-'}</td>
                               <td>${processo.vaga || '-'}</td>
@@ -891,7 +935,7 @@ export function TelaProcessos({ controlador }) {
                               <td>${processo.data_encerramento || '-'}</td>
                               <td>
                                 ${processo.link_agendamento
-                                  ? html`
+                ? html`
                                       <a
                                         href=${processo.link_agendamento}
                                         target="_blank"
@@ -901,7 +945,7 @@ export function TelaProcessos({ controlador }) {
                                         Abrir
                                       </a>
                                     `
-                                  : 'Não informado'}
+                : 'Não informado'}
                               </td>
                               <td>
                                 <span class="rh-status-pill is-unsaved">
@@ -919,8 +963,8 @@ export function TelaProcessos({ controlador }) {
                               </td>
                             </tr>
                           `,
-                        )
-                      : html`
+          )
+          : html`
                           <${TabelaVazia}
                             colunas=${11}
                             texto="Nenhum processo encerrado."
@@ -930,7 +974,7 @@ export function TelaProcessos({ controlador }) {
                 </table>
               </div>
             `
-          : null}
+      : null}
       </${SectionCard}>
 
       <${SectionCard}
@@ -940,12 +984,12 @@ export function TelaProcessos({ controlador }) {
             aberto=${blocos.candidatos}
             titulo="Decisoes finais pendentes"
             onClick=${() =>
-              setBlocos({ ...blocos, candidatos: !blocos.candidatos })}
+        setBlocos({ ...blocos, candidatos: !blocos.candidatos })}
           />
         `}
       >
         ${blocos.candidatos
-          ? html`
+      ? html`
               <div class="table-responsive">
                 <table class="table align-middle rh-modern-history-table">
                   <thead>
@@ -960,8 +1004,8 @@ export function TelaProcessos({ controlador }) {
                   </thead>
                   <tbody>
                     ${candidatosComDecisaoPendente.length
-                      ? candidatosComDecisaoPendente.map(
-                          (candidato) => html`
+          ? candidatosComDecisaoPendente.map(
+            (candidato) => html`
                             <tr key=${candidato.id_registro}>
                               <td>${candidato.id_processo || '-'}</td>
                               <td>${candidato.nome_candidato || '-'}</td>
@@ -976,20 +1020,20 @@ export function TelaProcessos({ controlador }) {
                               </td>
                               <td class="text-end">
                                 ${renderizarAcoesDoCandidato({
-                                  candidato,
-                                  onAprovar: abrirAprovacao,
-                                  onAtualizarStatus: (item, status) =>
-                                    atualizarStatus(
-                                      item.id_registro,
-                                      status,
-                                      obterReferenciaProcessoDoCandidato(item),
-                                    ),
-                                })}
+              candidato,
+              onAprovar: abrirAprovacao,
+              onAtualizarStatus: (item, status) =>
+                atualizarStatus(
+                  item.id_registro,
+                  status,
+                  obterReferenciaProcessoDoCandidato(item),
+                ),
+            })}
                               </td>
                             </tr>
                           `,
-                        )
-                      : html`
+          )
+          : html`
                           <${TabelaVazia}
                             colunas=${6}
                             texto="Nenhum candidato com decisão final pendente."
@@ -999,7 +1043,7 @@ export function TelaProcessos({ controlador }) {
                 </table>
               </div>
             `
-          : null}
+      : null}
       </${SectionCard}>
 
       <${ModalPadrao}
@@ -1009,7 +1053,7 @@ export function TelaProcessos({ controlador }) {
         onClose=${() => setEdicao(null)}
       >
         ${edicao
-          ? html`
+      ? html`
               <div class="rh-details-body">
                 <div class="row g-3">
                   <div class="col-md-6">
@@ -1024,10 +1068,10 @@ export function TelaProcessos({ controlador }) {
                       min="1"
                       value=${edicao.quantidade_vagas || 0}
                       onInput=${(event) =>
-                        setEdicao({
-                          ...edicao,
-                          quantidade_vagas: event.target.value,
-                        })}
+          setEdicao({
+            ...edicao,
+            quantidade_vagas: event.target.value,
+          })}
                     />
                   </div>
                   <div class="col-md-3">
@@ -1037,10 +1081,10 @@ export function TelaProcessos({ controlador }) {
                       type="date"
                       value=${edicao.data_encerramento || ''}
                       onInput=${(event) =>
-                        setEdicao({
-                          ...edicao,
-                          data_encerramento: event.target.value,
-                        })}
+          setEdicao({
+            ...edicao,
+            data_encerramento: event.target.value,
+          })}
                     />
                   </div>
                   <div class="col-md-6">
@@ -1049,7 +1093,7 @@ export function TelaProcessos({ controlador }) {
                       class="form-control"
                       value=${edicao.operacao || ''}
                       onInput=${(event) =>
-                        setEdicao({ ...edicao, operacao: event.target.value })}
+          setEdicao({ ...edicao, operacao: event.target.value })}
                     />
                   </div>
                   <div class="col-md-6">
@@ -1058,7 +1102,7 @@ export function TelaProcessos({ controlador }) {
                       class="form-control"
                       value=${edicao.trilha || ''}
                       onInput=${(event) =>
-                        setEdicao({ ...edicao, trilha: event.target.value })}
+          setEdicao({ ...edicao, trilha: event.target.value })}
                     />
                   </div>
                   <div class="col-md-3">
@@ -1069,10 +1113,10 @@ export function TelaProcessos({ controlador }) {
                         type="checkbox"
                         checked=${Number(edicao.usa_nota_corte || 0) === 1}
                         onChange=${(event) =>
-                          setEdicao({
-                            ...edicao,
-                            usa_nota_corte: event.target.checked ? 1 : 0,
-                          })}
+          setEdicao({
+            ...edicao,
+            usa_nota_corte: event.target.checked ? 1 : 0,
+          })}
                       />
                     </div>
                   </div>
@@ -1087,7 +1131,7 @@ export function TelaProcessos({ controlador }) {
                       value=${edicao.nota_corte ?? ''}
                       disabled=${Number(edicao.usa_nota_corte || 0) !== 1}
                       onInput=${(event) =>
-                        setEdicao({ ...edicao, nota_corte: event.target.value })}
+          setEdicao({ ...edicao, nota_corte: event.target.value })}
                     />
                   </div>
                   <div class="col-md-6">
@@ -1096,7 +1140,7 @@ export function TelaProcessos({ controlador }) {
                       class="form-select"
                       value=${edicao.status || 'Aberto'}
                       onChange=${(event) =>
-                        setEdicao({ ...edicao, status: event.target.value })}
+          setEdicao({ ...edicao, status: event.target.value })}
                     >
                       <option value="Aberto">Aberto</option>
                       <option value="Encerrado">Encerrado</option>
@@ -1109,10 +1153,10 @@ export function TelaProcessos({ controlador }) {
                       placeholder="https://..."
                       value=${edicao.link_agendamento || ''}
                       onInput=${(event) =>
-                        setEdicao({
-                          ...edicao,
-                          link_agendamento: event.target.value,
-                        })}
+          setEdicao({
+            ...edicao,
+            link_agendamento: event.target.value,
+          })}
                     />
                   </div>
                 </div>
@@ -1134,7 +1178,7 @@ export function TelaProcessos({ controlador }) {
                 </button>
               </footer>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
 
       <${ModalPadrao}
@@ -1190,6 +1234,19 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [preAnalises, setPreAnalises] = useState([]);
   const [paginaPreAnalises, setPaginaPreAnalises] = useState(1);
   const [totalPaginasPreAnalises, setTotalPaginasPreAnalises] = useState(1);
+  const [classificacoesPreAnalises, setClassificacoesPreAnalises] = useState([]);
+  const [filtrosPreAnalises, setFiltrosPreAnalises] = useState({
+    nome: '',
+    scoreMin: '',
+    scoreMax: '',
+    classificacao: '',
+    mostrarOcultos: false,
+  });
+  const [emailsRecebidos, setEmailsRecebidos] = useState([]);
+  const [statusEmailRecebido, setStatusEmailRecebido] = useState(null);
+  const [avisosSecoes, setAvisosSecoes] = useState({});
+  const [carregandoEmails, setCarregandoEmails] = useState(false);
+  const [analisandoEmailUid, setAnalisandoEmailUid] = useState('');
   const [arquivoCv, setArquivoCv] = useState(null);
   const [guardarCvOriginal, setGuardarCvOriginal] = useState(false);
   const [analisandoCv, setAnalisandoCv] = useState(false);
@@ -1208,6 +1265,7 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState(null);
   const [aprovacaoSelecionada, setAprovacaoSelecionada] = useState(null);
   const [salvandoAprovacao, setSalvandoAprovacao] = useState(false);
+  const [enviandoCanalAprovacao, setEnviandoCanalAprovacao] = useState('');
   const [formularioEntrevista, setFormularioEntrevista] = useState({
     id_registro: '',
     id_processo: '',
@@ -1235,7 +1293,8 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [salvandoObservacoesPublicas, setSalvandoObservacoesPublicas] =
     useState(false);
   const [secoesExpandidas, setSecoesExpandidas] = useState({
-    paginaPublica: true,
+    paginaPublica: false,
+    recebimentoEmail: true,
     candidatosInscritos: true,
     preAnaliseCv: true,
     candidatosProcesso: true,
@@ -1258,7 +1317,27 @@ export function TelaDetalhesProcesso({ controlador }) {
     return () => window.clearTimeout(timeout);
   }, [feedbackLinkPublico]);
 
-  const carregar = async (pagina = 1) => {
+  const carregarEmailsDoProcesso = async () => {
+    if (!idProcesso) return;
+    setCarregandoEmails(true);
+    try {
+      const payload = await lerEmailsRecebidosProcesso(idProcesso, 12);
+      setStatusEmailRecebido(payload || null);
+      setEmailsRecebidos(Array.isArray(payload?.items) ? payload.items : []);
+    } catch (error) {
+      setStatusEmailRecebido({
+        configured: false,
+        message:
+          error?.message ||
+          'Recebimento de e-mail ainda não configurado ou indisponível no momento.',
+      });
+      setEmailsRecebidos([]);
+    } finally {
+      setCarregandoEmails(false);
+    }
+  };
+
+  const carregar = async (pagina = 1, filtrosCv = filtrosPreAnalises) => {
     if (!idProcesso) {
       setErro('Processo não identificado.');
       setCarregando(false);
@@ -1267,14 +1346,56 @@ export function TelaDetalhesProcesso({ controlador }) {
 
     setCarregando(true);
     setErro('');
+    setAvisosSecoes({});
 
     try {
-      const [detalhe, listaPreAnalises, listaEntrevistas, listaSlots] = await Promise.all([
+      const [
+        resultadoDetalhe,
+        resultadoPreAnalises,
+        resultadoEntrevistas,
+        resultadoSlots,
+      ] = await Promise.allSettled([
         lerDetalheProcesso(idProcesso),
-        lerPreAnalisesCv(idProcesso, pagina, 5),
+        lerPreAnalisesCv(idProcesso, pagina, 5, filtrosCv),
         lerEntrevistas({ idProcesso }),
         lerSlotsEntrevista({ idProcesso }),
       ]);
+
+      if (resultadoDetalhe.status !== 'fulfilled') {
+        throw resultadoDetalhe.reason;
+      }
+
+      const detalhe = resultadoDetalhe.value || {};
+      const listaPreAnalises =
+        resultadoPreAnalises.status === 'fulfilled'
+          ? resultadoPreAnalises.value
+          : {};
+      const listaEntrevistas =
+        resultadoEntrevistas.status === 'fulfilled'
+          ? resultadoEntrevistas.value
+          : [];
+      const listaSlots =
+        resultadoSlots.status === 'fulfilled' ? resultadoSlots.value : [];
+      const novosAvisos = {};
+
+      if (resultadoPreAnalises.status !== 'fulfilled') {
+        console.error('Erro ao carregar pré-análise do processo.', resultadoPreAnalises.reason);
+        novosAvisos.preAnaliseCv =
+          'Não foi possível carregar a pré-análise de CV agora.';
+      }
+
+      if (resultadoEntrevistas.status !== 'fulfilled') {
+        console.error('Erro ao carregar entrevistas do processo.', resultadoEntrevistas.reason);
+        novosAvisos.entrevistas =
+          'Não foi possível carregar as entrevistas agora.';
+      }
+
+      if (resultadoSlots.status !== 'fulfilled') {
+        console.error('Erro ao carregar horários de entrevista.', resultadoSlots.reason);
+        novosAvisos.entrevistas =
+          novosAvisos.entrevistas ||
+          'Não foi possível carregar os horários de entrevista agora.';
+      }
 
       if (detalhe?.processo) {
         sessionStorage.setItem(
@@ -1307,8 +1428,14 @@ export function TelaDetalhesProcesso({ controlador }) {
       );
       setPaginaPreAnalises(Number(listaPreAnalises?.page || 1));
       setTotalPaginasPreAnalises(Number(listaPreAnalises?.total_pages || 1));
+      setClassificacoesPreAnalises(
+        Array.isArray(listaPreAnalises?.classificacoes)
+          ? listaPreAnalises.classificacoes
+          : [],
+      );
       setEntrevistas(Array.isArray(listaEntrevistas) ? listaEntrevistas : []);
       setSlotsEntrevista(Array.isArray(listaSlots) ? listaSlots : []);
+      setAvisosSecoes(novosAvisos);
     } catch (error) {
       setErro(
         error.message || 'Não foi possível carregar o detalhe do processo.',
@@ -1341,9 +1468,9 @@ export function TelaDetalhesProcesso({ controlador }) {
     () =>
       processo?.link_publico_slug && basePublicaConfigurada
         ? montarUrlPublicaCandidatura(
-            processo.link_publico_slug,
-            basePublicaConfigurada,
-          )
+          processo.link_publico_slug,
+          basePublicaConfigurada,
+        )
         : '',
     [processo?.link_publico_slug, basePublicaConfigurada],
   );
@@ -1400,16 +1527,16 @@ export function TelaDetalhesProcesso({ controlador }) {
     }) ||
     (candidato.cv_id_pre_analise
       ? {
-          id_pre_analise: candidato.cv_id_pre_analise,
-          nome_candidato: candidato.nome_candidato,
-          email: candidato.email,
-          telefone: candidato.telefone,
-          whatsapp: candidato.whatsapp,
-          score_final: candidato.cv_score_final,
-          classificacao: candidato.cv_classificacao,
-          classificacao_slug: candidato.cv_classificacao_slug,
-          problemas: candidato.cv_problemas,
-        }
+        id_pre_analise: candidato.cv_id_pre_analise,
+        nome_candidato: candidato.nome_candidato,
+        email: candidato.email,
+        telefone: candidato.telefone,
+        whatsapp: candidato.whatsapp,
+        score_final: candidato.cv_score_final,
+        classificacao: candidato.cv_classificacao,
+        classificacao_slug: candidato.cv_classificacao_slug,
+        problemas: candidato.cv_problemas,
+      }
       : null);
   const obterDataInicioSlotEntrevista = (slot) => {
     const inicio = String(slot?.inicio || '').trim();
@@ -1490,8 +1617,12 @@ export function TelaDetalhesProcesso({ controlador }) {
 
     try {
       setErro('');
-      setCarregandoDetalheProva(String(candidato.id_registro || candidato.id_teste || ''));
-      const detalhe = await carregarDetalhesProva(candidato.id_teste);
+      const idTesteProva = candidato.id_teste_prova || candidato.id_teste;
+      setCarregandoDetalheProva(String(candidato.id_registro || idTesteProva || ''));
+      const detalhe = await carregarDetalhesProva(
+        idTesteProva,
+        obterReferenciaProcesso(processo) || idProcesso,
+      );
       const processoAtualRef = String(obterReferenciaProcesso(processo) || idProcesso || '').trim();
       const processoProvaRef = String(
         detalhe?.linha?.id_processo_ref || detalhe?.linha?.id_processo || '',
@@ -1552,7 +1683,7 @@ export function TelaDetalhesProcesso({ controlador }) {
     } catch (error) {
       setErro(
         error?.message ||
-          'Não foi possível gerar a página pública de candidatura.',
+        'Não foi possível gerar a página pública de candidatura.',
       );
     }
   };
@@ -1593,7 +1724,7 @@ export function TelaDetalhesProcesso({ controlador }) {
     } catch (error) {
       setErro(
         error?.message ||
-          'Não foi possível desativar o link público desta vaga.',
+        'Não foi possível desativar o link público desta vaga.',
       );
     }
   };
@@ -1630,7 +1761,7 @@ export function TelaDetalhesProcesso({ controlador }) {
     } catch (error) {
       setErro(
         error?.message ||
-          'Não foi possível salvar as configurações da página pública.',
+        'Não foi possível salvar as configurações da página pública.',
       );
     } finally {
       setSalvandoObservacoesPublicas(false);
@@ -1702,6 +1833,41 @@ export function TelaDetalhesProcesso({ controlador }) {
       setAprovacaoSelecionada(null);
     } finally {
       setSalvandoAprovacao(false);
+    }
+  };
+
+  const enviarAprovacaoWhatsApp = async (dadosAprovacao) => {
+    if (!aprovacaoSelecionada) return;
+    const numero = String(
+      aprovacaoSelecionada.whatsapp || aprovacaoSelecionada.telefone || '',
+    ).replace(/\D/g, '');
+    if (!numero) {
+      throw new Error('O candidato não possui número de WhatsApp cadastrado.');
+    }
+
+    setEnviandoCanalAprovacao('whatsapp');
+    try {
+      await registrarWhatsappAprovacao(aprovacaoSelecionada.id_registro, dadosAprovacao);
+      window.open(
+        `https://wa.me/${numero}?text=${encodeURIComponent(dadosAprovacao.mensagem_aprovacao || '')}`,
+        '_blank',
+        'noopener,noreferrer',
+      );
+    } finally {
+      setEnviandoCanalAprovacao('');
+    }
+  };
+
+  const enviarAprovacaoEmail = async (dadosAprovacao) => {
+    if (!aprovacaoSelecionada) return;
+    setEnviandoCanalAprovacao('email');
+    try {
+      await enviarEmailAprovacao(aprovacaoSelecionada.id_registro, {
+        ...dadosAprovacao,
+        assunto: `Aprovação no processo seletivo - ${processo?.vaga || aprovacaoSelecionada.vaga || ''}`,
+      });
+    } finally {
+      setEnviandoCanalAprovacao('');
     }
   };
 
@@ -1879,10 +2045,71 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
   };
 
+  const aplicarFiltrosPreAnalise = async (novosFiltros = filtrosPreAnalises) => {
+    setFiltrosPreAnalises(novosFiltros);
+    await carregar(1, novosFiltros);
+  };
+
+  const limparFiltrosPreAnalise = async () => {
+    const filtrosLimpos = {
+      nome: '',
+      scoreMin: '',
+      scoreMax: '',
+      classificacao: '',
+      mostrarOcultos: false,
+    };
+    setFiltrosPreAnalises(filtrosLimpos);
+    await carregar(1, filtrosLimpos);
+  };
+
+  const limparListaPreAnalise = async () => {
+    const confirmar = window.confirm(
+      'Esta ação apenas limpará a visualização da lista. Os currículos e históricos não serão excluídos.',
+    );
+    if (!confirmar) return;
+
+    try {
+      const filtrosAposLimpeza = { ...filtrosPreAnalises, mostrarOcultos: false };
+      await limparListaPreAnalisesCv(obterReferenciaProcesso(processo) || idProcesso);
+      setFiltrosPreAnalises(filtrosAposLimpeza);
+      await carregar(1, filtrosAposLimpeza);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível limpar a visualização da pré-análise.');
+    }
+  };
+
+  const analisarCvDoEmail = async (emailItem, anexo = null) => {
+    if (processoEncerrado) {
+      setErro('O processo seletivo está encerrado e não permite novas movimentações.');
+      return;
+    }
+
+    if (!emailItem?.possui_anexo) {
+      setErro('Sem anexo de CV neste e-mail.');
+      return;
+    }
+
+    try {
+      setErro('');
+      setAnalisandoEmailUid(emailItem.uid);
+      await analisarCvEmailRecebido(obterReferenciaProcesso(processo) || idProcesso, {
+        uid: emailItem.uid,
+        attachment_name: anexo?.nome || emailItem.nome_anexo || '',
+      });
+      await carregar(1);
+      await carregarEmailsDoProcesso();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível analisar o CV recebido por e-mail.');
+    } finally {
+      setAnalisandoEmailUid('');
+    }
+  };
+
   const abrirAgendamento = (candidato) => {
     const estadoAcoes = candidato?.acoes_fluxo || getCandidateActionState(candidato, processo?.status || '');
-    if (estadoAcoes.processClosed || !estadoAcoes.canScheduleInterview) {
-      setErro('Somente candidatos qualificados em processo aberto podem seguir para agendamento.');
+
+    if (estadoAcoes.processClosed || !estadoAcoes.isActive) {
+      setErro('Somente candidatos ativos em processo aberto podem seguir para agendamento.');
       return;
     }
 
@@ -2022,9 +2249,9 @@ export function TelaDetalhesProcesso({ controlador }) {
         placeholderBusca="Detalhes do processo"
         controlador=${controlador}
         acaoPrimaria=${{
-          label: 'Voltar para processos',
-          onClick: () => controlador.irParaTelaProtegida('screen-processes'),
-        }}
+        label: 'Voltar para processos',
+        onClick: () => controlador.irParaTelaProtegida('screen-processes'),
+      }}
         acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
       >
         <div class="alert alert-info">Carregando detalhes do processo...</div>
@@ -2040,9 +2267,9 @@ export function TelaDetalhesProcesso({ controlador }) {
       placeholderBusca="Detalhes do processo"
       controlador=${controlador}
       acaoPrimaria=${{
-        label: 'Gerenciar processos',
-        onClick: () => controlador.irParaTelaProtegida('screen-processes'),
-      }}
+      label: 'Gerenciar processos',
+      onClick: () => controlador.irParaTelaProtegida('screen-processes'),
+    }}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
@@ -2053,18 +2280,18 @@ export function TelaDetalhesProcesso({ controlador }) {
 
       ${erro ? html`<div class="alert alert-danger">${erro}</div>` : null}
       ${processoEncerrado
-        ? html`
+      ? html`
             <div class="rh-inline-alert">
               Processo encerrado. As movimentações operacionais de candidatos ficam bloqueadas.
             </div>
           `
-        : null}
+      : null}
 
       <${SectionCard}
         title="Resumo do processo"
         description=${processo
-          ? `${processo.id_processo || '-'} • ${processo.vaga || '-'}`
-          : 'Processo não localizado.'}
+      ? `${processo.id_processo || '-'} • ${processo.vaga || '-'}`
+      : 'Processo não localizado.'}
         tourId="process-summary"
         actions=${html`
           <button
@@ -2078,29 +2305,29 @@ export function TelaDetalhesProcesso({ controlador }) {
       >
         <${MetricGrid}
           items=${[
-            { label: 'Nome', value: processo?.nome_processo || '-' },
-            { label: 'Vaga', value: processo?.vaga || '-' },
-            { label: 'Operação', value: processo?.operacao || '-' },
-            { label: 'Trilha', value: processo?.trilha || '-' },
-            {
-              label: 'Status',
-              value: processo?.status || '-',
-            },
-            {
-              label: 'Nota de corte',
-              value: Number(processo?.usa_nota_corte || 0)
-                ? processo?.nota_corte || '-'
-                : 'Não',
-            },
-            { label: 'Vagas', value: processo?.quantidade_vagas || 0 },
-            {
-              label: 'Encerramento',
-              value: processo?.data_encerramento || '-',
-            },
-            {
-              label: 'Link legado',
-              value: processo?.link_agendamento
-                ? html`
+      { label: 'Nome', value: processo?.nome_processo || '-' },
+      { label: 'Vaga', value: processo?.vaga || '-' },
+      { label: 'Operação', value: processo?.operacao || '-' },
+      { label: 'Trilha', value: processo?.trilha || '-' },
+      {
+        label: 'Status',
+        value: processo?.status || '-',
+      },
+      {
+        label: 'Nota de corte',
+        value: Number(processo?.usa_nota_corte || 0)
+          ? processo?.nota_corte || '-'
+          : 'Não',
+      },
+      { label: 'Vagas', value: processo?.quantidade_vagas || 0 },
+      {
+        label: 'Encerramento',
+        value: processo?.data_encerramento || '-',
+      },
+      {
+        label: 'Link legado',
+        value: processo?.link_agendamento
+          ? html`
                     <a
                       href=${processo.link_agendamento}
                       target="_blank"
@@ -2110,26 +2337,27 @@ export function TelaDetalhesProcesso({ controlador }) {
                       Abrir link
                     </a>
                   `
-                : 'Não informado',
-            },
-          ]}
+          : 'Não informado',
+      },
+    ]}
         />
         <div class="mt-4">
           <${MetricGrid}
             items=${[
-              { label: 'Total', value: resumo?.total || 0 },
-              { label: 'Em análise', value: resumo?.analise || 0, variant: 'is-analysis' },
-              { label: 'Qualificados', value: resumo?.qualificados || 0, variant: 'is-highlight' },
-              { label: 'Entrevistas', value: resumo?.entrevistas || 0, variant: 'is-confirmed' },
-              { label: 'Aprovados', value: resumo?.aprovados || 0, variant: 'is-approved' },
-              { label: 'Eliminados', value: resumo?.eliminados || 0, variant: 'is-eliminated' },
-              { label: 'Banco de Talentos', value: resumo?.banco || 0, variant: 'is-talent' },
-            ]}
+      { label: 'Total', value: resumo?.total || 0 },
+      { label: 'Em análise', value: resumo?.analise || 0, variant: 'is-analysis' },
+      { label: 'Qualificados', value: resumo?.qualificados || 0, variant: 'is-highlight' },
+      { label: 'Entrevistas', value: resumo?.entrevistas || 0, variant: 'is-confirmed' },
+      { label: 'Aprovados', value: resumo?.aprovados || 0, variant: 'is-approved' },
+      { label: 'Eliminados', value: resumo?.eliminados || 0, variant: 'is-eliminated' },
+      { label: 'Banco de Talentos', value: resumo?.banco || 0, variant: 'is-talent' },
+    ]}
           />
         </div>
       </${SectionCard}>
 
-      <${SecaoDetalheExpansivel}
+      ${EXIBIR_PAGINA_PUBLICA_CANDIDATURA
+      ? html`<${SecaoDetalheExpansivel}
         aberto=${secoesExpandidas.paginaPublica}
         titulo="Página pública de candidatura"
         description="Gere um link exclusivo para esta vaga e acompanhe o status da página pública sem expor informações administrativas."
@@ -2137,16 +2365,16 @@ export function TelaDetalhesProcesso({ controlador }) {
       >
         <${MetricGrid}
           items=${[
-            { label: 'Status', value: statusPaginaPublica },
-            {
-              label: 'Slug público',
-              value: processo?.link_publico_slug || 'Ainda não gerado',
-            },
-            {
-              label: 'Criado em',
-              value: formatarDataHora(processo?.link_publico_criado_em),
-            },
-          ]}
+          { label: 'Status', value: statusPaginaPublica },
+          {
+            label: 'Slug público',
+            value: processo?.link_publico_slug || 'Ainda não gerado',
+          },
+          {
+            label: 'Criado em',
+            value: formatarDataHora(processo?.link_publico_criado_em),
+          },
+        ]}
         />
 
         <div class="row g-3 align-items-end mt-1">
@@ -2156,16 +2384,16 @@ export function TelaDetalhesProcesso({ controlador }) {
               class="form-control"
               readonly
               value=${processo?.link_publico_slug
-                ? urlPublicaCandidatura || 'URL pública ainda não configurada.'
-                : 'Gere a página para visualizar o link público.'}
+          ? urlPublicaCandidatura || 'URL pública ainda não configurada.'
+          : 'Gere a página para visualizar o link público.'}
             />
             <div class="form-text">
               ${urlPublicaCandidatura
-                ? 'Link externo montado com PUBLIC_CANDIDATE_BASE_URL.'
-                : AVISO_URL_PUBLICA_NAO_CONFIGURADA}
+          ? 'Link externo montado com PUBLIC_CANDIDATE_BASE_URL.'
+          : AVISO_URL_PUBLICA_NAO_CONFIGURADA}
             </div>
             ${urlInternaCandidatura
-              ? html`
+          ? html`
                   <label class="form-label mt-3">Link interno</label>
                   <input
                     class="form-control"
@@ -2173,13 +2401,13 @@ export function TelaDetalhesProcesso({ controlador }) {
                     value=${urlInternaCandidatura}
                   />
                 `
-              : null}
+          : null}
           </div>
 
           <div class="col-lg-4">
             <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
               ${!processo?.link_publico_slug
-                ? html`
+          ? html`
                     <button
                       type="button"
                       class="btn btn-primary"
@@ -2189,7 +2417,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                       Gerar página de CV
                     </button>
                   `
-                : html`
+          : html`
                     <button
                       type="button"
                       class="btn btn-outline-secondary"
@@ -2215,7 +2443,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                       Desativar link
                     </button>
                     ${!linkPublicoAtivo && !processoEncerrado
-                      ? html`
+              ? html`
                           <button
                             type="button"
                             class="btn btn-primary"
@@ -2224,7 +2452,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                             Gerar nova página
                           </button>
                         `
-                      : null}
+              : null}
                   `}
             </div>
           </div>
@@ -2242,13 +2470,13 @@ export function TelaDetalhesProcesso({ controlador }) {
                       type="checkbox"
                       checked=${item.visivel !== false}
                       onChange=${(event) =>
-                        setRequisitosPublicos((anteriores) =>
-                          anteriores.map((atual, atualIndice) =>
-                            atualIndice === indice
-                              ? { ...atual, visivel: event.target.checked }
-                              : atual,
-                          ),
-                        )}
+                    setRequisitosPublicos((anteriores) =>
+                      anteriores.map((atual, atualIndice) =>
+                        atualIndice === indice
+                          ? { ...atual, visivel: event.target.checked }
+                          : atual,
+                      ),
+                    )}
                     />
                     <span class="form-check-label">${item.texto}</span>
                   </label>
@@ -2267,13 +2495,13 @@ export function TelaDetalhesProcesso({ controlador }) {
                       type="checkbox"
                       checked=${item.visivel !== false}
                       onChange=${(event) =>
-                        setResponsabilidadesPublicas((anteriores) =>
-                          anteriores.map((atual, atualIndice) =>
-                            atualIndice === indice
-                              ? { ...atual, visivel: event.target.checked }
-                              : atual,
-                          ),
-                        )}
+                    setResponsabilidadesPublicas((anteriores) =>
+                      anteriores.map((atual, atualIndice) =>
+                        atualIndice === indice
+                          ? { ...atual, visivel: event.target.checked }
+                          : atual,
+                      ),
+                    )}
                     />
                     <span class="form-check-label">${item.texto}</span>
                   </label>
@@ -2289,7 +2517,7 @@ export function TelaDetalhesProcesso({ controlador }) {
               placeholder="Ex.: Necessario disponibilidade para escala 6x1."
               value=${observacoesPublicasVaga}
               onInput=${(event) =>
-                setObservacoesPublicasVaga(event.target.value)}
+          setObservacoesPublicasVaga(event.target.value)}
             ></textarea>
             <div class="form-text">
               Campo opcional exibido na página pública somente quando preenchido.
@@ -2310,7 +2538,130 @@ export function TelaDetalhesProcesso({ controlador }) {
         ${feedbackLinkPublico
           ? html`<div class="alert alert-success mt-3 mb-0">${feedbackLinkPublico}</div>`
           : null}
-      </${SecaoDetalheExpansivel}>
+      </${SecaoDetalheExpansivel}>`
+      : null}
+
+      ${false ? html`<${SecaoDetalheExpansivel}
+        aberto=${secoesExpandidas.recebimentoEmail}
+        titulo="Recebimento de e-mail"
+        description="Caixa de entrada configuravel para curriculos recebidos por e-mail."
+        onToggle=${() => alternarSecao('recebimentoEmail')}
+      >
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+          <div class="text-muted small">
+            Endereco monitorado:
+            ${statusEmailRecebido?.email_address || 'posilvahp7@gmail.com'}
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            disabled=${carregandoEmails}
+            onClick=${carregarEmailsDoProcesso}
+          >
+            ${carregandoEmails ? 'Atualizando...' : 'Atualizar e-mails'}
+          </button>
+        </div>
+
+        ${!statusEmailRecebido?.configured
+        ? html`
+              <div class="alert alert-warning">
+                ${statusEmailRecebido?.message ||
+          'Recebimento de e-mail ainda não configurado ou indisponível no momento.'}
+              </div>
+            `
+        : null}
+
+        <div class="table-responsive">
+          <table class="table align-middle rh-modern-history-table">
+            <thead>
+              <tr>
+                <th>Remetente</th>
+                <th>Assunto / resumo</th>
+                <th>Data</th>
+                <th>Dados encontrados</th>
+                <th>Anexo</th>
+                <th>Status</th>
+                <th class="text-end">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${emailsRecebidos.length
+        ? emailsRecebidos.map((emailItem) => {
+          const anexos = Array.isArray(emailItem?.anexos)
+            ? emailItem.anexos
+            : [];
+          const anexosCv = anexos.filter((anexo) => anexo?.cv_compativel);
+          const anexoPrincipal = anexosCv[0] || null;
+          return html`
+                      <tr key=${emailItem.uid}>
+                        <td>
+                          <strong>${emailItem.remetente || '-'}</strong>
+                          <div class="small text-muted">${emailItem.email_encontrado || '-'}</div>
+                        </td>
+                        <td>
+                          <div>${emailItem.assunto || '-'}</div>
+                          <div class="small text-muted">${emailItem.resumo || '-'}</div>
+                        </td>
+                        <td>${formatarDataHora(emailItem.data_hora)}</td>
+                        <td>
+                          <div>${emailItem.nome_candidato_possivel || '-'}</div>
+                          <div class="small text-muted">${emailItem.vaga_pretendida_possivel || '-'}</div>
+                          <div class="small text-muted">${emailItem.telefone_encontrado || '-'}</div>
+                        </td>
+                        <td>
+                          ${emailItem.possui_anexo
+              ? html`
+                                <div>${emailItem.nome_anexo || 'Anexo recebido'}</div>
+                                <div class="small text-muted">
+                                  ${anexosCv.length ? 'CV compativel' : 'Sem anexo de CV compativel'}
+                                </div>
+                              `
+              : 'Sem anexo'}
+                        </td>
+                        <td>
+                          <span class="process-candidate-status-badge is-pending">
+                            ${emailItem.status_analise || 'Pendente'}
+                          </span>
+                        </td>
+                        <td class="text-end">
+                          <div class="rh-table-actions">
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-dark rh-action-btn"
+                              onClick=${() => setStatusEmailRecebido({
+                ...(statusEmailRecebido || {}),
+                message: emailItem.resumo || 'Sem corpo para exibir.',
+              })}
+                            >
+                              <span class="material-symbols-outlined">visibility</span>
+                              Detalhes
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-primary rh-action-btn"
+                              disabled=${processoEncerrado || !anexoPrincipal || analisandoEmailUid === emailItem.uid}
+                              onClick=${() => analisarCvDoEmail(emailItem, anexoPrincipal)}
+                            >
+                              <span class="material-symbols-outlined">auto_awesome</span>
+                              ${analisandoEmailUid === emailItem.uid ? 'Analisando...' : 'Analisar CV'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+        })
+        : html`
+                    <${TabelaVazia}
+                      colunas=${7}
+                      texto=${carregandoEmails
+            ? 'Carregando e-mails recebidos.'
+            : 'Nenhum e-mail recebido para listar.'}
+                    />
+                  `}
+            </tbody>
+          </table>
+        </div>
+      </${SecaoDetalheExpansivel}>` : null}
 
       <${SecaoDetalheExpansivel}
         aberto=${secoesExpandidas.candidatosInscritos}
@@ -2334,9 +2685,9 @@ export function TelaDetalhesProcesso({ controlador }) {
             </thead>
             <tbody>
               ${candidatosInscritos.length
-                ? candidatosInscritos.map((candidato) => {
-                    const analise = encontrarAnaliseDoInscrito(candidato);
-                    return html`
+      ? candidatosInscritos.map((candidato) => {
+        const analise = encontrarAnaliseDoInscrito(candidato);
+        return html`
                       <tr key=${candidato.id_registro}>
                         <td>
                           <strong>${candidato.nome_candidato || '-'}</strong>
@@ -2360,12 +2711,12 @@ export function TelaDetalhesProcesso({ controlador }) {
                             ${analise?.classificacao || candidato.status_fluxo || '-'}
                           </span>
                           ${analise?.classificacao
-                            ? html`<div class="small text-muted mt-1">CV analisado</div>`
-                            : html`<div class="small text-muted mt-1">Aguardando análise</div>`}
+            ? html`<div class="small text-muted mt-1">CV analisado</div>`
+            : html`<div class="small text-muted mt-1">Aguardando análise</div>`}
                         </td>
                         <td>${analise?.score_final ?? '-'}</td>
                         <td class="text-end">
-                          <div class="d-flex justify-content-end gap-2 flex-wrap">
+                          <div class="rh-table-actions">
                             <button
                               type="button"
                               class="btn btn-sm btn-outline-secondary"
@@ -2382,7 +2733,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                               ${processoEncerrado ? 'Processo encerrado' : 'Analisar CV'}
                             </button>
                             ${analise
-                              ? html`
+            ? html`
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-dark"
@@ -2391,12 +2742,12 @@ export function TelaDetalhesProcesso({ controlador }) {
                                     Resultado
                                   </button>
                                 `
-                              : null}
+            : null}
                             ${analise &&
-                            isPreAnaliseNaoQualificada(analise) &&
-                            Number(analise.ja_adicionado_ao_processo || 1) !== 1 &&
-                            !processoEncerrado
-                              ? html`
+            isPreAnaliseNaoQualificada(analise) &&
+            Number(analise.ja_adicionado_ao_processo || 1) !== 1 &&
+            !processoEncerrado
+            ? html`
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-warning"
@@ -2406,19 +2757,19 @@ export function TelaDetalhesProcesso({ controlador }) {
                                   </button>
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-secondary"
+                                    class="btn btn-sm btn-outline-secondary rh-action-btn"
                                     onClick=${() => enviarPreAnaliseAoBancoTalentos(analise)}
                                   >
                                     Banco de Talentos
                                   </button>
                                 `
-                              : null}
+            : null}
                           </div>
                         </td>
                       </tr>
                     `;
-                  })
-                : html`
+      })
+      : html`
                     <${TabelaVazia}
                       colunas=${7}
                       texto="Nenhum candidato inscrito pela página pública."
@@ -2436,6 +2787,9 @@ export function TelaDetalhesProcesso({ controlador }) {
         tourId="process-cv-preanalysis"
         onToggle=${() => alternarSecao('preAnaliseCv')}
       >
+        ${avisosSecoes.preAnaliseCv
+      ? html`<div class="alert alert-warning">${avisosSecoes.preAnaliseCv}</div>`
+      : null}
         <div class="row g-3 align-items-end">
           <div class="col-md-6">
             <label class="form-label">Adicionar CV</label>
@@ -2469,10 +2823,119 @@ export function TelaDetalhesProcesso({ controlador }) {
               disabled=${processoEncerrado || analisandoCv}
             >
               ${processoEncerrado
-                ? 'Processo encerrado'
-                : analisandoCv
-                  ? 'Analisando...'
-                  : 'Analisar CV'}
+      ? 'Processo encerrado'
+      : analisandoCv
+        ? 'Analisando...'
+        : 'Analisar CV'}
+            </button>
+          </div>
+        </div>
+
+        <div class="rh-filter-grid rh-filter-grid--wide mt-4">
+          <div class="rh-filter-field">
+            <label>Nome</label>
+            <input
+              class="form-control"
+              placeholder="Buscar candidato"
+              value=${filtrosPreAnalises.nome}
+              onInput=${(event) =>
+      setFiltrosPreAnalises({
+        ...filtrosPreAnalises,
+        nome: event.target.value,
+      })}
+            />
+          </div>
+          <div class="rh-filter-field">
+            <label>Score minimo</label>
+            <input
+              class="form-control"
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              value=${filtrosPreAnalises.scoreMin}
+              onInput=${(event) =>
+      setFiltrosPreAnalises({
+        ...filtrosPreAnalises,
+        scoreMin: event.target.value,
+      })}
+            />
+          </div>
+          <div class="rh-filter-field">
+            <label>Score maximo</label>
+            <input
+              class="form-control"
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              value=${filtrosPreAnalises.scoreMax}
+              onInput=${(event) =>
+      setFiltrosPreAnalises({
+        ...filtrosPreAnalises,
+        scoreMax: event.target.value,
+      })}
+            />
+          </div>
+          <div class="rh-filter-field">
+            <label>Classificacao</label>
+            <select
+              class="form-select"
+              value=${filtrosPreAnalises.classificacao}
+              onChange=${(event) =>
+      setFiltrosPreAnalises({
+        ...filtrosPreAnalises,
+        classificacao: event.target.value,
+      })}
+            >
+              <option value="">Todas</option>
+              ${classificacoesPreAnalises.map(
+        (classificacao) => html`
+                  <option value=${classificacao} key=${classificacao}>
+                    ${classificacao}
+                  </option>
+                `,
+      )}
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between gap-2 flex-wrap mt-3">
+          <label class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              checked=${filtrosPreAnalises.mostrarOcultos}
+              onChange=${(event) =>
+      aplicarFiltrosPreAnalise({
+        ...filtrosPreAnalises,
+        mostrarOcultos: event.target.checked,
+      })}
+            />
+            <span class="form-check-label">Mostrar itens limpos</span>
+          </label>
+          <div class="d-flex gap-2 flex-wrap">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              onClick=${limparFiltrosPreAnalise}
+            >
+              Limpar filtros
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              onClick=${() => aplicarFiltrosPreAnalise()}
+            >
+              Aplicar filtros
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-danger btn-sm"
+              disabled=${processoEncerrado || !preAnalises.length}
+              onClick=${limparListaPreAnalise}
+            >
+              Limpar lista
             </button>
           </div>
         </div>
@@ -2491,8 +2954,8 @@ export function TelaDetalhesProcesso({ controlador }) {
             </thead>
             <tbody>
               ${preAnalises.length
-                ? preAnalises.map(
-                    (item) => html`
+      ? preAnalises.map(
+        (item) => html`
                       <tr key=${item.id_pre_analise}>
                         <td>${item.nome_candidato || '-'}</td>
                         <td>${item.email || '-'}</td>
@@ -2504,18 +2967,18 @@ export function TelaDetalhesProcesso({ controlador }) {
                             ${item.classificacao || '-'}
                           </span>
                           ${Number(item.ja_adicionado_ao_processo || 0) === 1
-                            ? html`
+            ? html`
                                 <div class="small text-muted mt-1">
                                   ${item.situacao_pre_analise || 'Já incluído no processo'}
                                 </div>
                               `
-                            : null}
+            : null}
                         </td>
                         <td>${item.score_final ?? '-'}</td>
                         <td class="text-end">
                           <div class="d-flex justify-content-end gap-2 flex-wrap">
                             ${!processoEncerrado
-                              ? html`
+            ? html`
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-secondary"
@@ -2524,74 +2987,74 @@ export function TelaDetalhesProcesso({ controlador }) {
                                     Editar
                                   </button>
                                 `
-                              : null}
+            : null}
                             <button
                               type="button"
-                              class="btn btn-sm btn-outline-dark"
+                              class="btn btn-sm btn-outline-dark rh-action-btn"
                               onClick=${() => setResultadoAnaliseSelecionado(item)}
                             >
                               Resultado
                             </button>
                             <button
                               type="button"
-                              class="btn btn-sm btn-outline-info"
+                              class="btn btn-sm btn-outline-info rh-action-btn"
                               onClick=${() => setVisualizacaoCv(item)}
                             >
                               Ver CV
                             </button>
                             ${!processoEncerrado &&
-                            Number(item.ja_adicionado_ao_processo || 0) !== 1 &&
-                            isPreAnaliseUtilizavelDireto(item)
-                              ? html`
+            Number(item.ja_adicionado_ao_processo || 0) !== 1 &&
+            isPreAnaliseUtilizavelDireto(item)
+            ? html`
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-success"
+                                    class="btn btn-sm btn-outline-success rh-action-btn"
                                     onClick=${() =>
-                                      incluirNoProcesso(item)}
+                incluirNoProcesso(item)}
                                   >
                                     Adicionar
                                   </button>
                                 `
-                              : null}
+            : null}
                             ${!processoEncerrado &&
-                            Number(item.ja_adicionado_ao_processo || 0) !== 1 &&
-                            isPreAnaliseNaoQualificada(item)
-                              ? html`
+            Number(item.ja_adicionado_ao_processo || 0) !== 1 &&
+            isPreAnaliseNaoQualificada(item)
+            ? html`
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-warning"
+                                    class="btn btn-sm btn-outline-warning rh-action-btn"
                                     onClick=${() =>
-                                      utilizarCandidatoNaoQualificado(item)}
+                utilizarCandidatoNaoQualificado(item)}
                                   >
                                     Utilizar candidato
                                   </button>
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-secondary"
+                                    class="btn btn-sm btn-outline-secondary rh-action-btn"
                                     onClick=${() =>
-                                      enviarPreAnaliseAoBancoTalentos(item)}
+                enviarPreAnaliseAoBancoTalentos(item)}
                                   >
                                     Banco de Talentos
                                   </button>
                                 `
-                              : null}
+            : null}
                             ${!processoEncerrado
-                              ? html`
+            ? html`
                                   <button
                                     type="button"
-                                    class="btn btn-sm btn-outline-danger"
+                                    class="btn btn-sm btn-outline-danger rh-action-btn"
                                     onClick=${() => excluirPreAnalise(item.id_pre_analise)}
                                   >
                                     Excluir
                                   </button>
                                 `
-                              : null}
+            : null}
                           </div>
                         </td>
                       </tr>
                     `,
-                  )
-                : html`
+      )
+      : html`
                     <${TabelaVazia}
                       colunas=${6}
                       texto="Nenhuma pré-análise encontrada."
@@ -2631,25 +3094,29 @@ export function TelaDetalhesProcesso({ controlador }) {
             </thead>
             <tbody>
               ${candidatosOperacionais.length
-                ? candidatosOperacionais.map(
-                    (candidato) => html`
+      ? candidatosOperacionais.map(
+        (candidato) => {
+          const tagsCandidato = Array.isArray(candidato?.tags)
+            ? candidato.tags
+            : [];
+          return html`
                       <tr key=${candidato.id_registro}>
                         <td>
                           <strong>${candidato.nome_candidato || '-'}</strong>
                           <div class="small text-muted mt-1">
                             ${candidato.vaga || '-'}
                           </div>
-                          ${candidato.tags?.length
-                            ? html`
+                          ${tagsCandidato.length
+              ? html`
                                 <div class="rh-chip-wrap mt-2">
-                                  ${candidato.tags.slice(0, 3).map(
-                                    (tag) => html`
+                                  ${tagsCandidato.slice(0, 3).map(
+                (tag) => html`
                                       <span key=${tag} class="rh-chip">${tag}</span>
                                     `,
-                                  )}
+              )}
                                 </div>
                               `
-                            : null}
+              : null}
                         </td>
                         <td>
                           <div>${candidato.email || '-'}</div>
@@ -2657,8 +3124,17 @@ export function TelaDetalhesProcesso({ controlador }) {
                             ${candidato.whatsapp || candidato.telefone || '-'}
                           </div>
                           <div class="small text-muted">
-                            ${candidato.origem || '-'}
+                            Origem: ${formatarOrigemCandidato(candidato)}
                           </div>
+                          ${formatarOrigemCandidato(candidato) === 'Banco de Talentos' &&
+              (candidato.processo_origem || candidato.id_processo_origem)
+              ? html`
+                                <div class="small text-muted">
+                                  Processo anterior:
+                                  ${candidato.processo_origem || candidato.id_processo_origem}
+                                </div>
+                              `
+              : null}
                         </td>
                         <td>
                           <div>${candidato.cidade || '-'}</div>
@@ -2675,36 +3151,38 @@ export function TelaDetalhesProcesso({ controlador }) {
                         </td>
                         <td>
                           ${candidatoTemProvaSalva(candidato)
-                            ? html`
+              ? html`
                                 <div class="rh-cell-stack">
                                   <strong>${obterNotaProvaCandidato(candidato)}</strong>
                                   <div class="d-flex gap-2 flex-wrap">
                                     <button
                                       type="button"
-                                      class="btn btn-sm btn-outline-dark"
+                                      class="btn btn-sm btn-outline-dark rh-action-btn"
                                       disabled=${carregandoDetalheProva ===
-                                      String(candidato.id_registro || candidato.id_teste || '')}
+                String(candidato.id_registro || candidato.id_teste || '')}
                                       onClick=${() => abrirDetalheProva(candidato)}
                                     >
+                                      <span class="material-symbols-outlined">analytics</span>
                                       Notas
                                     </button>
                                     <button
                                       type="button"
-                                      class="btn btn-sm btn-outline-primary"
+                                      class="btn btn-sm btn-outline-primary rh-action-btn"
                                       disabled=${carregandoDetalheProva ===
-                                      String(candidato.id_registro || candidato.id_teste || '')}
+                String(candidato.id_registro || candidato.id_teste || '')}
                                       onClick=${() => abrirDetalheProva(candidato)}
                                     >
-                                      Ver resultado
+                                      <span class="material-symbols-outlined">visibility</span>
+                                      Resultado
                                     </button>
                                   </div>
                                 </div>
                               `
-                            : html`<span class="text-muted">Sem prova</span>`}
+              : html`<span class="text-muted">Sem prova</span>`}
                         </td>
                         <td>
                           ${candidato.status_entrevista
-                            ? html`
+              ? html`
                                 <div class="rh-cell-stack">
                                   <span
                                     class=${`rh-status-pill ${obterClasseStatusEntrevista(candidato.status_entrevista)}`}
@@ -2714,39 +3192,49 @@ export function TelaDetalhesProcesso({ controlador }) {
                                   <small>${formatarDataHora(candidato.data_entrevista)}</small>
                                 </div>
                               `
-                            : candidato.acoes_fluxo?.canScheduleInterview
-                              ? 'Aguardando agendamento'
-                              : processoEncerrado
-                                ? 'Processo encerrado'
-                                : 'Sem entrevista prevista'}
+              : !processoEncerrado && candidato.acoes_fluxo?.isActive
+                ? html`
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary rh-action-btn"
+                                    onClick=${() => abrirAgendamento(candidato)}
+                                  >
+                                    <span class="material-symbols-outlined">event</span>
+                                    Entrevista
+                                  </button>
+                                `
+                : processoEncerrado
+                  ? 'Processo encerrado'
+                  : 'Sem entrevista prevista'}
                         </td>
                         <td>
                           ${candidato.cv_disponivel
-                            ? html`
+              ? html`
                                 <button
                                   type="button"
-                                  class="btn btn-sm btn-outline-secondary"
+                                  class="btn btn-sm btn-outline-secondary rh-action-btn"
                                   onClick=${() => abrirCurriculo(candidato)}
                                 >
+                                  <span class="material-symbols-outlined">description</span>
                                   Ver CV
                                 </button>
                               `
-                            : 'Sem CV'}
+              : 'Sem CV'}
                         </td>
                         <td class="text-end">
                           ${renderizarAcoesDoCandidato({
-                            candidato,
-                            onAgendarEntrevista: abrirAgendamento,
-                            onAprovar: abrirAprovacao,
-                            onEditar: abrirEdicaoCandidato,
-                            onAtualizarStatus: (item, status) =>
-                              atualizarStatus(item.id_registro, status),
-                          })}
+                candidato,
+                onAgendarEntrevista: abrirAgendamento,
+                onAprovar: abrirAprovacao,
+                onEditar: abrirEdicaoCandidato,
+                onAtualizarStatus: (item, status) =>
+                  atualizarStatus(item.id_registro, status),
+              })}
                         </td>
                       </tr>
-                    `,
-                  )
-                : html`
+                    `},
+      )
+      : html`
                     <${TabelaVazia}
                       colunas=${8}
                       texto="Nenhum candidato vinculado a este processo."
@@ -2777,8 +3265,8 @@ export function TelaDetalhesProcesso({ controlador }) {
             </thead>
             <tbody>
               ${candidatosAprovados.length
-                ? candidatosAprovados.map(
-                    (candidato) => html`
+      ? candidatosAprovados.map(
+        (candidato) => html`
                       <tr key=${`aprovado-${candidato.id_registro}`}>
                         <td>
                           <strong>${candidato.nome_candidato || '-'}</strong>
@@ -2793,10 +3281,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                         <td>${obterNotaProvaCandidato(candidato) || 'Sem prova'}</td>
                         <td>
                           ${formatarDataHora(
-                            candidato.aprovado_em ||
-                              candidato.data_aprovacao ||
-                              candidato.data_atualizacao_pipeline,
-                          )}
+          candidato.aprovado_em ||
+          candidato.data_aprovacao ||
+          candidato.data_atualizacao_pipeline,
+        )}
                         </td>
                         <td class="text-end">
                           <div class="d-flex justify-content-end gap-2 flex-wrap">
@@ -2808,20 +3296,20 @@ export function TelaDetalhesProcesso({ controlador }) {
                               Detalhes
                             </button>
                             ${candidatoTemProvaSalva(candidato)
-                              ? html`
+            ? html`
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-dark"
                                     disabled=${carregandoDetalheProva ===
-                                    String(candidato.id_registro || candidato.id_teste || '')}
+              String(candidato.id_registro || candidato.id_teste || '')}
                                     onClick=${() => abrirDetalheProva(candidato)}
                                   >
                                     Ver resultado
                                   </button>
                                 `
-                              : null}
+            : null}
                             ${candidato.cv_disponivel
-                              ? html`
+            ? html`
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-secondary"
@@ -2830,13 +3318,13 @@ export function TelaDetalhesProcesso({ controlador }) {
                                     Ver CV
                                   </button>
                                 `
-                              : null}
+            : null}
                           </div>
                         </td>
                       </tr>
                     `,
-                  )
-                : html`
+      )
+      : html`
                     <${TabelaVazia}
                       colunas=${5}
                       texto="Nenhum candidato aprovado neste processo."
@@ -2862,14 +3350,14 @@ export function TelaDetalhesProcesso({ controlador }) {
         `}
       >
         ${carregando
-          ? html`
+      ? html`
               <${LoadingState}
                 titulo="Carregando entrevistas"
                 descricao="Sincronizando agenda e status do candidato."
               />
             `
-          : entrevistas.length
-            ? html`
+      : entrevistas.length
+        ? html`
                 <div class="table-responsive">
                   <table class="table align-middle rh-modern-history-table">
                     <thead>
@@ -2883,7 +3371,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                     </thead>
                     <tbody>
                       ${entrevistas.map(
-                        (entrevista) => html`
+          (entrevista) => html`
                           <tr key=${entrevista.id_entrevista}>
                             <td>${entrevista.nome_candidato || '-'}</td>
                             <td>${formatarDataHora(entrevista.data_entrevista)}</td>
@@ -2898,12 +3386,12 @@ export function TelaDetalhesProcesso({ controlador }) {
                             <td>${entrevista.observacoes_rh || 'Sem observações.'}</td>
                           </tr>
                         `,
-                      )}
+        )}
                     </tbody>
                   </table>
                 </div>
               `
-            : html`
+        : html`
                 <${EmptyState}
                   title="Nenhuma entrevista agendada"
                   text="Use o botão “Agendar entrevista” na tabela de candidatos para registrar o compromisso."
@@ -2918,7 +3406,7 @@ export function TelaDetalhesProcesso({ controlador }) {
         onClose=${() => setAgendamentoSelecionado(null)}
       >
         ${agendamentoSelecionado
-          ? html`
+      ? html`
               <div class="rh-details-body">
                 <div class="row g-3">
                   <div class="col-md-6">
@@ -2951,10 +3439,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-select"
                       value=${formularioEntrevista.status_entrevista}
                       onChange=${(event) =>
-                        setFormularioEntrevista({
-                          ...formularioEntrevista,
-                          status_entrevista: event.target.value,
-                        })}
+          setFormularioEntrevista({
+            ...formularioEntrevista,
+            status_entrevista: event.target.value,
+          })}
                     >
                       <option value="Agendado">Agendado</option>
                       <option value="Confirmado">Confirmado</option>
@@ -2966,24 +3454,24 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-select"
                       value=${formularioEntrevista.id_slot}
                       onChange=${(event) => {
-                        const idSlotSelecionado = event.target.value;
-                        setFormularioEntrevista({
-                          ...formularioEntrevista,
-                          id_slot: idSlotSelecionado,
-                          mensagem_personalizada: mensagemEntrevistaEditada
-                            ? formularioEntrevista.mensagem_personalizada
-                            : montarMensagemEntrevistaPadrao(idSlotSelecionado),
-                        });
-                      }}
+          const idSlotSelecionado = event.target.value;
+          setFormularioEntrevista({
+            ...formularioEntrevista,
+            id_slot: idSlotSelecionado,
+            mensagem_personalizada: mensagemEntrevistaEditada
+              ? formularioEntrevista.mensagem_personalizada
+              : montarMensagemEntrevistaPadrao(idSlotSelecionado),
+          });
+        }}
                     >
                       <option value="">Selecione um slot</option>
                       ${slotsDisponiveisEntrevista.map(
-                        (slot) => html`
+          (slot) => html`
                           <option key=${slot.id_slot} value=${slot.id_slot}>
                             ${formatarHorarioSlotEntrevista(slot)}
                           </option>
                         `,
-                      )}
+        )}
                     </select>
                   </div>
                   <div class="col-md-6">
@@ -2993,10 +3481,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                       placeholder="21999999999"
                       value=${formularioEntrevista.whatsapp || formularioEntrevista.telefone || ''}
                       onInput=${(event) =>
-                        setFormularioEntrevista({
-                          ...formularioEntrevista,
-                          whatsapp: event.target.value,
-                        })}
+          setFormularioEntrevista({
+            ...formularioEntrevista,
+            whatsapp: event.target.value,
+          })}
                     />
                   </div>
                   <div class="col-md-6">
@@ -3006,10 +3494,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                       placeholder="candidato@email.com"
                       value=${formularioEntrevista.email || ''}
                       onInput=${(event) =>
-                        setFormularioEntrevista({
-                          ...formularioEntrevista,
-                          email: event.target.value,
-                        })}
+          setFormularioEntrevista({
+            ...formularioEntrevista,
+            email: event.target.value,
+          })}
                     />
                   </div>
                   <div class="col-md-12">
@@ -3019,12 +3507,12 @@ export function TelaDetalhesProcesso({ controlador }) {
                       rows="6"
                       value=${montarMensagemEntrevista()}
                       onInput=${(event) => {
-                        setMensagemEntrevistaEditada(true);
-                        setFormularioEntrevista({
-                          ...formularioEntrevista,
-                          mensagem_personalizada: event.target.value,
-                        });
-                      }}
+          setMensagemEntrevistaEditada(true);
+          setFormularioEntrevista({
+            ...formularioEntrevista,
+            mensagem_personalizada: event.target.value,
+          });
+        }}
                     ></textarea>
                     <div class="form-text">
                       Este texto será usado exatamente no envio.
@@ -3037,10 +3525,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                       rows="4"
                       value=${formularioEntrevista.observacoes_rh}
                       onInput=${(event) =>
-                        setFormularioEntrevista({
-                          ...formularioEntrevista,
-                          observacoes_rh: event.target.value,
-                        })}
+          setFormularioEntrevista({
+            ...formularioEntrevista,
+            observacoes_rh: event.target.value,
+          })}
                     ></textarea>
                   </div>
                 </div>
@@ -3076,14 +3564,14 @@ export function TelaDetalhesProcesso({ controlador }) {
                   onClick=${() => salvarAgendamento('whatsapp')}
                 >
                   ${salvandoEntrevista
-                    ? 'Salvando...'
-                    : processoEncerrado
-                      ? 'Processo encerrado'
-                      : 'Enviar por WhatsApp'}
+          ? 'Salvando...'
+          : processoEncerrado
+            ? 'Processo encerrado'
+            : 'Enviar por WhatsApp'}
                 </button>
               </footer>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
 
       <${ModalAprovacaoCandidato}
@@ -3091,8 +3579,11 @@ export function TelaDetalhesProcesso({ controlador }) {
         candidato=${aprovacaoSelecionada}
         processo=${processo}
         salvando=${salvandoAprovacao}
+        enviandoCanal=${enviandoCanalAprovacao}
         onClose=${() => setAprovacaoSelecionada(null)}
         onConfirm=${confirmarAprovacao}
+        onSendWhatsApp=${enviarAprovacaoWhatsApp}
+        onSendEmail=${enviarAprovacaoEmail}
       />
 
       <${ModalPadrao}
@@ -3102,44 +3593,44 @@ export function TelaDetalhesProcesso({ controlador }) {
         onClose=${() => setDetalheCandidatoSelecionado(null)}
       >
         ${detalheCandidatoSelecionado
-          ? html`
+      ? html`
               <div class="rh-details-body">
                 <${MetricGrid}
                   items=${[
-                    {
-                      label: 'Nome',
-                      value: detalheCandidatoSelecionado.nome_candidato || '-',
-                    },
-                    {
-                      label: 'E-mail',
-                      value: detalheCandidatoSelecionado.email || '-',
-                    },
-                    {
-                      label: 'Telefone',
-                      value:
-                        detalheCandidatoSelecionado.whatsapp ||
-                        detalheCandidatoSelecionado.telefone ||
-                        '-',
-                    },
-                    {
-                      label: 'Status',
-                      value: detalheCandidatoSelecionado.status_fluxo || '-',
-                    },
-                    {
-                      label: 'Nota',
-                      value:
-                        obterNotaProvaCandidato(detalheCandidatoSelecionado) ||
-                        'Sem prova',
-                    },
-                    {
-                      label: 'Aprovação',
-                      value: formatarDataHora(
-                        detalheCandidatoSelecionado.aprovado_em ||
-                          detalheCandidatoSelecionado.data_aprovacao ||
-                          detalheCandidatoSelecionado.data_atualizacao_pipeline,
-                      ),
-                    },
-                  ]}
+          {
+            label: 'Nome',
+            value: detalheCandidatoSelecionado.nome_candidato || '-',
+          },
+          {
+            label: 'E-mail',
+            value: detalheCandidatoSelecionado.email || '-',
+          },
+          {
+            label: 'Telefone',
+            value:
+              detalheCandidatoSelecionado.whatsapp ||
+              detalheCandidatoSelecionado.telefone ||
+              '-',
+          },
+          {
+            label: 'Status',
+            value: detalheCandidatoSelecionado.status_fluxo || '-',
+          },
+          {
+            label: 'Nota',
+            value:
+              obterNotaProvaCandidato(detalheCandidatoSelecionado) ||
+              'Sem prova',
+          },
+          {
+            label: 'Aprovação',
+            value: formatarDataHora(
+              detalheCandidatoSelecionado.aprovado_em ||
+              detalheCandidatoSelecionado.data_aprovacao ||
+              detalheCandidatoSelecionado.data_atualizacao_pipeline,
+            ),
+          },
+        ]}
                 />
               </div>
               <footer class="rh-modal-footer">
@@ -3152,7 +3643,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                 </button>
               </footer>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
 
       <${ModalPadrao}
@@ -3162,7 +3653,7 @@ export function TelaDetalhesProcesso({ controlador }) {
         onClose=${() => setCandidatoEditando(null)}
       >
         ${candidatoEditando
-          ? html`
+      ? html`
               <div class="rh-details-body">
                 <div class="row g-3">
                   <div class="col-md-6">
@@ -3171,7 +3662,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${formularioCandidato.nome_candidato}
                       onInput=${(event) =>
-                        atualizarCampoCandidato('nome_candidato', event.target.value)}
+          atualizarCampoCandidato('nome_candidato', event.target.value)}
                     />
                   </div>
                   <div class="col-md-6">
@@ -3180,7 +3671,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${formularioCandidato.email}
                       onInput=${(event) =>
-                        atualizarCampoCandidato('email', event.target.value)}
+          atualizarCampoCandidato('email', event.target.value)}
                     />
                   </div>
                   <div class="col-md-6">
@@ -3189,7 +3680,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${formularioCandidato.telefone}
                       onInput=${(event) =>
-                        atualizarCampoCandidato('telefone', event.target.value)}
+          atualizarCampoCandidato('telefone', event.target.value)}
                     />
                   </div>
                   <div class="col-md-6">
@@ -3198,7 +3689,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${formularioCandidato.whatsapp}
                       onInput=${(event) =>
-                        atualizarCampoCandidato('whatsapp', event.target.value)}
+          atualizarCampoCandidato('whatsapp', event.target.value)}
                     />
                   </div>
                   <div class="col-md-6">
@@ -3207,7 +3698,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${formularioCandidato.cidade}
                       onInput=${(event) =>
-                        atualizarCampoCandidato('cidade', event.target.value)}
+          atualizarCampoCandidato('cidade', event.target.value)}
                     />
                   </div>
                   <div class="col-md-6">
@@ -3216,7 +3707,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${formularioCandidato.bairro}
                       onInput=${(event) =>
-                        atualizarCampoCandidato('bairro', event.target.value)}
+          atualizarCampoCandidato('bairro', event.target.value)}
                     />
                   </div>
                 </div>
@@ -3238,19 +3729,19 @@ export function TelaDetalhesProcesso({ controlador }) {
                 </button>
               </footer>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
 
       <${ModalDetalhesProva}
         detalhe=${detalheProvaSelecionado}
         onClose=${() => setDetalheProvaSelecionado(null)}
         onDownload=${() =>
-          detalheProvaSelecionado?.linha?.id_teste
-            ? baixarPacoteHistorico(
-                detalheProvaSelecionado.linha.id_teste,
-                detalheProvaSelecionado.linha.nome_candidato,
-              )
-            : null}
+      detalheProvaSelecionado?.linha?.id_teste
+        ? baixarPacoteHistorico(
+          detalheProvaSelecionado.linha.id_teste,
+          detalheProvaSelecionado.linha.nome_candidato,
+        )
+        : null}
       />
 
       <${ModalPadrao}
@@ -3260,7 +3751,7 @@ export function TelaDetalhesProcesso({ controlador }) {
         onClose=${() => setPreAnaliseSelecionada(null)}
       >
         ${preAnaliseSelecionada
-          ? html`
+      ? html`
               <div class="rh-details-body">
                 <div class="row g-3">
                   <div class="col-md-6">
@@ -3269,10 +3760,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${preAnaliseSelecionada.nome_candidato || ''}
                       onInput=${(event) =>
-                        setPreAnaliseSelecionada({
-                          ...preAnaliseSelecionada,
-                          nome_candidato: event.target.value,
-                        })}
+          setPreAnaliseSelecionada({
+            ...preAnaliseSelecionada,
+            nome_candidato: event.target.value,
+          })}
                     />
                   </div>
                   <div class="col-md-6">
@@ -3281,10 +3772,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${preAnaliseSelecionada.email || ''}
                       onInput=${(event) =>
-                        setPreAnaliseSelecionada({
-                          ...preAnaliseSelecionada,
-                          email: event.target.value,
-                        })}
+          setPreAnaliseSelecionada({
+            ...preAnaliseSelecionada,
+            email: event.target.value,
+          })}
                     />
                   </div>
                   <div class="col-md-6">
@@ -3293,10 +3784,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${preAnaliseSelecionada.telefone || ''}
                       onInput=${(event) =>
-                        setPreAnaliseSelecionada({
-                          ...preAnaliseSelecionada,
-                          telefone: event.target.value,
-                        })}
+          setPreAnaliseSelecionada({
+            ...preAnaliseSelecionada,
+            telefone: event.target.value,
+          })}
                     />
                   </div>
                   <div class="col-md-6">
@@ -3305,10 +3796,10 @@ export function TelaDetalhesProcesso({ controlador }) {
                       class="form-control"
                       value=${preAnaliseSelecionada.whatsapp || ''}
                       onInput=${(event) =>
-                        setPreAnaliseSelecionada({
-                          ...preAnaliseSelecionada,
-                          whatsapp: event.target.value,
-                        })}
+          setPreAnaliseSelecionada({
+            ...preAnaliseSelecionada,
+            whatsapp: event.target.value,
+          })}
                     />
                   </div>
                 </div>
@@ -3330,7 +3821,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                 </button>
               </footer>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
 
       <${ModalPadrao}
@@ -3341,32 +3832,32 @@ export function TelaDetalhesProcesso({ controlador }) {
         className="cv-preview-dialog"
       >
         ${visualizacaoCv
-          ? html`
+      ? html`
               <div class="rh-details-body">
                 <div class="cv-preview-box">
                   ${visualizacaoCv.texto_extraido || 'Sem conteúdo extraído.'}
                 </div>
                 ${visualizacaoCv.arquivo_original_base64
-                  ? html`
+          ? html`
                       <div class="mt-3 text-end">
                         <button
                           type="button"
                           class="btn btn-outline-primary"
                           onClick=${() => {
-                            const link = document.createElement('a');
-                            link.href = `data:${visualizacaoCv.mime_type || 'application/octet-stream'};base64,${visualizacaoCv.arquivo_original_base64}`;
-                            link.download = visualizacaoCv.nome_arquivo || 'cv';
-                            link.click();
-                          }}
+              const link = document.createElement('a');
+              link.href = `data:${visualizacaoCv.mime_type || 'application/octet-stream'};base64,${visualizacaoCv.arquivo_original_base64}`;
+              link.download = visualizacaoCv.nome_arquivo || 'cv';
+              link.click();
+            }}
                         >
                           Baixar original
                         </button>
                       </div>
                     `
-                  : null}
+          : null}
               </div>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
 
       <${ModalPadrao}
@@ -3376,25 +3867,25 @@ export function TelaDetalhesProcesso({ controlador }) {
         onClose=${() => setResultadoAnaliseSelecionado(null)}
       >
         ${resultadoAnaliseSelecionado
-          ? html`
+      ? html`
               <div class="rh-details-body">
                 <${MetricGrid}
                   items=${[
-                    {
-                      label: 'Score',
-                      value: resultadoAnaliseSelecionado.score_final ?? '-',
-                    },
-                    {
-                      label: 'Classificação',
-                      value: html`
+          {
+            label: 'Score',
+            value: resultadoAnaliseSelecionado.score_final ?? '-',
+          },
+          {
+            label: 'Classificação',
+            value: html`
                         <span
                           class=${`cv-classification-badge ${resultadoAnaliseSelecionado.classificacao_slug || ''}`}
                         >
                           ${resultadoAnaliseSelecionado.classificacao || '-'}
                         </span>
                       `,
-                    },
-                  ]}
+          },
+        ]}
                 />
 
                 <${SectionCard}
@@ -3403,20 +3894,20 @@ export function TelaDetalhesProcesso({ controlador }) {
                 >
                   <div class="cv-preview-box">
                     ${(() => {
-                      try {
-                        const palavras = JSON.parse(
-                          resultadoAnaliseSelecionado.palavras_chave || '[]',
-                        );
-                        return Array.isArray(palavras) && palavras.length
-                          ? palavras.join(', ')
-                          : 'Nenhuma palavra-chave relevante foi identificada.';
-                      } catch (error) {
-                        return (
-                          resultadoAnaliseSelecionado.palavras_chave ||
-                          'Nenhuma palavra-chave relevante foi identificada.'
-                        );
-                      }
-                    })()}
+          try {
+            const palavras = JSON.parse(
+              resultadoAnaliseSelecionado.palavras_chave || '[]',
+            );
+            return Array.isArray(palavras) && palavras.length
+              ? palavras.join(', ')
+              : 'Nenhuma palavra-chave relevante foi identificada.';
+          } catch (error) {
+            return (
+              resultadoAnaliseSelecionado.palavras_chave ||
+              'Nenhuma palavra-chave relevante foi identificada.'
+            );
+          }
+        })()}
                   </div>
                 </${SectionCard}>
 
@@ -3426,16 +3917,16 @@ export function TelaDetalhesProcesso({ controlador }) {
                 >
                   <div class="cv-preview-box">
                     ${(() => {
-                      const dados = lerProblemasCv(resultadoAnaliseSelecionado);
-                      const linhas = [
-                        ...(dados.pontos_fortes || []),
-                        ...(dados.problemas || []),
-                      ];
-                      return linhas.length
-                        ? linhas.join('\n')
-                        : resultadoAnaliseSelecionado.problemas ||
-                            'Nenhum problema crítico foi apontado.';
-                    })()}
+          const dados = lerProblemasCv(resultadoAnaliseSelecionado);
+          const linhas = [
+            ...(dados.pontos_fortes || []),
+            ...(dados.problemas || []),
+          ];
+          return linhas.length
+            ? linhas.join('\n')
+            : resultadoAnaliseSelecionado.problemas ||
+            'Nenhum problema crítico foi apontado.';
+        })()}
                   </div>
                 </${SectionCard}>
 
@@ -3445,26 +3936,26 @@ export function TelaDetalhesProcesso({ controlador }) {
                 >
                   <div class="cv-preview-box">
                     ${(() => {
-                      const dados = lerProblemasCv(resultadoAnaliseSelecionado);
-                      const competencias = dados.competencias || {};
-                      const experiencias = dados.experiencias || [];
-                      const linhas = [];
-                      if (dados.confianca_nome) {
-                        linhas.push(`Nome: ${dados.nome_detectado || resultadoAnaliseSelecionado.nome_candidato || '-'} (${dados.confianca_nome})`);
-                      }
-                      if (experiencias.length) {
-                        linhas.push(`Experiências: ${experiencias.join(' | ')}`);
-                      }
-                      if (competencias.comportamentais?.length) {
-                        linhas.push(`Comportamentais: ${competencias.comportamentais.join(', ')}`);
-                      }
-                      if (competencias.tecnicas?.length) {
-                        linhas.push(`Técnicas: ${competencias.tecnicas.join(', ')}`);
-                      }
-                      return linhas.length
-                        ? linhas.join('\n')
-                        : 'Sem experiências ou competências claras no texto extraído.';
-                    })()}
+          const dados = lerProblemasCv(resultadoAnaliseSelecionado);
+          const competencias = dados.competencias || {};
+          const experiencias = dados.experiencias || [];
+          const linhas = [];
+          if (dados.confianca_nome) {
+            linhas.push(`Nome: ${dados.nome_detectado || resultadoAnaliseSelecionado.nome_candidato || '-'} (${dados.confianca_nome})`);
+          }
+          if (experiencias.length) {
+            linhas.push(`Experiências: ${experiencias.join(' | ')}`);
+          }
+          if (competencias.comportamentais?.length) {
+            linhas.push(`Comportamentais: ${competencias.comportamentais.join(', ')}`);
+          }
+          if (competencias.tecnicas?.length) {
+            linhas.push(`Técnicas: ${competencias.tecnicas.join(', ')}`);
+          }
+          return linhas.length
+            ? linhas.join('\n')
+            : 'Sem experiências ou competências claras no texto extraído.';
+        })()}
                   </div>
                 </${SectionCard}>
 
@@ -3474,12 +3965,12 @@ export function TelaDetalhesProcesso({ controlador }) {
                 >
                   <div class="cv-preview-box">
                     ${lerProblemasCv(resultadoAnaliseSelecionado).justificativa ||
-                    montarResumoAnaliticoCv(resultadoAnaliseSelecionado)}
+        montarResumoAnaliticoCv(resultadoAnaliseSelecionado)}
                   </div>
                 </${SectionCard}>
               </div>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
     </${PainelRh}>
   `;

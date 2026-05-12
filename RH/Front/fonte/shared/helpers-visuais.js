@@ -34,19 +34,22 @@ export function obterClasseStatusProcesso(status) {
   const valor = canonicalizeCandidateStatus(status);
   if (valor === 'Aprovado') return 'is-approved';
   if (valor === 'Qualificado') return 'is-highlight';
-  if (valor === 'Confirmado') return 'is-confirmed';
+  if (valor === 'Agendado' || valor === 'Confirmado' || valor === 'Reagendado') return 'is-scheduled';
   if (valor.startsWith('Eliminado') || valor === 'Reprovado' || valor === 'Desistente') return 'is-eliminated';
-  if (valor === 'Banco de talentos') return 'is-talent';
+  if (valor === 'Banco de Talentos') return 'is-talent';
+  if (valor === 'Nao qualificado' || valor === 'NÃ£o qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
   return 'is-analysis';
 }
 
 export function obterClasseStatusEntrevista(status) {
   const valor = canonicalizeCandidateStatus(status);
   if (valor === 'Aprovado') return 'is-approved';
-  if (valor === 'Banco de talentos') return 'is-talent';
+  if (valor === 'Banco de Talentos') return 'is-talent';
   if (valor === 'Compareceu') return 'is-approved';
   if (valor === 'Faltou' || valor === 'Eliminado' || valor === 'Desistente') return 'is-eliminated';
-  if (valor === 'Confirmado') return 'is-confirmed';
+  if (valor === 'Agendado' || valor === 'Confirmado' || valor === 'Reagendado') return 'is-scheduled';
+  if (valor === 'Qualificado') return 'is-highlight';
+  if (valor === 'Nao qualificado' || valor === 'NÃ£o qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
   return 'is-analysis';
 }
 

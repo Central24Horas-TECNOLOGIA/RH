@@ -11,6 +11,7 @@ function BarraLateral({
 }) {
   const itens = [
     { tela: 'screen-menu', icone: 'home', label: 'Painel' },
+    { tela: 'screen-email-inbox', icone: 'mail', label: 'E-mails' },
     { tela: 'screen-history', icone: 'history', label: 'Historico' },
     {
       tela: 'screen-processes',
@@ -67,8 +68,8 @@ function BarraLateral({
           type="button"
           class="rh-modern-sidebar-toggle"
           aria-label=${recolhida
-            ? 'Expandir menu lateral'
-            : 'Recolher menu lateral'}
+      ? 'Expandir menu lateral'
+      : 'Recolher menu lateral'}
           title=${recolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
           onClick=${() => controlador.alternarBarraLateral()}
         >
@@ -80,7 +81,7 @@ function BarraLateral({
 
       <nav class="rh-modern-nav">
         ${itens.filter((item) => item.exibir !== false).map(
-          (item) => html`
+        (item) => html`
             <button
               key=${item.tela}
               type="button"
@@ -92,18 +93,18 @@ function BarraLateral({
               <span class="rh-modern-nav-label">${item.label}</span>
             </button>
           `,
-        )}
+      )}
       </nav>
 
       ${mostrarAtalhos
-        ? html`
+      ? html`
             <div class="rh-modern-sidebar-actions">
               <button
                 type="button"
                 class="rh-modern-cta-btn"
                 title="Novo processo"
                 onClick=${() =>
-                  controlador.irParaTelaProtegida('screen-process-create')}
+          controlador.irParaTelaProtegida('screen-process-create')}
               >
                 <span class="material-symbols-outlined">playlist_add</span>
                 <span class="rh-modern-nav-label">Novo processo</span>
@@ -119,7 +120,7 @@ function BarraLateral({
               </button>
             </div>
           `
-        : null}
+      : null}
     </aside>
   `;
 }
@@ -137,12 +138,12 @@ export function PageIntro({
         ${kicker ? html`<p class="rh-modern-kicker">${kicker}</p>` : null}
         <h2 class="rh-modern-title">${title}</h2>
         ${description
-          ? html`<p class="rh-modern-description">${description}</p>`
-          : null}
+      ? html`<p class="rh-modern-description">${description}</p>`
+      : null}
       </div>
       ${actions
-        ? html`<div class="rh-page-intro-actions">${actions}</div>`
-        : null}
+      ? html`<div class="rh-page-intro-actions">${actions}</div>`
+      : null}
     </section>
   `;
 }
@@ -161,20 +162,20 @@ export function SectionCard({
       data-tour-id=${tourId || null}
     >
       ${title || description || actions
-        ? html`
+      ? html`
             <header class="rh-section-card-header">
               <div>
                 ${title ? html`<h3>${title}</h3>` : null}
                 ${description
-                  ? html`<p class="rh-section-card-description">
+          ? html`<p class="rh-section-card-description">
                       ${description}
                     </p>`
-                  : null}
+          : null}
               </div>
               ${actions}
             </header>
           `
-        : null}
+      : null}
       ${children}
     </section>
   `;
@@ -221,7 +222,7 @@ export function PainelRh({
             </div>
             <div class="rh-modern-topbar-actions">
               ${acaoPrimaria
-                ? html`
+      ? html`
                     <button
                       type="button"
                       class="btn btn-primary rh-modern-primary-btn"
@@ -231,16 +232,16 @@ export function PainelRh({
                       ${acaoPrimaria.label}
                     </button>
                   `
-                : null}
+      : null}
               ${tour?.steps?.length
-                ? html`
+      ? html`
                     <${BotaoAjudaTour}
                       compact=${true}
                       label="Ver orientacoes"
                       onClick=${() => setTourReopenSignal((valor) => valor + 1)}
                     />
                   `
-                : null}
+      : null}
               ${acoesTopo}
             </div>
           </header>
@@ -248,7 +249,7 @@ export function PainelRh({
           <main class="rh-modern-page">
             ${children}
             ${tour?.steps?.length
-              ? html`
+      ? html`
                   <${TourGuiado}
                     screenId=${screenId}
                     userId=${usuarioTour}
@@ -256,7 +257,7 @@ export function PainelRh({
                     reopenSignal=${tourReopenSignal}
                   />
                 `
-              : null}
+      : null}
           </main>
         </div>
       </div>

@@ -44,6 +44,7 @@ from .bootstrap import (
     ensure_candidate_metadata_table,
     ensure_candidate_metadata_columns,
     ensure_candidate_attachments_table,
+    ensure_candidate_movements_table,
     ensure_process_reference_columns,
     get_gabaritos_payload_column,
     is_deadlock_error,
@@ -182,6 +183,95 @@ class BaseRepository:
             if normalize_text(item.get("id_teste"))
         }
 
+    def _get_pre_analysis_cv_map(self, cursor) -> dict[str, dict]:
+        cursor.execute(
+            """
+            SELECT
+                id_pre_analise,
+                nome_arquivo,
+                mime_type,
+                arquivo_original_base64
+            FROM cv_pre_analises
+            WHERE ISNULL(arquivo_original_base64, '') <> ''
+            """
+        )
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        result = {}
+        for item in rows:
+            id_pre_analise = item.get("id_pre_analise")
+            if id_pre_analise is None:
+                continue
+            result[f"CV-{id_pre_analise}"] = {
+                "nome_arquivo_original": normalize_text(item.get("nome_arquivo")),
+                "tipo_arquivo": normalize_text(item.get("mime_type")) or "application/octet-stream",
+                "caminho_arquivo": "__cv_pre_analise_base64__",
+                "arquivo_original_base64": normalize_text(item.get("arquivo_original_base64")),
+            }
+        return result
+
+    def _get_history_result_map(self, cursor) -> dict[str, list[dict]]:
+        cursor.execute(
+            """
+            SELECT
+                id_teste,
+                id_processo,
+                id_processo_ref,
+                pontuacao_final,
+                data_iso,
+                status,
+                etapas_json
+            FROM historico_provas
+            WHERE ISNULL(id_teste, '') <> ''
+            ORDER BY data_iso DESC
+            """
+        )
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        result: dict[str, list[dict]] = {}
+        for row in rows:
+            id_teste = normalize_text(row.get("id_teste"))
+            if not id_teste:
+                continue
+            result.setdefault(id_teste, []).append(row)
+        return result
+
+    def _select_history_result_for_candidate(self, candidate: dict, history_rows: list[dict]) -> dict:
+        if not history_rows:
+            return {}
+
+        candidate_ref = normalize_text(candidate.get("id_processo_ref"))
+        candidate_process = normalize_text(candidate.get("id_processo"))
+
+        for row in history_rows:
+            row_ref = normalize_text(row.get("id_processo_ref"))
+            row_process = normalize_text(row.get("id_processo"))
+            if candidate_ref and row_ref and row_ref == candidate_ref:
+                return row
+            if candidate_ref and row_process and candidate_ref.split("@@", 1)[0] == row_process:
+                return row
+            if candidate_process and row_process and row_process == candidate_process:
+                return row
+
+        return history_rows[0]
+
+    def _format_candidate_origin(self, candidate: dict | None) -> str:
+        raw_origin = normalize_text((candidate or {}).get("origem"))
+        origin = normalize_compare_text(raw_origin)
+        if not origin:
+            return "Processo Unico"
+        if "pagina" in origin and ("candidatura" in origin or "inscricao" in origin):
+            return "Pagina de inscricao"
+        if "pre analise" in origin or "pre-analise" in origin or "analise direta" in origin:
+            return "Analise direta do CV"
+        if "banco" in origin and "talento" in origin:
+            return "Banco de Talentos"
+        if "processo unico" in origin or "processo_unico" in origin or "avulso" in origin:
+            return "Processo Unico"
+        if "recebimento" in origin and "email" in origin:
+            return "Recebimento de e-mail"
+        if origin == "prova":
+            return "Processo Unico"
+        return raw_origin
+
     def _get_cv_contact_map(self, cursor) -> dict[str, dict]:
         cursor.execute(
             """
@@ -275,13 +365,19 @@ class BaseRepository:
         interview_map = self._get_latest_interview_map(cursor)
         cv_contact_map = self._get_cv_contact_map(cursor)
         cv_map = self._get_candidate_cv_map(cursor)
+        pre_analysis_cv_map = self._get_pre_analysis_cv_map(cursor)
+        history_result_map = self._get_history_result_map(cursor)
 
         for candidate in candidates:
             id_teste = normalize_text(candidate.get("id_teste"))
             profile = profile_map.get(id_teste, {})
             latest_interview = interview_map.get(id_teste, {})
             contato_cv = cv_contact_map.get(id_teste, {})
-            cv_attachment = cv_map.get(id_teste, {})
+            cv_attachment = cv_map.get(id_teste, {}) or pre_analysis_cv_map.get(id_teste, {})
+            history_result = self._select_history_result_for_candidate(
+                candidate,
+                history_result_map.get(id_teste, []),
+            )
             raw_candidate_status = normalize_text(candidate.get("status_candidato"))
             raw_interview_status = normalize_text(latest_interview.get("status_entrevista"))
             candidate_status = canonicalize_candidate_status(raw_candidate_status)
@@ -328,6 +424,27 @@ class BaseRepository:
             candidate["cv_nome_arquivo"] = normalize_text(cv_attachment.get("nome_arquivo_original"))
             candidate["cv_tipo_arquivo"] = normalize_text(cv_attachment.get("tipo_arquivo"))
             candidate["cv_tamanho_bytes"] = cv_attachment.get("tamanho_bytes")
+            history_score = normalize_text(history_result.get("pontuacao_final"))
+            if history_score and not normalize_text(candidate.get("pontuacao_final")):
+                candidate["pontuacao_final"] = history_score
+
+            origin_normalized = normalize_compare_text(candidate.get("origem"))
+            has_history_score = bool(history_score)
+            has_process_score = bool(normalize_text(candidate.get("pontuacao_final")))
+            id_is_cv = id_teste.upper().startswith("CV-")
+            has_real_proof = has_history_score or (
+                has_process_score
+                and not id_is_cv
+                and "pre analise" not in origin_normalized
+                and "pre-analise" not in origin_normalized
+            )
+            candidate["nota_prova"] = history_score or normalize_text(candidate.get("pontuacao_final"))
+            candidate["prova_disponivel"] = bool(has_real_proof)
+            candidate["id_teste_prova"] = id_teste if has_real_proof else ""
+            candidate["data_prova_realizada"] = history_result.get("data_iso") or candidate.get("data_prova")
+            candidate["status_prova"] = normalize_text(history_result.get("status"))
+            candidate["etapas_prova_json"] = normalize_text(history_result.get("etapas_json"))
+            candidate["origem_rotulo"] = self._format_candidate_origin(candidate)
 
         return candidates
 
@@ -693,7 +810,7 @@ class BaseRepository:
                 only_digits(row.get("whatsapp")),
             }
             row_phones.discard("")
-            if safe_email and safe_phones and row_email == safe_email and row_phones.intersection(safe_phones):
+            if safe_phones and row_phones.intersection(safe_phones):
                 return id_banco
 
         return None
@@ -708,6 +825,140 @@ class BaseRepository:
             if record_id:
                 result[record_id] = safe_json_loads(row[1], {})
         return result
+
+    def _record_candidate_movement(
+        self,
+        cursor,
+        *,
+        id_teste: str = "",
+        id_registro: int | None = None,
+        id_processo: str = "",
+        id_processo_ref: str = "",
+        nome_candidato: str = "",
+        vaga: str = "",
+        origem_inicial: str = "",
+        tipo_movimentacao: str = "",
+        status_anterior: str = "",
+        status_novo: str = "",
+        observacao: str = "",
+        usuario_responsavel: str = "",
+        processo_destino: str = "",
+    ) -> None:
+        ensure_candidate_movements_table(cursor)
+        cursor.execute(
+            """
+            INSERT INTO candidatos_movimentacoes
+            (
+                id_teste,
+                id_registro,
+                id_processo,
+                id_processo_ref,
+                nome_candidato,
+                vaga,
+                origem_inicial,
+                tipo_movimentacao,
+                status_anterior,
+                status_novo,
+                observacao,
+                usuario_responsavel,
+                processo_destino,
+                criado_em
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
+            """,
+            (
+                normalize_text(id_teste),
+                int(id_registro or 0) or None,
+                normalize_text(id_processo),
+                normalize_text(id_processo_ref),
+                normalize_text(nome_candidato),
+                normalize_text(vaga),
+                normalize_text(origem_inicial),
+                normalize_text(tipo_movimentacao),
+                normalize_text(status_anterior),
+                normalize_text(status_novo),
+                normalize_text(observacao),
+                normalize_text(usuario_responsavel),
+                normalize_text(processo_destino),
+            ),
+        )
+
+    def _get_candidate_movements_map(self, cursor) -> dict[str, list[dict]]:
+        ensure_candidate_movements_table(cursor)
+        cursor.execute(
+            """
+            SELECT
+                id_teste,
+                id_registro,
+                id_processo,
+                id_processo_ref,
+                nome_candidato,
+                vaga,
+                origem_inicial,
+                tipo_movimentacao,
+                status_anterior,
+                status_novo,
+                observacao,
+                usuario_responsavel,
+                processo_destino,
+                criado_em
+            FROM candidatos_movimentacoes
+            ORDER BY criado_em DESC, id_movimentacao DESC
+            """
+        )
+        result: dict[str, list[dict]] = {}
+        for row in rows_to_dicts(cursor, cursor.fetchall()):
+            id_teste = normalize_text(row.get("id_teste"))
+            if not id_teste:
+                continue
+            result.setdefault(id_teste, []).append(row)
+        return result
+
+    def _summarize_candidate_movements(
+        self,
+        item: dict,
+        movements: list[dict] | None = None,
+    ) -> dict:
+        safe_movements = movements or []
+        ordered = list(reversed(safe_movements))
+        descriptions = []
+        first = ordered[0] if ordered else {}
+        last = ordered[-1] if ordered else {}
+
+        for movement in ordered:
+            movement_type = normalize_text(movement.get("tipo_movimentacao")) or "Movimentacao"
+            old_status = normalize_text(movement.get("status_anterior"))
+            new_status = normalize_text(movement.get("status_novo"))
+            detail = movement_type
+            if old_status or new_status:
+                detail = f"{detail}: {old_status or '-'} -> {new_status or '-'}"
+            if normalize_text(movement.get("processo_destino")):
+                detail = f"{detail} ({movement.get('processo_destino')})"
+            descriptions.append(detail)
+
+        if not descriptions:
+            origem = self._format_candidate_origin(item)
+            descriptions.append(f"Candidato criado por {origem}")
+            if normalize_text(item.get("nota_prova") or item.get("pontuacao_final")) and item.get("prova_disponivel"):
+                descriptions.append("Prova realizada")
+            status_atual = canonicalize_candidate_status(item.get("status_candidato"))
+            if status_atual == CANDIDATE_STATUS_APPROVED:
+                descriptions.append("Candidato aprovado")
+            elif status_atual == CANDIDATE_STATUS_ELIMINATED:
+                descriptions.append("Candidato eliminado")
+            elif status_atual == CANDIDATE_STATUS_TALENT_BANK:
+                descriptions.append("Candidato enviado para Banco de Talentos")
+
+        return {
+            "origem_inicial": normalize_text(first.get("origem_inicial")) or self._format_candidate_origin(item),
+            "movimentacoes": " | ".join(descriptions),
+            "data_movimentacao": last.get("criado_em") if last else item.get("data_atualizacao_pipeline") or item.get("data_prova"),
+            "status_anterior": normalize_text(last.get("status_anterior")) if last else "",
+            "status_novo": normalize_text(last.get("status_novo")) if last else canonicalize_candidate_status(item.get("status_candidato")),
+            "usuario_responsavel": normalize_text(last.get("usuario_responsavel")) if last else "",
+            "observacao_motivo": normalize_text(last.get("observacao")) if last else "",
+            "processo_destino": normalize_text(last.get("processo_destino")) if last else "",
+        }
 
     def _apply_candidate_status_update(
         self,
@@ -771,7 +1022,13 @@ class BaseRepository:
         cursor.execute(
             """
             UPDATE candidatos_processos
-            SET status_candidato = ?, etapa_pipeline = ?, data_atualizacao_pipeline = ?, id_processo_ref = ?
+            SET
+                status_candidato = ?,
+                etapa_pipeline = ?,
+                data_atualizacao_pipeline = ?,
+                id_processo_ref = ?,
+                eliminado_em = CASE WHEN ? = ? THEN ISNULL(eliminado_em, GETDATE()) ELSE eliminado_em END,
+                banco_talentos_em = CASE WHEN ? = ? THEN ISNULL(banco_talentos_em, GETDATE()) ELSE banco_talentos_em END
             WHERE id_registro = ?
             """,
             (
@@ -779,9 +1036,37 @@ class BaseRepository:
                 new_stage,
                 data_pipeline,
                 processo.get("id_processo_ref", ""),
+                new_status_normalized,
+                normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
+                new_status_normalized,
+                normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK),
                 id_registro,
             ),
         )
+
+        if old_status_normalized != new_status_normalized:
+            self._record_candidate_movement(
+                cursor,
+                id_teste=id_teste,
+                id_registro=id_registro,
+                id_processo=id_processo,
+                id_processo_ref=processo.get("id_processo_ref", ""),
+                nome_candidato=nome_candidato,
+                vaga=vaga,
+                origem_inicial=origem,
+                tipo_movimentacao=(
+                    "Candidato aprovado"
+                    if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_APPROVED)
+                    else "Candidato eliminado"
+                    if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_ELIMINATED)
+                    else "Candidato enviado para Banco de Talentos"
+                    if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK)
+                    else "Status atualizado"
+                ),
+                status_anterior=old_status,
+                status_novo=resolved_new_status,
+                observacao=normalize_text((approval_payload or {}).get("mensagem_aprovacao")),
+            )
 
         if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_APPROVED):
             payload = approval_payload or {}

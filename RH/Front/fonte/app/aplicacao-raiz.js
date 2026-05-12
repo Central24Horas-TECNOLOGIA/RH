@@ -8,6 +8,7 @@ import {
   TelaAnaliseCandidatos,
   TelaBancoTalentos,
   TelaCriarProcesso,
+  TelaCaixaEmail,
   TelaHistorico,
   TelaInicio,
   TelaLogin,
@@ -105,6 +106,10 @@ export function Aplicacao() {
 
   if (telaResolvida === 'screen-menu') {
     return html`<${TelaInicio} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-email-inbox') {
+    return html`<${TelaCaixaEmail} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-history') {

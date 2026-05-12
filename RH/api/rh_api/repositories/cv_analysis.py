@@ -144,7 +144,18 @@ class CvAnalysisRepositoryMixin:
                 else "Ja incluido no processo"
             )
 
-    def list_cv_pre_analyses(self, id_processo: str, page: int = 1, page_size: int = 5) -> dict:
+    def list_cv_pre_analyses(
+        self,
+        id_processo: str,
+        page: int = 1,
+        page_size: int = 5,
+        *,
+        nome: str = "",
+        score_min: str = "",
+        score_max: str = "",
+        classificacao: str = "",
+        incluir_ocultos: bool = False,
+    ) -> dict:
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -176,6 +187,8 @@ class CvAnalysisRepositoryMixin:
                     mime_type,
                     arquivo_original_base64,
                     ja_adicionado_ao_processo,
+                    oculto_na_lista,
+                    origem,
                     criado_em
                 FROM cv_pre_analises
                 WHERE id_processo = ?
@@ -190,6 +203,43 @@ class CvAnalysisRepositoryMixin:
                 if normalize_text(item.get("id_processo_ref"))
                 == normalize_text(processo.get("id_processo_ref"))
             ]
+            classificacoes = sorted(
+                {
+                    normalize_text(item.get("classificacao"))
+                    for item in items
+                    if normalize_text(item.get("classificacao"))
+                },
+                key=normalize_compare_text,
+            )
+            if not incluir_ocultos:
+                items = [item for item in items if int(item.get("oculto_na_lista") or 0) != 1]
+            nome_filtro = normalize_compare_text(nome)
+            if nome_filtro:
+                items = [
+                    item
+                    for item in items
+                    if nome_filtro in normalize_compare_text(item.get("nome_candidato"))
+                ]
+            try:
+                min_score = float(str(score_min).replace(",", ".")) if normalize_text(score_min) else None
+            except ValueError:
+                min_score = None
+            try:
+                max_score = float(str(score_max).replace(",", ".")) if normalize_text(score_max) else None
+            except ValueError:
+                max_score = None
+            if min_score is not None:
+                items = [item for item in items if float(item.get("score_final") or 0) >= min_score]
+            if max_score is not None:
+                items = [item for item in items if float(item.get("score_final") or 0) <= max_score]
+            classificacao_filtro = normalize_compare_text(classificacao)
+            if classificacao_filtro:
+                items = [
+                    item
+                    for item in items
+                    if normalize_compare_text(item.get("classificacao")) == classificacao_filtro
+                    or normalize_compare_text(item.get("classificacao_slug")) == classificacao_filtro
+                ]
             self._annotate_pre_analysis_process_links(cursor, processo, items)
             items.sort(key=lambda item: int(item.get("id_pre_analise") or 0), reverse=True)
             total_items = len(items)
@@ -202,6 +252,37 @@ class CvAnalysisRepositoryMixin:
                 "page_size": page_size_safe,
                 "total_items": total_items,
                 "total_pages": total_pages,
+                "classificacoes": classificacoes,
+            }
+        finally:
+            conn.close()
+
+    def clear_cv_pre_analyses_list(self, id_processo: str) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_cv_pre_analises_table(cursor)
+            ensure_process_reference_columns(cursor)
+            processo = get_process_row(cursor, id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+
+            cursor.execute(
+                """
+                UPDATE cv_pre_analises
+                SET oculto_na_lista = 1
+                WHERE id_processo = ?
+                  AND id_processo_ref = ?
+                  AND ISNULL(oculto_na_lista, 0) = 0
+                """,
+                (processo.get("id_processo"), processo.get("id_processo_ref", "")),
+            )
+            affected = cursor.rowcount if cursor.rowcount is not None else 0
+            conn.commit()
+            return {
+                "success": True,
+                "hidden": max(0, int(affected or 0)),
+                "message": "Lista limpa sem excluir curriculos, candidatos ou historico.",
             }
         finally:
             conn.close()
@@ -330,10 +411,11 @@ class CvAnalysisRepositoryMixin:
                     nome_arquivo,
                     mime_type,
                     arquivo_original_base64,
-                    ja_adicionado_ao_processo
+                    ja_adicionado_ao_processo,
+                    origem
                 )
                 OUTPUT INSERTED.id_pre_analise
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
                 """,
                 (
                     processo.get("id_processo"),
@@ -351,6 +433,7 @@ class CvAnalysisRepositoryMixin:
                     arquivo.filename,
                     arquivo.content_type or "application/octet-stream",
                     arquivo_original_base64,
+                    "Analise direta do CV",
                 ),
             )
             id_pre_analise = int(cursor.fetchone()[0])
@@ -376,7 +459,7 @@ class CvAnalysisRepositoryMixin:
                             "status_candidato": status_candidato,
                             "pontuacao_final": str(avaliacao["score"]).replace(".", ","),
                             "data_prova": datetime.now().isoformat(),
-                            "origem": "Pre-analise de CV",
+                            "origem": "Analise direta do CV",
                             "etapa_pipeline": "Prova",
                             "data_atualizacao_pipeline": datetime.now(),
                         },
@@ -720,10 +803,11 @@ class CvAnalysisRepositoryMixin:
                         telefone, whatsapp, palavras_chave, score_final,
                         classificacao, classificacao_slug, problemas,
                         texto_extraido, nome_arquivo, mime_type,
-                        arquivo_original_base64, ja_adicionado_ao_processo
+                        arquivo_original_base64, ja_adicionado_ao_processo,
+                        origem
                     )
                     OUTPUT INSERTED.id_pre_analise
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
                     """,
                     (
                         processo.get("id_processo"),
@@ -741,6 +825,7 @@ class CvAnalysisRepositoryMixin:
                         row.get("nome_arquivo_original") or caminho_arquivo.name,
                         row.get("tipo_arquivo") or "application/octet-stream",
                         arquivo_original_base64,
+                        normalize_text(row.get("origem")) or "Pagina de inscricao",
                     ),
                 )
                 id_pre_analise = int(cursor.fetchone()[0])
@@ -836,7 +921,7 @@ class CvAnalysisRepositoryMixin:
                 "vaga": "",
                 "pontuacao_final": str(row.get("score_final") or "").replace(".", ","),
                 "data_movimentacao": datetime.now().isoformat(),
-                "origem": "Pre-analise de CV",
+                "origem": "Analise direta do CV",
                 "email": row.get("email"),
                 "telefone": row.get("telefone"),
                 "whatsapp": row.get("whatsapp"),
@@ -936,7 +1021,7 @@ class CvAnalysisRepositoryMixin:
                     detail="Somente candidatos qualificados podem seguir da pre-analise para o processo seletivo.",
                 )
             effective_status = "Qualificado" if manual_override else status_candidato
-            effective_origin = "Pre-analise de CV (uso manual RH)" if manual_override else "Pre-analise de CV"
+            effective_origin = "Analise direta do CV (uso manual RH)" if manual_override else "Analise direta do CV"
             manual_note = normalize_text(motivo_override) or "Utilizado manualmente pelo RH apesar da classificacao automatica."
             id_registro = insert_candidate_process_record(
                 cursor,

@@ -191,16 +191,31 @@ export async function lerDetalheProcesso(idProcesso) {
   });
 }
 
-export async function lerPreAnalisesCv(idProcesso, pagina = 1, tamanho = 5) {
+export async function lerPreAnalisesCv(idProcesso, pagina = 1, tamanho = 5, filtros = {}) {
   const params = new URLSearchParams({
     page: String(pagina),
     page_size: String(tamanho),
   });
+  if (filtros.nome) params.set('nome', filtros.nome);
+  if (filtros.scoreMin) params.set('score_min', filtros.scoreMin);
+  if (filtros.scoreMax) params.set('score_max', filtros.scoreMax);
+  if (filtros.classificacao) params.set('classificacao', filtros.classificacao);
+  if (filtros.mostrarOcultos) params.set('incluir_ocultos', 'true');
 
   return requisitar(
     `/processes/${encodeURIComponent(idProcesso)}/cv-pre-analyses?${params.toString()}`,
     { method: 'GET' },
   );
+}
+
+export async function limparListaPreAnalisesCv(idProcesso) {
+  const resultado = await requisitar(
+    `/processes/${encodeURIComponent(idProcesso)}/cv-pre-analyses/clear-list`,
+    { method: 'POST' },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado;
 }
 
 export async function analisarCvProcesso(idProcesso, formData) {
@@ -269,6 +284,142 @@ export async function adicionarPreAnaliseAoProcesso(idPreAnalise, opcoes = {}) {
 
   invalidarCacheApi('processos', 'candidatos-processos');
   return resultado;
+}
+
+export async function lerEmailsRecebidosProcesso(idProcesso, limite = 12) {
+  const params = new URLSearchParams({ limit: String(limite) });
+  return requisitar(
+    `/processes/${encodeURIComponent(idProcesso)}/email-inbox?${params.toString()}`,
+    { method: 'GET' },
+  );
+}
+
+export async function analisarCvEmailRecebido(idProcesso, payload) {
+  const resultado = await requisitar(
+    `/processes/${encodeURIComponent(idProcesso)}/email-inbox/analyze-cv`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado;
+}
+
+export async function lerEmailsRecebidos({
+  limite = 50,
+  mostrarIgnorados = false,
+  apenasComAnexos = true,
+  refresh = true,
+  query = '',
+} = {}) {
+  const params = new URLSearchParams({ limit: String(limite) });
+  if (mostrarIgnorados) params.set('include_ignored', 'true');
+  params.set('with_attachments_only', apenasComAnexos ? 'true' : 'false');
+  params.set('refresh', refresh ? 'true' : 'false');
+  if (query) params.set('query', query);
+  return requisitar(`/email-inbox/messages?${params.toString()}`, { method: 'GET' });
+}
+
+export async function lerDetalheEmailRecebido(idEmail) {
+  return requisitar(`/email-inbox/messages/${encodeURIComponent(idEmail)}`, {
+    method: 'GET',
+  });
+}
+
+export async function baixarAnexoEmailRecebido(idEmail, idAnexo = '') {
+  const respostaDownload = await requisitar(
+    `/email-inbox/messages/${encodeURIComponent(idEmail)}/download-attachments`,
+    { method: 'POST' },
+  );
+  const item = respostaDownload?.item || {};
+  const anexos = Array.isArray(item.anexos) ? item.anexos : [];
+  const anexo = anexos.find((entrada) => entrada.id === idAnexo) || anexos[0];
+  const caminho = anexo?.id
+    ? `/email-inbox/messages/${encodeURIComponent(idEmail)}/attachment/${encodeURIComponent(anexo.id)}`
+    : `/email-inbox/messages/${encodeURIComponent(idEmail)}/attachment`;
+  return requisitarArquivo(
+    caminho,
+    { method: 'GET' },
+  );
+}
+
+export async function analisarCvEmailRecebidoGeral(idEmail) {
+  const resultado = await requisitar(
+    `/email-inbox/messages/${encodeURIComponent(idEmail)}/analyze-cv`,
+    { method: 'POST' },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');
+  return resultado;
+}
+
+export async function vincularEmailRecebidoProcesso(idEmail, payload) {
+  const resultado = await requisitar(
+    `/email-inbox/messages/${encodeURIComponent(idEmail)}/link-process`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos', 'pipeline-candidatos');
+  return resultado;
+}
+
+export async function enviarEmailRecebidoBancoTalentos(idEmail) {
+  const resultado = await requisitar(
+    `/email-inbox/messages/${encodeURIComponent(idEmail)}/talent-bank`,
+    { method: 'POST' },
+  );
+
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos');
+  return resultado;
+}
+
+export async function ignorarEmailRecebido(idEmail) {
+  const resultado = await requisitar(
+    `/email-inbox/messages/${encodeURIComponent(idEmail)}/ignore`,
+    { method: 'POST' },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');
+  return resultado;
+}
+
+export async function excluirEmailRecebido(idEmail) {
+  const resultado = await requisitar(
+    `/email-inbox/messages/${encodeURIComponent(idEmail)}`,
+    { method: 'DELETE' },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');
+  return resultado;
+}
+
+export async function registrarWhatsappAprovacao(idRegistro, payload) {
+  return requisitar(
+    `/process-candidates/${encodeURIComponent(idRegistro)}/approval-whatsapp`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+}
+
+export async function enviarEmailAprovacao(idRegistro, payload) {
+  return requisitar(
+    `/process-candidates/${encodeURIComponent(idRegistro)}/approval-email`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
 }
 
 export async function gerarLinkPublicoCandidatura(idProcesso) {

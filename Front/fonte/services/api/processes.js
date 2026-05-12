@@ -313,11 +313,13 @@ export async function lerEmailsRecebidos({
   mostrarIgnorados = false,
   apenasComAnexos = true,
   refresh = true,
+  query = '',
 } = {}) {
   const params = new URLSearchParams({ limit: String(limite) });
   if (mostrarIgnorados) params.set('include_ignored', 'true');
   params.set('with_attachments_only', apenasComAnexos ? 'true' : 'false');
   params.set('refresh', refresh ? 'true' : 'false');
+  if (query) params.set('query', query);
   return requisitar(`/email-inbox/messages?${params.toString()}`, { method: 'GET' });
 }
 
@@ -382,6 +384,16 @@ export async function ignorarEmailRecebido(idEmail) {
   const resultado = await requisitar(
     `/email-inbox/messages/${encodeURIComponent(idEmail)}/ignore`,
     { method: 'POST' },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');
+  return resultado;
+}
+
+export async function excluirEmailRecebido(idEmail) {
+  const resultado = await requisitar(
+    `/email-inbox/messages/${encodeURIComponent(idEmail)}`,
+    { method: 'DELETE' },
   );
 
   invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');

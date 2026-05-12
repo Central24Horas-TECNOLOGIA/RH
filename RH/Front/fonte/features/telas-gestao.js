@@ -1,6 +1,7 @@
 export {
   TelaAnaliseCandidatos,
   TelaBancoTalentos,
+  TelaCaixaEmail,
   TelaCriarProcesso,
   TelaHistorico,
   TelaInicio,

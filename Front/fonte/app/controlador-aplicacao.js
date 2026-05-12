@@ -69,6 +69,7 @@ import {
   salvarArquivoResposta,
   salvarHistorico,
   usarCandidatoDoBancoTalentos,
+  excluirEmailRecebido,
   verificarSessaoApi,
 } from '../servico-api.js';
 import { criarLogger } from '../logger.js';
@@ -385,13 +386,13 @@ export async function carregarDetalhesProva(idTeste, idProcessoRef = '') {
   const processoFiltro = String(idProcessoRef || '').trim();
   const linha = processoFiltro
     ? linhasMesmoId.find((item) => {
-        const ref = String(item.id_processo_ref || item.id_processo || '').trim();
-        return (
-          ref === processoFiltro ||
-          ref === processoFiltro.split('@@', 1)[0] ||
-          ref.split('@@', 1)[0] === processoFiltro.split('@@', 1)[0]
-        );
-      })
+      const ref = String(item.id_processo_ref || item.id_processo || '').trim();
+      return (
+        ref === processoFiltro ||
+        ref === processoFiltro.split('@@', 1)[0] ||
+        ref.split('@@', 1)[0] === processoFiltro.split('@@', 1)[0]
+      );
+    })
     : linhasMesmoId[0];
 
   if (!linha) {
@@ -1135,6 +1136,7 @@ export {
   moverCardPipeline,
   registrarWhatsappAprovacao,
   removerBancoTalentos,
+  excluirEmailRecebido,
   usarCandidatoDoBancoTalentos,
   vincularEmailRecebidoProcesso,
 };

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, File, Form, Query, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
+from ..auth import AuthenticatedUser
 from ..dependencies import get_current_user, get_repository
 from ..repositories import DatabaseRepository
 from ..schemas.processes import (
@@ -73,6 +74,34 @@ def update_process_candidate_status(
     return repository.update_process_candidate_status(id_registro, payload.model_dump())
 
 
+@router.post("/process-candidates/{id_registro}/approval-whatsapp")
+def record_approval_whatsapp(
+    id_registro: int,
+    payload: dict | None = Body(default=None),
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.record_candidate_approval_whatsapp(
+        id_registro,
+        payload or {},
+        usuario_responsavel=user.username,
+    )
+
+
+@router.post("/process-candidates/{id_registro}/approval-email")
+def send_approval_email(
+    id_registro: int,
+    payload: dict | None = Body(default=None),
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.send_candidate_approval_email(
+        id_registro,
+        payload or {},
+        usuario_responsavel=user.username,
+    )
+
+
 @router.get("/talent-bank")
 def get_talent_bank(
     search: str = Query(default=""),
@@ -134,6 +163,74 @@ def get_process_details(
     return repository.get_process_details(id_processo)
 
 
+@router.get("/email-inbox")
+def list_email_inbox(
+    limit: int = Query(default=50),
+    include_ignored: bool = Query(default=False),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.list_email_inbox(limit=limit, include_ignored=include_ignored)
+
+
+@router.get("/email-inbox/{item_id}")
+def get_email_inbox_item(
+    item_id: str,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.get_email_inbox_item(item_id)
+
+
+@router.post("/email-inbox/{item_id}/analyze-cv")
+def analyze_email_inbox_cv(
+    item_id: str,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.analyze_email_inbox_cv(item_id)
+
+
+@router.post("/email-inbox/{item_id}/link-process")
+def link_email_inbox_to_process(
+    item_id: str,
+    payload: dict | None = Body(default=None),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.link_email_inbox_to_process(item_id, payload or {})
+
+
+@router.post("/email-inbox/{item_id}/talent-bank")
+def send_email_inbox_to_talent_bank(
+    item_id: str,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.send_email_inbox_to_talent_bank(item_id)
+
+
+@router.post("/email-inbox/{item_id}/ignore")
+def ignore_email_inbox_item(
+    item_id: str,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.ignore_email_inbox_item(item_id)
+
+
+@router.get("/processes/{id_processo}/email-inbox")
+def list_process_email_inbox(
+    id_processo: str,
+    limit: int = Query(default=12),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.list_process_email_inbox(id_processo, limit=limit)
+
+
+@router.post("/processes/{id_processo}/email-inbox/analyze-cv")
+def analyze_process_email_cv(
+    id_processo: str,
+    payload: dict | None = Body(default=None),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.analyze_email_cv_attachment(id_processo, payload or {})
+
+
 @router.post("/processos/{id_processo}/gerar-link-candidatura")
 def generate_public_application_link(
     id_processo: str,
@@ -161,6 +258,12 @@ def download_candidate_cv(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     asset = repository.get_candidate_cv_asset(id_teste)
+    if asset.get("bytes") is not None:
+        return Response(
+            content=asset["bytes"],
+            media_type=asset["media_type"],
+            headers={"Content-Disposition": f'attachment; filename="{asset["filename"]}"'},
+        )
     return FileResponse(
         asset["path"],
         media_type=asset["media_type"],
@@ -185,9 +288,31 @@ def list_cv_pre_analyses(
     id_processo: str,
     page: int = 1,
     page_size: int = 5,
+    nome: str = Query(default=""),
+    score_min: str = Query(default=""),
+    score_max: str = Query(default=""),
+    classificacao: str = Query(default=""),
+    incluir_ocultos: bool = Query(default=False),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    return repository.list_cv_pre_analyses(id_processo, page, page_size)
+    return repository.list_cv_pre_analyses(
+        id_processo,
+        page,
+        page_size,
+        nome=nome,
+        score_min=score_min,
+        score_max=score_max,
+        classificacao=classificacao,
+        incluir_ocultos=incluir_ocultos,
+    )
+
+
+@router.post("/processes/{id_processo}/cv-pre-analyses/clear-list")
+def clear_cv_pre_analyses_list(
+    id_processo: str,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.clear_cv_pre_analyses_list(id_processo)
 
 
 @router.post("/processes/{id_processo}/cv-pre-analyses")

@@ -1,0 +1,28 @@
+{
+  "id": "imap-b44643c5dece6ae800e67ed88dda0901",
+  "message_uid": "10",
+  "message_id": "<SCYPR80MB8248CFCE35D167AD55BDE323F7382@SCYPR80MB8248.lamprd80.prod.outlook.com>",
+  "remetente": "Paulo  Roberto Oliveira da Silva <posilva@central24horas.com.br>",
+  "assunto": "Curriculo - CV Vaga - Operador",
+  "data": "2026-05-11T10:42:24",
+  "data_recebimento": "2026-05-11T10:42:24",
+  "resumo": "P {margin-top:0;margin-bottom:0;}  \r\n \r\n \r\n \r\nNome: José  \r\n \r\n \r\n\n\r\n \r\n \r\n  Paulo Roberto  \n\r\n \r\n  Técnico de Suporte Pleno l Central 24 Horas  \n\r\n \r\n  TI     |     Tecnologia  \n\r\n \r\n   posilva@central24horas.com.br   \n\r\n \r\n Ramal: +55(21)3512-1170 / +55(21)3512-1203 \n\r\n \r\n   http://www.central24horas.com.br/",
+  "corpo": "P {margin-top:0;margin-bottom:0;}  \r\n \r\n \r\n \r\nNome: José  \r\n \r\n \r\n\n\r\n \r\n \r\n  Paulo Roberto  \n\r\n \r\n  Técnico de Suporte Pleno l Central 24 Horas  \n\r\n \r\n  TI     |     Tecnologia  \n\r\n \r\n   posilva@central24horas.com.br   \n\r\n \r\n Ramal: +55(21)3512-1170 / +55(21)3512-1203 \n\r\n \r\n   http://www.central24horas.com.br/",
+  "anexos": [
+    {
+      "id": "att-2dca77e35778b2c5a1",
+      "filename": "06_CV_Jo_o_Pedro_Alves_ruim.pdf",
+      "content_type": "application/pdf",
+      "size": 2648,
+      "is_cv_candidate": true,
+      "nome": "06_CV_Jo_o_Pedro_Alves_ruim.pdf",
+      "mime_type": "application/pdf",
+      "tamanho_bytes": 2648,
+      "cv_compativel": true,
+      "stored_filename": "06_CV_Jo_o_Pedro_Alves_ruim.pdf",
+      "relative_path": "2026-05-11\\b44643c5dece6ae800\\06_CV_Jo_o_Pedro_Alves_ruim.pdf"
+    }
+  ],
+  "status": "Recebido",
+  "origem": "Recebimento de e-mail"
+}

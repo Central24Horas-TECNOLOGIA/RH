@@ -5,7 +5,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c0c892ec-9aa8-4758-8489-402a24173792" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../Front/fonte/app/aplicacao-raiz.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/app/aplicacao-raiz.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Front/fonte/app/controlador-aplicacao.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/app/controlador-aplicacao.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Front/fonte/features/gestao/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/features/gestao/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Front/fonte/features/processos/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/features/processos/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Front/fonte/services/api/processes.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/services/api/processes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Front/fonte/servico-api.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/servico-api.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Front/fonte/ui/components/layout.js" beforeDir="false" afterPath="$PROJECT_DIR$/../Front/fonte/ui/components/layout.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rh_api/repositories/email_inbox.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/repositories/email_inbox.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rh_api/routers/email_inbox.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/routers/email_inbox.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rh_api/services/email_inbox_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/rh_api/services/email_inbox_service.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
