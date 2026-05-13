@@ -1,3 +1,4 @@
+#teste
 try:
     from .rh_api.main import app
 except ImportError:
