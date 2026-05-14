@@ -8,8 +8,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "allowJs": true,
-    "checkJs": false,
-    "baseUrl": "."
+    "checkJs": false
   },
   "include": ["fonte/types/**/*.ts", "fonte/types/**/*.d.ts"]
 }
