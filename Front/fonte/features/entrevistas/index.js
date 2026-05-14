@@ -20,6 +20,10 @@ import {
 import { copiarTexto } from '../../shared/browser-utils.js';
 import { AcaoSair } from '../../shared/components/actions.js';
 import {
+  ModalEdicaoEntrevista,
+  STATUS_ENTREVISTA,
+} from '../../shared/components/interview-edit-modal.js';
+import {
   canonicalizeCandidateStatus,
   isProcessClosed,
 } from '../../shared/process-flow.js';
@@ -37,17 +41,6 @@ import {
   obterChaveProcesso,
   obterReferenciaProcesso,
 } from '../../shared/process-reference.js';
-
-const STATUS_ENTREVISTA = [
-  'Agendado',
-  'Confirmado',
-  'Reagendado',
-  'Faltou',
-  'Compareceu',
-  'Aprovado',
-  'Eliminado',
-  'Banco de talentos',
-];
 
 const STATUS_SLOT_DISPONIVEL = 'Disponivel';
 const STATUS_SLOT_BLOQUEADO = 'Bloqueado';
@@ -793,133 +786,16 @@ export function TelaEntrevistas({ controlador }) {
               `}
       </${SectionCard}>
 
-      <${ModalPadrao}
+      <${ModalEdicaoEntrevista}
         aberto=${!!entrevistaEdicao}
-        titulo="Atualizar entrevista"
-        subtitulo="Edite status e, quando necessario, escolha novo slot para reagendar."
+        entrevista=${entrevistaEdicao}
+        formulario=${formularioEdicao}
+        slotsDisponiveis=${slotsDisponiveis}
+        salvando=${salvando}
         onClose=${() => setEntrevistaEdicao(null)}
-      >
-        ${entrevistaEdicao
-          ? html`
-              <div class="rh-details-body">
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <label class="form-label">Candidato</label>
-                    <input
-                      class="form-control"
-                      readonly
-                      value=${entrevistaEdicao.nome_candidato || ''}
-                    />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Processo</label>
-                    <input
-                      class="form-control"
-                      readonly
-                      value=${entrevistaEdicao.id_processo || ''}
-                    />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Horario atual</label>
-                    <input
-                      class="form-control"
-                      readonly
-                      value=${formatarDataHora(entrevistaEdicao.data_entrevista)}
-                    />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Status</label>
-                    <select
-                      class="form-select"
-                      value=${formularioEdicao.status_entrevista}
-                      onChange=${(event) =>
-                        setFormularioEdicao({
-                          ...formularioEdicao,
-                          status_entrevista: event.target.value,
-                        })}
-                    >
-                      ${STATUS_ENTREVISTA.map(
-                        (statusItem) => html`
-                          <option key=${statusItem} value=${statusItem}>
-                            ${statusItem}
-                          </option>
-                        `,
-                      )}
-                    </select>
-                  </div>
-                  <div class="col-md-12">
-                    <label class="form-label">Novo horario para reagendar</label>
-                    <select
-                      class="form-select"
-                      value=${formularioEdicao.id_slot}
-                      onChange=${(event) =>
-                        setFormularioEdicao({
-                          ...formularioEdicao,
-                          id_slot: event.target.value,
-                        })}
-                    >
-                      <option value="">Manter horario atual</option>
-                            ${slotsDisponiveis.map(
-                        (slot) => html`
-                          <option key=${slot.id_slot} value=${slot.id_slot}>
-                            ${formatarHorarioSlot(slot)} | ${formatarOcupacaoSlot(slot)} | ${slot.id_processo || 'Geral'}
-                          </option>
-                        `,
-                      )}
-                    </select>
-                  </div>
-                  <div class="col-md-12">
-                    <label class="form-label">Mensagem personalizada</label>
-                    <textarea
-                      class="form-control"
-                      rows="3"
-                      value=${formularioEdicao.mensagem_personalizada}
-                      onInput=${(event) =>
-                        setFormularioEdicao({
-                          ...formularioEdicao,
-                          mensagem_personalizada: event.target.value,
-                        })}
-                    ></textarea>
-                  </div>
-                  <div class="col-md-12">
-                    <label class="form-label">Observacoes RH</label>
-                    <textarea
-                      class="form-control"
-                      rows="4"
-                      value=${formularioEdicao.observacoes_rh}
-                      onInput=${(event) =>
-                        setFormularioEdicao({
-                          ...formularioEdicao,
-                          observacoes_rh: event.target.value,
-                        })}
-                    ></textarea>
-                  </div>
-                </div>
-              </div>
-              <footer class="rh-modal-footer">
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  onClick=${() => setEntrevistaEdicao(null)}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  disabled=${salvando || isProcessClosed(entrevistaEdicao.status_processo)}
-                  onClick=${salvar}
-                >
-                  ${salvando
-                    ? 'Salvando...'
-                    : isProcessClosed(entrevistaEdicao.status_processo)
-                      ? 'Processo encerrado'
-                      : 'Salvar atualizacao'}
-                </button>
-              </footer>
-            `
-          : null}
-      </${ModalPadrao}>
+        onChange=${setFormularioEdicao}
+        onSave=${salvar}
+      />
 
       <${ModalPadrao}
         aberto=${!!slotEdicao}

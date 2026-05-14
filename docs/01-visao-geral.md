@@ -1,52 +1,66 @@
-# Documentação Conecta C24h - RH
+# 01 — Visão geral do Conecta C24h
 
-> Gerado a partir da análise do pacote `RH(20).zip`. Esta documentação descreve o sistema existente, seus fluxos, telas, APIs, banco, código, testes, operação e manual do usuário.
+## Finalidade do sistema
+
+O Conecta C24h é uma aplicação web interna para apoiar o RH na triagem, acompanhamento e avaliação de candidatos. Ele centraliza tarefas que antes ficariam espalhadas entre planilhas, e-mails, arquivos locais e controles manuais.
+
+O sistema cobre o ciclo operacional de recrutamento:
+
+1. Recebimento de currículos pela caixa de e-mail.
+2. Pré-análise de CV e extração de dados do candidato.
+3. Criação e gestão de processos seletivos.
+4. Vinculação de candidatos a processos.
+5. Aplicação de prova/teste interno.
+6. Acompanhamento de status do candidato.
+7. Agendamento e controle de entrevistas por slots.
+8. Aprovação, eliminação ou envio para banco de talentos.
+9. Relatórios de processos e candidatos.
+
+## Principais módulos identificados
+
+| Módulo | Função prática | Onde aparece |
+| --- | --- | --- |
+| Login/autenticação | Restringe o acesso interno do RH | Tela de login e validações admin |
+| Painel inicial | Resumo de processos, últimos testes e caixa de currículos | Tela `Painel` |
+| Caixa de e-mail | Lista e-mails recebidos, permite analisar CV, vincular a processo, banco de talentos, ignorar ou excluir | Menu `E-mails` e painel inicial |
+| Processos seletivos | Criação, edição, encerramento, detalhes e candidatos vinculados | Menu `Processos` |
+| Candidatos | Gestão de candidatos e perfis | Menu `Candidatos` |
+| Prova | Fluxo de avaliação, pontuação, histórico e resultado | Botão `Nova prova` e fluxo de prova |
+| Entrevistas | Cadastro de slots e agendamento de candidato | Menu `Entrevistas` e detalhes do processo |
+| Banco de talentos | Reaproveitamento de candidatos fora de processos ativos | Menu `Banco de talentos` |
+| Análise/relatórios | Métricas e relatórios por processo e candidato | Menu `Análise` |
+
+## Natureza técnica
+
+O projeto é uma aplicação local/interna, sem etapa obrigatória de build no frontend. O backend roda em Python com FastAPI e a persistência é feita em SQL Server via `pyodbc`.
+
+| Camada | Tecnologia/abordagem |
+| --- | --- |
+| Frontend | HTML, CSS, JavaScript modular ESM, React/HTM em runtime |
+| Backend | Python, FastAPI, Pydantic, Uvicorn |
+| Banco | SQL Server / SQL Server Express via ODBC |
+| Integração e-mail | Microsoft 365 via IMAP/OAuth2 e/ou Graph conforme configuração |
+| Arquivos CV | PDF, DOCX, DOC, RTF, ODT, TXT, com extração de texto e anexos locais |
+| Testes | Pytest com fake repositories, quando dependências estão instaladas |
+
+## Tamanho aproximado analisado
+
+| Extensão | Qtd. arquivos | KB aprox. |
+| --- | --- | --- |
+| .py | 55 | 656.4 |
+| .js | 113 | 10228.3 |
+| .css | 6 | 64.4 |
+| .html | 2 | 1.2 |
+| .md | 27 | 488.5 |
+| .ts | 6 | 22.0 |
+| .xlsx | 5 | 3662.9 |
+| .pdf | 5 | 111.6 |
+| .docx | 3 | 101.4 |
+| .doc | 1 | 88.0 |
 
 
-## Nome do sistema
+## Diagnóstico objetivo
 
-**Conecta C24h - RH**.
+O projeto já está bem mais estruturado do que um protótipo simples. Existe separação clara em frontend, API, schemas, services e repositories. Também há testes e documentação legada. O ponto de atenção é que o sistema carrega bastante regra de negócio no frontend, principalmente nas telas de gestão/processos/prova, então mudanças visuais precisam ser feitas com cuidado para não quebrar comportamento.
 
-## Objetivo
-
-Centralizar o processo de recrutamento e seleção da Central 24h, cobrindo abertura de processos, candidatos, provas, análise de currículos, caixa de e-mails, banco de talentos, entrevistas, histórico e relatórios.
-
-## Problema resolvido
-
-O sistema reduz controles espalhados entre e-mails, planilhas, arquivos locais e mensagens. Ele cria uma trilha única para o RH acompanhar origem, status, prova, movimentações e decisões sobre cada candidato.
-
-## Público-alvo
-
-| Perfil | Uso |
-|---|---|
-| RH/Recrutamento | Operar processos, candidatos, CVs, entrevistas e relatórios. |
-| Supervisão/Liderança | Acompanhar candidatos e decisões quando aplicável. |
-| Suporte/TI | Manter API, banco, frontend, logs e ambiente. |
-| Candidato | Enviar candidatura pública e realizar prova. |
-
-## Módulos
-
-| Módulo | Finalidade |
-|---|---|
-| Login | Autenticação administrativa. |
-| Painel | Entrada principal e atalhos. |
-| Caixa de e-mails | Organização dos currículos recebidos por e-mail. |
-| Processos | Cadastro, acompanhamento e encerramento de processos. |
-| Candidatos | Gestão central dos candidatos e movimentações. |
-| Candidatura pública | Link público com envio de currículo. |
-| Análise de CV | Extração de dados, score e classificação. |
-| Banco de talentos | Reaproveitamento de candidatos. |
-| Entrevistas | Slots, agendamentos e status. |
-| Provas | Aplicação e cálculo de resultado. |
-| Histórico | Consulta de provas e arquivos de resposta. |
-| Relatórios | Visões analíticas e exportação. |
-
-## Stack técnica
-
-| Camada | Tecnologia |
-|---|---|
-| Frontend | HTML, CSS, JavaScript ESM, React via HTM, navegação por hash. |
-| Backend | Python, FastAPI, Pydantic, pyodbc. |
-| Banco | SQL Server/SQL Server Express. |
-| Testes | Pytest com fake repository. |
-| Arquivos | Pastas locais para CVs, anexos e planilhas de exame. |
+Outro ponto importante: há duplicidade histórica de caminhos (`Front/fonte/...` e `fonte/...`). A pasta `Front/` aparenta ser a frente ativa carregada pelo `Front/index.html`; a pasta `fonte/` na raiz parece cópia/espelho legado e deve ser tratada com cautela antes de editar.

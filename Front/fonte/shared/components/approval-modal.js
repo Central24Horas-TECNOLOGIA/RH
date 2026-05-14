@@ -41,7 +41,7 @@ function formatarDataComparecimento(valor) {
   return `${partes[2]}/${partes[1]}/${partes[0]}`;
 }
 
-function montarListaDocumentos(documentos) {
+export function montarListaDocumentos(documentos) {
   const selecionados = Array.isArray(documentos) ? documentos.filter(Boolean) : [];
   if (!selecionados.length) return '_lista_documentos_';
   return selecionados.map((documento) => `- ${documento}`).join('\n');
@@ -69,7 +69,7 @@ Endereço: Rua Victor Civita, 77 - Bloco 1, 3° Andar.
 Em anexo, encaminhamos o documento necessário para apresentação no exame admissional.`;
 }
 
-function atualizarDocumentosNaMensagem(mensagemAtual, documentos) {
+export function atualizarDocumentosNaMensagem(mensagemAtual, documentos) {
   const lista = montarListaDocumentos(documentos);
   const mensagem = String(mensagemAtual || '');
 

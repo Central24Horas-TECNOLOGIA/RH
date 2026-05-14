@@ -292,7 +292,10 @@ class ProcessRepositoryMixin:
                     origem,
                     etapa_pipeline,
                     data_atualizacao_pipeline,
-                    aprovado_em
+                    aprovado_em,
+                    eliminado_em,
+                    motivo_eliminacao,
+                    etapa_eliminacao
                 FROM candidatos_processos
             """
             params = []
@@ -308,8 +311,10 @@ class ProcessRepositoryMixin:
             rows = self._attach_process_context(
                 cursor,
                 rows,
-                timestamp_fields=["data_prova", "data_atualizacao_pipeline"],
+                timestamp_fields=["data_prova", "data_atualizacao_pipeline", "aprovado_em", "eliminado_em"],
             )
+            for item in rows:
+                item["data_eliminacao"] = item.get("eliminado_em")
             rows = [
                 item
                 for item in rows
@@ -387,7 +392,10 @@ class ProcessRepositoryMixin:
                         origem,
                         etapa_pipeline,
                         data_atualizacao_pipeline,
-                        aprovado_em
+                        aprovado_em,
+                        eliminado_em,
+                        motivo_eliminacao,
+                        etapa_eliminacao
                     FROM candidatos_processos
                     WHERE id_registro = ?
                     """,
@@ -412,7 +420,10 @@ class ProcessRepositoryMixin:
                         origem,
                         etapa_pipeline,
                         data_atualizacao_pipeline,
-                        aprovado_em
+                        aprovado_em,
+                        eliminado_em,
+                        motivo_eliminacao,
+                        etapa_eliminacao
                     FROM candidatos_processos
                     WHERE id_teste = ?
                     ORDER BY id_registro DESC
@@ -599,7 +610,10 @@ class ProcessRepositoryMixin:
                     origem,
                     etapa_pipeline,
                     data_atualizacao_pipeline,
-                    aprovado_em
+                    aprovado_em,
+                    eliminado_em,
+                    motivo_eliminacao,
+                    etapa_eliminacao
                 FROM candidatos_processos
                 WHERE id_registro = ?
                 """,
@@ -671,7 +685,10 @@ class ProcessRepositoryMixin:
                         origem,
                         etapa_pipeline,
                         data_atualizacao_pipeline,
-                        aprovado_em
+                        aprovado_em,
+                        eliminado_em,
+                        motivo_eliminacao,
+                        etapa_eliminacao
                     FROM candidatos_processos
                     WHERE id_processo = ?
                     ORDER BY id_registro DESC
@@ -684,8 +701,10 @@ class ProcessRepositoryMixin:
                 candidatos = self._attach_process_context(
                     cursor,
                     candidatos,
-                    timestamp_fields=["data_prova", "data_atualizacao_pipeline"],
+                    timestamp_fields=["data_prova", "data_atualizacao_pipeline", "aprovado_em", "eliminado_em"],
                 )
+                for candidato in candidatos:
+                    candidato["data_eliminacao"] = candidato.get("eliminado_em")
                 candidatos = [
                     item
                     for item in candidatos

@@ -353,14 +353,17 @@ class AnalyticsRepositoryMixin:
                     origem,
                     etapa_pipeline,
                     data_atualizacao_pipeline,
-                    aprovado_em
+                    aprovado_em,
+                    eliminado_em,
+                    motivo_eliminacao,
+                    etapa_eliminacao
                 FROM candidatos_processos
                 """
             )
             candidatos_processo = self._attach_process_context(
                 cursor,
                 self._enrich_candidate_records(cursor, rows_to_dicts(cursor, cursor.fetchall())),
-                timestamp_fields=["data_prova", "data_atualizacao_pipeline", "aprovado_em"],
+                timestamp_fields=["data_prova", "data_atualizacao_pipeline", "aprovado_em", "eliminado_em"],
             )
 
             for item in candidatos_processo:
@@ -375,7 +378,7 @@ class AnalyticsRepositoryMixin:
                 data_evento = (
                     item.get("aprovado_em")
                     if status_candidato == CANDIDATE_STATUS_APPROVED
-                    else item.get("data_atualizacao_pipeline") or item.get("data_prova")
+                    else item.get("eliminado_em") or item.get("data_atualizacao_pipeline") or item.get("data_prova")
                 )
                 if not _in_date_range(data_evento, start_date, end_date):
                     continue
@@ -410,6 +413,10 @@ class AnalyticsRepositoryMixin:
                             CANDIDATE_STATUS_WITHDREW,
                         }
                         else "",
+                        "motivo_eliminacao": item.get("motivo_eliminacao") or (
+                            "Motivo nao informado" if status_candidato == CANDIDATE_STATUS_ELIMINATED else ""
+                        ),
+                        "etapa_eliminacao": item.get("etapa_eliminacao") or "",
                         "data_banco_talentos": data_evento if status_candidato == CANDIDATE_STATUS_TALENT_BANK else "",
                         "email": item.get("email") or "",
                         "telefone": item.get("whatsapp") or item.get("telefone") or "",
@@ -470,6 +477,8 @@ class AnalyticsRepositoryMixin:
                         "status_atual": CANDIDATE_STATUS_TALENT_BANK,
                         "data_aprovacao": "",
                         "data_eliminacao_reprovacao": "",
+                        "motivo_eliminacao": "",
+                        "etapa_eliminacao": "",
                         "data_banco_talentos": item.get("data_movimentacao") or "",
                         "email": profile.get("email") or "",
                         "telefone": profile.get("whatsapp") or profile.get("telefone") or "",
@@ -541,6 +550,8 @@ class AnalyticsRepositoryMixin:
                             CANDIDATE_STATUS_WITHDREW,
                         }
                         else "",
+                        "motivo_eliminacao": "Motivo nao informado" if status_candidato == CANDIDATE_STATUS_ELIMINATED else "",
+                        "etapa_eliminacao": "",
                         "data_banco_talentos": "",
                         "email": profile.get("email") or "",
                         "telefone": profile.get("whatsapp") or profile.get("telefone") or "",
@@ -588,6 +599,8 @@ class AnalyticsRepositoryMixin:
             ("Status atual", "status_atual"),
             ("Data da aprovacao", "data_aprovacao"),
             ("Data da eliminacao/reprovacao", "data_eliminacao_reprovacao"),
+            ("Motivo da eliminacao", "motivo_eliminacao"),
+            ("Etapa da eliminacao", "etapa_eliminacao"),
             ("Data de envio ao Banco de Talentos", "data_banco_talentos"),
             ("Processo de destino", "processo_destino"),
             ("E-mail", "email"),

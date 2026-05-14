@@ -31,3 +31,8 @@ Este pacote consolida a visão técnica, funcional e operacional do sistema Cone
 - O projeto tem dados/artefatos privados em `data/private/`; essa pasta deve ser tratada como sensível.
 - A tela pública de candidatura existe no código, mas a operação atual descrita no projeto prioriza a **caixa de e-mail de currículos** como entrada principal.
 - Os testes não puderam ser executados neste ambiente porque faltou o pacote `pyodbc`, que é dependência obrigatória do backend.
+
+
+## Documentação técnica
+
+A documentação completa está na pasta `docs/`. Para manter o GitHub limpo, recomenda-se versionar apenas código, documentação e exemplos seguros, nunca `data/private/`, `.env` real ou anexos de candidatos.

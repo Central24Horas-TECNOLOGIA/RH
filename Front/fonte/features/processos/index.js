@@ -10,6 +10,7 @@ import {
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
   analisarCvEmailRecebido,
+  atualizarEntrevista,
   atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
   atualizarProcesso,
@@ -53,7 +54,14 @@ import {
   toDatetimeLocal,
 } from '../../shared/browser-utils.js';
 import { AcaoSair } from '../../shared/components/actions.js';
-import { ModalAprovacaoCandidato } from '../../shared/components/approval-modal.js';
+import {
+  DOCUMENTOS_APROVACAO_PADRAO,
+  ModalAprovacaoCandidato,
+  atualizarDocumentosNaMensagem,
+} from '../../shared/components/approval-modal.js';
+import {
+  ModalEdicaoEntrevista,
+} from '../../shared/components/interview-edit-modal.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import {
   CANDIDATE_STATUS_APPROVED,
@@ -94,6 +102,18 @@ const MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO =
 const AVISO_URL_PUBLICA_NAO_CONFIGURADA =
   'URL pública ainda não configurada. Defina PUBLIC_CANDIDATE_BASE_URL no servidor para liberar inscrições externas.';
 const EXIBIR_PAGINA_PUBLICA_CANDIDATURA = false;
+const EXIBIR_CANDIDATOS_INSCRITOS = false;
+const MOTIVOS_ELIMINACAO = [
+  'Eliminado pela nota de corte',
+  'Eliminado na entrevista',
+  'Candidato não compareceu',
+  'Optou por não prosseguir',
+];
+const ETAPAS_ELIMINACAO_ENTREVISTA = [
+  'Com o Gestor do RH',
+  'Com Supervisor',
+  'Com Gestor da Área',
+];
 const REQUISITOS_PUBLICOS_PADRAO = [
   'Ensino médio completo ou formação compatível com a vaga.',
   'Experiência anterior em atividades relacionadas será considerada um diferencial.',
@@ -146,6 +166,89 @@ function formatarOrigemCandidato(candidato) {
     return 'Processo Único';
   }
   return String(candidato?.origem || '-').trim() || '-';
+}
+
+function formatarDataCurta(valor) {
+  const texto = String(valor || '').trim();
+  if (!texto) return '-';
+  const data = new Date(texto);
+  if (Number.isNaN(data.getTime())) return texto;
+  return data.toLocaleDateString('pt-BR');
+}
+
+function formatarHoraCurta(valor) {
+  const data = new Date(String(valor || '').trim());
+  if (Number.isNaN(data.getTime())) return '-';
+  return data.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function obterValorDataHoraSlot(slot, campos) {
+  const campoEncontrado = campos.find((campo) => String(slot?.[campo] || '').trim());
+  const valor = String(slot?.[campoEncontrado] || '').trim();
+  const data = String(slot?.data || slot?.date || slot?.dia || slot?.data_slot || '').trim();
+
+  if (data && /^\d{2}:\d{2}/.test(valor)) {
+    return `${data}T${valor}`;
+  }
+
+  return valor;
+}
+
+function obterIdSlotEntrevista(slot) {
+  return slot?.id_slot ?? slot?.slot_id ?? slot?.id ?? slot?.id_entrevista_slot ?? '';
+}
+
+function obterDataInicioSlotEntrevista(slot) {
+  const inicio = obterValorDataHoraSlot(slot, [
+    'inicio',
+    'data_inicio',
+    'data_hora_inicio',
+    'start',
+    'start_time',
+    'hora_inicio',
+    'horario',
+  ]);
+  if (!inicio) return null;
+
+  const data = new Date(inicio);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
+function obterDataFimSlotEntrevista(slot) {
+  const fim = obterValorDataHoraSlot(slot, [
+    'fim',
+    'data_fim',
+    'data_hora_fim',
+    'end',
+    'end_time',
+    'hora_fim',
+    'termino',
+  ]);
+  if (!fim) return null;
+
+  const data = new Date(fim);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
+function obterVagasDisponiveisSlotEntrevista(slot) {
+  const valor = [
+    slot?.disponiveis,
+    slot?.vagas_restantes,
+    slot?.vagas_disponiveis,
+    slot?.available_slots,
+    slot?.capacidade_disponivel,
+    slot?.capacity,
+    slot?.capacidade,
+  ].find((item) => item !== null && item !== undefined && String(item).trim() !== '');
+  const numero = Number(valor ?? 1);
+  return Number.isFinite(numero) ? numero : 1;
+}
+
+function obterMotivoEliminacao(candidato) {
+  return String(candidato?.motivo_eliminacao || '').trim() || 'Motivo não informado';
 }
 
 function montarFormularioCandidato(candidato) {
@@ -1231,6 +1334,7 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [candidatos, setCandidatos] = useState([]);
   const [entrevistas, setEntrevistas] = useState([]);
   const [slotsEntrevista, setSlotsEntrevista] = useState([]);
+  const [carregandoSlotsEntrevista, setCarregandoSlotsEntrevista] = useState(false);
   const [preAnalises, setPreAnalises] = useState([]);
   const [paginaPreAnalises, setPaginaPreAnalises] = useState(1);
   const [totalPaginasPreAnalises, setTotalPaginasPreAnalises] = useState(1);
@@ -1263,9 +1367,24 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [detalheProvaSelecionado, setDetalheProvaSelecionado] = useState(null);
   const [carregandoDetalheProva, setCarregandoDetalheProva] = useState('');
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState(null);
+  const [documentosEntrevista, setDocumentosEntrevista] = useState([]);
   const [aprovacaoSelecionada, setAprovacaoSelecionada] = useState(null);
   const [salvandoAprovacao, setSalvandoAprovacao] = useState(false);
   const [enviandoCanalAprovacao, setEnviandoCanalAprovacao] = useState('');
+  const [eliminacaoSelecionada, setEliminacaoSelecionada] = useState(null);
+  const [formularioEliminacao, setFormularioEliminacao] = useState({
+    motivo_eliminacao: '',
+    etapa_eliminacao: '',
+  });
+  const [erroEliminacao, setErroEliminacao] = useState('');
+  const [entrevistaEdicao, setEntrevistaEdicao] = useState(null);
+  const [salvandoEdicaoEntrevista, setSalvandoEdicaoEntrevista] = useState(false);
+  const [formularioEdicaoEntrevista, setFormularioEdicaoEntrevista] = useState({
+    id_slot: '',
+    status_entrevista: 'Agendado',
+    observacoes_rh: '',
+    mensagem_personalizada: '',
+  });
   const [formularioEntrevista, setFormularioEntrevista] = useState({
     id_registro: '',
     id_processo: '',
@@ -1445,6 +1564,33 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
   };
 
+  const carregarSlotsEntrevistaDoProcesso = async (referenciaProcesso = '') => {
+    const filtroProcesso = String(
+      referenciaProcesso || obterReferenciaProcesso(processo) || idProcesso || '',
+    ).trim();
+
+    setCarregandoSlotsEntrevista(true);
+    try {
+      const listaSlots = await lerSlotsEntrevista({ idProcesso: filtroProcesso });
+      const slotsNormalizados = Array.isArray(listaSlots)
+        ? listaSlots
+        : Array.isArray(listaSlots?.slots)
+          ? listaSlots.slots
+          : Array.isArray(listaSlots?.data)
+            ? listaSlots.data
+            : [];
+      setSlotsEntrevista(slotsNormalizados);
+    } catch (error) {
+      console.error('Erro ao carregar horários de entrevista.', error);
+      setSlotsEntrevista([]);
+      setErro(
+        error?.message || 'Não foi possível carregar os horários de entrevista agora.',
+      );
+    } finally {
+      setCarregandoSlotsEntrevista(false);
+    }
+  };
+
   useEffect(() => {
     carregar(1);
   }, []);
@@ -1538,24 +1684,19 @@ export function TelaDetalhesProcesso({ controlador }) {
         problemas: candidato.cv_problemas,
       }
       : null);
-  const obterDataInicioSlotEntrevista = (slot) => {
-    const inicio = String(slot?.inicio || '').trim();
-    if (!inicio) return null;
-
-    const data = new Date(inicio);
-    return Number.isNaN(data.getTime()) ? null : data;
-  };
   const slotsDisponiveisEntrevista = useMemo(
     () => {
       const agora = new Date();
       return slotsEntrevista.filter(
         (slot) => {
-          const statusSlot = String(slot.status_calculado || slot.status_slot || '').trim();
+          const statusSlot = normalizarTextoComparacao(
+            slot.status_calculado || slot.status_slot || slot.status || '',
+          );
           const inicioSlot = obterDataInicioSlotEntrevista(slot);
           return (
-            statusSlot !== 'Bloqueado'
-            && statusSlot !== 'Lotado'
-            && Number(slot.disponiveis ?? 1) > 0
+            statusSlot !== 'bloqueado'
+            && statusSlot !== 'lotado'
+            && obterVagasDisponiveisSlotEntrevista(slot) > 0
             && inicioSlot
             && inicioSlot > agora
           );
@@ -1565,19 +1706,34 @@ export function TelaDetalhesProcesso({ controlador }) {
     [slotsEntrevista],
   );
 
-  const formatarHorarioSlotEntrevista = (slot) =>
-    slot
-      ? `${formatarDataHora(slot.inicio)} ate ${formatarDataHora(slot.fim)} | ${slot.ocupados || 0}/${slot.capacidade_total || 1} ocupados`
-      : '-';
+  const formatarHorarioSlotEntrevista = (slot) => {
+    if (!slot) return '-';
 
-  const montarDataEntrevistaIso = (slot) => {
-    const inicio = String(slot?.inicio || '').trim();
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(inicio)) {
-      return inicio.slice(0, 19).length === 16 ? `${inicio.slice(0, 16)}:00` : inicio.slice(0, 19);
+    const inicio = obterDataInicioSlotEntrevista(slot);
+    const fim = obterDataFimSlotEntrevista(slot);
+    const vagasDisponiveis = obterVagasDisponiveisSlotEntrevista(slot);
+    const rotuloVagas =
+      vagasDisponiveis === 1 ? 'vaga disponível' : 'vagas disponíveis';
+
+    if (!inicio || !fim) {
+      return `${formatarDataHora(slot.inicio)} ate ${formatarDataHora(slot.fim)} — ${vagasDisponiveis} ${rotuloVagas}`;
     }
 
-    const data = new Date(inicio);
-    if (Number.isNaN(data.getTime())) return '';
+    const horaInicio = inicio.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const horaFim = fim.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return `${inicio.toLocaleDateString('pt-BR')} - ${horaInicio} às ${horaFim} — ${vagasDisponiveis} ${rotuloVagas}`;
+  };
+
+  const montarDataEntrevistaIso = (slot) => {
+    const data = obterDataInicioSlotEntrevista(slot);
+    if (!data) return '';
 
     const pad = (value) => String(value).padStart(2, '0');
     return [
@@ -1768,7 +1924,27 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
   };
 
-  const atualizarStatus = async (idRegistro, status, dadosAprovacao = {}) => {
+  const abrirEliminacao = (candidato) => {
+    const estadoAcoes = candidato?.acoes_fluxo || getCandidateActionState(candidato, processo?.status || '');
+    if (estadoAcoes.processClosed || processoEncerrado) {
+      setErro('Processo encerrado. Movimentações não são permitidas.');
+      return;
+    }
+
+    if (!estadoAcoes.canEliminate) {
+      setErro('A eliminação não está disponível para o status atual deste candidato.');
+      return;
+    }
+
+    setErroEliminacao('');
+    setFormularioEliminacao({
+      motivo_eliminacao: '',
+      etapa_eliminacao: '',
+    });
+    setEliminacaoSelecionada(candidato);
+  };
+
+  const atualizarStatus = async (idRegistro, status, dadosStatus = {}) => {
     const statusSeguro = String(status || '').trim();
     const candidatoAtual = candidatos.find(
       (item) => Number(item.id_registro || 0) === Number(idRegistro || 0),
@@ -1788,21 +1964,50 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
 
     if (statusSeguro === 'Eliminado') {
-      const confirmar = window.confirm(
-        'Deseja realmente eliminar este candidato?',
-      );
-      if (!confirmar) return;
+      const motivoInformado = String(dadosStatus.motivo_eliminacao || '').trim();
+      if (!motivoInformado) {
+        abrirEliminacao(candidatoAtual || { id_registro: idRegistro });
+        return;
+      }
     }
 
     try {
       await atualizarStatusCandidato(idRegistro, {
         status_candidato: statusSeguro,
-        ...(statusSeguro === CANDIDATE_STATUS_APPROVED ? dadosAprovacao : {}),
+        ...(statusSeguro === CANDIDATE_STATUS_APPROVED ? dadosStatus : {}),
+        ...(statusSeguro === CANDIDATE_STATUS_ELIMINATED ? dadosStatus : {}),
       });
       await carregar(paginaPreAnalises);
     } catch (error) {
       alert(error.message || 'Não foi possível atualizar o status.');
     }
+  };
+
+  const confirmarEliminacao = async () => {
+    if (!eliminacaoSelecionada?.id_registro) return;
+
+    const motivo = String(formularioEliminacao.motivo_eliminacao || '').trim();
+    const etapa = String(formularioEliminacao.etapa_eliminacao || '').trim();
+    if (!motivo) {
+      setErroEliminacao('Selecione o motivo da eliminação.');
+      return;
+    }
+    if (motivo === 'Eliminado na entrevista' && !etapa) {
+      setErroEliminacao('Selecione em qual entrevista ocorreu a eliminação.');
+      return;
+    }
+
+    await atualizarStatus(
+      eliminacaoSelecionada.id_registro,
+      CANDIDATE_STATUS_ELIMINATED,
+      {
+        motivo_eliminacao: motivo,
+        etapa_eliminacao: motivo === 'Eliminado na entrevista' ? etapa : '',
+        data_eliminacao: new Date().toISOString(),
+      },
+    );
+    setEliminacaoSelecionada(null);
+    setErroEliminacao('');
   };
 
   const abrirAprovacao = (candidato) => {
@@ -2113,13 +2318,23 @@ export function TelaDetalhesProcesso({ controlador }) {
       return;
     }
 
+    const referenciaProcesso =
+      obterReferenciaProcesso(processo) ||
+      obterReferenciaProcessoDoCandidato(candidato) ||
+      idProcesso;
+    const idProcessoVisual =
+      processo?.id_processo ||
+      candidato.id_processo ||
+      '';
+
+    setErro('');
+    setSlotsEntrevista([]);
     setAgendamentoSelecionado(candidato);
+    setDocumentosEntrevista([]);
     setFormularioEntrevista({
       id_registro: candidato.id_registro,
-      id_processo: candidato.id_processo,
-      id_processo_ref:
-        obterReferenciaProcessoDoCandidato(candidato) ||
-        obterReferenciaProcesso(processo),
+      id_processo: idProcessoVisual,
+      id_processo_ref: referenciaProcesso,
       id_slot: '',
       data_entrevista: '',
       status_entrevista: 'Agendado',
@@ -2131,29 +2346,64 @@ export function TelaDetalhesProcesso({ controlador }) {
       whatsapp: candidato.whatsapp || candidato.telefone || '',
     });
     setMensagemEntrevistaEditada(false);
+    carregarSlotsEntrevistaDoProcesso(referenciaProcesso);
   };
 
-  const montarMensagemEntrevistaPadrao = (idSlot = formularioEntrevista.id_slot) => {
+  const montarMensagemEntrevistaPadrao = (
+    idSlot = formularioEntrevista.id_slot,
+    documentos = documentosEntrevista,
+  ) => {
     const nome = agendamentoSelecionado?.nome_candidato || 'candidato(a)';
     const slot = slotsDisponiveisEntrevista.find(
-      (item) => Number(item.id_slot) === Number(idSlot),
+      (item) => Number(obterIdSlotEntrevista(item)) === Number(idSlot),
     );
     if (!slot) {
-      return `Olá ${nome}! Gostaríamos de convocá-lo para o nosso processo seletivo para a vaga de: ${processo?.vaga || agendamentoSelecionado?.vaga || ''} no dia _data_ às _horário_. Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar de apoio, responda esta mensagem.`;
+      return atualizarDocumentosNaMensagem(
+        `Olá ${nome}! Gostaríamos de convocá-lo para o nosso processo seletivo para a vaga de: ${processo?.vaga || agendamentoSelecionado?.vaga || ''} no dia _data_ às _horário_.
+
+Compareça levando os seguintes documentos:
+
+_lista_documentos_
+
+Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar de apoio, responda esta mensagem.`,
+        documentos,
+      );
     }
 
-    const dataInicio = new Date(slot.inicio);
+    const dataInicio = obterDataInicioSlotEntrevista(slot);
     const data = dataInicio.toLocaleDateString('pt-BR');
     const hora = dataInicio.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
     });
-    return `Olá ${nome}! Gostaríamos de convocá-lo para o nosso processo seletivo para a vaga de: ${processo?.vaga || agendamentoSelecionado?.vaga || ''} no dia ${data} às ${hora}. Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar de apoio, responda esta mensagem.`;
+    return atualizarDocumentosNaMensagem(
+      `Olá ${nome}! Gostaríamos de convocá-lo para o nosso processo seletivo para a vaga de: ${processo?.vaga || agendamentoSelecionado?.vaga || ''} no dia ${data} às ${hora}.
+
+Compareça levando os seguintes documentos:
+
+_lista_documentos_
+
+Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar de apoio, responda esta mensagem.`,
+      documentos,
+    );
   };
 
   const montarMensagemEntrevista = () => {
     const mensagemPersonalizada = String(formularioEntrevista.mensagem_personalizada || '').trim();
     return mensagemPersonalizada || montarMensagemEntrevistaPadrao();
+  };
+
+  const alternarDocumentoEntrevista = (documento, marcado) => {
+    const proximos = marcado
+      ? [...documentosEntrevista, documento]
+      : documentosEntrevista.filter((item) => item !== documento);
+    setDocumentosEntrevista(proximos);
+    setFormularioEntrevista((atual) => ({
+      ...atual,
+      mensagem_personalizada: mensagemEntrevistaEditada
+        ? atualizarDocumentosNaMensagem(atual.mensagem_personalizada, proximos)
+        : montarMensagemEntrevistaPadrao(atual.id_slot, proximos),
+    }));
   };
 
   const salvarAgendamento = async (canal = '') => {
@@ -2190,7 +2440,9 @@ export function TelaDetalhesProcesso({ controlador }) {
       }
 
       const slotSelecionado = slotsDisponiveisEntrevista.find(
-        (item) => Number(item.id_slot) === Number(formularioEntrevista.id_slot),
+        (item) =>
+          Number(obterIdSlotEntrevista(item)) ===
+          Number(formularioEntrevista.id_slot),
       );
       const dataEntrevista = montarDataEntrevistaIso(slotSelecionado);
       if (!dataEntrevista) {
@@ -2237,6 +2489,62 @@ export function TelaDetalhesProcesso({ controlador }) {
       setErro(error?.message || 'Não foi possível agendar a entrevista.');
     } finally {
       setSalvandoEntrevista(false);
+    }
+  };
+
+  const abrirEdicaoEntrevista = (entrevista) => {
+    if (isProcessClosed(entrevista?.status_processo)) {
+      setErro('O processo seletivo desta entrevista está encerrado e não permite atualização operacional.');
+      return;
+    }
+
+    setEntrevistaEdicao(entrevista);
+    setFormularioEdicaoEntrevista({
+      id_slot: '',
+      status_entrevista: entrevista.status_entrevista || 'Agendado',
+      observacoes_rh: entrevista.observacoes_rh || '',
+      mensagem_personalizada: entrevista.mensagem_personalizada || '',
+    });
+  };
+
+  const salvarEdicaoEntrevista = async () => {
+    if (!entrevistaEdicao) return;
+    if (isProcessClosed(entrevistaEdicao.status_processo)) {
+      setErro('O processo seletivo desta entrevista está encerrado e não permite atualização operacional.');
+      return;
+    }
+
+    const mensagemErro = validarFormularioEntrevista({
+      id_registro: entrevistaEdicao.id_registro,
+      ...formularioEdicaoEntrevista,
+    });
+    if (mensagemErro) {
+      setErro(mensagemErro);
+      return;
+    }
+
+    setSalvandoEdicaoEntrevista(true);
+    setErro('');
+    try {
+      const payload = {
+        status_entrevista: formularioEdicaoEntrevista.status_entrevista,
+        observacoes_rh: formularioEdicaoEntrevista.observacoes_rh,
+        mensagem_personalizada: formularioEdicaoEntrevista.mensagem_personalizada,
+      };
+      if (formularioEdicaoEntrevista.id_slot) {
+        payload.id_slot = Number(formularioEdicaoEntrevista.id_slot);
+        if (Number(formularioEdicaoEntrevista.id_slot) !== Number(entrevistaEdicao.id_slot || 0)) {
+          payload.status_entrevista = 'Reagendado';
+        }
+      }
+
+      await atualizarEntrevista(entrevistaEdicao.id_entrevista, payload);
+      setEntrevistaEdicao(null);
+      await carregar(paginaPreAnalises);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível atualizar a entrevista selecionada.');
+    } finally {
+      setSalvandoEdicaoEntrevista(false);
     }
   };
 
@@ -2292,6 +2600,7 @@ export function TelaDetalhesProcesso({ controlador }) {
         description=${processo
       ? `${processo.id_processo || '-'} • ${processo.vaga || '-'}`
       : 'Processo não localizado.'}
+        className="process-summary-panel compact-dashboard-card"
         tourId="process-summary"
         actions=${html`
           <button
@@ -2303,56 +2612,98 @@ export function TelaDetalhesProcesso({ controlador }) {
           </button>
         `}
       >
-        <${MetricGrid}
-          items=${[
-      { label: 'Nome', value: processo?.nome_processo || '-' },
-      { label: 'Vaga', value: processo?.vaga || '-' },
-      { label: 'Operação', value: processo?.operacao || '-' },
-      { label: 'Trilha', value: processo?.trilha || '-' },
-      {
-        label: 'Status',
-        value: processo?.status || '-',
-      },
-      {
-        label: 'Nota de corte',
-        value: Number(processo?.usa_nota_corte || 0)
-          ? processo?.nota_corte || '-'
-          : 'Não',
-      },
-      { label: 'Vagas', value: processo?.quantidade_vagas || 0 },
-      {
-        label: 'Encerramento',
-        value: processo?.data_encerramento || '-',
-      },
-      {
-        label: 'Link legado',
-        value: processo?.link_agendamento
-          ? html`
-                    <a
-                      href=${processo.link_agendamento}
-                      target="_blank"
-                      rel="noreferrer"
-                      class="rh-link-inline"
-                    >
-                      Abrir link
-                    </a>
-                  `
-          : 'Não informado',
-      },
-    ]}
-        />
-        <div class="mt-4">
-          <${MetricGrid}
-            items=${[
-      { label: 'Total', value: resumo?.total || 0 },
-      { label: 'Em análise', value: resumo?.analise || 0, variant: 'is-analysis' },
-      { label: 'Qualificados', value: resumo?.qualificados || 0, variant: 'is-highlight' },
-      { label: 'Entrevistas', value: resumo?.entrevistas || 0, variant: 'is-confirmed' },
-      { label: 'Aprovados', value: resumo?.aprovados || 0, variant: 'is-approved' },
-      { label: 'Eliminados', value: resumo?.eliminados || 0, variant: 'is-eliminated' },
-      { label: 'Banco de Talentos', value: resumo?.banco || 0, variant: 'is-talent' },
-    ]}
-          />
+        <div class="process-summary-grid">
+          ${[
+            {
+              icon: 'flag',
+              label: 'Status',
+              value: processo?.status || '-',
+            },
+            {
+              icon: 'work',
+              label: 'Cargo/Vaga',
+              value: processo?.vaga || '-',
+            },
+            {
+              icon: 'groups',
+              label: 'Vagas',
+              value: processo?.quantidade_vagas || 0,
+            },
+            {
+              icon: 'person_search',
+              label: 'Candidatos no processo',
+              value: candidatosOperacionais.length || 0,
+            },
+            {
+              icon: 'verified',
+              label: 'Aprovados',
+              value: candidatosAprovados.length || 0,
+            },
+            {
+              icon: 'event_available',
+              label: 'Entrevistas agendadas',
+              value: entrevistas.length || resumo?.entrevistas || 0,
+            },
+            {
+              icon: 'calendar_month',
+              label: 'Abertura',
+              value: formatarDataCurta(processo?.data_criacao),
+            },
+            {
+              icon: 'event_busy',
+              label: 'Encerramento',
+              value: formatarDataCurta(processo?.data_encerramento),
+            },
+          ].map(
+            (item) => html`
+              <article class="process-summary-card summary-metric-card" key=${item.label}>
+                <span class="material-symbols-outlined summary-metric-icon">
+                  ${item.icon}
+                </span>
+                <div class="summary-metric-content">
+                  <span class="summary-metric-label">${item.label}</span>
+                  <strong class="summary-metric-value">${item.value}</strong>
+                </div>
+              </article>
+            `,
+          )}
+        </div>
+
+        <div class="process-summary-secondary process-meta-row">
+          <span class="process-meta-chip">
+            <span>Operação</span>
+            <strong>${processo?.operacao || '-'}</strong>
+          </span>
+          <span class="process-meta-chip">
+            <span>Trilha</span>
+            <strong>${processo?.trilha || '-'}</strong>
+          </span>
+          <span class="process-meta-chip">
+            <span>Nota de corte</span>
+            <strong>
+              ${Number(processo?.usa_nota_corte || 0)
+                ? processo?.nota_corte || '-'
+                : 'Não'}
+            </strong>
+          </span>
+          ${processo?.link_agendamento
+            ? html`
+                <a
+                  href=${processo.link_agendamento}
+                  target="_blank"
+                  rel="noreferrer"
+                  class="process-meta-chip process-meta-link"
+                >
+                  <span>Link legado</span>
+                  <strong>Abrir link</strong>
+                </a>
+              `
+            : html`
+                <span class="process-meta-chip">
+                  <span>Link legado</span>
+                  <strong>Não informado</strong>
+                </span>
+              `}
         </div>
       </${SectionCard}>
 
@@ -2663,7 +3014,7 @@ export function TelaDetalhesProcesso({ controlador }) {
         </div>
       </${SecaoDetalheExpansivel}>` : null}
 
-      <${SecaoDetalheExpansivel}
+      ${EXIBIR_CANDIDATOS_INSCRITOS ? html`<${SecaoDetalheExpansivel}
         aberto=${secoesExpandidas.candidatosInscritos}
         titulo="Candidatos inscritos"
         description="Candidatos recebidos pela página pública Envie seu currículo, ainda em triagem pelo RH."
@@ -2778,7 +3129,7 @@ export function TelaDetalhesProcesso({ controlador }) {
             </tbody>
           </table>
         </div>
-      </${SecaoDetalheExpansivel}>
+      </${SecaoDetalheExpansivel}>` : null}
 
       <${SecaoDetalheExpansivel}
         aberto=${secoesExpandidas.preAnaliseCv}
@@ -3071,13 +3422,14 @@ export function TelaDetalhesProcesso({ controlador }) {
         />
       </${SecaoDetalheExpansivel}>
 
-      <${SecaoDetalheExpansivel}
-        aberto=${secoesExpandidas.candidatosProcesso}
-        titulo="Candidatos no processo"
-        description="As ações aparecem somente quando a etapa do candidato permite movimentação dentro do fluxo do RH."
-        tourId="process-candidates"
-        onToggle=${() => alternarSecao('candidatosProcesso')}
-      >
+      <div class="process-candidates-grid">
+        <${SecaoDetalheExpansivel}
+          aberto=${secoesExpandidas.candidatosProcesso}
+          titulo="Candidatos no processo"
+          description="As ações aparecem somente quando a etapa do candidato permite movimentação dentro do fluxo do RH."
+          tourId="process-candidates"
+          onToggle=${() => alternarSecao('candidatosProcesso')}
+        >
         <div class="table-responsive">
           <table class="table align-middle rh-modern-history-table">
             <thead>
@@ -3087,7 +3439,6 @@ export function TelaDetalhesProcesso({ controlador }) {
                 <th>Localidade</th>
                 <th>Status</th>
                 <th>Prova</th>
-                <th>Entrevista</th>
                 <th>CV</th>
                 <th class="text-end">Ações</th>
               </tr>
@@ -3181,33 +3532,6 @@ export function TelaDetalhesProcesso({ controlador }) {
               : html`<span class="text-muted">Sem prova</span>`}
                         </td>
                         <td>
-                          ${candidato.status_entrevista
-              ? html`
-                                <div class="rh-cell-stack">
-                                  <span
-                                    class=${`rh-status-pill ${obterClasseStatusEntrevista(candidato.status_entrevista)}`}
-                                  >
-                                    ${candidato.status_entrevista}
-                                  </span>
-                                  <small>${formatarDataHora(candidato.data_entrevista)}</small>
-                                </div>
-                              `
-              : !processoEncerrado && candidato.acoes_fluxo?.isActive
-                ? html`
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-primary rh-action-btn"
-                                    onClick=${() => abrirAgendamento(candidato)}
-                                  >
-                                    <span class="material-symbols-outlined">event</span>
-                                    Entrevista
-                                  </button>
-                                `
-                : processoEncerrado
-                  ? 'Processo encerrado'
-                  : 'Sem entrevista prevista'}
-                        </td>
-                        <td>
                           ${candidato.cv_disponivel
               ? html`
                                 <button
@@ -3236,22 +3560,22 @@ export function TelaDetalhesProcesso({ controlador }) {
       )
       : html`
                     <${TabelaVazia}
-                      colunas=${8}
+                      colunas=${7}
                       texto="Nenhum candidato vinculado a este processo."
                     />
                   `}
             </tbody>
           </table>
         </div>
-      </${SecaoDetalheExpansivel}>
+        </${SecaoDetalheExpansivel}>
 
-      <${SecaoDetalheExpansivel}
-        aberto=${secoesExpandidas.candidatosAprovados}
-        titulo="Candidatos aprovados"
-        description="Aprovados ficam fora do fluxo ativo e permanecem disponíveis para consulta, resultado e relatórios."
-        tourId="process-approved-candidates"
-        onToggle=${() => alternarSecao('candidatosAprovados')}
-      >
+        <${SecaoDetalheExpansivel}
+          aberto=${secoesExpandidas.candidatosAprovados}
+          titulo="Candidatos aprovados"
+          description="Aprovados ficam fora do fluxo ativo e permanecem disponíveis para consulta, resultado e relatórios."
+          tourId="process-approved-candidates"
+          onToggle=${() => alternarSecao('candidatosAprovados')}
+        >
         <div class="table-responsive">
           <table class="table align-middle rh-modern-history-table">
             <thead>
@@ -3333,7 +3657,8 @@ export function TelaDetalhesProcesso({ controlador }) {
             </tbody>
           </table>
         </div>
-      </${SecaoDetalheExpansivel}>
+        </${SecaoDetalheExpansivel}>
+      </div>
 
       <${SectionCard}
         title="Entrevistas agendadas"
@@ -3359,22 +3684,30 @@ export function TelaDetalhesProcesso({ controlador }) {
       : entrevistas.length
         ? html`
                 <div class="table-responsive">
-                  <table class="table align-middle rh-modern-history-table">
+                  <table class="table align-middle rh-modern-history-table process-interviews-table">
                     <thead>
                       <tr>
                         <th>Candidato</th>
-                        <th>Data / hora</th>
+                        <th>Data</th>
+                        <th>Hora</th>
+                        <th>Tipo/etapa</th>
                         <th>Status</th>
-                        <th>Agenda</th>
-                        <th>Observações</th>
+                        <th class="text-end">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       ${entrevistas.map(
           (entrevista) => html`
                           <tr key=${entrevista.id_entrevista}>
-                            <td>${entrevista.nome_candidato || '-'}</td>
-                            <td>${formatarDataHora(entrevista.data_entrevista)}</td>
+                            <td>
+                              <strong>${entrevista.nome_candidato || '-'}</strong>
+                              ${entrevista.observacoes_rh
+                                ? html`<small>${entrevista.observacoes_rh}</small>`
+                                : null}
+                            </td>
+                            <td>${formatarDataCurta(entrevista.data_entrevista)}</td>
+                            <td>${formatarHoraCurta(entrevista.data_entrevista)}</td>
+                            <td>${entrevista.tipo_entrevista || entrevista.etapa_entrevista || (entrevista.id_slot ? 'Calendário interno' : 'Registro legado')}</td>
                             <td>
                               <span
                                 class=${`rh-status-pill ${obterClasseStatusEntrevista(entrevista.status_entrevista)}`}
@@ -3382,8 +3715,34 @@ export function TelaDetalhesProcesso({ controlador }) {
                                 ${entrevista.status_entrevista || '-'}
                               </span>
                             </td>
-                            <td>${entrevista.id_slot ? 'Calendário interno' : 'Registro legado'}</td>
-                            <td>${entrevista.observacoes_rh || 'Sem observações.'}</td>
+                            <td class="text-end">
+                              <div class="rh-action-cluster justify-content-end">
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-secondary rh-action-btn"
+                                  onClick=${() =>
+                                    copiarTexto(entrevista.mensagem_base || '')
+                                      .then(() =>
+                                        window.alert('Mensagem copiada para a area de transferencia.'),
+                                      )
+                                      .catch(() =>
+                                        window.alert('Nao foi possivel copiar a mensagem automaticamente.'),
+                                      )}
+                                  >
+                                    <span class="material-symbols-outlined">content_copy</span>
+                                  Copiar
+                                </button>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-primary rh-action-btn"
+                                  disabled=${isProcessClosed(entrevista.status_processo)}
+                                  onClick=${() => abrirEdicaoEntrevista(entrevista)}
+                                >
+                                  <span class="material-symbols-outlined">edit</span>
+                                  Editar
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         `,
         )}
@@ -3453,6 +3812,7 @@ export function TelaDetalhesProcesso({ controlador }) {
                     <select
                       class="form-select"
                       value=${formularioEntrevista.id_slot}
+                      disabled=${carregandoSlotsEntrevista}
                       onChange=${(event) => {
           const idSlotSelecionado = event.target.value;
           setFormularioEntrevista({
@@ -3464,10 +3824,21 @@ export function TelaDetalhesProcesso({ controlador }) {
           });
         }}
                     >
-                      <option value="">Selecione um slot</option>
+                      ${carregandoSlotsEntrevista
+          ? html`<option value="">Carregando horários...</option>`
+          : slotsDisponiveisEntrevista.length
+            ? html`<option value="">Selecione um slot</option>`
+            : html`
+                <option value="" disabled>
+                  Nenhum horário disponível para este processo
+                </option>
+              `}
                       ${slotsDisponiveisEntrevista.map(
           (slot) => html`
-                          <option key=${slot.id_slot} value=${slot.id_slot}>
+                          <option
+                            key=${obterIdSlotEntrevista(slot)}
+                            value=${obterIdSlotEntrevista(slot)}
+                          >
                             ${formatarHorarioSlotEntrevista(slot)}
                           </option>
                         `,
@@ -3497,8 +3868,30 @@ export function TelaDetalhesProcesso({ controlador }) {
           setFormularioEntrevista({
             ...formularioEntrevista,
             email: event.target.value,
-          })}
+                      })}
                     />
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Documentos solicitados</label>
+                    <div class="row g-2">
+                      ${DOCUMENTOS_APROVACAO_PADRAO.map(
+                        (documento) => html`
+                          <label class="form-check col-md-6" key=${documento}>
+                            <input
+                              class="form-check-input"
+                              type="checkbox"
+                              checked=${documentosEntrevista.includes(documento)}
+                              onChange=${(event) =>
+                                alternarDocumentoEntrevista(
+                                  documento,
+                                  event.target.checked,
+                                )}
+                            />
+                            <span class="form-check-label">${documento}</span>
+                          </label>
+                        `,
+                      )}
+                    </div>
                   </div>
                   <div class="col-md-12">
                     <label class="form-label">Mensagem que será enviada</label>
@@ -3587,6 +3980,105 @@ export function TelaDetalhesProcesso({ controlador }) {
       />
 
       <${ModalPadrao}
+        aberto=${!!eliminacaoSelecionada}
+        titulo="Eliminar candidato"
+        subtitulo="Informe o motivo antes de confirmar a eliminação."
+        onClose=${() => setEliminacaoSelecionada(null)}
+      >
+        ${eliminacaoSelecionada
+          ? html`
+              <div class="rh-details-body">
+                <div class="row g-3">
+                  <div class="col-md-12">
+                    <label class="form-label">Candidato</label>
+                    <input
+                      class="form-control"
+                      readonly
+                      value=${eliminacaoSelecionada.nome_candidato || ''}
+                    />
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Motivo da eliminação</label>
+                    <select
+                      class="form-select"
+                      value=${formularioEliminacao.motivo_eliminacao}
+                      onChange=${(event) =>
+                        setFormularioEliminacao({
+                          motivo_eliminacao: event.target.value,
+                          etapa_eliminacao:
+                            event.target.value === 'Eliminado na entrevista'
+                              ? formularioEliminacao.etapa_eliminacao
+                              : '',
+                        })}
+                    >
+                      <option value="">Selecione...</option>
+                      ${MOTIVOS_ELIMINACAO.map(
+                        (motivo) => html`
+                          <option key=${motivo} value=${motivo}>${motivo}</option>
+                        `,
+                      )}
+                    </select>
+                  </div>
+                  ${formularioEliminacao.motivo_eliminacao === 'Eliminado na entrevista'
+                    ? html`
+                        <div class="col-md-12">
+                          <label class="form-label">Em qual entrevista?</label>
+                          <select
+                            class="form-select"
+                            value=${formularioEliminacao.etapa_eliminacao}
+                            onChange=${(event) =>
+                              setFormularioEliminacao({
+                                ...formularioEliminacao,
+                                etapa_eliminacao: event.target.value,
+                              })}
+                          >
+                            <option value="">Selecione...</option>
+                            ${ETAPAS_ELIMINACAO_ENTREVISTA.map(
+                              (etapa) => html`
+                                <option key=${etapa} value=${etapa}>${etapa}</option>
+                              `,
+                            )}
+                          </select>
+                        </div>
+                      `
+                    : null}
+                </div>
+                ${erroEliminacao
+                  ? html`<div class="alert alert-warning mt-3 mb-0">${erroEliminacao}</div>`
+                  : null}
+              </div>
+              <footer class="rh-modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  onClick=${() => setEliminacaoSelecionada(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-danger"
+                  onClick=${confirmarEliminacao}
+                >
+                  Confirmar eliminação
+                </button>
+              </footer>
+            `
+          : null}
+      </${ModalPadrao}>
+
+      <${ModalEdicaoEntrevista}
+        aberto=${!!entrevistaEdicao}
+        entrevista=${entrevistaEdicao}
+        formulario=${formularioEdicaoEntrevista}
+        slotsDisponiveis=${slotsDisponiveisEntrevista}
+        salvando=${salvandoEdicaoEntrevista}
+        onClose=${() => setEntrevistaEdicao(null)}
+        onChange=${setFormularioEdicaoEntrevista}
+        onSave=${salvarEdicaoEntrevista}
+      />
+
+      <${ModalPadrao}
         aberto=${!!detalheCandidatoSelecionado}
         titulo=${`Detalhes do candidato | ${detalheCandidatoSelecionado?.nome_candidato || 'Candidato'}`}
         subtitulo="Consulta administrativa do candidato no processo."
@@ -3616,6 +4108,28 @@ export function TelaDetalhesProcesso({ controlador }) {
             label: 'Status',
             value: detalheCandidatoSelecionado.status_fluxo || '-',
           },
+          ...(canonicalizeCandidateStatus(
+            detalheCandidatoSelecionado.status_fluxo ||
+              detalheCandidatoSelecionado.status_candidato,
+          ) === CANDIDATE_STATUS_ELIMINATED
+            ? [
+                {
+                  label: 'Motivo da eliminação',
+                  value: obterMotivoEliminacao(detalheCandidatoSelecionado),
+                },
+                {
+                  label: 'Etapa da eliminação',
+                  value: detalheCandidatoSelecionado.etapa_eliminacao || '-',
+                },
+                {
+                  label: 'Data da eliminação',
+                  value: formatarDataHora(
+                    detalheCandidatoSelecionado.data_eliminacao ||
+                      detalheCandidatoSelecionado.eliminado_em,
+                  ),
+                },
+              ]
+            : []),
           {
             label: 'Nota',
             value:

@@ -736,7 +736,11 @@ class BaseRepository:
                 data_prova,
                 origem,
                 etapa_pipeline,
-                data_atualizacao_pipeline
+                data_atualizacao_pipeline,
+                aprovado_em,
+                eliminado_em,
+                motivo_eliminacao,
+                etapa_eliminacao
             FROM candidatos_processos
             """
         )
@@ -746,7 +750,7 @@ class BaseRepository:
         rows = self._attach_process_context(
             cursor,
             rows,
-            timestamp_fields=["data_prova", "data_atualizacao_pipeline"],
+            timestamp_fields=["data_prova", "data_atualizacao_pipeline", "aprovado_em", "eliminado_em"],
         )
 
         result = {}
@@ -982,6 +986,9 @@ class BaseRepository:
         resolved_new_status = canonicalize_candidate_status(new_status)
         old_status_normalized = normalize_compare_text(old_status)
         new_status_normalized = normalize_compare_text(resolved_new_status)
+        payload = approval_payload or {}
+        motivo_eliminacao = normalize_text(payload.get("motivo_eliminacao"))
+        etapa_eliminacao = normalize_text(payload.get("etapa_eliminacao"))
 
         if is_terminal_candidate_status(old_status):
             raise HTTPException(
@@ -1028,6 +1035,8 @@ class BaseRepository:
                 data_atualizacao_pipeline = ?,
                 id_processo_ref = ?,
                 eliminado_em = CASE WHEN ? = ? THEN ISNULL(eliminado_em, GETDATE()) ELSE eliminado_em END,
+                motivo_eliminacao = CASE WHEN ? = ? THEN ? ELSE motivo_eliminacao END,
+                etapa_eliminacao = CASE WHEN ? = ? THEN ? ELSE etapa_eliminacao END,
                 banco_talentos_em = CASE WHEN ? = ? THEN ISNULL(banco_talentos_em, GETDATE()) ELSE banco_talentos_em END
             WHERE id_registro = ?
             """,
@@ -1038,6 +1047,12 @@ class BaseRepository:
                 processo.get("id_processo_ref", ""),
                 new_status_normalized,
                 normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
+                new_status_normalized,
+                normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
+                motivo_eliminacao,
+                new_status_normalized,
+                normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
+                etapa_eliminacao,
                 new_status_normalized,
                 normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK),
                 id_registro,
@@ -1065,11 +1080,14 @@ class BaseRepository:
                 ),
                 status_anterior=old_status,
                 status_novo=resolved_new_status,
-                observacao=normalize_text((approval_payload or {}).get("mensagem_aprovacao")),
+                observacao=(
+                    motivo_eliminacao + (f" | {etapa_eliminacao}" if etapa_eliminacao else "")
+                    if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_ELIMINATED)
+                    else normalize_text(payload.get("mensagem_aprovacao"))
+                ),
             )
 
         if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_APPROVED):
-            payload = approval_payload or {}
             documentos = [
                 normalize_text(item)
                 for item in (payload.get("documentos_aprovacao") or [])

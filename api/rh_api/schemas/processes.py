@@ -150,6 +150,9 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
     anexo_aprovacao_tipo: str = ""
     anexo_aprovacao_tamanho: int = 0
     anexo_aprovacao_base64: str = ""
+    motivo_eliminacao: str = ""
+    etapa_eliminacao: str = ""
+    data_eliminacao: str | None = None
 
     @field_validator("mensagem_aprovacao")
     @classmethod
@@ -194,6 +197,14 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
             raise ValueError("O anexo da aprovação excede o tamanho permitido.")
         return safe_value
 
+    @field_validator("motivo_eliminacao", "etapa_eliminacao")
+    @classmethod
+    def validate_elimination_text(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 120:
+            raise ValueError("Os dados da eliminacao devem ter no maximo 120 caracteres.")
+        return safe_value
+
 
 class StandaloneCandidateStatusUpdateRequest(BaseSchema):
     status_candidato: str = ""
@@ -205,6 +216,9 @@ class StandaloneCandidateStatusUpdateRequest(BaseSchema):
     anexo_aprovacao_tipo: str = ""
     anexo_aprovacao_tamanho: int = 0
     anexo_aprovacao_base64: str = ""
+    motivo_eliminacao: str = ""
+    etapa_eliminacao: str = ""
+    data_eliminacao: str | None = None
 
 
 class TalentBankUseRequest(BaseSchema):

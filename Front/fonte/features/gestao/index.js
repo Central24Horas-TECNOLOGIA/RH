@@ -65,6 +65,7 @@ import {
 import { obterTourLogin } from '../../shared/tour-config.js';
 import {
   obterChaveProcesso,
+  obterReferenciaProcessoDoCandidato,
   obterReferenciaProcesso,
 } from '../../shared/process-reference.js';
 import {
@@ -300,24 +301,25 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
 
   return html`
     <${SectionCard}
+      className=${`mailbox-card ${compacto ? 'mailbox-card-compact' : 'mailbox-card-full'}`}
       title=${compacto ? 'Caixa de Currículos' : 'Caixa de E-mail'}
       description=${compacto
       ? 'Resumo dos currículos recebidos na caixa configurada.'
       : 'Consulta completa dos e-mails recebidos com currículos.'}
       actions=${html`
-        <div class="rh-email-panel-actions">
+        <div class=${`mailbox-toolbar rh-email-panel-actions ${compacto ? 'mailbox-toolbar-compact' : 'mailbox-toolbar-full'}`}>
           ${!compacto
         ? html`
-                <form class="d-flex gap-2 flex-wrap" onSubmit=${enviarFiltro}>
+                <form class="mailbox-filter-form d-flex gap-2 flex-wrap" onSubmit=${enviarFiltro}>
                   <input
-  class="form-control form-control-sm rh-email-filter-input"
+  class="form-control form-control-sm rh-email-filter-input email-filter-input"
   placeholder="Filtrar por assunto, remetente, nome ou vaga"
   value=${filtroTexto}
   onInput=${(event) => setFiltroTexto(event.target.value)}
 />
                   <button
                     type="submit"
-                    class="btn btn-outline-primary btn-sm rh-action-btn"
+                    class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
                     disabled=${carregando}
                   >
                     <span class="material-symbols-outlined">search</span>
@@ -329,7 +331,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
           ? html`
                   <button
                     type="button"
-                    class="btn btn-outline-primary btn-sm rh-action-btn"
+                    class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
                     onClick=${() => controlador.irParaTelaProtegida('screen-email-inbox')}
                   >
                     <span class="material-symbols-outlined">mail</span>
@@ -349,7 +351,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
           </label>
 
           <select
-  class="form-select form-select-sm rh-email-page-size"
+  class="form-select form-select-sm rh-email-page-size email-page-size"
   value=${String(tamanhoPagina)}
   onChange=${(event) => setTamanhoPagina(Number(event.target.value) || 5)}
 >
@@ -360,7 +362,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
 
           <button
             type="button"
-            class="btn btn-outline-secondary btn-sm rh-action-btn"
+            class="btn btn-outline-secondary btn-sm rh-action-btn email-toolbar-btn"
             disabled=${carregando}
             onClick=${carregarEmails}
           >
@@ -372,7 +374,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
         ? html`
                 <button
                   type="button"
-                  class="btn btn-outline-secondary btn-sm rh-action-btn"
+                  class="btn btn-outline-secondary btn-sm rh-action-btn email-toolbar-btn"
                   onClick=${() => setAberta((valor) => !valor)}
                 >
                   <span class="material-symbols-outlined">
@@ -401,7 +403,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
             : null}
 
             <div class="table-responsive">
-              <table class="table align-middle rh-modern-history-table rh-email-inbox-table">
+              <table class="table align-middle rh-modern-history-table rh-email-inbox-table email-table">
                 <thead>
                   <tr>
                     <th>Data</th>
@@ -423,12 +425,12 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                   ${paginacaoEmails.itens.length
           ? paginacaoEmails.itens.map(
             (item) => html`
-                          <tr key=${item.id}>
-                            <td>${formatarDataHora(item.data_recebimento)}</td>
-                            <td>
+                          <tr key=${item.id} class="email-row">
+                            <td class="email-date-cell">${formatarDataHora(item.data_recebimento)}</td>
+                            <td class="email-sender-cell">
                               <strong>${item.remetente || 'Remetente não informado'}</strong>
                             </td>
-                            <td>
+                            <td class="email-subject-cell">
                               <div>${item.assunto || 'Sem assunto'}</div>
                             </td>
 
@@ -443,47 +445,50 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                                   </td>
                                 `}
 
-                            <td>${item.possui_anexo ? item.nome_anexo || 'Anexo recebido' : 'Sem anexo'}</td>
-                            <td>
-                              <span class=${`process-candidate-status-badge ${obterClasseStatusEmail(item.status)}`}>
+                            <td class="email-attachment-cell">${item.possui_anexo ? item.nome_anexo || 'Anexo recebido' : 'Sem anexo'}</td>
+                            <td class="email-status-cell">
+                              <span class=${`process-candidate-status-badge email-status-pill ${obterClasseStatusEmail(item.status)}`}>
                                 ${item.status || 'Recebido'}
                               </span>
                             </td>
-                            <td class="text-end">
-                              <div class="rh-table-actions rh-email-actions">
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-dark rh-action-btn"
-                                  onClick=${() => abrirDetalhesEmail(item)}
-                                >
-                                  <span class="material-symbols-outlined">visibility</span>
-                                  Ver
-                                </button>
+                            <td class="text-end email-actions-cell">
+                              <div class="email-actions">
+                                <div class="email-actions-group email-actions-group-main">
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-dark rh-action-btn email-action-btn"
+                                    onClick=${() => abrirDetalhesEmail(item)}
+                                  >
+                                    <span class="material-symbols-outlined">visibility</span>
+                                    Ver
+                                  </button>
 
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-dark rh-action-btn"
-                                  disabled=${!item.possui_anexo || acaoEmAndamento === `cv:${item.id}`}
-                                  onClick=${() => abrirCvEmail(item)}
-                                >
-                                  <span class="material-symbols-outlined">description</span>
-                                  CV
-                                </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-dark rh-action-btn email-action-btn"
+                                    disabled=${!item.possui_anexo || acaoEmAndamento === `cv:${item.id}`}
+                                    onClick=${() => abrirCvEmail(item)}
+                                  >
+                                    <span class="material-symbols-outlined">description</span>
+                                    CV
+                                  </button>
 
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-primary rh-action-btn"
-                                  disabled=${!item.possui_anexo || acaoEmAndamento === `analisar:${item.id}`}
-                                  onClick=${() => analisarEmail(item)}
-                                >
-                                  <span class="material-symbols-outlined">auto_awesome</span>
-                                  Analisar
-                                </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary rh-action-btn email-action-btn"
+                                    disabled=${!item.possui_anexo || acaoEmAndamento === `analisar:${item.id}`}
+                                    onClick=${() => analisarEmail(item)}
+                                  >
+                                    <span class="material-symbols-outlined">auto_awesome</span>
+                                    Analisar
+                                  </button>
+                                </div>
 
                                 ${!compacto
                 ? html`
+                                    <div class="email-actions-group email-actions-group-process">
                                       <select
-                                        class="form-select form-select-sm rh-email-process-select"
+                                        class="form-select form-select-sm rh-email-process-select email-process-select"
                                         value=${selecoesProcesso[item.id] || ''}
                                         onChange=${(event) =>
                     setSelecoesProcesso((anteriores) => ({
@@ -506,17 +511,23 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
 
                                       <button
                                         type="button"
-                                        class="btn btn-sm btn-outline-primary rh-action-btn"
+                                        class="btn btn-sm btn-outline-primary rh-action-btn email-action-btn"
                                         disabled=${!selecoesProcesso[item.id] || acaoEmAndamento === `vincular:${item.id}`}
                                         onClick=${() => vincularEmail(item)}
                                       >
                                         <span class="material-symbols-outlined">link</span>
                                         Vincular
                                       </button>
+                                    </div>
+                                    `
+                : null}
 
+                                <div class="email-actions-group email-actions-group-secondary">
+                                  ${!compacto
+                ? html`
                                       <button
                                         type="button"
-                                        class="btn btn-sm btn-outline-secondary rh-action-btn"
+                                        class="btn btn-sm btn-outline-secondary rh-action-btn email-action-btn"
                                         disabled=${acaoEmAndamento === `banco:${item.id}`}
                                         onClick=${() => enviarParaBanco(item)}
                                       >
@@ -526,25 +537,26 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                                     `
                 : null}
 
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-danger rh-action-btn"
-                                  disabled=${acaoEmAndamento === `ignorar:${item.id}`}
-                                  onClick=${() => ignorarEmail(item)}
-                                >
-                                  <span class="material-symbols-outlined">visibility_off</span>
-                                  Ignorar
-                                </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger rh-action-btn email-action-btn"
+                                    disabled=${acaoEmAndamento === `ignorar:${item.id}`}
+                                    onClick=${() => ignorarEmail(item)}
+                                  >
+                                    <span class="material-symbols-outlined">visibility_off</span>
+                                    Ignorar
+                                  </button>
 
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-danger rh-action-btn"
-                                  disabled=${acaoEmAndamento === `excluir:${item.id}`}
-                                  onClick=${() => excluirEmail(item)}
-                                >
-                                  <span class="material-symbols-outlined">delete</span>
-                                  Excluir
-                                </button>
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-danger rh-action-btn email-action-btn"
+                                    disabled=${acaoEmAndamento === `excluir:${item.id}`}
+                                    onClick=${() => excluirEmail(item)}
+                                  >
+                                    <span class="material-symbols-outlined">delete</span>
+                                    Excluir
+                                  </button>
+                                </div>
                               </div>
                             </td>
                           </tr>
@@ -758,18 +770,41 @@ export function TelaLogin({ controlador }) {
 export function TelaInicio({ controlador }) {
   const [carregando, setCarregando] = useState(true);
   const [recentes, setRecentes] = useState([]);
+  const [processos, setProcessos] = useState([]);
+  const [candidatosProcessos, setCandidatosProcessos] = useState([]);
   const [detalheAberto, setDetalheAberto] = useState(null);
 
   const carregar = async () => {
     setCarregando(true);
     try {
-      const historico = await lerHistorico();
+      const [resultadoHistorico, resultadoProcessos, resultadoCandidatos] =
+        await Promise.allSettled([
+          lerHistorico(),
+          lerProcessos(true),
+          lerCandidatosProcessos(true),
+        ]);
+      const historico =
+        resultadoHistorico.status === 'fulfilled'
+          ? resultadoHistorico.value
+          : [];
       const ordenado = (Array.isArray(historico) ? historico : [])
         .sort((a, b) =>
           String(b.data_iso || '').localeCompare(String(a.data_iso || '')),
         )
         .slice(0, TAMANHO_RECENTES);
       setRecentes(ordenado);
+      setProcessos(
+        resultadoProcessos.status === 'fulfilled' &&
+          Array.isArray(resultadoProcessos.value)
+          ? resultadoProcessos.value
+          : [],
+      );
+      setCandidatosProcessos(
+        resultadoCandidatos.status === 'fulfilled' &&
+          Array.isArray(resultadoCandidatos.value)
+          ? resultadoCandidatos.value
+          : [],
+      );
     } finally {
       setCarregando(false);
     }
@@ -778,6 +813,46 @@ export function TelaInicio({ controlador }) {
   useEffect(() => {
     carregar();
   }, []);
+
+  const processosAndamento = useMemo(
+    () =>
+      (Array.isArray(processos) ? processos : [])
+        .filter((processo) => !isProcessClosed(processo.status))
+        .slice(0, 4)
+        .map((processo) => {
+          const referencia = obterReferenciaProcesso(processo);
+          const idProcesso = String(processo.id_processo || '').trim();
+          const candidatosVinculados = (Array.isArray(candidatosProcessos)
+            ? candidatosProcessos
+            : []
+          ).filter((candidato) => {
+            const referenciaCandidato = obterReferenciaProcessoDoCandidato(candidato);
+            const idCandidato = String(candidato.id_processo || '').trim();
+            return (
+              (referencia && referenciaCandidato === referencia) ||
+              (idProcesso && idCandidato === idProcesso)
+            );
+          });
+          const candidatosAtivos = candidatosVinculados.filter(
+            (candidato) => getCandidateVisibleStatus(candidato) !== 'Banco de Talentos',
+          );
+          const aprovados = Number(processo.vagas_preenchidas || 0) || candidatosVinculados.filter(
+            (candidato) => getCandidateVisibleStatus(candidato) === 'Aprovado',
+          ).length;
+          const totalVagas = Number(processo.quantidade_vagas || 0);
+          const percentual = totalVagas > 0
+            ? Math.min(100, Math.round((aprovados / totalVagas) * 100))
+            : Math.min(100, candidatosAtivos.length * 10);
+
+          return {
+            id: referencia || idProcesso || processo.vaga,
+            nome: processo.nome_processo || processo.id_processo || processo.vaga || 'Processo',
+            candidatos: candidatosAtivos.length,
+            percentual,
+          };
+        }),
+    [processos, candidatosProcessos],
+  );
 
   return html`
     <${PainelRh}
@@ -806,26 +881,6 @@ export function TelaInicio({ controlador }) {
           </button>
         `}
       />
-
-      <${SectionCard}
-        title="Resumo rapido"
-        description="Visao imediata do volume mais recente salvo no sistema."
-      >
-        <${MetricGrid}
-          items=${[
-      {
-        label: 'Registros recentes',
-        value: recentes.length,
-        helper: 'Ultimos itens visiveis no painel',
-      },
-      {
-        label: 'Status de carregamento',
-        value: carregando ? 'Atualizando' : 'Pronto',
-        helper: 'Consulta do historico consolidado',
-      },
-    ]}
-        />
-      </${SectionCard}>
 
       <${SectionCard}
         title="Atalhos operacionais"
@@ -863,55 +918,133 @@ export function TelaInicio({ controlador }) {
         </div>
       </${SectionCard}>
 
-     <${SecaoCurriculosRecebidosEmail} modo="resumo" controlador=${controlador} />
+      <div class="home-dashboard-grid">
+        <${SecaoCurriculosRecebidosEmail} modo="resumo" controlador=${controlador} />
 
-      <${SectionCard}
-        title="Registros recentes"
-        description="Clique em um registro para abrir o detalhamento salvo."
-        tourId="home-recent"
-      >
-        ${carregando
-      ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
-      : recentes.length
-        ? html`
-                <div class="rh-recent-grid">
-                  ${recentes.map(
-          (item) => html`
-                      <button
-                        key=${item.id_teste}
-                        type="button"
-                        class="rh-recent-card"
-                        onClick=${async () =>
-              setDetalheAberto(
-                await carregarDetalhesProva(item.id_teste),
-              )}
-                      >
-                        <div class="rh-recent-avatar-wrap">
-                          <span class="rh-recent-avatar">
-                            ${String(item.nome_candidato || 'C')
-              .trim()
-              .slice(0, 1)
-              .toUpperCase()}
-                          </span>
+        <${SectionCard}
+          title="Registros recentes"
+          description="Clique em um registro para abrir o detalhamento salvo."
+          tourId="home-recent"
+        >
+          ${carregando
+        ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
+        : recentes.length
+          ? html`
+                  <div class="rh-recent-grid">
+                    ${recentes.map(
+            (item) => html`
+                        <button
+                          key=${item.id_teste}
+                          type="button"
+                          class="rh-recent-card"
+                          onClick=${async () =>
+                setDetalheAberto(
+                  await carregarDetalhesProva(item.id_teste),
+                )}
+                        >
+                          <div class="rh-recent-avatar-wrap">
+                            <span class="rh-recent-avatar">
+                              ${String(item.nome_candidato || 'C')
+                .trim()
+                .slice(0, 1)
+                .toUpperCase()}
+                            </span>
+                          </div>
+                          <div class="rh-recent-card-body">
+                            <strong>${item.nome_candidato || '-'}</strong>
+                            <span>${item.vaga || '-'}</span>
+                            <span>${item.data_exibicao || '-'}</span>
+                          </div>
+                          <span class="material-symbols-outlined">arrow_forward</span>
+                        </button>
+                      `,
+          )}
+                  </div>
+                `
+          : html`
+                  <${EmptyState}
+                    title="Nenhum registro salvo"
+                    text="Assim que uma prova for concluida e salva, ela aparecera aqui."
+                  />
+                `}
+        </${SectionCard}>
+      </div>
+
+      <div class="home-dashboard-grid home-dashboard-grid--secondary">
+        <${SectionCard}
+          title="Processos em andamento"
+          className="process-progress-card compact-dashboard-card"
+        >
+          ${processosAndamento.length
+            ? html`
+                <div class="process-progress-list active-process-list">
+                  ${processosAndamento.map(
+                    (item) => html`
+                      <article class="process-progress-item active-process-card" key=${item.id}>
+                        <div class="active-process-info">
+                          <strong>${item.nome}</strong>
+                          <div class="active-process-meta">
+                            <span>${item.candidatos} candidatos</span>
+                            <span>${item.percentual}% preenchido</span>
+                          </div>
                         </div>
-                        <div class="rh-recent-card-body">
-                          <strong>${item.nome_candidato || '-'}</strong>
-                          <span>${item.vaga || '-'}</span>
-                          <span>${item.data_exibicao || '-'}</span>
+                        <div class="active-process-actions">
+                          <button
+                            type="button"
+                            class="btn-soft-primary"
+                            onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
+                          >
+                            Ver processos
+                          </button>
                         </div>
-                        <span class="material-symbols-outlined">arrow_forward</span>
-                      </button>
+                      </article>
                     `,
-        )}
+                  )}
                 </div>
               `
-        : html`
+            : html`
                 <${EmptyState}
-                  title="Nenhum registro salvo"
-                  text="Assim que uma prova for concluida e salva, ela aparecera aqui."
+                  title="Nenhum processo em andamento"
+                  text="Os processos abertos aparecerão aqui assim que forem cadastrados."
                 />
               `}
-      </${SectionCard}>
+        </${SectionCard}>
+
+        <${SectionCard}
+          title="Resumo rapido"
+          description="Visao imediata do volume mais recente salvo no sistema."
+          className="quick-summary-card compact-dashboard-card"
+        >
+          <div class="quick-summary-grid">
+            <article class="quick-summary-item">
+              <span class="material-symbols-outlined quick-summary-icon">
+                history
+              </span>
+              <div>
+                <span class="quick-summary-label">Registros recentes</span>
+                <strong class="quick-summary-value">${recentes.length}</strong>
+                <span class="quick-summary-helper">
+                  Ultimos itens visiveis no painel
+                </span>
+              </div>
+            </article>
+            <article class="quick-summary-item">
+              <span class="material-symbols-outlined quick-summary-icon">
+                sync
+              </span>
+              <div>
+                <span class="quick-summary-label">Status de carregamento</span>
+                <strong class="quick-summary-value">
+                  ${carregando ? 'Atualizando' : 'Pronto'}
+                </strong>
+                <span class="quick-summary-helper">
+                  Consulta do historico consolidado
+                </span>
+              </div>
+            </article>
+          </div>
+        </${SectionCard}>
+      </div>
 
       <${ModalDetalhesProva}
         detalhe=${detalheAberto}
@@ -2227,6 +2360,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
                       <th>Última movimentação</th>
                       <th>Aprovação</th>
                       <th>Eliminação/Reprovação</th>
+                      <th>Motivo eliminação</th>
+                      <th>Etapa eliminação</th>
                       <th>Banco</th>
                       <th>Contato</th>
                     </tr>
@@ -2250,6 +2385,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
                               <td>${formatarDataHora(linha.data_movimentacao)}</td>
                               <td>${formatarDataHora(linha.data_aprovacao)}</td>
                               <td>${formatarDataHora(linha.data_eliminacao_reprovacao)}</td>
+                              <td>${linha.motivo_eliminacao || (String(linha.status_atual || linha.status || '').toLowerCase().includes('eliminado') ? 'Motivo não informado' : '-')}</td>
+                              <td>${linha.etapa_eliminacao || '-'}</td>
                               <td>${formatarDataHora(linha.data_banco_talentos)}</td>
                               <td>
                                 <div>${linha.email || '-'}</div>
@@ -2258,7 +2395,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                             </tr>
                           `,
           )
-          : html`<${TabelaVazia} colunas=${12} texto="Nenhum candidato no periodo." />`}
+          : html`<${TabelaVazia} colunas=${14} texto="Nenhum candidato no periodo." />`}
                   </tbody>
                 </table>
               </div>
