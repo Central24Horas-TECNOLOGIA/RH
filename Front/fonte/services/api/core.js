@@ -10,6 +10,7 @@ export const URL_PUBLICA_BASE_CANDIDATURA =
 const TEMPO_CACHE_MS = 15000;
 const CHAVE_TOKEN_AUTENTICACAO = 'rh_api_access_token';
 const CHAVE_USUARIO_AUTENTICADO = 'rh_api_authenticated_user';
+const CHAVE_SESSAO_AUTENTICACAO = 'rh_api_session_payload';
 
 export const EVENTO_AUTENTICACAO_EXPIRADA = 'rh-auth-expired';
 
@@ -36,20 +37,57 @@ function gravarCache(chave, data) {
 }
 
 export function lerSessaoAutenticacao() {
+  let payload = {};
+  try {
+    payload = JSON.parse(sessionStorage.getItem(CHAVE_SESSAO_AUTENTICACAO) || '{}');
+  } catch (error) {
+    payload = {};
+  }
+
   return {
     token: sessionStorage.getItem(CHAVE_TOKEN_AUTENTICACAO) || '',
     usuario: sessionStorage.getItem(CHAVE_USUARIO_AUTENTICADO) || '',
+    nome: payload.nome || '',
+    email: payload.email || '',
+    perfil: payload.perfil || '',
+    perfil_nome: payload.perfil_nome || '',
+    nivel: payload.nivel || '',
+    permissoes: Array.isArray(payload.permissoes) ? payload.permissoes : [],
   };
 }
 
-export function salvarSessaoAutenticacao(token, usuario) {
+export function salvarSessaoAutenticacao(token, sessaoOuUsuario) {
+  const sessao =
+    typeof sessaoOuUsuario === 'object' && sessaoOuUsuario !== null
+      ? sessaoOuUsuario
+      : { usuario: sessaoOuUsuario || '' };
   sessionStorage.setItem(CHAVE_TOKEN_AUTENTICACAO, token || '');
-  sessionStorage.setItem(CHAVE_USUARIO_AUTENTICADO, usuario || '');
+  sessionStorage.setItem(CHAVE_USUARIO_AUTENTICADO, sessao.usuario || sessao.email || '');
+  sessionStorage.setItem(
+    CHAVE_SESSAO_AUTENTICACAO,
+    JSON.stringify({
+      usuario: sessao.usuario || sessao.email || '',
+      nome: sessao.nome || '',
+      email: sessao.email || '',
+      perfil: sessao.perfil || '',
+      perfil_nome: sessao.perfil_nome || '',
+      nivel: sessao.nivel || '',
+      permissoes: Array.isArray(sessao.permissoes) ? sessao.permissoes : [],
+    }),
+  );
 }
 
 export function limparSessaoAutenticacao() {
-  sessionStorage.removeItem(CHAVE_TOKEN_AUTENTICACAO);
-  sessionStorage.removeItem(CHAVE_USUARIO_AUTENTICADO);
+  [sessionStorage, localStorage].forEach((armazenamento) => {
+    try {
+      armazenamento.removeItem(CHAVE_TOKEN_AUTENTICACAO);
+      armazenamento.removeItem(CHAVE_USUARIO_AUTENTICADO);
+      armazenamento.removeItem(CHAVE_SESSAO_AUTENTICACAO);
+    } catch (error) {
+      logger.warn('Nao foi possivel limpar dados locais de autenticacao.', error);
+    }
+  });
+  cacheMemoria.clear();
 }
 
 export function possuiSessaoAutenticada() {

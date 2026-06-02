@@ -1,6 +1,6 @@
 window.RUNTIME_CONFIG = {
   ...(window.RUNTIME_CONFIG || {}),
-  API_BASE_URL: 'http://192.168.5.19:8010',
+  API_BASE_URL: 'http://127.0.0.1:8010',
   PUBLIC_CANDIDATE_BASE_URL: '',
 };
 

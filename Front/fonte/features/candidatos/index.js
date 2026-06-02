@@ -131,8 +131,13 @@ function renderizarAcoesCandidatoCentral({
   onEliminar,
   onBanco,
   onAtrelar,
+  controlador,
 }) {
   const estadoAcoes = obterEstadoAcoesCentral(candidato);
+  const podeAprovar = controlador?.possuiPermissao?.('candidatos.aprovar_final');
+  const podeEliminar = controlador?.possuiPermissao?.('candidatos.eliminar');
+  const podeMover = controlador?.possuiPermissao?.('candidatos.mover_etapa');
+  const podeCriar = controlador?.possuiPermissao?.('candidatos.criar');
 
   return html`
     <div class="btn-group btn-group-sm">
@@ -144,7 +149,7 @@ function renderizarAcoesCandidatoCentral({
       >
         Detalhes
       </button>
-      ${estadoAcoes.canApprove
+      ${estadoAcoes.canApprove && podeAprovar
         ? html`
             <button
               type="button"
@@ -157,7 +162,7 @@ function renderizarAcoesCandidatoCentral({
             </button>
           `
         : null}
-      ${estadoAcoes.canEliminate
+      ${estadoAcoes.canEliminate && podeEliminar
         ? html`
             <button
               type="button"
@@ -172,7 +177,8 @@ function renderizarAcoesCandidatoCentral({
         : null}
       ${estadoAcoes.canSendToTalentBank &&
       candidato.origem_cadastro !== 'banco' &&
-      candidato.id_teste
+      candidato.id_teste &&
+      podeMover
         ? html`
             <button
               type="button"
@@ -185,7 +191,7 @@ function renderizarAcoesCandidatoCentral({
             </button>
           `
         : null}
-      ${candidatoPodeAtrelar(candidato)
+      ${candidatoPodeAtrelar(candidato) && podeCriar
         ? html`
             <button
               type="button"
@@ -210,17 +216,31 @@ function renderizarAcoesRapidasDetalhe({
   onBanco,
   onEditar,
   onAtrelar,
+  controlador,
 }) {
   const estadoAcoes = obterEstadoAcoesCentral(detalhe);
+  const podeAprovar = controlador?.possuiPermissao?.('candidatos.aprovar_final');
+  const podeEliminar = controlador?.possuiPermissao?.('candidatos.eliminar');
+  const podeMover = controlador?.possuiPermissao?.('candidatos.mover_etapa');
+  const podeEditarPermissao = controlador?.possuiAlgumaPermissao?.(
+    'candidatos.editar',
+    'candidatos.editar_basico',
+    'candidatos.editar_admissional',
+  );
+  const podeCriar = controlador?.possuiPermissao?.('candidatos.criar');
   const podeEditar =
-    !estadoAcoes.processClosed && !estadoAcoes.isFinalized && detalhe?.id_teste;
+    podeEditarPermissao &&
+    !estadoAcoes.processClosed &&
+    !estadoAcoes.isFinalized &&
+    detalhe?.id_teste;
   const temMovimentacao =
-    estadoAcoes.canApprove ||
-    estadoAcoes.canEliminate ||
+    (estadoAcoes.canApprove && podeAprovar) ||
+    (estadoAcoes.canEliminate && podeEliminar) ||
     (estadoAcoes.canSendToTalentBank &&
       detalhe.origem_cadastro !== 'banco' &&
-      detalhe.id_teste) ||
-    candidatoPodeAtrelar(detalhe) ||
+      detalhe.id_teste &&
+      podeMover) ||
+    (candidatoPodeAtrelar(detalhe) && podeCriar) ||
     podeEditar;
 
   if (!temMovimentacao) {
@@ -235,7 +255,7 @@ function renderizarAcoesRapidasDetalhe({
 
   return html`
     <div class="rh-modal-footer-actions">
-      ${estadoAcoes.canApprove
+      ${estadoAcoes.canApprove && podeAprovar
         ? html`
             <button
               type="button"
@@ -247,7 +267,7 @@ function renderizarAcoesRapidasDetalhe({
             </button>
           `
         : null}
-      ${estadoAcoes.canEliminate
+      ${estadoAcoes.canEliminate && podeEliminar
         ? html`
             <button
               type="button"
@@ -261,7 +281,8 @@ function renderizarAcoesRapidasDetalhe({
         : null}
       ${estadoAcoes.canSendToTalentBank &&
       detalhe.origem_cadastro !== 'banco' &&
-      detalhe.id_teste
+      detalhe.id_teste &&
+      podeMover
         ? html`
             <button
               type="button"
@@ -285,7 +306,7 @@ function renderizarAcoesRapidasDetalhe({
             </button>
           `
         : null}
-      ${candidatoPodeAtrelar(detalhe)
+      ${candidatoPodeAtrelar(detalhe) && podeCriar
         ? html`
             <button
               type="button"
@@ -1669,7 +1690,8 @@ export function TelaCandidatos({ controlador }) {
                               <td>${candidato.origem_rotulo || '-'}</td>
                               <td>${formatarDataHora(candidato.data_exibicao)}</td>
                               <td>
-                                ${candidato.cv_disponivel
+                                ${candidato.cv_disponivel &&
+                                controlador.possuiPermissao('candidatos.baixar_curriculo')
                                   ? html`
                                       <button
                                         type="button"
@@ -1694,6 +1716,7 @@ export function TelaCandidatos({ controlador }) {
                                     ),
                                   onBanco: enviarParaBanco,
                                   onAtrelar: abrirAtrelar,
+                                  controlador,
                                 })}
                               </td>
                             </tr>
@@ -1991,6 +2014,7 @@ export function TelaCandidatos({ controlador }) {
                     onBanco: enviarParaBanco,
                     onEditar: abrirEdicaoCandidato,
                     onAtrelar: abrirAtrelar,
+                    controlador,
                   })}
                 </${SectionCard}>
               </div>

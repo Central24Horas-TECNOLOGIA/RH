@@ -13,6 +13,7 @@ import {
   analisarCvEmailRecebido,
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
+  atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
@@ -51,10 +52,12 @@ import {
   lerEmailsRecebidos,
   lerEmailsRecebidosProcesso,
   lerEntrevistas,
+  lerFichaCandidato,
   lerHistorico,
   lerHistoricoPaginado,
   lerPipelineCandidatos,
   lerSessaoAutenticacao,
+  limparSessaoAutenticacao,
   lerPreAnalisesCv,
   lerRelatorioCandidatos,
   lerRelatorioProcessos,
@@ -71,6 +74,22 @@ import {
   usarCandidatoDoBancoTalentos,
   excluirEmailRecebido,
   verificarSessaoApi,
+  alterarStatusUsuario,
+  atualizarItemConfiguracao,
+  atualizarPermissoesPerfil,
+  atualizarUsuario,
+  baixarLogsAuditoria,
+  criarItemConfiguracao,
+  criarUsuario,
+  desativarItemConfiguracao,
+  excluirUsuario,
+  listarCatalogoConfiguracoes,
+  listarLogsAuditoria,
+  listarPerfis,
+  listarPermissoes,
+  listarUsuarios,
+  redefinirSenhaUsuario,
+  registrarSolicitacaoLgpd,
 } from '../servico-api.js';
 import { criarLogger } from '../logger.js';
 import {
@@ -101,6 +120,27 @@ export const TAMANHO_RECENTES = 6;
 export const TAMANHO_HISTORICO = 10;
 export const TAMANHO_ANALISE = 5;
 export const TAMANHO_DETALHE_PROCESSO = 5;
+export const MENSAGEM_ACESSO_NEGADO =
+  'Voce nao possui permissao para acessar esta area ou executar esta acao.';
+export const PERMISSOES_TELAS = {
+  'screen-menu': 'inicio.visualizar',
+  'screen-email-inbox': 'candidatos.criar',
+  'screen-history': 'candidatos.consultar_historico',
+  'screen-process-create': 'vagas.criar',
+  'screen-processes': 'vagas.visualizar',
+  'screen-candidates': 'candidatos.visualizar',
+  'screen-candidate-pipeline': 'candidatos.mover_etapa',
+  'screen-process-details': 'processos.visualizar',
+  'screen-interviews': 'entrevistas.visualizar',
+  'screen-analysis-candidates': 'relatorios.visualizar',
+  'screen-talent-bank': 'candidatos.visualizar',
+  'screen-settings': 'configuracoes.visualizar',
+  'screen-config': 'provas.enviar',
+  'screen-candidate': 'provas.enviar',
+  'screen-exam': 'provas.enviar',
+  'screen-result': 'provas.visualizar',
+  'screen-thanks': 'provas.enviar',
+};
 const logger = criarLogger('controlador-aplicacao');
 
 /**
@@ -115,6 +155,13 @@ export function criarEstadoInicial() {
     autenticado,
     validandoSessao: autenticado,
     usuarioAutenticado: sessao.usuario || '',
+    nomeUsuarioAutenticado: sessao.nome || sessao.usuario || '',
+    emailUsuarioAutenticado: sessao.email || '',
+    perfilUsuario: sessao.perfil || '',
+    perfilUsuarioNome: sessao.perfil_nome || '',
+    nivelPerfilUsuario: sessao.nivel || '',
+    permissoesUsuario: Array.isArray(sessao.permissoes) ? sessao.permissoes : [],
+    avisoAcessoNegado: '',
     barraLateralRecolhida: false,
     candidato: {
       id_processo: '',
@@ -193,6 +240,13 @@ export function persistirEstado(estado) {
       autenticado: _autenticado,
       validandoSessao: _validandoSessao,
       usuarioAutenticado: _usuarioAutenticado,
+      nomeUsuarioAutenticado: _nomeUsuarioAutenticado,
+      emailUsuarioAutenticado: _emailUsuarioAutenticado,
+      perfilUsuario: _perfilUsuario,
+      perfilUsuarioNome: _perfilUsuarioNome,
+      nivelPerfilUsuario: _nivelPerfilUsuario,
+      permissoesUsuario: _permissoesUsuario,
+      avisoAcessoNegado: _avisoAcessoNegado,
       ...estadoPersistivel
     } = estado;
 
@@ -483,6 +537,13 @@ export function useControladorAplicacao() {
           autenticado: false,
           validandoSessao: false,
           usuarioAutenticado: '',
+          nomeUsuarioAutenticado: '',
+          emailUsuarioAutenticado: '',
+          perfilUsuario: '',
+          perfilUsuarioNome: '',
+          nivelPerfilUsuario: '',
+          permissoesUsuario: [],
+          avisoAcessoNegado: '',
         }));
         return;
       }
@@ -497,6 +558,18 @@ export function useControladorAplicacao() {
           validandoSessao: false,
           usuarioAutenticado:
             sessao?.usuario || lerSessaoAutenticacao().usuario,
+          nomeUsuarioAutenticado:
+            sessao?.nome || lerSessaoAutenticacao().nome || sessao?.usuario || '',
+          emailUsuarioAutenticado:
+            sessao?.email || lerSessaoAutenticacao().email || '',
+          perfilUsuario: sessao?.perfil || lerSessaoAutenticacao().perfil || '',
+          perfilUsuarioNome:
+            sessao?.perfil_nome || lerSessaoAutenticacao().perfil_nome || '',
+          nivelPerfilUsuario: sessao?.nivel || lerSessaoAutenticacao().nivel || '',
+          permissoesUsuario: Array.isArray(sessao?.permissoes)
+            ? sessao.permissoes
+            : lerSessaoAutenticacao().permissoes || [],
+          avisoAcessoNegado: '',
         }));
       } catch (error) {
         if (!ativo) return;
@@ -600,12 +673,47 @@ export function useControladorAplicacao() {
     );
   };
 
+  const possuiPermissao = (permissao) => {
+    if (!permissao) return true;
+    return (estado.permissoesUsuario || []).includes(permissao);
+  };
+
+  const possuiAlgumaPermissao = (...permissoes) =>
+    permissoes.some((permissao) => possuiPermissao(permissao));
+
+  const podeAcessarTela = (tela) => {
+    const permissao = PERMISSOES_TELAS[tela];
+    return !permissao || possuiPermissao(permissao);
+  };
+
+  const registrarAcessoNegado = (mensagem = MENSAGEM_ACESSO_NEGADO) => {
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      avisoAcessoNegado: mensagem,
+    }));
+  };
+
+  const limparAcessoNegado = () => {
+    if (!estado.avisoAcessoNegado) return;
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      avisoAcessoNegado: '',
+    }));
+  };
+
   const irParaTelaProtegida = (tela) => {
     if (!estado.autenticado && tela !== 'screen-login') {
       navegarParaTela('screen-login');
       return;
     }
 
+    if (!podeAcessarTela(tela)) {
+      registrarAcessoNegado();
+      navegarParaTela('screen-forbidden');
+      return;
+    }
+
+    limparAcessoNegado();
     navegarParaTela(tela);
   };
 
@@ -633,6 +741,15 @@ export function useControladorAplicacao() {
         autenticado: true,
         validandoSessao: false,
         usuarioAutenticado: sessao?.usuario || usuario,
+        nomeUsuarioAutenticado: sessao?.nome || sessao?.usuario || usuario,
+        emailUsuarioAutenticado: sessao?.email || '',
+        perfilUsuario: sessao?.perfil || '',
+        perfilUsuarioNome: sessao?.perfil_nome || '',
+        nivelPerfilUsuario: sessao?.nivel || '',
+        permissoesUsuario: Array.isArray(sessao?.permissoes)
+          ? sessao.permissoes
+          : [],
+        avisoAcessoNegado: '',
       }));
       navegarParaTela('screen-menu');
       return { ok: true };
@@ -652,6 +769,15 @@ export function useControladorAplicacao() {
         autenticado: true,
         validandoSessao: false,
         usuarioAutenticado: sessao?.usuario || usuario,
+        nomeUsuarioAutenticado: sessao?.nome || sessao?.usuario || usuario,
+        emailUsuarioAutenticado: sessao?.email || '',
+        perfilUsuario: sessao?.perfil || '',
+        perfilUsuarioNome: sessao?.perfil_nome || '',
+        nivelPerfilUsuario: sessao?.nivel || '',
+        permissoesUsuario: Array.isArray(sessao?.permissoes)
+          ? sessao.permissoes
+          : [],
+        avisoAcessoNegado: '',
         acessoRhLiberadoAposProva: true,
       }));
       return { ok: true };
@@ -665,11 +791,9 @@ export function useControladorAplicacao() {
 
   const sair = () => {
     encerrarSessaoApi().catch(() => null);
+    limparSessaoAutenticacao();
     limparEstadoPersistido();
-    setEstado((anterior) => ({
-      ...criarEstadoInicial(),
-      candidato: { ...criarEstadoInicial().candidato },
-    }));
+    setEstado(criarEstadoInicial());
     navegarParaTela('screen-login');
   };
 
@@ -678,6 +802,12 @@ export function useControladorAplicacao() {
   };
 
   const iniciarNovoFluxo = () => {
+    if (!possuiPermissao('provas.enviar')) {
+      registrarAcessoNegado();
+      navegarParaTela('screen-forbidden');
+      return;
+    }
+
     atualizarEstado((anterior) => ({
       ...anterior,
       candidato: {
@@ -1070,6 +1200,10 @@ export function useControladorAplicacao() {
     sair,
     exigirNovoLogin,
     alternarBarraLateral,
+    possuiPermissao,
+    possuiAlgumaPermissao,
+    podeAcessarTela,
+    registrarAcessoNegado,
     irParaMenu,
     irParaTelaProtegida,
     iniciarNovoFluxo,
@@ -1092,6 +1226,7 @@ export {
   analisarCvEmailRecebido,
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
+  atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
@@ -1124,6 +1259,7 @@ export {
   lerEmailsRecebidos,
   lerEmailsRecebidosProcesso,
   lerEntrevistas,
+  lerFichaCandidato,
   lerHistorico,
   lerHistoricoPaginado,
   lerPipelineCandidatos,
@@ -1139,4 +1275,20 @@ export {
   excluirEmailRecebido,
   usarCandidatoDoBancoTalentos,
   vincularEmailRecebidoProcesso,
+  alterarStatusUsuario,
+  atualizarItemConfiguracao,
+  atualizarPermissoesPerfil,
+  atualizarUsuario,
+  baixarLogsAuditoria,
+  criarItemConfiguracao,
+  criarUsuario,
+  desativarItemConfiguracao,
+  excluirUsuario,
+  listarCatalogoConfiguracoes,
+  listarLogsAuditoria,
+  listarPerfis,
+  listarPermissoes,
+  listarUsuarios,
+  redefinirSenhaUsuario,
+  registrarSolicitacaoLgpd,
 };

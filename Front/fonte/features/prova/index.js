@@ -430,6 +430,7 @@ export function TelaConfiguracao({ controlador }) {
       controlador=${controlador}
       acaoPrimaria=${{
         label: 'Iniciar teste',
+        permissao: 'provas.enviar',
         onClick: () => controlador.iniciarNovoFluxo(),
       }}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}

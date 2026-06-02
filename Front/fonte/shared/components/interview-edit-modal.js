@@ -4,13 +4,17 @@ import { isProcessClosed } from '../process-flow.js';
 import { ModalPadrao } from '../../ui/componentes-compartilhados.js';
 
 export const STATUS_ENTREVISTA = [
+  'Pendente de confirmação',
   'Agendado',
   'Confirmado',
   'Reagendado',
+  'Não respondeu',
+  'Cancelado',
   'Faltou',
   'Compareceu',
   'Aprovado',
   'Eliminado',
+  'Desistente',
   'Banco de talentos',
 ];
 

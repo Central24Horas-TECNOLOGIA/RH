@@ -14,8 +14,20 @@ class LoginResponse(BaseSchema):
     access_token: str
     token_type: str = "bearer"
     usuario: str
+    nome: str = ""
+    email: str = ""
+    perfil: str = "administrador"
+    perfil_nome: str = "Administrador"
+    nivel: str = "Completo"
+    permissoes: list[str] = []
 
 
 class SessionResponse(BaseSchema):
     authenticated: bool = True
     usuario: str
+    nome: str = ""
+    email: str = ""
+    perfil: str = "administrador"
+    perfil_nome: str = "Administrador"
+    nivel: str = "Completo"
+    permissoes: list[str] = []

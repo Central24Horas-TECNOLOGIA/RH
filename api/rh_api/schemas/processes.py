@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from pydantic import Field, field_validator, model_validator
 
 from .common import BaseSchema
+
+
+def _normalize_compare_value(value: str) -> str:
+    normalized = unicodedata.normalize("NFD", str(value or "").strip())
+    normalized = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+    return normalized.lower()
 
 
 class ProcessCreateRequest(BaseSchema):
@@ -348,4 +355,86 @@ class CandidateProfileUpdateRequest(BaseSchema):
         safe_value = str(value or "").strip()
         if len(safe_value) > 120:
             raise ValueError("Cidade e bairro devem ter no máximo 120 caracteres.")
+        return safe_value
+
+
+class CandidateSheetUpdateRequest(BaseSchema):
+    nome_candidato: str | None = None
+    email: str | None = None
+    telefone: str | None = None
+    whatsapp: str | None = None
+    cidade: str | None = None
+    bairro: str | None = None
+    observacao_rh: str | None = None
+    classificacao: str | None = None
+    classificacao_indicacao: str | None = None
+    justificativa: str | None = None
+    justificativa_indicacao: str | None = None
+
+    @field_validator("nome_candidato")
+    @classmethod
+    def validate_optional_candidate_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 255:
+            raise ValueError("O nome do candidato deve ter no mÃ¡ximo 255 caracteres.")
+        return safe_value
+
+    @field_validator("email")
+    @classmethod
+    def validate_sheet_email(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if safe_value and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", safe_value):
+            raise ValueError("Informe um e-mail vÃ¡lido.")
+        return safe_value
+
+    @field_validator("telefone", "whatsapp")
+    @classmethod
+    def validate_sheet_phone(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        digits = re.sub(r"\D", "", safe_value)
+        if safe_value and len(digits) not in (10, 11, 12, 13):
+            raise ValueError("Informe um telefone ou WhatsApp vÃ¡lido.")
+        return safe_value
+
+    @field_validator("cidade", "bairro")
+    @classmethod
+    def validate_sheet_location(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 120:
+            raise ValueError("Cidade e bairro devem ter no mÃ¡ximo 120 caracteres.")
+        return safe_value
+
+    @field_validator("observacao_rh", "justificativa", "justificativa_indicacao")
+    @classmethod
+    def validate_sheet_long_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 3000:
+            raise ValueError("Os textos da ficha devem ter no mÃ¡ximo 3000 caracteres.")
+        return safe_value
+
+    @field_validator("classificacao", "classificacao_indicacao")
+    @classmethod
+    def validate_sheet_recommendation(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        valid_values = {
+            "indicado",
+            "indicado com restricoes",
+            "contraindicado",
+        }
+        if _normalize_compare_value(safe_value) not in valid_values:
+            raise ValueError("ClassificaÃ§Ã£o da ficha do candidato invÃ¡lida.")
         return safe_value

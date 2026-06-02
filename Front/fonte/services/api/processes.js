@@ -169,6 +169,26 @@ export async function atualizarPerfilCandidato(idTeste, payload) {
   return resultado;
 }
 
+export async function lerFichaCandidato(idTeste) {
+  return requisitar(`/candidate-profiles/${encodeURIComponent(idTeste)}/sheet`, {
+    method: 'GET',
+  });
+}
+
+export async function atualizarFichaCandidato(idTeste, payload) {
+  const resultado = await requisitar(
+    `/candidate-profiles/${encodeURIComponent(idTeste)}/sheet`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos');
+  return resultado;
+}
+
 export async function usarCandidatoDoBancoTalentos(idBanco, dadosUso) {
   const resultado = await requisitar(`/talent-bank/${idBanco}/use`, {
     method: 'POST',

@@ -1,5 +1,6 @@
 import {
   limparSessaoAutenticacao,
+  lerSessaoAutenticacao,
   possuiSessaoAutenticada,
   requisitar,
   salvarSessaoAutenticacao,
@@ -16,12 +17,14 @@ export async function fazerLoginApi(usuario, senha) {
     { autenticado: false },
   );
 
-  salvarSessaoAutenticacao(resultado.access_token, resultado.usuario);
+  salvarSessaoAutenticacao(resultado.access_token, resultado);
   return resultado;
 }
 
 export async function verificarSessaoApi() {
-  return requisitar('/auth/me', { method: 'GET' });
+  const sessao = await requisitar('/auth/me', { method: 'GET' });
+  salvarSessaoAutenticacao(lerSessaoAutenticacao().token, sessao);
+  return sessao;
 }
 
 export async function encerrarSessaoApi() {

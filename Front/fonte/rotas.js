@@ -11,6 +11,7 @@ export const ROTAS_POR_TELA = {
   'screen-process-details': 'detalhes-processo',
   'screen-interviews': 'entrevistas',
   'screen-talent-bank': 'banco-talentos',
+  'screen-settings': 'configuracoes',
   'screen-config': 'configuracao',
   'screen-candidate': 'candidato',
   'screen-exam': 'prova',
@@ -18,6 +19,7 @@ export const ROTAS_POR_TELA = {
   'screen-result': 'resultado',
   'screen-analysis-candidates': 'analise-candidatos',
   'screen-public-candidacy': 'candidatar',
+  'screen-forbidden': 'acesso-negado',
 };
 
 export const TELAS_POR_ROTA = Object.entries(ROTAS_POR_TELA).reduce(

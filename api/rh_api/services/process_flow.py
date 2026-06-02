@@ -8,9 +8,12 @@ PROCESS_STATUS_CLOSED = "Encerrado"
 CANDIDATE_STATUS_ANALYSIS = "Analise"
 CANDIDATE_STATUS_QUALIFIED = "Qualificado"
 CANDIDATE_STATUS_NOT_QUALIFIED = "Nao qualificado"
+CANDIDATE_STATUS_PENDING_CONFIRMATION = "Pendente de confirmação"
 CANDIDATE_STATUS_SCHEDULED = "Agendado"
 CANDIDATE_STATUS_CONFIRMED = "Confirmado"
 CANDIDATE_STATUS_RESCHEDULED = "Reagendado"
+CANDIDATE_STATUS_NO_RESPONSE = "Não respondeu"
+CANDIDATE_STATUS_CANCELED = "Cancelado"
 CANDIDATE_STATUS_ATTENDED = "Compareceu"
 CANDIDATE_STATUS_MISSED = "Faltou"
 CANDIDATE_STATUS_WITHDREW = "Desistente"
@@ -19,9 +22,12 @@ CANDIDATE_STATUS_ELIMINATED = "Eliminado"
 CANDIDATE_STATUS_TALENT_BANK = "Banco de talentos"
 
 INTERVIEW_OPERATIONAL_STATUSES = {
+    CANDIDATE_STATUS_PENDING_CONFIRMATION,
     CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_RESCHEDULED,
+    CANDIDATE_STATUS_NO_RESPONSE,
+    CANDIDATE_STATUS_CANCELED,
     CANDIDATE_STATUS_ATTENDED,
     CANDIDATE_STATUS_MISSED,
 }
@@ -37,9 +43,12 @@ TERMINAL_CANDIDATE_STATUSES = {
 ACTIVE_CANDIDATE_STATUSES = {
     CANDIDATE_STATUS_ANALYSIS,
     CANDIDATE_STATUS_QUALIFIED,
+    CANDIDATE_STATUS_PENDING_CONFIRMATION,
     CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_RESCHEDULED,
+    CANDIDATE_STATUS_NO_RESPONSE,
+    CANDIDATE_STATUS_CANCELED,
     CANDIDATE_STATUS_ATTENDED,
 }
 
@@ -83,6 +92,8 @@ def canonicalize_candidate_status(status: str | None) -> str:
         return CANDIDATE_STATUS_QUALIFIED
     if safe_status == "nao qualificado":
         return CANDIDATE_STATUS_NOT_QUALIFIED
+    if safe_status in {"pendente de confirmacao", "pendente confirmacao"}:
+        return CANDIDATE_STATUS_PENDING_CONFIRMATION
     if safe_status == "agendado":
         return CANDIDATE_STATUS_SCHEDULED
     if safe_status == "entrevista agendada":
@@ -91,11 +102,15 @@ def canonicalize_candidate_status(status: str | None) -> str:
         return CANDIDATE_STATUS_CONFIRMED
     if safe_status == "reagendado":
         return CANDIDATE_STATUS_RESCHEDULED
+    if safe_status == "nao respondeu":
+        return CANDIDATE_STATUS_NO_RESPONSE
+    if safe_status == "cancelado":
+        return CANDIDATE_STATUS_CANCELED
     if safe_status == "compareceu":
         return CANDIDATE_STATUS_ATTENDED
     if safe_status == "faltou":
         return CANDIDATE_STATUS_MISSED
-    if safe_status == "desistente":
+    if safe_status in {"desistiu", "desistente"}:
         return CANDIDATE_STATUS_WITHDREW
     if safe_status == "aprovado":
         return CANDIDATE_STATUS_APPROVED

@@ -10,6 +10,8 @@ from fastapi import HTTPException, status
 
 from ..config import Settings
 from ..db import get_connection
+from ..passwords import hash_password
+from ..rbac import PERMISSION_DEFINITIONS, ROLE_ADMIN, ROLE_DEFINITIONS, ROLE_PERMISSIONS, SETTINGS_CATALOGS
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
 
 
@@ -19,6 +21,353 @@ _SCHEMA_BOOTSTRAPPED = False
 _SQL_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 PROCESS_REF_SEPARATOR = "@@"
 LOCAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
+
+
+def ensure_security_tables(cursor, settings: Settings) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.perfis', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.perfis (
+                id_perfil NVARCHAR(40) NOT NULL PRIMARY KEY,
+                nome NVARCHAR(80) NOT NULL,
+                nivel NVARCHAR(40) NULL,
+                descricao NVARCHAR(500) NULL,
+                ativo BIT NOT NULL CONSTRAINT DF_perfis_ativo DEFAULT 1,
+                sistema BIT NOT NULL CONSTRAINT DF_perfis_sistema DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.permissoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.permissoes (
+                chave NVARCHAR(120) NOT NULL PRIMARY KEY,
+                modulo NVARCHAR(80) NULL,
+                descricao NVARCHAR(500) NULL,
+                critica BIT NOT NULL CONSTRAINT DF_permissoes_critica DEFAULT 0,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.perfil_permissoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.perfil_permissoes (
+                id_perfil NVARCHAR(40) NOT NULL,
+                chave_permissao NVARCHAR(120) NOT NULL,
+                permitido BIT NOT NULL CONSTRAINT DF_perfil_permissoes_permitido DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                CONSTRAINT PK_perfil_permissoes PRIMARY KEY (id_perfil, chave_permissao)
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.usuarios', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.usuarios (
+                id_usuario INT IDENTITY(1,1) PRIMARY KEY,
+                login NVARCHAR(120) NOT NULL,
+                nome NVARCHAR(180) NOT NULL,
+                email NVARCHAR(180) NOT NULL,
+                perfil_id NVARCHAR(40) NOT NULL,
+                status NVARCHAR(30) NOT NULL CONSTRAINT DF_usuarios_status DEFAULT 'Ativo',
+                senha_hash NVARCHAR(500) NOT NULL,
+                criado_por NVARCHAR(180) NULL,
+                atualizado_por NVARCHAR(180) NULL,
+                ultimo_acesso_em DATETIME NULL,
+                bloqueado_em DATETIME NULL,
+                desativado_em DATETIME NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("login", "NVARCHAR(120)"),
+        ("nome", "NVARCHAR(180)"),
+        ("email", "NVARCHAR(180)"),
+        ("perfil_id", "NVARCHAR(40)"),
+        ("status", "NVARCHAR(30)"),
+        ("senha_hash", "NVARCHAR(500)"),
+        ("criado_por", "NVARCHAR(180)"),
+        ("atualizado_por", "NVARCHAR(180)"),
+        ("ultimo_acesso_em", "DATETIME"),
+        ("bloqueado_em", "DATETIME"),
+        ("desativado_em", "DATETIME"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.usuarios', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.usuarios
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.logs_auditoria', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.logs_auditoria (
+                id_log INT IDENTITY(1,1) PRIMARY KEY,
+                id_usuario INT NULL,
+                nome_usuario NVARCHAR(180) NULL,
+                email_usuario NVARCHAR(180) NULL,
+                perfil_id NVARCHAR(40) NULL,
+                perfil_nome NVARCHAR(80) NULL,
+                data_hora DATETIME NOT NULL DEFAULT GETDATE(),
+                modulo NVARCHAR(80) NULL,
+                acao NVARCHAR(120) NULL,
+                entidade NVARCHAR(120) NULL,
+                entidade_id NVARCHAR(180) NULL,
+                valor_anterior NVARCHAR(MAX) NULL,
+                valor_novo NVARCHAR(MAX) NULL,
+                justificativa NVARCHAR(MAX) NULL,
+                origem NVARCHAR(180) NULL,
+                sucesso BIT NOT NULL CONSTRAINT DF_logs_auditoria_sucesso DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_usuario", "INT"),
+        ("nome_usuario", "NVARCHAR(180)"),
+        ("email_usuario", "NVARCHAR(180)"),
+        ("perfil_id", "NVARCHAR(40)"),
+        ("perfil_nome", "NVARCHAR(80)"),
+        ("data_hora", "DATETIME"),
+        ("modulo", "NVARCHAR(80)"),
+        ("acao", "NVARCHAR(120)"),
+        ("entidade", "NVARCHAR(120)"),
+        ("entidade_id", "NVARCHAR(180)"),
+        ("valor_anterior", "NVARCHAR(MAX)"),
+        ("valor_novo", "NVARCHAR(MAX)"),
+        ("justificativa", "NVARCHAR(MAX)"),
+        ("origem", "NVARCHAR(180)"),
+        ("sucesso", "BIT"),
+        ("criado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.logs_auditoria', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.logs_auditoria
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    for role in ROLE_DEFINITIONS.values():
+        cursor.execute(
+            """
+            IF NOT EXISTS (SELECT 1 FROM perfis WHERE id_perfil = ?)
+            BEGIN
+                INSERT INTO perfis (id_perfil, nome, nivel, descricao, ativo, sistema, criado_em, atualizado_em)
+                VALUES (?, ?, ?, ?, 1, 1, GETDATE(), GETDATE())
+            END
+            ELSE
+            BEGIN
+                UPDATE perfis
+                SET nome = ?, nivel = ?, descricao = ?, ativo = 1, sistema = 1, atualizado_em = GETDATE()
+                WHERE id_perfil = ?
+            END
+            """,
+            (
+                role.id,
+                role.id,
+                role.name,
+                role.level,
+                role.description,
+                role.name,
+                role.level,
+                role.description,
+                role.id,
+            ),
+        )
+
+    for permission in PERMISSION_DEFINITIONS.values():
+        cursor.execute(
+            """
+            IF NOT EXISTS (SELECT 1 FROM permissoes WHERE chave = ?)
+            BEGIN
+                INSERT INTO permissoes (chave, modulo, descricao, critica, criado_em)
+                VALUES (?, ?, ?, ?, GETDATE())
+            END
+            ELSE
+            BEGIN
+                UPDATE permissoes
+                SET modulo = ?, descricao = ?, critica = ?
+                WHERE chave = ?
+            END
+            """,
+            (
+                permission.key,
+                permission.key,
+                permission.module,
+                permission.description,
+                1 if permission.critical else 0,
+                permission.module,
+                permission.description,
+                1 if permission.critical else 0,
+                permission.key,
+            ),
+        )
+
+    for role_id, permissions in ROLE_PERMISSIONS.items():
+        for permission_key in permissions:
+            cursor.execute(
+                """
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM perfil_permissoes
+                    WHERE id_perfil = ? AND chave_permissao = ?
+                )
+                BEGIN
+                    INSERT INTO perfil_permissoes
+                    (id_perfil, chave_permissao, permitido, criado_em, atualizado_em)
+                    VALUES (?, ?, 1, GETDATE(), GETDATE())
+                END
+                """,
+                (role_id, permission_key, role_id, permission_key),
+            )
+
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'UX_usuarios_login'
+              AND object_id = OBJECT_ID('dbo.usuarios')
+        )
+        BEGIN
+            CREATE UNIQUE INDEX UX_usuarios_login ON dbo.usuarios(login)
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'UX_usuarios_email'
+              AND object_id = OBJECT_ID('dbo.usuarios')
+        )
+        BEGIN
+            CREATE UNIQUE INDEX UX_usuarios_email ON dbo.usuarios(email)
+        END
+        """
+    )
+
+    default_login = settings.auth_user or "rh"
+    default_password = settings.auth_password or "1234"
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM usuarios
+            WHERE LOWER(login) = LOWER(?) OR LOWER(email) = LOWER(?)
+        )
+        BEGIN
+            INSERT INTO usuarios
+            (
+                login,
+                nome,
+                email,
+                perfil_id,
+                status,
+                senha_hash,
+                criado_por,
+                atualizado_por,
+                criado_em,
+                atualizado_em
+            )
+            VALUES (?, ?, ?, ?, 'Ativo', ?, 'bootstrap', 'bootstrap', GETDATE(), GETDATE())
+        END
+        """,
+        (
+            default_login,
+            default_login,
+            default_login,
+            default_login,
+            default_login,
+            ROLE_ADMIN,
+            hash_password(default_password),
+        ),
+    )
+
+
+def ensure_reusable_config_tables(cursor) -> None:
+    for definition in SETTINGS_CATALOGS.values():
+        table = definition["table"]
+        cursor.execute(
+            f"""
+            IF OBJECT_ID('dbo.{table}', 'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.{table} (
+                    id_item INT IDENTITY(1,1) PRIMARY KEY,
+                    chave NVARCHAR(120) NULL,
+                    nome NVARCHAR(180) NOT NULL,
+                    descricao NVARCHAR(MAX) NULL,
+                    categoria NVARCHAR(120) NULL,
+                    payload_json NVARCHAR(MAX) NULL,
+                    ativo BIT NOT NULL CONSTRAINT DF_{table}_ativo DEFAULT 1,
+                    usado BIT NOT NULL CONSTRAINT DF_{table}_usado DEFAULT 0,
+                    criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                    atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+                )
+            END
+            """
+        )
+        for column_name, sql_type in (
+            ("chave", "NVARCHAR(120)"),
+            ("nome", "NVARCHAR(180)"),
+            ("descricao", "NVARCHAR(MAX)"),
+            ("categoria", "NVARCHAR(120)"),
+            ("payload_json", "NVARCHAR(MAX)"),
+            ("ativo", "BIT"),
+            ("usado", "BIT"),
+            ("criado_em", "DATETIME"),
+            ("atualizado_em", "DATETIME"),
+        ):
+            cursor.execute(
+                f"""
+                IF COL_LENGTH('dbo.{table}', '{column_name}') IS NULL
+                BEGIN
+                    ALTER TABLE dbo.{table}
+                    ADD {column_name} {sql_type} NULL
+                END
+                """
+            )
+        cursor.execute(
+            f"""
+            UPDATE dbo.{table}
+            SET ativo = 1
+            WHERE ativo IS NULL
+            """
+        )
+        cursor.execute(
+            f"""
+            UPDATE dbo.{table}
+            SET usado = 0
+            WHERE usado IS NULL
+            """
+        )
+
 
 def ensure_cv_pre_analises_table(cursor) -> None:
     cursor.execute(
@@ -282,6 +631,8 @@ def ensure_candidate_metadata_table(cursor) -> None:
                 habilidades_json NVARCHAR(MAX) NULL,
                 tags_json NVARCHAR(MAX) NULL,
                 observacao_rh NVARCHAR(MAX) NULL,
+                classificacao_indicacao NVARCHAR(80) NULL,
+                justificativa_indicacao NVARCHAR(MAX) NULL,
                 email NVARCHAR(255) NULL,
                 telefone NVARCHAR(50) NULL,
                 whatsapp NVARCHAR(50) NULL,
@@ -301,6 +652,8 @@ def ensure_candidate_metadata_columns(cursor) -> None:
         ("habilidades_json", "NVARCHAR(MAX)"),
         ("tags_json", "NVARCHAR(MAX)"),
         ("observacao_rh", "NVARCHAR(MAX)"),
+        ("classificacao_indicacao", "NVARCHAR(80)"),
+        ("justificativa_indicacao", "NVARCHAR(MAX)"),
         ("email", "NVARCHAR(255)"),
         ("telefone", "NVARCHAR(50)"),
         ("whatsapp", "NVARCHAR(50)"),
@@ -863,6 +1216,8 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
         conn = get_connection(settings, autocommit=True)
         try:
             cursor = conn.cursor()
+            ensure_security_tables(cursor, settings)
+            ensure_reusable_config_tables(cursor)
             ensure_process_columns(cursor)
             ensure_pipeline_columns(cursor)
             ensure_candidate_metadata_table(cursor)

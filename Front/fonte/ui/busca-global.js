@@ -73,6 +73,12 @@ const PAGINAS_BUSCA = [
     titulo: 'Configuracao da prova',
     descricao: 'Parametros da avaliacao e requisitos por vaga.',
   },
+  {
+    id: 'pagina-configuracoes',
+    tela: 'screen-settings',
+    titulo: 'Configuracoes do sistema',
+    descricao: 'Usuarios, perfis, permissoes, logs e regras reutilizaveis.',
+  },
 ];
 
 function normalizarBusca(valor) {

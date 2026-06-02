@@ -21,6 +21,7 @@ import { TelaCandidatos } from '../features/candidatos/index.js';
 import { TelaPipelineCandidatos } from '../features/tela-pipeline.js';
 import { TelaEntrevistas } from '../features/tela-entrevistas.js';
 import { TelaCandidaturaPublica } from '../features/public-candidacy/index.js';
+import { TelaConfiguracoesSistema } from '../features/configuracoes/index.js';
 import {
   TelaCandidato,
   TelaConfiguracao,
@@ -36,8 +37,16 @@ function resolverTelaProtegida(telaAtual, controlador) {
     return telaAtual;
   }
 
+  if (telaAtual === 'screen-forbidden') {
+    return telaAtual;
+  }
+
   if (!estado.autenticado) {
     return 'screen-login';
+  }
+
+  if (!controlador.podeAcessarTela(telaAtual)) {
+    return 'screen-forbidden';
   }
 
   if (
@@ -146,6 +155,30 @@ export function Aplicacao() {
 
   if (telaResolvida === 'screen-analysis-candidates') {
     return html`<${TelaAnaliseCandidatos} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-settings') {
+    return html`<${TelaConfiguracoesSistema} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-forbidden') {
+    return html`
+      <section class="active screen" id="screen-forbidden">
+        <div class="container py-5">
+          <div class="alert alert-warning mb-3">
+            ${controlador.estado.avisoAcessoNegado ||
+            'Voce nao possui permissao para acessar esta area ou executar esta acao.'}
+          </div>
+          <button
+            type="button"
+            class="btn btn-primary"
+            onClick=${() => controlador.irParaMenu()}
+          >
+            Voltar ao painel
+          </button>
+        </div>
+      </section>
+    `;
   }
 
   if (telaResolvida === 'screen-config') {

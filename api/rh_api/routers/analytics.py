@@ -3,19 +3,20 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
-from ..dependencies import get_current_user, get_repository
+from ..auth import AuthenticatedUser
+from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
 from ..repositories import DatabaseRepository
 
 
 router = APIRouter(tags=["analytics"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("/candidate-analytics")
+@router.get("/candidate-analytics", dependencies=[Depends(require_permissions("relatorios.visualizar"))])
 def get_candidate_analytics(repository: DatabaseRepository = Depends(get_repository)):
     return repository.get_candidate_analytics()
 
 
-@router.get("/candidate-analytics/{id_teste}")
+@router.get("/candidate-analytics/{id_teste}", dependencies=[Depends(require_permissions("relatorios.visualizar"))])
 def get_candidate_analytics_detail(
     id_teste: str,
     repository: DatabaseRepository = Depends(get_repository),
@@ -23,7 +24,7 @@ def get_candidate_analytics_detail(
     return repository.get_candidate_analytics_detail(id_teste)
 
 
-@router.get("/reports/processes")
+@router.get("/reports/processes", dependencies=[Depends(require_permissions("relatorios.visualizar"))])
 def get_process_report(
     start_date: str = Query(default=""),
     end_date: str = Query(default=""),
@@ -32,15 +33,25 @@ def get_process_report(
     return repository.list_process_report(start_date=start_date, end_date=end_date)
 
 
-@router.get("/reports/processes/export")
+@router.get("/reports/processes/export", dependencies=[Depends(require_permissions("relatorios.exportar"))])
 def export_process_report(
     start_date: str = Query(default=""),
     end_date: str = Query(default=""),
+    user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
     filename, content = repository.export_process_report_csv(
         start_date=start_date,
         end_date=end_date,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Relatorios",
+        acao="exportar_relatorio_processos",
+        entidade="relatorio",
+        entidade_id="processos",
+        valor_novo={"start_date": start_date, "end_date": end_date},
     )
     return Response(
         content=content,
@@ -49,7 +60,7 @@ def export_process_report(
     )
 
 
-@router.get("/reports/candidates")
+@router.get("/reports/candidates", dependencies=[Depends(require_permissions("relatorios.visualizar"))])
 def get_candidate_report(
     start_date: str = Query(default=""),
     end_date: str = Query(default=""),
@@ -65,12 +76,13 @@ def get_candidate_report(
     )
 
 
-@router.get("/reports/candidates/export")
+@router.get("/reports/candidates/export", dependencies=[Depends(require_permissions("relatorios.exportar"))])
 def export_candidate_report(
     start_date: str = Query(default=""),
     end_date: str = Query(default=""),
     status_filter: str = Query(default=""),
     id_processo: str = Query(default=""),
+    user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
     filename, content = repository.export_candidate_report_csv(
@@ -78,6 +90,20 @@ def export_candidate_report(
         end_date=end_date,
         status_filter=status_filter,
         id_processo=id_processo,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Relatorios",
+        acao="exportar_relatorio_candidatos",
+        entidade="relatorio",
+        entidade_id="candidatos",
+        valor_novo={
+            "start_date": start_date,
+            "end_date": end_date,
+            "status_filter": status_filter,
+            "id_processo": id_processo,
+        },
     )
     return Response(
         content=content,

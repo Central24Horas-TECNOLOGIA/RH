@@ -9,12 +9,14 @@ export type ScreenId =
   | 'screen-process-details'
   | 'screen-interviews'
   | 'screen-talent-bank'
+  | 'screen-settings'
   | 'screen-config'
   | 'screen-candidate'
   | 'screen-exam'
   | 'screen-thanks'
   | 'screen-result'
-  | 'screen-analysis-candidates';
+  | 'screen-analysis-candidates'
+  | 'screen-forbidden';
 
 export type RouteId =
   | 'login'
@@ -27,12 +29,14 @@ export type RouteId =
   | 'detalhes-processo'
   | 'entrevistas'
   | 'banco-talentos'
+  | 'configuracoes'
   | 'configuracao'
   | 'candidato'
   | 'prova'
   | 'conclusao'
   | 'resultado'
-  | 'analise-candidatos';
+  | 'analise-candidatos'
+  | 'acesso-negado';
 
 export type CandidateTrack =
   | ''
@@ -270,6 +274,13 @@ export interface ApplicationState {
   autenticado: boolean;
   validandoSessao: boolean;
   usuarioAutenticado: string;
+  nomeUsuarioAutenticado: string;
+  emailUsuarioAutenticado: string;
+  perfilUsuario: string;
+  perfilUsuarioNome: string;
+  nivelPerfilUsuario: string;
+  permissoesUsuario: string[];
+  avisoAcessoNegado: string;
   barraLateralRecolhida: boolean;
   candidato: Candidate;
   processoSelecionado: string;

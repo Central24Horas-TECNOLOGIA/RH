@@ -10,6 +10,7 @@ from ..services.interviews import build_interview_message, normalize_interview_s
 from ..services.pipeline import infer_pipeline_stage
 from ..services.process_flow import (
     CANDIDATE_STATUS_CONFIRMED,
+    CANDIDATE_STATUS_PENDING_CONFIRMATION,
     CANDIDATE_STATUS_RESCHEDULED,
     CANDIDATE_STATUS_SCHEDULED,
     build_process_closed_message,
@@ -35,6 +36,7 @@ SLOT_STATUS_PARTIAL = "Parcialmente ocupado"
 SLOT_STATUS_FULL = "Lotado"
 SLOT_STATUS_BLOCKED = "Bloqueado"
 OCCUPYING_INTERVIEW_STATUSES = (
+    CANDIDATE_STATUS_PENDING_CONFIRMATION,
     CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_RESCHEDULED,
@@ -83,7 +85,7 @@ class InterviewRepositoryMixin:
             FROM entrevistas_agendadas
             WHERE id_slot = ?
               AND id_entrevista <> ?
-              AND status_entrevista IN (?, ?, ?)
+              AND status_entrevista IN (?, ?, ?, ?)
             """,
             (
                 int(id_slot or 0),
@@ -207,14 +209,12 @@ class InterviewRepositoryMixin:
             FROM entrevistas_agendadas
             WHERE data_entrevista = ?
               AND id_entrevista <> ?
-              AND status_entrevista IN (?, ?, ?)
+              AND status_entrevista IN (?, ?, ?, ?)
             """,
             (
                 interview_date,
                 int(current_interview_id or 0),
-                CANDIDATE_STATUS_SCHEDULED,
-                CANDIDATE_STATUS_CONFIRMED,
-                CANDIDATE_STATUS_RESCHEDULED,
+                *OCCUPYING_INTERVIEW_STATUSES,
             ),
         )
         if int(cursor.fetchone()[0] or 0):
@@ -285,7 +285,7 @@ class InterviewRepositoryMixin:
                         SELECT COUNT(1) AS ocupados
                         FROM entrevistas_agendadas ea
                         WHERE ea.id_slot = s.id_slot
-                          AND ea.status_entrevista IN (?, ?, ?)
+                          AND ea.status_entrevista IN (?, ?, ?, ?)
                     ) o
                     OUTER APPLY (
                         SELECT TOP 1
@@ -296,7 +296,7 @@ class InterviewRepositoryMixin:
                             ea.status_entrevista
                         FROM entrevistas_agendadas ea
                         WHERE ea.id_slot = s.id_slot
-                          AND ea.status_entrevista IN (?, ?, ?)
+                          AND ea.status_entrevista IN (?, ?, ?, ?)
                         ORDER BY ea.data_entrevista ASC, ea.id_entrevista ASC
                     ) e
                     ORDER BY s.inicio ASC, s.id_slot ASC
@@ -707,7 +707,7 @@ class InterviewRepositoryMixin:
                     WHERE id_registro = ?
                       AND id_processo_ref = ?
                       AND id_slot = ?
-                      AND status_entrevista IN (?, ?, ?)
+                      AND status_entrevista IN (?, ?, ?, ?)
                     """,
                     (
                         int(candidate_row.get("id_registro") or 0),
@@ -720,7 +720,7 @@ class InterviewRepositoryMixin:
                     raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este candidato ja esta agendado neste slot para este processo.")
 
                 link_agendamento = normalize_text(data.get("link_agendamento"))
-                interview_status = normalize_interview_status(data.get("status_entrevista"))
+                interview_status = CANDIDATE_STATUS_PENDING_CONFIRMATION
                 observacoes_rh = normalize_text(data.get("observacoes_rh"))
                 mensagem_personalizada = normalize_text(data.get("mensagem_personalizada"))
                 mensagem_base = build_interview_message(
@@ -907,7 +907,7 @@ class InterviewRepositoryMixin:
                           AND id_processo_ref = ?
                           AND id_slot = ?
                           AND id_entrevista <> ?
-                          AND status_entrevista IN (?, ?, ?)
+                          AND status_entrevista IN (?, ?, ?, ?)
                         """,
                         (
                             int(current.get("id_registro") or 0),

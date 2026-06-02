@@ -21,14 +21,10 @@ from ..services.helpers import (
 from ..services.pipeline import infer_pipeline_stage
 from ..services.process_flow import (
     CANDIDATE_STATUS_APPROVED,
-    CANDIDATE_STATUS_ATTENDED,
-    CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_ELIMINATED,
-    CANDIDATE_STATUS_MISSED,
-    CANDIDATE_STATUS_RESCHEDULED,
-    CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_TALENT_BANK,
     CANDIDATE_STATUS_WITHDREW,
+    INTERVIEW_OPERATIONAL_STATUSES,
     build_approved_candidate_locked_message,
     build_candidate_status_action_label,
     build_process_closed_message,
@@ -110,6 +106,8 @@ class BaseRepository:
             "habilidades": normalize_string_list(safe_json_loads(safe_row.get("habilidades_json"), [])),
             "tags": normalize_string_list(safe_json_loads(safe_row.get("tags_json"), [])),
             "observacao_rh": normalize_text(safe_row.get("observacao_rh")),
+            "classificacao_indicacao": normalize_text(safe_row.get("classificacao_indicacao")),
+            "justificativa_indicacao": normalize_text(safe_row.get("justificativa_indicacao")),
             "email": normalize_text(safe_row.get("email")),
             "telefone": normalize_text(safe_row.get("telefone")),
             "whatsapp": normalize_text(safe_row.get("whatsapp")),
@@ -128,6 +126,8 @@ class BaseRepository:
                 habilidades_json,
                 tags_json,
                 observacao_rh,
+                classificacao_indicacao,
+                justificativa_indicacao,
                 email,
                 telefone,
                 whatsapp,
@@ -390,6 +390,8 @@ class BaseRepository:
             candidate["tags"] = profile.get("tags", [])
             candidate["habilidades"] = profile.get("habilidades", [])
             candidate["observacao_rh"] = profile.get("observacao_rh", "")
+            candidate["classificacao_indicacao"] = profile.get("classificacao_indicacao", "")
+            candidate["justificativa_indicacao"] = profile.get("justificativa_indicacao", "")
             candidate["nome_candidato"] = (
                 profile.get("nome_candidato", "")
                 or normalize_text(candidate.get("nome_candidato"))
@@ -457,6 +459,8 @@ class BaseRepository:
         habilidades: list[str] | None = None,
         tags: list[str] | None = None,
         observacao_rh: str | None = None,
+        classificacao_indicacao: str | None = None,
+        justificativa_indicacao: str | None = None,
         email: str | None = None,
         telefone: str | None = None,
         whatsapp: str | None = None,
@@ -476,6 +480,8 @@ class BaseRepository:
                 habilidades_json,
                 tags_json,
                 observacao_rh,
+                classificacao_indicacao,
+                justificativa_indicacao,
                 email,
                 telefone,
                 whatsapp,
@@ -495,11 +501,13 @@ class BaseRepository:
                     "habilidades_json": existing[1],
                     "tags_json": existing[2],
                     "observacao_rh": existing[3],
-                    "email": existing[4],
-                    "telefone": existing[5],
-                    "whatsapp": existing[6],
-                    "cidade": existing[7],
-                    "bairro": existing[8],
+                    "classificacao_indicacao": existing[4],
+                    "justificativa_indicacao": existing[5],
+                    "email": existing[6],
+                    "telefone": existing[7],
+                    "whatsapp": existing[8],
+                    "cidade": existing[9],
+                    "bairro": existing[10],
                 }
             )
             if existing
@@ -508,6 +516,8 @@ class BaseRepository:
                 "habilidades": [],
                 "tags": [],
                 "observacao_rh": "",
+                "classificacao_indicacao": "",
+                "justificativa_indicacao": "",
                 "email": "",
                 "telefone": "",
                 "whatsapp": "",
@@ -524,6 +534,16 @@ class BaseRepository:
             if observacao_rh is not None
             else existing_profile.get("observacao_rh", "")
         )
+        merged_recommendation = (
+            normalize_text(classificacao_indicacao)
+            if classificacao_indicacao is not None
+            else existing_profile.get("classificacao_indicacao", "")
+        )
+        merged_justification = (
+            normalize_text(justificativa_indicacao)
+            if justificativa_indicacao is not None
+            else existing_profile.get("justificativa_indicacao", "")
+        )
         merged_email = normalize_text(email) if email is not None else existing_profile.get("email", "")
         merged_phone = normalize_text(telefone) if telefone is not None else existing_profile.get("telefone", "")
         merged_whatsapp = normalize_text(whatsapp) if whatsapp is not None else existing_profile.get("whatsapp", "")
@@ -539,6 +559,8 @@ class BaseRepository:
                     habilidades_json = ?,
                     tags_json = ?,
                     observacao_rh = ?,
+                    classificacao_indicacao = ?,
+                    justificativa_indicacao = ?,
                     email = ?,
                     telefone = ?,
                     whatsapp = ?,
@@ -552,6 +574,8 @@ class BaseRepository:
                     json.dumps(merged_skills, ensure_ascii=False),
                     json.dumps(merged_tags, ensure_ascii=False),
                     merged_observation,
+                    merged_recommendation,
+                    merged_justification,
                     merged_email,
                     merged_phone,
                     merged_whatsapp,
@@ -570,13 +594,15 @@ class BaseRepository:
                     habilidades_json,
                     tags_json,
                     observacao_rh,
+                    classificacao_indicacao,
+                    justificativa_indicacao,
                     email,
                     telefone,
                     whatsapp,
                     cidade,
                     bairro
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     safe_id_teste,
@@ -584,6 +610,8 @@ class BaseRepository:
                     json.dumps(merged_skills, ensure_ascii=False),
                     json.dumps(merged_tags, ensure_ascii=False),
                     merged_observation,
+                    merged_recommendation,
+                    merged_justification,
                     merged_email,
                     merged_phone,
                     merged_whatsapp,
@@ -1149,14 +1177,13 @@ class BaseRepository:
             )
 
         interview_synced_statuses = {
-            normalize_compare_text(CANDIDATE_STATUS_SCHEDULED),
-            normalize_compare_text(CANDIDATE_STATUS_CONFIRMED),
-            normalize_compare_text(CANDIDATE_STATUS_RESCHEDULED),
-            normalize_compare_text(CANDIDATE_STATUS_ATTENDED),
-            normalize_compare_text(CANDIDATE_STATUS_MISSED),
+            normalize_compare_text(status_item)
+            for status_item in INTERVIEW_OPERATIONAL_STATUSES
+        } | {
             normalize_compare_text(CANDIDATE_STATUS_APPROVED),
             normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
             normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK),
+            normalize_compare_text(CANDIDATE_STATUS_WITHDREW),
         }
         if id_teste and new_status_normalized in interview_synced_statuses:
             cursor.execute(

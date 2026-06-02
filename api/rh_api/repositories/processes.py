@@ -10,15 +10,12 @@ from ..services.pipeline import infer_pipeline_stage, map_pipeline_stage_to_stat
 from ..services.process_flow import (
     CANDIDATE_STATUS_ANALYSIS,
     CANDIDATE_STATUS_APPROVED,
-    CANDIDATE_STATUS_ATTENDED,
-    CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_ELIMINATED,
-    CANDIDATE_STATUS_MISSED,
     CANDIDATE_STATUS_NOT_QUALIFIED,
     CANDIDATE_STATUS_QUALIFIED,
-    CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_TALENT_BANK,
     CANDIDATE_STATUS_WITHDREW,
+    INTERVIEW_OPERATIONAL_STATUSES,
     build_approved_candidate_locked_message,
     build_process_closed_message,
     build_terminal_candidate_locked_message,
@@ -61,10 +58,7 @@ class ProcessRepositoryMixin:
             return requested
 
         if current in {
-            CANDIDATE_STATUS_SCHEDULED,
-            CANDIDATE_STATUS_CONFIRMED,
-            CANDIDATE_STATUS_ATTENDED,
-            CANDIDATE_STATUS_MISSED,
+            *INTERVIEW_OPERATIONAL_STATUSES,
             CANDIDATE_STATUS_APPROVED,
             CANDIDATE_STATUS_ELIMINATED,
             CANDIDATE_STATUS_TALENT_BANK,
@@ -784,12 +778,7 @@ class ProcessRepositoryMixin:
                     "entrevistas": sum(
                         1
                         for status_item in status_fluxo_visivel
-                        if status_item in {
-                            CANDIDATE_STATUS_SCHEDULED,
-                            CANDIDATE_STATUS_CONFIRMED,
-                            CANDIDATE_STATUS_ATTENDED,
-                            CANDIDATE_STATUS_MISSED,
-                        }
+                        if status_item in INTERVIEW_OPERATIONAL_STATUSES
                     ),
                     "aprovados": sum(1 for status_item in status_fluxo_visivel if status_item == CANDIDATE_STATUS_APPROVED),
                     "eliminados": sum(1 for status_item in status_fluxo_visivel if status_item in {CANDIDATE_STATUS_ELIMINATED, CANDIDATE_STATUS_WITHDREW}),

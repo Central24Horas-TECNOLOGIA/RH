@@ -11,40 +11,64 @@ function BarraLateral({
 }) {
   const itens = [
     { tela: 'screen-menu', icone: 'home', label: 'Painel' },
-    { tela: 'screen-email-inbox', icone: 'mail', label: 'E-mails' },
-    { tela: 'screen-history', icone: 'history', label: 'Historico' },
+    {
+      tela: 'screen-email-inbox',
+      icone: 'mail',
+      label: 'E-mails',
+      permissao: 'candidatos.criar',
+    },
+    {
+      tela: 'screen-history',
+      icone: 'history',
+      label: 'Historico',
+      permissao: 'candidatos.consultar_historico',
+    },
     {
       tela: 'screen-processes',
       icone: 'folder_managed',
       label: 'Processos',
+      permissao: 'vagas.visualizar',
     },
     {
       tela: 'screen-candidates',
       icone: 'badge',
       label: 'Candidatos',
+      permissao: 'candidatos.visualizar',
     },
     {
       tela: 'screen-candidate-pipeline',
       icone: 'view_kanban',
       label: 'Pipeline',
+      permissao: 'candidatos.mover_etapa',
       exibir: false,
     },
     {
       tela: 'screen-interviews',
       icone: 'event_available',
       label: 'Entrevistas',
+      permissao: 'entrevistas.visualizar',
     },
     {
       tela: 'screen-analysis-candidates',
       icone: 'analytics',
       label: 'Analise',
+      permissao: 'relatorios.visualizar',
     },
     {
       tela: 'screen-talent-bank',
       icone: 'group',
       label: 'Banco de talentos',
+      permissao: 'candidatos.visualizar',
+    },
+    {
+      tela: 'screen-settings',
+      icone: 'settings',
+      label: 'Configuracoes',
+      permissao: 'configuracoes.visualizar',
     },
   ];
+  const possuiPermissao = (permissao) =>
+    !permissao || controlador?.possuiPermissao?.(permissao);
 
   return html`
     <aside
@@ -80,7 +104,7 @@ function BarraLateral({
       </div>
 
       <nav class="rh-modern-nav">
-        ${itens.filter((item) => item.exibir !== false).map(
+        ${itens.filter((item) => item.exibir !== false && possuiPermissao(item.permissao)).map(
         (item) => html`
             <button
               key=${item.tela}
@@ -96,28 +120,37 @@ function BarraLateral({
       )}
       </nav>
 
-      ${mostrarAtalhos
+      ${mostrarAtalhos &&
+      (possuiPermissao('vagas.criar') || possuiPermissao('provas.enviar'))
       ? html`
             <div class="rh-modern-sidebar-actions">
-              <button
-                type="button"
-                class="rh-modern-cta-btn"
-                title="Novo processo"
-                onClick=${() =>
-          controlador.irParaTelaProtegida('screen-process-create')}
-              >
-                <span class="material-symbols-outlined">playlist_add</span>
-                <span class="rh-modern-nav-label">Novo processo</span>
-              </button>
-              <button
-                type="button"
-                class="rh-modern-cta-btn"
-                title="Nova prova"
-                onClick=${() => controlador.iniciarNovoFluxo()}
-              >
-                <span class="material-symbols-outlined">play_circle</span>
-                <span class="rh-modern-nav-label">Nova prova</span>
-              </button>
+              ${possuiPermissao('vagas.criar')
+          ? html`
+                    <button
+                      type="button"
+                      class="rh-modern-cta-btn"
+                      title="Novo processo"
+                      onClick=${() =>
+              controlador.irParaTelaProtegida('screen-process-create')}
+                    >
+                      <span class="material-symbols-outlined">playlist_add</span>
+                      <span class="rh-modern-nav-label">Novo processo</span>
+                    </button>
+                  `
+          : null}
+              ${possuiPermissao('provas.enviar')
+          ? html`
+                    <button
+                      type="button"
+                      class="rh-modern-cta-btn"
+                      title="Nova prova"
+                      onClick=${() => controlador.iniciarNovoFluxo()}
+                    >
+                      <span class="material-symbols-outlined">play_circle</span>
+                      <span class="rh-modern-nav-label">Nova prova</span>
+                    </button>
+                  `
+          : null}
             </div>
           `
       : null}
@@ -181,6 +214,68 @@ export function SectionCard({
   `;
 }
 
+function obterIniciaisUsuario(nome) {
+  const partes = String(nome || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!partes.length) return 'RH';
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+
+  return `${partes[0].slice(0, 1)}${partes[partes.length - 1].slice(0, 1)}`.toUpperCase();
+}
+
+function CartaoUsuarioTopo({ controlador }) {
+  const estado = controlador?.estado || {};
+  const nome =
+    estado.nomeUsuarioAutenticado ||
+    estado.usuarioAutenticado ||
+    'Usuario RH';
+  const perfilBase =
+    estado.perfilUsuarioNome ||
+    estado.perfilUsuario ||
+    estado.nivelPerfilUsuario ||
+    'Usuario';
+  const perfil = String(perfilBase).includes('/')
+    ? perfilBase
+    : `RH / ${perfilBase}`;
+  const avatar =
+    estado.avatarUsuario ||
+    estado.userAvatar ||
+    estado.usuarioAvatar ||
+    '';
+  const podeAbrirPerfil =
+    controlador?.possuiPermissao?.('configuracoes.visualizar') ||
+    controlador?.podeAcessarTela?.('screen-settings');
+
+  return html`
+    <button
+      type="button"
+      class="c24-user-menu"
+      title="Perfil do usuario"
+      aria-label=${`Perfil do usuario ${nome}`}
+      onClick=${podeAbrirPerfil
+        ? () => controlador.irParaTelaProtegida('screen-settings')
+        : undefined}
+    >
+      <span class="c24-user-avatar">
+        ${avatar
+          ? html`<img src=${avatar} alt="" />`
+          : html`<span>${obterIniciaisUsuario(nome)}</span>`}
+        <i aria-hidden="true"></i>
+      </span>
+      <span class="c24-user-copy">
+        <strong>${nome}</strong>
+        <small>${perfil}</small>
+      </span>
+      <span class="material-symbols-outlined c24-user-chevron">
+        expand_more
+      </span>
+    </button>
+  `;
+}
+
 export function PainelRh({
   screenId,
   navAtiva,
@@ -198,6 +293,10 @@ export function PainelRh({
   });
   const [tourReopenSignal, setTourReopenSignal] = useState(0);
   const usuarioTour = controlador?.estado?.usuarioAutenticado || '';
+  const mostrarAcaoPrimaria =
+    acaoPrimaria &&
+    (!acaoPrimaria.permissao ||
+      controlador?.possuiPermissao?.(acaoPrimaria.permissao));
 
   return html`
     <section class="active screen" id=${screenId}>
@@ -221,7 +320,7 @@ export function PainelRh({
               />
             </div>
             <div class="rh-modern-topbar-actions">
-              ${acaoPrimaria
+              ${mostrarAcaoPrimaria
       ? html`
                     <button
                       type="button"
@@ -243,6 +342,7 @@ export function PainelRh({
                   `
       : null}
               ${acoesTopo}
+              <${CartaoUsuarioTopo} controlador=${controlador} />
             </div>
           </header>
 

@@ -29,6 +29,7 @@ from rh_api.routers.pipeline import (
 from rh_api.schemas.auth import LoginRequest
 from rh_api.schemas.interviews import InterviewCreateRequest, InterviewUpdateRequest
 from rh_api.schemas.pipeline import PipelineCardCreateRequest, PipelineCardMoveRequest
+from rh_api.services.process_flow import CANDIDATE_STATUS_PENDING_CONFIRMATION
 from rh_api.services.pipeline import map_pipeline_stage_to_status, normalize_pipeline_stage
 
 
@@ -204,7 +205,7 @@ class FakeRepository:
             "nome_candidato": candidato["nome_candidato"],
             "vaga": candidato["vaga"],
             "data_entrevista": data["data_entrevista"],
-            "status_entrevista": data.get("status_entrevista", "Agendado"),
+            "status_entrevista": CANDIDATE_STATUS_PENDING_CONFIRMATION,
             "link_agendamento": data.get("link_agendamento", ""),
             "observacoes_rh": data.get("observacoes_rh", ""),
             "mensagem_base": mensagem,
@@ -223,7 +224,7 @@ class FakeRepository:
                 continue
 
             item.update(data)
-            mensagem = f"Entrevista atualizada para {item.get('status_entrevista', 'Agendado')}."
+            mensagem = f"Entrevista atualizada para {item.get('status_entrevista', CANDIDATE_STATUS_PENDING_CONFIRMATION)}."
             item["mensagem_base"] = mensagem
 
             for card in self.pipeline_cards:
@@ -272,10 +273,12 @@ class AuthAndPipelineApiTests(unittest.TestCase):
 
         usuario = validate_access_token(payload.access_token)
         me_response = me(user=usuario)
-        self.assertEqual(
-            me_response.model_dump(),
-            {"authenticated": True, "usuario": "rh.local"},
-        )
+        session_payload = me_response.model_dump()
+        self.assertEqual(session_payload["authenticated"], True)
+        self.assertEqual(session_payload["usuario"], "rh.local")
+        self.assertEqual(session_payload["perfil"], "administrador")
+        self.assertIn("usuarios.criar", session_payload["permissoes"])
+        self.assertIn("configuracoes.visualizar", session_payload["permissoes"])
 
     def test_protected_history_requires_authentication(self):
         with self.assertRaises(HTTPException) as context:
@@ -380,7 +383,6 @@ class AuthAndPipelineApiTests(unittest.TestCase):
                 id_registro=1,
                 id_processo="PROC.ANL.001",
                 data_entrevista=data_entrevista,
-                status_entrevista="Agendado",
                 link_agendamento="https://bookings.cloud.microsoft/example",
                 observacoes_rh="Chegar com 10 minutos de antecedencia.",
             ),
@@ -397,26 +399,26 @@ class AuthAndPipelineApiTests(unittest.TestCase):
             repository=repository,
         )
         self.assertEqual(len(entrevistas), 1)
-        self.assertEqual(entrevistas[0]["status_entrevista"], "Agendado")
+        self.assertEqual(entrevistas[0]["status_entrevista"], CANDIDATE_STATUS_PENDING_CONFIRMATION)
         cards = get_candidate_pipeline(id_processo="", search="", repository=repository)
-        self.assertEqual(cards[0]["status_candidato"], "Agendado")
+        self.assertEqual(cards[0]["status_candidato"], CANDIDATE_STATUS_PENDING_CONFIRMATION)
 
         update_payload = update_interview(
             1,
-            InterviewUpdateRequest(status_entrevista="Confirmado"),
+            InterviewUpdateRequest(status_entrevista="Agendado"),
             repository=repository,
         )
 
         self.assertEqual(update_payload["success"], True)
         entrevistas_atualizadas = get_interviews(
             id_processo="PROC.ANL.001",
-            status_entrevista="Confirmado",
+            status_entrevista="Agendado",
             search="",
             repository=repository,
         )
-        self.assertEqual(entrevistas_atualizadas[0]["status_entrevista"], "Confirmado")
+        self.assertEqual(entrevistas_atualizadas[0]["status_entrevista"], "Agendado")
         cards_atualizados = get_candidate_pipeline(id_processo="", search="", repository=repository)
-        self.assertEqual(cards_atualizados[0]["status_candidato"], "Confirmado")
+        self.assertEqual(cards_atualizados[0]["status_candidato"], "Agendado")
 
     def test_deadlock_error_detection_matches_sql_server_signature(self):
         error = Exception(

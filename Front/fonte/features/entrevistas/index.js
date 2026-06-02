@@ -24,14 +24,13 @@ import {
   STATUS_ENTREVISTA,
 } from '../../shared/components/interview-edit-modal.js';
 import {
+  CANDIDATE_STATUS_PENDING_CONFIRMATION,
   canonicalizeCandidateStatus,
   isProcessClosed,
 } from '../../shared/process-flow.js';
 import { validarFormularioEntrevista } from '../../shared/validacoes.js';
 import {
-  EmptyState,
   LoadingState,
-  MetricGrid,
   ModalPadrao,
   PageIntro,
   PainelRh,
@@ -41,9 +40,12 @@ import {
   obterChaveProcesso,
   obterReferenciaProcesso,
 } from '../../shared/process-reference.js';
+import { obterItensPaginados } from '../../utilitarios.js';
 
 const STATUS_SLOT_DISPONIVEL = 'Disponivel';
 const STATUS_SLOT_BLOQUEADO = 'Bloqueado';
+const TAMANHO_PAGINA_SLOTS_ENTREVISTAS = 5;
+const TAMANHO_PAGINA_AGENDA_ENTREVISTAS = 5;
 
 function hojeIsoLocal() {
   const agora = new Date();
@@ -51,6 +53,53 @@ function hojeIsoLocal() {
   const mes = String(agora.getMonth() + 1).padStart(2, '0');
   const dia = String(agora.getDate()).padStart(2, '0');
   return `${ano}-${mes}-${dia}`;
+}
+
+function criarDataLocal(valor) {
+  const texto = String(valor || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    const [ano, mes, dia] = texto.split('-').map(Number);
+    return new Date(ano, mes - 1, dia);
+  }
+
+  const data = texto ? new Date(texto) : new Date();
+  return Number.isNaN(data.getTime()) ? new Date() : data;
+}
+
+function formatarIsoLocal(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+function moverDataIso(valor, dias) {
+  const data = criarDataLocal(valor);
+  data.setDate(data.getDate() + dias);
+  return formatarIsoLocal(data);
+}
+
+function formatarDataLonga(valor) {
+  return criarDataLocal(valor).toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function gerarDiasResumo(valor) {
+  const base = criarDataLocal(valor);
+  return [-1, 0, 1, 2, 3, 4].map((deslocamento) => {
+    const data = new Date(base);
+    data.setDate(base.getDate() + deslocamento);
+    return {
+      iso: formatarIsoLocal(data),
+      semana: data.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
+      dia: data.toLocaleDateString('pt-BR', { day: '2-digit' }),
+      ativo: deslocamento === 0,
+    };
+  });
 }
 
 function normalizarTexto(valor) {
@@ -84,6 +133,54 @@ function formatarOcupacaoSlot(slot) {
   return `${Number(slot?.ocupados || 0)}/${Number(slot?.capacidade_total || 1)} ocupados`;
 }
 
+function PaginacaoCompacta({
+  paginaAtual = 1,
+  totalPaginas = 1,
+  totalItens = 0,
+  tamanhoPagina = 1,
+  itensNaPagina = 0,
+  onChange,
+}) {
+  const total = Number(totalItens || 0);
+  if (!total) return null;
+
+  const totalPaginasSeguro = Math.max(1, Number(totalPaginas || 1));
+  const paginaSegura = Math.min(Math.max(1, Number(paginaAtual || 1)), totalPaginasSeguro);
+  const inicio = ((paginaSegura - 1) * Math.max(1, Number(tamanhoPagina || 1))) + 1;
+  const fim = Math.min(total, inicio + Math.max(0, Number(itensNaPagina || 0)) - 1);
+  const podeVoltar = paginaSegura > 1;
+  const podeAvancar = paginaSegura < totalPaginasSeguro;
+
+  return html`
+    <div class="c24-pagination-bar">
+      <span>Mostrando ${inicio}-${fim} de ${total}</span>
+      ${totalPaginasSeguro > 1
+        ? html`
+            <div class="c24-pagination-actions">
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                disabled=${!podeVoltar}
+                onClick=${() => podeVoltar && onChange?.(paginaSegura - 1)}
+              >
+                Anterior
+              </button>
+              <span class="c24-pagination-current">${paginaSegura}/${totalPaginasSeguro}</span>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                disabled=${!podeAvancar}
+                onClick=${() => podeAvancar && onChange?.(paginaSegura + 1)}
+              >
+                Próximo
+              </button>
+            </div>
+          `
+        : null}
+    </div>
+  `;
+}
+
 export function TelaEntrevistas({ controlador }) {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -109,7 +206,7 @@ export function TelaEntrevistas({ controlador }) {
   const [entrevistaEdicao, setEntrevistaEdicao] = useState(null);
   const [formularioEdicao, setFormularioEdicao] = useState({
     id_slot: '',
-    status_entrevista: 'Agendado',
+    status_entrevista: CANDIDATE_STATUS_PENDING_CONFIRMATION,
     observacoes_rh: '',
     mensagem_personalizada: '',
   });
@@ -119,6 +216,8 @@ export function TelaEntrevistas({ controlador }) {
     status_slot: STATUS_SLOT_DISPONIVEL,
     observacoes_rh: '',
   });
+  const [paginaSlots, setPaginaSlots] = useState(1);
+  const [paginaAgenda, setPaginaAgenda] = useState(1);
 
   const carregar = async () => {
     setCarregando(true);
@@ -172,6 +271,9 @@ export function TelaEntrevistas({ controlador }) {
       ocupados: slots.filter((slot) => normalizarTexto(slot.status_slot) === 'ocupado').length,
       parcialmenteOcupados: slots.filter((slot) => normalizarTexto(slot.status_calculado || slot.status_slot) === 'parcialmente ocupado').length,
       lotados: slots.filter((slot) => normalizarTexto(slot.status_calculado || slot.status_slot) === 'lotado').length,
+      pendentes: entrevistas.filter(
+        (item) => canonicalizeCandidateStatus(item.status_entrevista) === CANDIDATE_STATUS_PENDING_CONFIRMATION,
+      ).length,
       agendadas: entrevistas.filter(
         (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Agendado',
       ).length,
@@ -190,6 +292,46 @@ export function TelaEntrevistas({ controlador }) {
     }),
     [entrevistas, slots, slotsDisponiveis.length],
   );
+  const diasResumo = useMemo(() => gerarDiasResumo(filtros.data), [filtros.data]);
+  const entrevistasDoDia = useMemo(
+    () =>
+      (Array.isArray(entrevistas) ? entrevistas : []).filter(
+        (item) =>
+          item.data_entrevista &&
+          formatarIsoLocal(criarDataLocal(item.data_entrevista)) === filtros.data,
+      ),
+    [entrevistas, filtros.data],
+  );
+  const slotsPaginados = useMemo(
+    () => obterItensPaginados(slots, paginaSlots, TAMANHO_PAGINA_SLOTS_ENTREVISTAS),
+    [slots, paginaSlots],
+  );
+  const entrevistasPaginadas = useMemo(
+    () =>
+      obterItensPaginados(
+        entrevistas,
+        paginaAgenda,
+        TAMANHO_PAGINA_AGENDA_ENTREVISTAS,
+      ),
+    [entrevistas, paginaAgenda],
+  );
+
+  useEffect(() => {
+    setPaginaSlots(1);
+  }, [slots.length, filtros.data, filtros.processo]);
+
+  useEffect(() => {
+    setPaginaAgenda(1);
+  }, [entrevistas.length, filtros.data, filtros.processo, filtros.status, filtros.busca]);
+
+  const selecionarData = (data) => setFiltros({ ...filtros, data });
+  const limparFiltros = () =>
+    setFiltros({
+      processo: '',
+      status: '',
+      busca: '',
+      data: hojeIsoLocal(),
+    });
 
   const criarDisponibilidade = async () => {
     if (!formularioSlots.data || !formularioSlots.hora_inicio || !formularioSlots.hora_fim) {
@@ -299,7 +441,7 @@ export function TelaEntrevistas({ controlador }) {
     setEntrevistaEdicao(entrevista);
     setFormularioEdicao({
       id_slot: '',
-      status_entrevista: entrevista.status_entrevista || 'Agendado',
+      status_entrevista: entrevista.status_entrevista || CANDIDATE_STATUS_PENDING_CONFIRMATION,
       observacoes_rh: entrevista.observacoes_rh || '',
       mensagem_personalizada: entrevista.mensagem_personalizada || '',
     });
@@ -363,6 +505,7 @@ export function TelaEntrevistas({ controlador }) {
           class="btn btn-outline-secondary"
           onClick=${() => carregar()}
         >
+          <span class="material-symbols-outlined">refresh</span>
           Atualizar
         </button>
         <${AcaoSair} controlador=${controlador} />
@@ -370,36 +513,121 @@ export function TelaEntrevistas({ controlador }) {
     >
       <${PageIntro}
         kicker="Console | Entrevistas"
-        title="Calendario interno de entrevistas"
-        description="Crie horarios internos, acompanhe slots ocupados e controle status sem depender de Booking."
+        title="Calendário interno de entrevistas"
+        description="Crie horários internos, acompanhe slots ocupados e controle status sem depender de Booking."
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
 
-      <${SectionCard}
-        title="Visao executiva"
-        description="Panorama rapido da agenda interna."
-      >
-        <${MetricGrid}
-          items=${[
-            { label: 'Entrevistas', value: resumo.total || 0 },
-            { label: 'Slots livres', value: resumo.disponiveis || 0, variant: 'is-highlight' },
-            { label: 'Parciais', value: resumo.parcialmenteOcupados || 0, variant: 'is-analysis' },
-            { label: 'Lotados', value: resumo.lotados || 0, variant: 'is-eliminated' },
-            { label: 'Agendado', value: resumo.agendadas || 0, variant: 'is-analysis' },
-            { label: 'Confirmado', value: resumo.confirmadas || 0, variant: 'is-highlight' },
-            { label: 'Reagendado', value: resumo.reagendadas || 0, variant: 'is-analysis' },
-            { label: 'Compareceu', value: resumo.compareceram || 0, variant: 'is-approved' },
-            { label: 'Faltou', value: resumo.faltas || 0, variant: 'is-eliminated' },
-          ]}
-        />
-      </${SectionCard}>
+      <div class="interview-dashboard-grid">
+        <${SectionCard}
+          title="Visão executiva"
+          description="Panorama rápido da agenda interna."
+          className="interview-executive-card compact-dashboard-card"
+        >
+          <div class="interview-stat-grid">
+            ${[
+              { icon: 'groups', label: 'Entrevistas', value: resumo.total || 0, variant: 'is-blue' },
+              { icon: 'event_available', label: 'Slots livres', value: resumo.disponiveis || 0, variant: 'is-blue' },
+              { icon: 'pie_chart', label: 'Parciais', value: resumo.parcialmenteOcupados || 0, variant: 'is-purple' },
+              { icon: 'group', label: 'Lotados', value: resumo.lotados || 0, variant: 'is-red' },
+              { icon: 'hourglass_top', label: 'Pendentes', value: resumo.pendentes || 0, variant: 'is-purple' },
+              { icon: 'schedule', label: 'Agendado', value: resumo.agendadas || 0, variant: 'is-blue' },
+              { icon: 'check_circle', label: 'Confirmado', value: resumo.confirmadas || 0, variant: 'is-green' },
+              { icon: 'sync', label: 'Reagendado', value: resumo.reagendadas || 0, variant: 'is-purple' },
+              { icon: 'person_check', label: 'Compareceu', value: resumo.compareceram || 0, variant: 'is-green' },
+              { icon: 'person_cancel', label: 'Faltou', value: resumo.faltas || 0, variant: 'is-red' },
+            ].map(
+              (item) => html`
+                <article class=${`interview-stat-card ${item.variant}`} key=${item.label}>
+                  <span class="material-symbols-outlined">${item.icon}</span>
+                  <div>
+                    <small>${item.label}</small>
+                    <strong>${item.value}</strong>
+                  </div>
+                </article>
+              `,
+            )}
+          </div>
+        </${SectionCard}>
+      </div>
+
+      <div class="interview-main-grid">
+        <${SectionCard}
+          title="Resumo do dia"
+          className="interview-day-card compact-dashboard-card"
+          actions=${html`
+            <button
+              type="button"
+              class="calendar-arrow-btn"
+              aria-label="Dia anterior"
+              onClick=${() => selecionarData(moverDataIso(filtros.data, -1))}
+            >
+              <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+            <span class="interview-day-title">${formatarDataLonga(filtros.data)}</span>
+            <button
+              type="button"
+              class="calendar-arrow-btn"
+              aria-label="Proximo dia"
+              onClick=${() => selecionarData(moverDataIso(filtros.data, 1))}
+            >
+              <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+          `}
+        >
+          <div class="interview-day-strip">
+            ${diasResumo.map(
+              (dia) => html`
+                <button
+                  type="button"
+                  key=${dia.iso}
+                  class=${`interview-day-pill ${dia.ativo ? 'is-active' : ''}`}
+                  onClick=${() => selecionarData(dia.iso)}
+                >
+                  <span>${dia.semana}</span>
+                  <strong>${dia.dia}</strong>
+                </button>
+              `,
+            )}
+          </div>
+
+          ${entrevistasDoDia.length
+            ? html`
+                <div class="interview-day-list">
+                  ${entrevistasDoDia.slice(0, 3).map(
+                    (item) => html`
+                      <article class="interview-day-row" key=${item.id_entrevista}>
+                        <span class="material-symbols-outlined">event_available</span>
+                        <div>
+                          <strong>${item.nome_candidato || '-'}</strong>
+                          <small>${formatarDataHora(item.data_entrevista)}</small>
+                        </div>
+                        <span class=${`rh-status-pill ${obterClasseStatusEntrevista(item.status_entrevista)}`}>
+                          ${item.status_entrevista || '-'}
+                        </span>
+                      </article>
+                    `,
+                  )}
+                </div>
+              `
+            : html`
+                <div class="c24-empty-state c24-empty-state-horizontal">
+                  <span class="material-symbols-outlined">calendar_clock</span>
+                  <div>
+                    <h3>Nenhuma entrevista agendada hoje</h3>
+                    <p>Use os slots ou confirmações para agendar entrevistas.</p>
+                  </div>
+                </div>
+              `}
+        </${SectionCard}>
 
       <${SectionCard}
         title="Criar disponibilidade"
-        description="Defina dia, faixa de horario e duracao. O sistema gera os slots sem conflito."
+        description="Defina dia, faixa de horário e duração. O sistema gera os slots sem conflito."
+        className="availability-card"
       >
-        <div class="rh-filter-grid rh-filter-grid--wide">
+        <div class="availability-form-grid">
           <div class="rh-filter-field">
             <label>Processo</label>
             <select
@@ -437,7 +665,7 @@ export function TelaEntrevistas({ controlador }) {
             />
           </div>
           <div class="rh-filter-field">
-            <label>Inicio</label>
+            <label>Início</label>
             <input
               class="form-control"
               type="time"
@@ -465,7 +693,7 @@ export function TelaEntrevistas({ controlador }) {
             />
           </div>
           <div class="rh-filter-field">
-            <label>Duracao</label>
+            <label>Duração (min)</label>
             <input
               class="form-control"
               type="number"
@@ -497,10 +725,12 @@ export function TelaEntrevistas({ controlador }) {
                 })}
             />
           </div>
-          <div class="rh-filter-field">
-            <label>Observacoes</label>
-            <input
+          <div class="rh-filter-field availability-notes-field">
+            <label>Observações</label>
+            <textarea
               class="form-control"
+              rows="3"
+              placeholder="Adicione observações..."
               value=${formularioSlots.observacoes_rh}
               disabled=${salvando}
               onInput=${(event) =>
@@ -508,27 +738,30 @@ export function TelaEntrevistas({ controlador }) {
                   ...formularioSlots,
                   observacoes_rh: event.target.value,
                 })}
-            />
+            ></textarea>
+          </div>
+          <div class="availability-submit">
+            <button
+              type="button"
+              class="btn btn-primary rh-action-btn"
+              disabled=${salvando}
+              onClick=${criarDisponibilidade}
+            >
+              <span class="material-symbols-outlined">calendar_add_on</span>
+              ${salvando ? 'Salvando...' : 'Gerar slots'}
+            </button>
           </div>
         </div>
-        <div class="text-end mt-3">
-          <button
-            type="button"
-            class="btn btn-primary"
-            disabled=${salvando}
-            onClick=${criarDisponibilidade}
-          >
-            ${salvando ? 'Salvando...' : 'Gerar slots'}
-          </button>
-        </div>
       </${SectionCard}>
+      </div>
 
       <${SectionCard}
         title="Filtros"
         description="Refine a agenda por dia, processo, status ou busca textual."
+        className="interview-filter-card"
         tourId="interview-filters"
       >
-        <div class="rh-filter-grid rh-filter-grid--wide">
+        <div class="interview-filter-toolbar">
           <div class="rh-filter-field">
             <label>Data</label>
             <input
@@ -538,7 +771,6 @@ export function TelaEntrevistas({ controlador }) {
               onInput=${(event) => setFiltros({ ...filtros, data: event.target.value })}
             />
           </div>
-
           <div class="rh-filter-field">
             <label>Processo</label>
             <select
@@ -560,7 +792,6 @@ export function TelaEntrevistas({ controlador }) {
               )}
             </select>
           </div>
-
           <div class="rh-filter-field">
             <label>Status</label>
             <select
@@ -577,8 +808,7 @@ export function TelaEntrevistas({ controlador }) {
               )}
             </select>
           </div>
-
-          <div class="rh-filter-field">
+          <div class="rh-filter-field interview-search-field">
             <label>Busca</label>
             <input
               class="form-control"
@@ -588,203 +818,187 @@ export function TelaEntrevistas({ controlador }) {
                 setFiltros({ ...filtros, busca: event.target.value })}
             />
           </div>
+          <div class="interview-filter-actions">
+            <button type="button" class="btn btn-primary rh-action-btn" onClick=${carregar}>
+              <span class="material-symbols-outlined">filter_alt</span>
+              Aplicar filtros
+            </button>
+            <button type="button" class="btn btn-outline-secondary rh-action-btn" onClick=${limparFiltros}>
+              <span class="material-symbols-outlined">refresh</span>
+              Limpar
+            </button>
+          </div>
         </div>
       </${SectionCard}>
 
-      <${SectionCard}
-        title="Slots do dia"
-        description="Visao por horario com disponibilidade, candidato e status."
-      >
-        ${carregando
-          ? html`
-              <${LoadingState}
-                titulo="Carregando horarios"
-                descricao="Buscando slots internos da agenda."
-              />
-            `
-          : slots.length
+      <div class="interview-bottom-grid">
+        <${SectionCard}
+          title="Slots do dia"
+          description="Visao por horario com disponibilidade, candidato e status."
+          className="interview-slots-card compact-dashboard-card"
+        >
+          ${carregando
             ? html`
-                <div class="table-responsive">
-                  <table class="table align-middle rh-modern-history-table">
-                    <thead>
-                      <tr>
-                        <th>Horario</th>
-                        <th>Processo</th>
-                        <th>Ocupacao</th>
-                        <th>Status slot</th>
-                        <th>Candidato</th>
-                        <th>Status entrevista</th>
-                        <th>Observacoes</th>
-                        <th class="text-end">Acoes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${slots.map(
-                        (slot) => html`
-                          <tr key=${slot.id_slot}>
-                            <td>${formatarHorarioSlot(slot)}</td>
-                            <td>${slot.id_processo || 'Geral'}</td>
-                            <td>${formatarOcupacaoSlot(slot)} | ${Number(slot.disponiveis || 0)} disponiveis</td>
-                            <td>
-                              <span
-                                class=${`rh-status-pill ${obterClasseStatusSlot(slot)}`}
-                              >
-                                ${slot.status_calculado || slot.status_slot || '-'}
-                              </span>
-                            </td>
-                            <td>${slot.nome_candidato ? `${slot.nome_candidato}${Number(slot.ocupados || 0) > 1 ? ` (+${Number(slot.ocupados || 0) - 1})` : ''}` : '-'}</td>
-                            <td>${slot.status_entrevista || '-'}</td>
-                            <td>${slot.observacoes_rh || '-'}</td>
-                            <td class="text-end">
-                              <div class="d-flex justify-content-end gap-2 flex-wrap">
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-primary"
-                                  onClick=${() => abrirEdicaoSlot(slot)}
-                                >
-                                  Editar slot
-                                </button>
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-danger"
-                                  disabled=${salvando}
-                                  onClick=${() => excluirSlot(slot)}
-                                >
-                                  Excluir
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        `,
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              `
-            : html`
-                <${EmptyState}
-                  title="Nenhum slot para o filtro"
-                  text="Crie disponibilidade para o dia desejado ou ajuste os filtros."
+                <${LoadingState}
+                  titulo="Carregando horarios"
+                  descricao="Buscando slots internos da agenda."
                 />
-              `}
-      </${SectionCard}>
+              `
+            : slots.length
+              ? html`
+                  <div class="interview-slot-list">
+                    ${slotsPaginados.itens.map(
+                      (slot) => html`
+                        <article class="interview-slot-card" key=${slot.id_slot}>
+                          <div>
+                            <strong>${formatarHorarioSlot(slot)}</strong>
+                            <span>${slot.id_processo || 'Geral'}</span>
+                          </div>
+                          <div class="interview-slot-meta">
+                            <span>${formatarOcupacaoSlot(slot)}</span>
+                            <span>${Number(slot.disponiveis || 0)} disponiveis</span>
+                          </div>
+                          <span class=${`rh-status-pill ${obterClasseStatusSlot(slot)}`}>
+                            ${slot.status_calculado || slot.status_slot || '-'}
+                          </span>
+                          <small>
+                            ${slot.nome_candidato
+                              ? `${slot.nome_candidato}${Number(slot.ocupados || 0) > 1 ? ` (+${Number(slot.ocupados || 0) - 1})` : ''}`
+                              : 'Nenhum candidato'}
+                          </small>
+                          <div class="interview-row-actions">
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-primary"
+                              onClick=${() => abrirEdicaoSlot(slot)}
+                            >
+                              Editar slot
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-danger"
+                              disabled=${salvando}
+                              onClick=${() => excluirSlot(slot)}
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        </article>
+                      `,
+                    )}
+                  </div>
+                  <${PaginacaoCompacta}
+                    paginaAtual=${slotsPaginados.paginaAtual}
+                    totalPaginas=${slotsPaginados.totalPaginas}
+                    totalItens=${slotsPaginados.totalItens}
+                    tamanhoPagina=${TAMANHO_PAGINA_SLOTS_ENTREVISTAS}
+                    itensNaPagina=${slotsPaginados.itens.length}
+                    onChange=${setPaginaSlots}
+                  />
+                `
+              : html`
+                  <div class="c24-empty-state c24-empty-state-horizontal">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                    <div>
+                      <h3>Nenhum slot para o filtro</h3>
+                      <p>Crie disponibilidade para o dia desejado ou ajuste os filtros.</p>
+                    </div>
+                  </div>
+                `}
+        </${SectionCard}>
 
-      <${SectionCard}
-        title="Agenda operacional"
-        description="Atualize status, copie a mensagem base e reagende usando slots disponiveis."
-        tourId="interview-agenda"
-      >
-        ${carregando
-          ? html`
-              <${LoadingState}
-                titulo="Carregando entrevistas"
-                descricao="Buscando agenda, status e candidatos associados."
-              />
-            `
-          : entrevistas.length
+        <${SectionCard}
+          title="Agenda operacional"
+          description="Atualize status, copie a mensagem base e reagende usando slots disponiveis."
+          className="interview-operation-card compact-dashboard-card"
+          tourId="interview-agenda"
+        >
+          ${carregando
             ? html`
-                <div class="table-responsive">
-                  <table class="table align-middle rh-modern-history-table">
-                    <thead>
-                      <tr>
-                        <th>Candidato</th>
-                        <th>Processo</th>
-                        <th>Vaga</th>
-                        <th>Data / hora</th>
-                        <th>Status</th>
-                        <th>Agenda</th>
-                        <th>Informacoes RH</th>
-                        <th class="text-end">Acoes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${entrevistas.map(
-                        (item) => html`
-                          <tr key=${item.id_entrevista}>
-                            <td>
-                              <strong>${item.nome_candidato || '-'}</strong>
-                              ${item.tags?.length
-                                ? html`
-                                    <div class="rh-chip-wrap mt-2">
-                                      ${item.tags.slice(0, 3).map(
-                                        (tag) => html`
-                                          <span key=${tag} class="rh-chip">${tag}</span>
-                                        `,
-                                      )}
-                                    </div>
-                                  `
-                                : null}
-                            </td>
-                            <td>${item.id_processo || '-'}</td>
-                            <td>${item.vaga || '-'}</td>
-                            <td>${formatarDataHora(item.data_entrevista)}</td>
-                            <td>
-                              <span
-                                class=${`rh-status-pill ${obterClasseStatusEntrevista(item.status_entrevista)}`}
-                              >
-                                ${item.status_entrevista || '-'}
-                              </span>
-                            </td>
-                            <td>${item.id_slot ? 'Calendario interno' : 'Registro legado'}</td>
-                            <td>
-                              <div class="rh-cell-stack">
-                                <span>${item.observacoes_rh || 'Sem observacoes.'}</span>
-                                ${isProcessClosed(item.status_processo)
-                                  ? html`
-                                      <small>Processo encerrado: movimentacoes bloqueadas.</small>
-                                    `
-                                  : null}
-                                ${item.observacao_candidato_rh
-                                  ? html`
-                                      <small>
-                                        Perfil RH: ${item.observacao_candidato_rh}
-                                      </small>
-                                    `
-                                  : null}
-                              </div>
-                            </td>
-                            <td class="text-end">
-                              <div class="d-flex justify-content-end gap-2 flex-wrap">
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-secondary"
-                                  onClick=${() =>
-                                    copiarTexto(item.mensagem_base || '')
-                                      .then(() =>
-                                        window.alert('Mensagem copiada para a area de transferencia.'),
-                                      )
-                                      .catch(() =>
-                                        window.alert('Nao foi possivel copiar a mensagem automaticamente.'),
-                                      )}
-                                >
-                                  Copiar mensagem
-                                </button>
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-primary"
-                                  disabled=${isProcessClosed(item.status_processo)}
-                                  onClick=${() => abrirEdicao(item)}
-                                >
-                                  ${isProcessClosed(item.status_processo)
-                                    ? 'Processo encerrado'
-                                    : 'Atualizar'}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        `,
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              `
-            : html`
-                <${EmptyState}
-                  title="Nenhuma entrevista encontrada"
-                  text="Agende entrevistas a partir do detalhe do processo para acompanhar a jornada por aqui."
+                <${LoadingState}
+                  titulo="Carregando entrevistas"
+                  descricao="Buscando agenda, status e candidatos associados."
                 />
-              `}
-      </${SectionCard}>
+              `
+            : entrevistas.length
+              ? html`
+                  <div class="interview-operation-list">
+                    ${entrevistasPaginadas.itens.map(
+                      (item) => html`
+                        <article class="interview-operation-row" key=${item.id_entrevista}>
+                          <div>
+                            <strong>${item.nome_candidato || '-'}</strong>
+                            <span>${item.vaga || item.id_processo || '-'}</span>
+                            ${item.tags?.length
+                              ? html`
+                                  <div class="rh-chip-wrap mt-2">
+                                    ${item.tags.slice(0, 3).map(
+                                      (tag) => html`
+                                        <span key=${tag} class="rh-chip">${tag}</span>
+                                      `,
+                                    )}
+                                  </div>
+                                `
+                              : null}
+                          </div>
+                          <div>
+                            <span>${formatarDataHora(item.data_entrevista)}</span>
+                            <small>${item.id_slot ? 'Calendario interno' : 'Registro legado'}</small>
+                          </div>
+                          <span class=${`rh-status-pill ${obterClasseStatusEntrevista(item.status_entrevista)}`}>
+                            ${item.status_entrevista || '-'}
+                          </span>
+                          <p>${item.observacoes_rh || 'Sem observacoes.'}</p>
+                          <div class="interview-row-actions">
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-secondary"
+                              onClick=${() =>
+                                copiarTexto(item.mensagem_base || '')
+                                  .then(() =>
+                                    window.alert('Mensagem copiada para a area de transferencia.'),
+                                  )
+                                  .catch(() =>
+                                    window.alert('Nao foi possivel copiar a mensagem automaticamente.'),
+                                  )}
+                            >
+                              Copiar mensagem
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-primary"
+                              disabled=${isProcessClosed(item.status_processo)}
+                              onClick=${() => abrirEdicao(item)}
+                            >
+                              ${isProcessClosed(item.status_processo)
+                                ? 'Processo encerrado'
+                                : 'Atualizar'}
+                            </button>
+                          </div>
+                        </article>
+                      `,
+                    )}
+                  </div>
+                  <${PaginacaoCompacta}
+                    paginaAtual=${entrevistasPaginadas.paginaAtual}
+                    totalPaginas=${entrevistasPaginadas.totalPaginas}
+                    totalItens=${entrevistasPaginadas.totalItens}
+                    tamanhoPagina=${TAMANHO_PAGINA_AGENDA_ENTREVISTAS}
+                    itensNaPagina=${entrevistasPaginadas.itens.length}
+                    onChange=${setPaginaAgenda}
+                  />
+                `
+              : html`
+                  <div class="c24-empty-state c24-empty-state-horizontal">
+                    <span class="material-symbols-outlined">assignment</span>
+                    <div>
+                      <h3>Nenhuma entrevista encontrada</h3>
+                      <p>Agende entrevistas a partir do detalhe do processo para acompanhar a jornada por aqui.</p>
+                    </div>
+                  </div>
+                `}
+        </${SectionCard}>
+      </div>
 
       <${ModalEdicaoEntrevista}
         aberto=${!!entrevistaEdicao}

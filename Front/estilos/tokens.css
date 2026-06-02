@@ -1,6 +1,13 @@
 :root {
   --font-sans: 'DM Sans', sans-serif;
   --font-mono: 'DM Mono', monospace;
+  --font-xs: clamp(0.68rem, 0.72vw, 0.75rem);
+  --font-sm: clamp(0.75rem, 0.78vw, 0.82rem);
+  --font-md: clamp(0.82rem, 0.86vw, 0.94rem);
+  --font-lg: clamp(1rem, 1.05vw, 1.12rem);
+  --font-xl: clamp(1.38rem, 1.7vw, 1.88rem);
+  --sidebar-width: 224px;
+  --sidebar-width-compact: 92px;
   --color-bg: #edf1f7;
   --color-surface: #ffffff;
   --color-surface-soft: #f6f8fc;

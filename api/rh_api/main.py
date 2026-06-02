@@ -25,6 +25,7 @@ from .routers.interviews import router as interviews_router
 from .routers.pipeline import router as pipeline_router
 from .routers.processes import router as processes_router
 from .routers.public_candidacy import router as public_candidacy_router
+from .routers.settings import router as settings_router
 from .routers.system import router as system_router
 
 
@@ -165,6 +166,7 @@ def create_app() -> FastAPI:
     app.include_router(interviews_router)
     app.include_router(analytics_router)
     app.include_router(pipeline_router)
+    app.include_router(settings_router)
 
     logger.info(
         "Aplicacao inicializada no ambiente '%s' com banco '%s/%s'.",

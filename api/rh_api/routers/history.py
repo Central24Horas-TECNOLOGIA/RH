@@ -6,7 +6,8 @@ import logging
 from fastapi import APIRouter, Depends, Query, Request
 
 from ..config import get_settings
-from ..dependencies import get_current_user, get_repository
+from ..auth import AuthenticatedUser
+from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
 from ..repositories import DatabaseRepository
 from ..schemas.history import AnswerFileRequest, HistoryRecordRequest
 
@@ -36,7 +37,7 @@ def _build_safe_payload_preview(payload: dict | None) -> dict:
     return result
 
 
-@router.get("/history")
+@router.get("/history", dependencies=[Depends(require_permissions("candidatos.consultar_historico"))])
 def get_history(
     page: int | None = Query(default=None, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
@@ -48,10 +49,11 @@ def get_history(
     return repository.list_history(page=page, page_size=page_size, nome=nome, vaga=vaga, data=data)
 
 
-@router.post("/history")
+@router.post("/history", dependencies=[Depends(require_permissions("provas.corrigir", "provas.enviar"))])
 async def save_history(
     request: Request,
     payload: HistoryRecordRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
     raw_payload = {}
@@ -67,17 +69,39 @@ async def save_history(
             json.dumps(_build_safe_payload_preview(payload.model_dump()), ensure_ascii=False),
         )
 
-    return repository.save_history(payload.model_dump(), raw_payload=raw_payload)
+    result = repository.save_history(payload.model_dump(), raw_payload=raw_payload)
+    audit_action(
+        repository,
+        user,
+        modulo="Provas",
+        acao="salvar_historico_prova",
+        entidade="historico_provas",
+        entidade_id=payload.id_teste,
+        valor_novo=_build_safe_payload_preview(payload.model_dump()),
+        request=request,
+    )
+    return result
 
 
-@router.get("/answer-files")
+@router.get("/answer-files", dependencies=[Depends(require_permissions("provas.visualizar"))])
 def get_answer_files(repository: DatabaseRepository = Depends(get_repository)):
     return repository.get_answer_files()
 
 
-@router.post("/answer-files")
+@router.post("/answer-files", dependencies=[Depends(require_permissions("provas.corrigir", "provas.enviar"))])
 def save_answer_file(
     payload: AnswerFileRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    return repository.save_answer_file(payload.model_dump())
+    result = repository.save_answer_file(payload.model_dump())
+    audit_action(
+        repository,
+        user,
+        modulo="Provas",
+        acao="salvar_gabarito",
+        entidade="gabaritos",
+        entidade_id=payload.recordId,
+        valor_novo={"record_id": payload.recordId},
+    )
+    return result

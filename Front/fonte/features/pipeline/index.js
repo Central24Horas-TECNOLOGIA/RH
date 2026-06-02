@@ -313,6 +313,7 @@ export function TelaPipelineCandidatos({ controlador }) {
       controlador=${controlador}
       acaoPrimaria=${{
         label: 'Novo card',
+        permissao: 'candidatos.criar',
         onClick: () => setModalCriacaoAberto(true),
       }}
       acoesTopo=${html`

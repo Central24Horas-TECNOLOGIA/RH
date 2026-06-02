@@ -11,6 +11,7 @@ import {
   analisarCvCandidatoInscrito,
   analisarCvEmailRecebido,
   atualizarEntrevista,
+  atualizarFichaCandidato,
   atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
   atualizarProcesso,
@@ -29,6 +30,7 @@ import {
   lerCandidatosProcessos,
   lerDetalheProcesso,
   lerEntrevistas,
+  lerFichaCandidato,
   lerPreAnalisesCv,
   lerProcessos,
   lerSlotsEntrevista,
@@ -67,6 +69,7 @@ import {
   CANDIDATE_STATUS_APPROVED,
   CANDIDATE_STATUS_ANALYSIS,
   CANDIDATE_STATUS_ELIMINATED,
+  CANDIDATE_STATUS_PENDING_CONFIRMATION,
   CANDIDATE_STATUS_TALENT_BANK,
   canonicalizeCandidateStatus,
   getCandidateActionState,
@@ -86,8 +89,6 @@ import {
 import { CHAVE_PROCESSO_DETALHE } from './state.js';
 import { CabecalhoSecaoColapsavel } from './components/section-toggle.js';
 import {
-  EmptyState,
-  GrupoPaginacao,
   LoadingState,
   MetricGrid,
   ModalDetalhesProva,
@@ -103,6 +104,9 @@ const AVISO_URL_PUBLICA_NAO_CONFIGURADA =
   'URL pública ainda não configurada. Defina PUBLIC_CANDIDATE_BASE_URL no servidor para liberar inscrições externas.';
 const EXIBIR_PAGINA_PUBLICA_CANDIDATURA = false;
 const EXIBIR_CANDIDATOS_INSCRITOS = false;
+const TAMANHO_PAGINA_CANDIDATOS_DETALHE = 4;
+const TAMANHO_PAGINA_APROVADOS_DETALHE = 4;
+const TAMANHO_PAGINA_PRE_ANALISE_DETALHE = 5;
 const MOTIVOS_ELIMINACAO = [
   'Eliminado pela nota de corte',
   'Eliminado na entrevista',
@@ -129,6 +133,289 @@ const RESPONSABILIDADES_PUBLICAS_PADRAO = [
   'Cumprir procedimentos, prazos, políticas internas e orientações do processo.',
   'Apoiar a equipe na manutenção da qualidade e continuidade das operações.',
 ];
+const CLASSIFICACOES_FICHA_CANDIDATO = [
+  'Indicado',
+  'Indicado com restrições',
+  'Contraindicado',
+];
+
+function formatarValorFicha(valor, fallback = 'Não informado') {
+  const texto = String(valor ?? '').trim();
+  return texto || fallback;
+}
+
+function escaparHtmlFicha(valor) {
+  return String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function montarFormularioFichaCandidato(ficha) {
+  const candidato = ficha?.candidato || {};
+  const avaliacao = ficha?.avaliacao_rh || {};
+
+  return {
+    nome_candidato: candidato.nome_candidato || '',
+    email: candidato.email || '',
+    telefone: candidato.telefone || '',
+    whatsapp: candidato.whatsapp || '',
+    cidade: candidato.cidade || '',
+    bairro: candidato.bairro || '',
+    observacao_rh: avaliacao.observacoes || '',
+    classificacao: avaliacao.classificacao || '',
+    justificativa: avaliacao.justificativa || '',
+  };
+}
+
+function montarFichaParaImpressao(ficha, formulario) {
+  const dadosFormulario = formulario || montarFormularioFichaCandidato(ficha);
+  const classificacao = dadosFormulario.classificacao || '';
+
+  return {
+    ...(ficha || {}),
+    candidato: {
+      ...(ficha?.candidato || {}),
+      nome_candidato: dadosFormulario.nome_candidato,
+      email: dadosFormulario.email,
+      telefone: dadosFormulario.telefone,
+      whatsapp: dadosFormulario.whatsapp,
+      cidade: dadosFormulario.cidade,
+      bairro: dadosFormulario.bairro,
+    },
+    avaliacao_rh: {
+      ...(ficha?.avaliacao_rh || {}),
+      observacoes: dadosFormulario.observacao_rh,
+      classificacao,
+      classificacao_label: classificacao || 'Não definido',
+      justificativa: dadosFormulario.justificativa,
+    },
+  };
+}
+
+function montarLinhasTabelaImpressao(itens, colunas, textoVazio) {
+  if (!itens?.length) {
+    return `
+      <tr>
+        <td colspan="${colunas.length}" class="muted">${escaparHtmlFicha(textoVazio)}</td>
+      </tr>
+    `;
+  }
+
+  return itens.map((item) => `
+    <tr>
+      ${colunas.map((coluna) => `
+        <td>${escaparHtmlFicha(coluna.valor(item))}</td>
+      `).join('')}
+    </tr>
+  `).join('');
+}
+
+function imprimirFichaCandidato(ficha, formulario) {
+  const fichaImpressao = montarFichaParaImpressao(ficha, formulario);
+  const candidato = fichaImpressao.candidato || {};
+  const curriculo = candidato.curriculo || {};
+  const avaliacao = fichaImpressao.avaliacao_rh || {};
+  const processos = Array.isArray(fichaImpressao.processos)
+    ? fichaImpressao.processos
+    : [];
+  const resultados = Array.isArray(fichaImpressao.resultados)
+    ? fichaImpressao.resultados
+    : [];
+  const nome = formatarValorFicha(candidato.nome_candidato, 'Candidato');
+  const dataGeracao = formatarDataHora(new Date().toISOString());
+  const janela = window.open('', '_blank');
+
+  if (!janela) {
+    throw new Error('Não foi possível abrir a janela de impressão. Verifique o bloqueador de pop-ups.');
+  }
+
+  const htmlImpressao = `
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8" />
+        <title>Ficha Geral - ${escaparHtmlFicha(nome)}</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            color: #172033;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            line-height: 1.45;
+          }
+          .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin: 0 0 16px;
+          }
+          .toolbar button {
+            border: 1px solid #1b5fc1;
+            border-radius: 6px;
+            background: #1b5fc1;
+            color: #fff;
+            padding: 8px 14px;
+            font-weight: 700;
+            cursor: pointer;
+          }
+          header {
+            border-bottom: 2px solid #1b5fc1;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+          }
+          h1 {
+            margin: 0 0 4px;
+            font-size: 24px;
+          }
+          h2 {
+            margin: 18px 0 8px;
+            font-size: 15px;
+            color: #1b5fc1;
+          }
+          .muted { color: #627085; }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px 18px;
+          }
+          .field strong {
+            display: block;
+            font-size: 10px;
+            color: #627085;
+            text-transform: uppercase;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+          }
+          th, td {
+            border: 1px solid #d8e0ec;
+            padding: 7px;
+            vertical-align: top;
+            text-align: left;
+          }
+          th {
+            background: #edf3fb;
+            color: #172033;
+          }
+          .text-block {
+            min-height: 38px;
+            border: 1px solid #d8e0ec;
+            border-radius: 6px;
+            padding: 8px;
+            white-space: pre-wrap;
+          }
+          @media print {
+            .toolbar { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar">
+          <button type="button" onclick="window.print()">Imprimir / salvar PDF</button>
+        </div>
+        <header>
+          <h1>Ficha Geral do Candidato</h1>
+          <div class="muted">Gerada em ${escaparHtmlFicha(dataGeracao)}</div>
+        </header>
+
+        <h2>Dados do candidato</h2>
+        <section class="grid">
+          <div class="field"><strong>Nome</strong>${escaparHtmlFicha(formatarValorFicha(candidato.nome_candidato))}</div>
+          <div class="field"><strong>E-mail</strong>${escaparHtmlFicha(formatarValorFicha(candidato.email))}</div>
+          <div class="field"><strong>Telefone</strong>${escaparHtmlFicha(formatarValorFicha(candidato.telefone))}</div>
+          <div class="field"><strong>WhatsApp</strong>${escaparHtmlFicha(formatarValorFicha(candidato.whatsapp))}</div>
+          <div class="field"><strong>Cidade</strong>${escaparHtmlFicha(formatarValorFicha(candidato.cidade))}</div>
+          <div class="field"><strong>Bairro</strong>${escaparHtmlFicha(formatarValorFicha(candidato.bairro))}</div>
+        </section>
+
+        <h2>Currículo</h2>
+        <section class="grid">
+          <div class="field"><strong>Arquivo</strong>${escaparHtmlFicha(formatarValorFicha(curriculo.nome_arquivo))}</div>
+          <div class="field"><strong>Status</strong>${escaparHtmlFicha(formatarValorFicha(curriculo.status))}</div>
+          <div class="field"><strong>Nota do currículo</strong>${escaparHtmlFicha(formatarValorFicha(candidato.nota_curriculo))}</div>
+          <div class="field"><strong>Disponível para download</strong>${curriculo.disponivel ? 'Sim' : 'Não'}</div>
+        </section>
+
+        <h2>Processos seletivos</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Vaga/processo</th>
+              <th>Status</th>
+              <th>Etapa</th>
+              <th>Data</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${montarLinhasTabelaImpressao(
+              processos,
+              [
+                { valor: (item) => formatarValorFicha(item.vaga) },
+                { valor: (item) => formatarValorFicha(item.status) },
+                { valor: (item) => formatarValorFicha(item.etapa) },
+                { valor: (item) => formatarDataHora(item.data_inscricao) },
+                { valor: (item) => formatarValorFicha(item.resultado_geral) },
+              ],
+              'Nenhum processo registrado.',
+            )}
+          </tbody>
+        </table>
+
+        <h2>Resultados resumidos</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Etapa</th>
+              <th>Pontuação</th>
+              <th>Status</th>
+              <th>Processo</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${montarLinhasTabelaImpressao(
+              resultados,
+              [
+                { valor: (item) => formatarValorFicha(item.etapa) },
+                { valor: (item) => formatarValorFicha(item.pontuacao) },
+                { valor: (item) => formatarValorFicha(item.status) },
+                { valor: (item) => formatarValorFicha(item.processo) },
+                { valor: (item) => formatarDataHora(item.data) },
+              ],
+              'Nenhum resultado registrado.',
+            )}
+          </tbody>
+        </table>
+
+        <h2>Avaliação RH</h2>
+        <section class="grid">
+          <div class="field"><strong>Classificação</strong>${escaparHtmlFicha(avaliacao.classificacao_label || 'Não definido')}</div>
+          <div class="field"><strong>Data de geração</strong>${escaparHtmlFicha(dataGeracao)}</div>
+        </section>
+        <h2>Observações do candidato</h2>
+        <div class="text-block">${escaparHtmlFicha(formatarValorFicha(avaliacao.observacoes))}</div>
+        <h2>Justificativa</h2>
+        <div class="text-block">${escaparHtmlFicha(formatarValorFicha(avaliacao.justificativa))}</div>
+        <script>
+          window.addEventListener('load', function () {
+            window.setTimeout(function () { window.print(); }, 200);
+          });
+        </script>
+      </body>
+    </html>
+  `;
+
+  janela.document.open();
+  janela.document.write(htmlImpressao);
+  janela.document.close();
+}
 
 function normalizarTextoComparacao(valor) {
   return String(valor || '')
@@ -182,6 +469,51 @@ function formatarHoraCurta(valor) {
   return data.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
+  });
+}
+
+function criarDataLocalProcesso(valor) {
+  if (valor instanceof Date) return new Date(valor);
+  const texto = String(valor || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    const [ano, mes, dia] = texto.split('-').map(Number);
+    return new Date(ano, mes - 1, dia);
+  }
+  const data = texto ? new Date(texto) : new Date();
+  return Number.isNaN(data.getTime()) ? new Date() : data;
+}
+
+function formatarIsoDataLocal(valor) {
+  const data = criarDataLocalProcesso(valor);
+  if (Number.isNaN(data.getTime())) return '';
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+function moverIsoDataLocal(valor, deslocamento) {
+  const data = criarDataLocalProcesso(valor);
+  data.setDate(data.getDate() + deslocamento);
+  return formatarIsoDataLocal(data);
+}
+
+function gerarFaixaDiasCalendario(dataBase = new Date(), dataSelecionada = '') {
+  const base = criarDataLocalProcesso(dataBase);
+  if (Number.isNaN(base.getTime())) return [];
+  const selecionada = dataSelecionada || formatarIsoDataLocal(base);
+
+  return [-2, -1, 0, 1, 2].map((deslocamento) => {
+    const data = new Date(base);
+    data.setDate(base.getDate() + deslocamento);
+    const chave = formatarIsoDataLocal(data);
+    return {
+      chave,
+      mes: data.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase(),
+      dia: data.toLocaleDateString('pt-BR', { day: '2-digit' }),
+      semana: data.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
+      selecionado: chave === selecionada,
+    };
   });
 }
 
@@ -354,20 +686,50 @@ function renderizarAcoesDoCandidato({
   onAprovar,
   onAgendarEntrevista,
   onEditar,
+  onFicha,
+  fichaCarregandoId = '',
+  controlador,
 }) {
   const estadoAcoes = candidato.acoes_fluxo || getCandidateActionState(candidato);
+  const podeAgendar = controlador?.possuiPermissao?.('entrevistas.criar');
+  const podeAprovar = controlador?.possuiPermissao?.('candidatos.aprovar_final');
+  const podeEliminar = controlador?.possuiPermissao?.('candidatos.eliminar');
+  const podeMover = controlador?.possuiPermissao?.('candidatos.mover_etapa');
+  const podeEditar = controlador?.possuiAlgumaPermissao?.(
+    'candidatos.editar',
+    'candidatos.editar_basico',
+    'candidatos.editar_admissional',
+  );
   const botoes = [];
+
+  if (typeof onFicha === 'function') {
+    botoes.push(
+      html`
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-dark rh-action-btn btn-action btn-neutral"
+          title="Abrir ficha geral do candidato"
+          disabled=${fichaCarregandoId === String(candidato.id_teste || '')}
+          onClick=${() => onFicha(candidato)}
+        >
+          <span class="material-symbols-outlined">badge</span>
+          ${fichaCarregandoId === String(candidato.id_teste || '') ? 'Abrindo...' : 'Ficha'}
+        </button>
+      `,
+    );
+  }
 
   if (
     !estadoAcoes.processClosed &&
     estadoAcoes.isActive &&
-    typeof onAgendarEntrevista === 'function'
+    typeof onAgendarEntrevista === 'function' &&
+    podeAgendar
   ) {
     botoes.push(
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-primary rh-action-btn"
+          class="btn btn-sm btn-outline-primary rh-action-btn btn-action btn-primary-soft"
           title="Agendar entrevista"
           onClick=${() => onAgendarEntrevista(candidato)}
         >
@@ -378,12 +740,12 @@ function renderizarAcoesDoCandidato({
     );
   }
 
-  if (estadoAcoes.canApprove) {
+  if (estadoAcoes.canApprove && podeAprovar) {
     botoes.push(
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-success rh-action-btn"
+          class="btn btn-sm btn-outline-success rh-action-btn btn-action btn-success-soft"
           title="Aprovar candidato"
           onClick=${() =>
           typeof onAprovar === 'function'
@@ -397,12 +759,12 @@ function renderizarAcoesDoCandidato({
     );
   }
 
-  if (estadoAcoes.canEliminate) {
+  if (estadoAcoes.canEliminate && podeEliminar) {
     botoes.push(
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-danger rh-action-btn"
+          class="btn btn-sm btn-outline-danger rh-action-btn btn-action btn-danger-soft"
           title="Eliminar candidato"
           onClick=${() => onAtualizarStatus(candidato, 'Eliminado')}
         >
@@ -413,12 +775,12 @@ function renderizarAcoesDoCandidato({
     );
   }
 
-  if (estadoAcoes.canSendToTalentBank) {
+  if (estadoAcoes.canSendToTalentBank && podeMover) {
     botoes.push(
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-secondary rh-action-btn"
+          class="btn btn-sm btn-outline-secondary rh-action-btn btn-action btn-neutral"
           title="Enviar para Banco de Talentos"
           onClick=${() => onAtualizarStatus(candidato, 'Banco de Talentos')}
         >
@@ -429,12 +791,12 @@ function renderizarAcoesDoCandidato({
     );
   }
 
-  if (estadoAcoes.canEdit && typeof onEditar === 'function') {
+  if (estadoAcoes.canEdit && typeof onEditar === 'function' && podeEditar) {
     botoes.push(
       html`
         <button
           type="button"
-          class="btn btn-sm btn-outline-secondary rh-action-btn"
+          class="btn btn-sm btn-outline-secondary rh-action-btn btn-action btn-neutral"
           title="Editar dados do candidato"
           onClick=${() => onEditar(candidato)}
         >
@@ -458,16 +820,543 @@ function renderizarAcoesDoCandidato({
   return html`<div class="rh-action-cluster">${botoes}</div>`;
 }
 
+function PaginacaoCompacta({
+  paginaAtual = 1,
+  totalPaginas = 1,
+  totalItens = 0,
+  tamanhoPagina = 1,
+  itensNaPagina = 0,
+  onChange,
+}) {
+  const total = Number(totalItens || 0);
+  if (!total) return null;
+
+  const totalPaginasSeguro = Math.max(1, Number(totalPaginas || 1));
+  const paginaSegura = Math.min(Math.max(1, Number(paginaAtual || 1)), totalPaginasSeguro);
+  const inicio = ((paginaSegura - 1) * Math.max(1, Number(tamanhoPagina || 1))) + 1;
+  const fim = Math.min(total, inicio + Math.max(0, Number(itensNaPagina || 0)) - 1);
+  const podeVoltar = paginaSegura > 1;
+  const podeAvancar = paginaSegura < totalPaginasSeguro;
+
+  return html`
+    <div class="c24-pagination-bar">
+      <span>Mostrando ${inicio}-${fim} de ${total}</span>
+      ${totalPaginasSeguro > 1
+        ? html`
+            <div class="c24-pagination-actions">
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                disabled=${!podeVoltar}
+                onClick=${() => podeVoltar && onChange?.(paginaSegura - 1)}
+              >
+                Anterior
+              </button>
+              <span class="c24-pagination-current">${paginaSegura}/${totalPaginasSeguro}</span>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                disabled=${!podeAvancar}
+                onClick=${() => podeAvancar && onChange?.(paginaSegura + 1)}
+              >
+                Próximo
+              </button>
+            </div>
+          `
+        : null}
+    </div>
+  `;
+}
+
+function renderizarAcoesCompactasDoCandidato({
+  candidato,
+  onAtualizarStatus,
+  onAprovar,
+  onAgendarEntrevista,
+  onEditar,
+  onFicha,
+  onDetalheProva,
+  onCurriculo,
+  fichaCarregandoId = '',
+  carregandoDetalhe = false,
+  temProvaSalva = false,
+  podeBaixarCv = false,
+  controlador,
+  menuAberto = false,
+  onToggleMenu,
+  onCloseMenu,
+}) {
+  const estadoAcoes = candidato.acoes_fluxo || getCandidateActionState(candidato);
+  const podeAgendar = controlador?.possuiPermissao?.('entrevistas.criar');
+  const podeAprovar = controlador?.possuiPermissao?.('candidatos.aprovar_final');
+  const podeEliminar = controlador?.possuiPermissao?.('candidatos.eliminar');
+  const podeMover = controlador?.possuiPermissao?.('candidatos.mover_etapa');
+  const podeEditar = controlador?.possuiAlgumaPermissao?.(
+    'candidatos.editar',
+    'candidatos.editar_basico',
+    'candidatos.editar_admissional',
+  );
+  const acoesPrincipais = [];
+  const acoesMenu = [];
+
+  if (
+    !estadoAcoes.processClosed &&
+    estadoAcoes.isActive &&
+    typeof onAgendarEntrevista === 'function' &&
+    podeAgendar
+  ) {
+    acoesPrincipais.push(html`
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary rh-action-btn btn-action btn-primary-soft"
+        title="Agendar entrevista"
+        onClick=${() => onAgendarEntrevista(candidato)}
+      >
+        <span class="material-symbols-outlined">event</span>
+        Entrevista
+      </button>
+    `);
+  }
+
+  if (estadoAcoes.canApprove && podeAprovar) {
+    acoesPrincipais.push(html`
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-success rh-action-btn btn-action btn-success-soft"
+        title="Aprovar candidato"
+        onClick=${() =>
+          typeof onAprovar === 'function'
+            ? onAprovar(candidato)
+            : onAtualizarStatus(candidato, 'Aprovado')}
+      >
+        <span class="material-symbols-outlined">check_circle</span>
+        Aprovar
+      </button>
+    `);
+  }
+
+  if (temProvaSalva && typeof onDetalheProva === 'function') {
+    acoesPrincipais.push(html`
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary rh-action-btn btn-action btn-primary-soft"
+        disabled=${carregandoDetalhe}
+        onClick=${() => onDetalheProva(candidato)}
+      >
+        <span class="material-symbols-outlined">visibility</span>
+        Resultado
+      </button>
+    `);
+  }
+
+  if (typeof onFicha === 'function') {
+    acoesMenu.push({
+      label: fichaCarregandoId === String(candidato.id_teste || '') ? 'Abrindo...' : 'Ficha',
+      icon: 'badge',
+      disabled: fichaCarregandoId === String(candidato.id_teste || ''),
+      onClick: () => onFicha(candidato),
+    });
+  }
+
+  if (temProvaSalva && typeof onDetalheProva === 'function') {
+    acoesMenu.push({
+      label: 'Notas',
+      icon: 'analytics',
+      disabled: carregandoDetalhe,
+      onClick: () => onDetalheProva(candidato),
+    });
+  }
+
+  if (podeBaixarCv && typeof onCurriculo === 'function') {
+    acoesMenu.push({
+      label: 'Ver CV',
+      icon: 'description',
+      onClick: () => onCurriculo(candidato),
+    });
+  }
+
+  if (estadoAcoes.canSendToTalentBank && podeMover) {
+    acoesMenu.push({
+      label: 'Banco',
+      icon: 'inventory_2',
+      onClick: () => onAtualizarStatus(candidato, 'Banco de Talentos'),
+    });
+  }
+
+  if (estadoAcoes.canEdit && typeof onEditar === 'function' && podeEditar) {
+    acoesMenu.push({
+      label: 'Editar',
+      icon: 'edit',
+      onClick: () => onEditar(candidato),
+    });
+  }
+
+  if (estadoAcoes.canEliminate && podeEliminar) {
+    acoesMenu.push({
+      label: 'Eliminar',
+      icon: 'cancel',
+      danger: true,
+      onClick: () => onAtualizarStatus(candidato, 'Eliminado'),
+    });
+  }
+
+  if (!acoesPrincipais.length && !acoesMenu.length) {
+    return html`
+      <span class="text-muted">
+        ${estadoAcoes.processClosed
+          ? 'Processo encerrado. Movimentações não são permitidas.'
+          : 'Sem ações disponíveis'}
+      </span>
+    `;
+  }
+
+  return html`
+    ${acoesPrincipais}
+    ${acoesMenu.length
+      ? html`
+          <div
+            class=${`candidate-actions-menu ${menuAberto ? 'is-open' : ''}`}
+            onClick=${(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary rh-action-btn btn-action btn-neutral candidate-actions-menu-toggle"
+              aria-haspopup="menu"
+              aria-expanded=${menuAberto}
+              onClick=${(event) => {
+                event.stopPropagation();
+                onToggleMenu?.();
+              }}
+            >
+              <span class="material-symbols-outlined">more_vert</span>
+              Mais ações
+            </button>
+            ${menuAberto
+              ? html`
+                  <div class="candidate-actions-menu-list" role="menu">
+                    ${acoesMenu.map(
+                      (acao) => html`
+                        <button
+                          type="button"
+                          role="menuitem"
+                          class=${`candidate-actions-menu-item ${acao.danger ? 'is-danger' : ''}`}
+                          disabled=${!!acao.disabled}
+                          onClick=${() => {
+                            onCloseMenu?.();
+                            acao.onClick?.();
+                          }}
+                        >
+                          <span class="material-symbols-outlined">${acao.icon}</span>
+                          ${acao.label}
+                        </button>
+                      `,
+                    )}
+                  </div>
+                `
+              : null}
+          </div>
+        `
+      : null}
+  `;
+}
+
+function ModalFichaCandidato({
+  ficha,
+  formulario,
+  salvando,
+  erro,
+  mensagem,
+  onClose,
+  onChange,
+  onSave,
+  onPrint,
+  onAbrirCurriculo,
+}) {
+  if (!ficha) return null;
+
+  const candidato = ficha.candidato || {};
+  const curriculo = candidato.curriculo || {};
+  const processos = Array.isArray(ficha.processos) ? ficha.processos : [];
+  const resultados = Array.isArray(ficha.resultados) ? ficha.resultados : [];
+
+  return html`
+    <${ModalPadrao}
+      aberto=${true}
+      titulo=${`Ficha Geral | ${candidato.nome_candidato || 'Candidato'}`}
+      subtitulo="Consulta consolidada do candidato, com observações e classificação interna do RH."
+      className="candidate-sheet-dialog"
+      onClose=${onClose}
+    >
+      <div class="rh-details-body candidate-sheet-body">
+        ${erro
+          ? html`<div class="alert alert-danger py-2">${erro}</div>`
+          : null}
+        ${mensagem
+          ? html`<div class="alert alert-success py-2">${mensagem}</div>`
+          : null}
+
+        <${SectionCard}
+          title="Dados do candidato"
+          className="rh-section-card--flat candidate-sheet-section"
+        >
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nome</label>
+              <input
+                class="form-control"
+                value=${formulario.nome_candidato}
+                onInput=${(event) => onChange('nome_candidato', event.target.value)}
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">E-mail</label>
+              <input
+                class="form-control"
+                value=${formulario.email}
+                onInput=${(event) => onChange('email', event.target.value)}
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Telefone</label>
+              <input
+                class="form-control"
+                value=${formulario.telefone}
+                onInput=${(event) => onChange('telefone', event.target.value)}
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">WhatsApp</label>
+              <input
+                class="form-control"
+                value=${formulario.whatsapp}
+                onInput=${(event) => onChange('whatsapp', event.target.value)}
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Cidade</label>
+              <input
+                class="form-control"
+                value=${formulario.cidade}
+                onInput=${(event) => onChange('cidade', event.target.value)}
+              />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Bairro</label>
+              <input
+                class="form-control"
+                value=${formulario.bairro}
+                onInput=${(event) => onChange('bairro', event.target.value)}
+              />
+            </div>
+          </div>
+        </${SectionCard}>
+
+        <${SectionCard}
+          title="Currículo"
+          className="rh-section-card--flat candidate-sheet-section"
+          actions=${curriculo.disponivel
+            ? html`
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary rh-action-btn"
+                  onClick=${() =>
+                    onAbrirCurriculo({
+                      id_teste: candidato.id_teste || candidato.id,
+                      cv_disponivel: curriculo.disponivel,
+                    })}
+                >
+                  <span class="material-symbols-outlined">description</span>
+                  Ver CV
+                </button>
+              `
+            : null}
+        >
+          <${MetricGrid}
+            items=${[
+              {
+                label: 'Arquivo',
+                value: curriculo.nome_arquivo || 'Sem currículo',
+              },
+              {
+                label: 'Status',
+                value: curriculo.status || 'Não avaliado',
+              },
+              {
+                label: 'Nota do currículo',
+                value: formatarValorFicha(candidato.nota_curriculo),
+              },
+            ]}
+          />
+        </${SectionCard}>
+
+        <${SectionCard}
+          title="Processos seletivos"
+          className="rh-section-card--flat candidate-sheet-section"
+        >
+          <div class="table-responsive">
+            <table class="table align-middle rh-modern-history-table">
+              <thead>
+                <tr>
+                  <th>Vaga/processo</th>
+                  <th>Status</th>
+                  <th>Etapa</th>
+                  <th>Data</th>
+                  <th>Resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${processos.length
+                  ? processos.map((item, indice) => html`
+                      <tr key=${`${item.id || 'processo'}-${indice}`}>
+                        <td>${item.vaga || '-'}</td>
+                        <td>${item.status || '-'}</td>
+                        <td>${item.etapa || '-'}</td>
+                        <td>${formatarDataHora(item.data_inscricao)}</td>
+                        <td>${item.resultado_geral || 'Não informado'}</td>
+                      </tr>
+                    `)
+                  : html`
+                      <${TabelaVazia}
+                        colunas=${5}
+                        texto="Nenhum processo registrado para este candidato."
+                      />
+                    `}
+              </tbody>
+            </table>
+          </div>
+        </${SectionCard}>
+
+        <${SectionCard}
+          title="Resultados resumidos"
+          className="rh-section-card--flat candidate-sheet-section"
+        >
+          <div class="table-responsive">
+            <table class="table align-middle rh-modern-history-table">
+              <thead>
+                <tr>
+                  <th>Etapa</th>
+                  <th>Pontuação</th>
+                  <th>Status</th>
+                  <th>Processo</th>
+                  <th>Data</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${resultados.length
+                  ? resultados.map((item, indice) => html`
+                      <tr key=${`${item.etapa || 'resultado'}-${indice}`}>
+                        <td>${item.etapa || '-'}</td>
+                        <td>${item.pontuacao || 'Não informado'}</td>
+                        <td>${item.status || '-'}</td>
+                        <td>${item.processo || '-'}</td>
+                        <td>${formatarDataHora(item.data)}</td>
+                      </tr>
+                    `)
+                  : html`
+                      <${TabelaVazia}
+                        colunas=${5}
+                        texto="Nenhum resultado de prova, CV ou entrevista registrado."
+                      />
+                    `}
+              </tbody>
+            </table>
+          </div>
+        </${SectionCard}>
+
+        <${SectionCard}
+          title="Avaliação RH"
+          className="rh-section-card--flat candidate-sheet-section"
+        >
+          <div class="mb-3">
+            <label class="form-label">Observações do candidato</label>
+            <textarea
+              class="form-control"
+              rows="4"
+              value=${formulario.observacao_rh}
+              onInput=${(event) => onChange('observacao_rh', event.target.value)}
+            ></textarea>
+          </div>
+
+          <div class="candidate-sheet-choice-grid mb-3">
+            ${CLASSIFICACOES_FICHA_CANDIDATO.map((opcao) => html`
+              <label
+                key=${opcao}
+                class=${`candidate-sheet-choice ${formulario.classificacao === opcao ? 'is-selected' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="candidate-sheet-recommendation"
+                  value=${opcao}
+                  checked=${formulario.classificacao === opcao}
+                  onChange=${() => onChange('classificacao', opcao)}
+                />
+                <span>${opcao}</span>
+              </label>
+            `)}
+          </div>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary mb-3"
+            onClick=${() => onChange('classificacao', '')}
+          >
+            Marcar como não definido
+          </button>
+
+          <div>
+            <label class="form-label">Justificativa</label>
+            <textarea
+              class="form-control"
+              rows="3"
+              value=${formulario.justificativa}
+              onInput=${(event) => onChange('justificativa', event.target.value)}
+            ></textarea>
+          </div>
+        </${SectionCard}>
+      </div>
+
+      <footer class="rh-modal-footer">
+        <div class="rh-modal-footer-actions">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            onClick=${onClose}
+            disabled=${salvando}
+          >
+            Fechar
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-primary"
+            onClick=${onPrint}
+            disabled=${salvando}
+          >
+            Imprimir ficha
+          </button>
+        </div>
+        <button
+          type="button"
+          class="btn btn-primary"
+          onClick=${onSave}
+          disabled=${salvando}
+        >
+          ${salvando ? 'Salvando...' : 'Salvar ficha'}
+        </button>
+      </footer>
+    </${ModalPadrao}>
+  `;
+}
+
 function SecaoDetalheExpansivel({
   aberto,
   titulo,
   description,
+  className = '',
   tourId = '',
   onToggle,
   children,
 }) {
   return html`
-    <${SectionCard} tourId=${tourId}>
+    <${SectionCard} className=${className} tourId=${tourId}>
       <div class="rh-section-card-header">
         <div>
           <${CabecalhoSecaoColapsavel}
@@ -481,6 +1370,145 @@ function SecaoDetalheExpansivel({
         </div>
       </div>
       ${aberto ? html`<div class="mt-3">${children}</div>` : null}
+    </${SectionCard}>
+  `;
+}
+
+function WidgetEntrevistasProcesso({
+  entrevistas = [],
+  carregando = false,
+  onAbrirAgenda,
+  onEditar,
+}) {
+  const [dataSelecionada, setDataSelecionada] = useState(() =>
+    formatarIsoDataLocal(new Date()),
+  );
+  const dias = gerarFaixaDiasCalendario(dataSelecionada, dataSelecionada);
+  const entrevistasDoDia = useMemo(
+    () =>
+      (Array.isArray(entrevistas) ? entrevistas : []).filter(
+        (entrevista) =>
+          entrevista?.data_entrevista &&
+          formatarIsoDataLocal(entrevista.data_entrevista) === dataSelecionada,
+      ),
+    [entrevistas, dataSelecionada],
+  );
+
+  return html`
+    <${SectionCard}
+      title="Entrevistas agendadas"
+      description="Agenda vinculada ao processo atual, usando horarios internos."
+      className="process-interview-widget compact-dashboard-card"
+      tourId="process-interviews"
+      actions=${html`
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          onClick=${onAbrirAgenda}
+        >
+          Ver agenda completa
+        </button>
+      `}
+    >
+      <div class="process-calendar-strip">
+        <button
+          type="button"
+          class="calendar-arrow-btn"
+          aria-label="Dia anterior"
+          onClick=${() => setDataSelecionada(moverIsoDataLocal(dataSelecionada, -1))}
+        >
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <div class="process-calendar-days">
+          ${dias.map(
+            (dia) => html`
+              <button
+                type="button"
+                class=${`process-calendar-day ${dia.selecionado ? 'is-selected' : ''}`}
+                key=${dia.chave}
+                onClick=${() => setDataSelecionada(dia.chave)}
+              >
+                <small>${dia.mes}</small>
+                <strong>${dia.dia}</strong>
+                <em>${dia.semana}</em>
+              </button>
+            `,
+          )}
+        </div>
+        <button
+          type="button"
+          class="calendar-arrow-btn"
+          aria-label="Próximo dia"
+          onClick=${() => setDataSelecionada(moverIsoDataLocal(dataSelecionada, 1))}
+        >
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
+
+      ${carregando
+        ? html`
+            <${LoadingState}
+              titulo="Carregando entrevistas"
+              descricao="Sincronizando agenda e status do candidato."
+            />
+          `
+        : entrevistasDoDia.length
+          ? html`
+              <div class="process-interview-list">
+                ${entrevistasDoDia.slice(0, 3).map(
+                  (entrevista) => html`
+                    <article class="process-interview-row" key=${entrevista.id_entrevista}>
+                      <span class="material-symbols-outlined">event_available</span>
+                      <div>
+                        <strong>${entrevista.nome_candidato || '-'}</strong>
+                        <small>
+                          ${formatarDataCurta(entrevista.data_entrevista)}
+                          as ${formatarHoraCurta(entrevista.data_entrevista)}
+                        </small>
+                      </div>
+                      <span class=${`rh-status-pill ${obterClasseStatusEntrevista(entrevista.status_entrevista)}`}>
+                        ${entrevista.status_entrevista || '-'}
+                      </span>
+                      <div class="process-interview-actions">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-secondary rh-action-btn"
+                          onClick=${() =>
+                            copiarTexto(entrevista.mensagem_base || '')
+                              .then(() =>
+                                window.alert('Mensagem copiada para a area de transferencia.'),
+                              )
+                              .catch(() =>
+                                window.alert('Nao foi possivel copiar a mensagem automaticamente.'),
+                              )}
+                        >
+                          <span class="material-symbols-outlined">content_copy</span>
+                          Copiar
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-primary rh-action-btn"
+                          disabled=${isProcessClosed(entrevista.status_processo)}
+                          onClick=${() => onEditar(entrevista)}
+                        >
+                          <span class="material-symbols-outlined">edit</span>
+                          Editar
+                        </button>
+                      </div>
+                    </article>
+                  `,
+                )}
+              </div>
+            `
+          : html`
+              <div class="c24-empty-state c24-empty-state-horizontal">
+                <span class="material-symbols-outlined">calendar_month</span>
+                <div>
+                  <h3>Nenhuma entrevista agendada</h3>
+                  <p>Use os slots ou confirmações para agendar entrevistas.</p>
+                </div>
+              </div>
+            `}
     </${SectionCard}>
   `;
 }
@@ -786,6 +1814,7 @@ export function TelaProcessos({ controlador }) {
       controlador=${controlador}
       acaoPrimaria=${{
       label: 'Novo processo',
+      permissao: 'vagas.criar',
       onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
     }}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
@@ -1131,6 +2160,7 @@ export function TelaProcessos({ controlador }) {
                   status,
                   obterReferenciaProcessoDoCandidato(item),
                 ),
+              controlador,
             })}
                               </td>
                             </tr>
@@ -1338,6 +2368,7 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [preAnalises, setPreAnalises] = useState([]);
   const [paginaPreAnalises, setPaginaPreAnalises] = useState(1);
   const [totalPaginasPreAnalises, setTotalPaginasPreAnalises] = useState(1);
+  const [totalItensPreAnalises, setTotalItensPreAnalises] = useState(0);
   const [classificacoesPreAnalises, setClassificacoesPreAnalises] = useState([]);
   const [filtrosPreAnalises, setFiltrosPreAnalises] = useState({
     nome: '',
@@ -1361,6 +2392,15 @@ export function TelaDetalhesProcesso({ controlador }) {
   );
   const [detalheCandidatoSelecionado, setDetalheCandidatoSelecionado] =
     useState(null);
+  const [fichaCandidatoSelecionada, setFichaCandidatoSelecionada] =
+    useState(null);
+  const [formularioFichaCandidato, setFormularioFichaCandidato] = useState(
+    montarFormularioFichaCandidato(null),
+  );
+  const [carregandoFichaCandidato, setCarregandoFichaCandidato] = useState('');
+  const [salvandoFichaCandidato, setSalvandoFichaCandidato] = useState(false);
+  const [erroFichaCandidato, setErroFichaCandidato] = useState('');
+  const [mensagemFichaCandidato, setMensagemFichaCandidato] = useState('');
   const [visualizacaoCv, setVisualizacaoCv] = useState(null);
   const [resultadoAnaliseSelecionado, setResultadoAnaliseSelecionado] =
     useState(null);
@@ -1381,7 +2421,7 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [salvandoEdicaoEntrevista, setSalvandoEdicaoEntrevista] = useState(false);
   const [formularioEdicaoEntrevista, setFormularioEdicaoEntrevista] = useState({
     id_slot: '',
-    status_entrevista: 'Agendado',
+    status_entrevista: CANDIDATE_STATUS_PENDING_CONFIRMATION,
     observacoes_rh: '',
     mensagem_personalizada: '',
   });
@@ -1391,7 +2431,7 @@ export function TelaDetalhesProcesso({ controlador }) {
     id_processo_ref: '',
     id_slot: '',
     data_entrevista: '',
-    status_entrevista: 'Agendado',
+    status_entrevista: CANDIDATE_STATUS_PENDING_CONFIRMATION,
     link_agendamento: '',
     observacoes_rh: '',
     mensagem_personalizada: '',
@@ -1411,6 +2451,10 @@ export function TelaDetalhesProcesso({ controlador }) {
   );
   const [salvandoObservacoesPublicas, setSalvandoObservacoesPublicas] =
     useState(false);
+  const [buscaCandidatosProcesso, setBuscaCandidatosProcesso] = useState('');
+  const [paginaCandidatosProcesso, setPaginaCandidatosProcesso] = useState(1);
+  const [paginaCandidatosAprovados, setPaginaCandidatosAprovados] = useState(1);
+  const [menuAcoesCandidatoAberto, setMenuAcoesCandidatoAberto] = useState('');
   const [secoesExpandidas, setSecoesExpandidas] = useState({
     paginaPublica: false,
     recebimentoEmail: true,
@@ -1435,6 +2479,22 @@ export function TelaDetalhesProcesso({ controlador }) {
     const timeout = window.setTimeout(() => setFeedbackLinkPublico(''), 3200);
     return () => window.clearTimeout(timeout);
   }, [feedbackLinkPublico]);
+
+  useEffect(() => {
+    if (!menuAcoesCandidatoAberto) return undefined;
+
+    const fecharMenu = () => setMenuAcoesCandidatoAberto('');
+    const fecharNoEscape = (event) => {
+      if (event.key === 'Escape') fecharMenu();
+    };
+
+    document.addEventListener('click', fecharMenu);
+    document.addEventListener('keydown', fecharNoEscape);
+    return () => {
+      document.removeEventListener('click', fecharMenu);
+      document.removeEventListener('keydown', fecharNoEscape);
+    };
+  }, [menuAcoesCandidatoAberto]);
 
   const carregarEmailsDoProcesso = async () => {
     if (!idProcesso) return;
@@ -1547,6 +2607,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       );
       setPaginaPreAnalises(Number(listaPreAnalises?.page || 1));
       setTotalPaginasPreAnalises(Number(listaPreAnalises?.total_pages || 1));
+      setTotalItensPreAnalises(Number(listaPreAnalises?.total_items || 0));
       setClassificacoesPreAnalises(
         Array.isArray(listaPreAnalises?.classificacoes)
           ? listaPreAnalises.classificacoes
@@ -1665,6 +2726,59 @@ export function TelaDetalhesProcesso({ controlador }) {
       ),
     [candidatosComFluxo],
   );
+  const candidatosOperacionaisFiltrados = useMemo(() => {
+    const termo = normalizarTextoComparacao(buscaCandidatosProcesso);
+    if (!termo) return candidatosOperacionais;
+
+    return candidatosOperacionais.filter((candidato) => {
+      const origem = formatarOrigemCandidato(candidato);
+      const localidade = [candidato.cidade, candidato.bairro]
+        .map((valor) => String(valor || '').trim())
+        .filter(Boolean)
+        .join(' ');
+      const textoBusca = [
+        candidato.nome_candidato,
+        candidato.vaga,
+        candidato.id_registro,
+        candidato.id_teste,
+        candidato.id_candidato,
+        candidato.status_fluxo,
+        origem,
+        localidade,
+        ...(Array.isArray(candidato.tags) ? candidato.tags : []),
+      ]
+        .map(normalizarTextoComparacao)
+        .join(' ');
+      return textoBusca.includes(termo);
+    });
+  }, [buscaCandidatosProcesso, candidatosOperacionais]);
+  const candidatosProcessoPaginados = useMemo(
+    () =>
+      obterItensPaginados(
+        candidatosOperacionaisFiltrados,
+        paginaCandidatosProcesso,
+        TAMANHO_PAGINA_CANDIDATOS_DETALHE,
+      ),
+    [candidatosOperacionaisFiltrados, paginaCandidatosProcesso],
+  );
+  const candidatosAprovadosPaginados = useMemo(
+    () =>
+      obterItensPaginados(
+        candidatosAprovados,
+        paginaCandidatosAprovados,
+        TAMANHO_PAGINA_APROVADOS_DETALHE,
+      ),
+    [candidatosAprovados, paginaCandidatosAprovados],
+  );
+
+  useEffect(() => {
+    setPaginaCandidatosProcesso(1);
+  }, [buscaCandidatosProcesso, candidatosOperacionais.length]);
+
+  useEffect(() => {
+    setPaginaCandidatosAprovados(1);
+  }, [candidatosAprovados.length]);
+
   const encontrarAnaliseDoInscrito = (candidato) =>
     preAnalises.find((item) => {
       const emailAnalise = normalizarTextoComparacao(item.email);
@@ -1762,6 +2876,65 @@ export function TelaDetalhesProcesso({ controlador }) {
       setErro(
         error?.message || 'Não foi possível abrir o currículo do candidato.',
       );
+    }
+  };
+
+  const abrirFichaCandidato = async (candidato) => {
+    if (!candidato?.id_teste) {
+      setErro('Candidato sem identificador para abrir a ficha.');
+      return;
+    }
+
+    try {
+      setErro('');
+      setErroFichaCandidato('');
+      setMensagemFichaCandidato('');
+      setCarregandoFichaCandidato(String(candidato.id_teste));
+      const ficha = await lerFichaCandidato(candidato.id_teste);
+      setFichaCandidatoSelecionada(ficha);
+      setFormularioFichaCandidato(montarFormularioFichaCandidato(ficha));
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível carregar a ficha do candidato.');
+    } finally {
+      setCarregandoFichaCandidato('');
+    }
+  };
+
+  const atualizarCampoFichaCandidato = (campo, valor) => {
+    setFormularioFichaCandidato((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
+    setMensagemFichaCandidato('');
+  };
+
+  const salvarFichaCandidato = async () => {
+    const idTeste = fichaCandidatoSelecionada?.candidato?.id_teste ||
+      fichaCandidatoSelecionada?.candidato?.id;
+    if (!idTeste) return;
+
+    setSalvandoFichaCandidato(true);
+    setErroFichaCandidato('');
+    setMensagemFichaCandidato('');
+
+    try {
+      const fichaAtualizada = await atualizarFichaCandidato(idTeste, formularioFichaCandidato);
+      setFichaCandidatoSelecionada(fichaAtualizada);
+      setFormularioFichaCandidato(montarFormularioFichaCandidato(fichaAtualizada));
+      setMensagemFichaCandidato('Ficha salva com sucesso.');
+      await carregar(paginaPreAnalises);
+    } catch (error) {
+      setErroFichaCandidato(error?.message || 'Não foi possível salvar a ficha do candidato.');
+    } finally {
+      setSalvandoFichaCandidato(false);
+    }
+  };
+
+  const imprimirFichaSelecionada = () => {
+    try {
+      imprimirFichaCandidato(fichaCandidatoSelecionada, formularioFichaCandidato);
+    } catch (error) {
+      setErroFichaCandidato(error?.message || 'Não foi possível imprimir a ficha do candidato.');
     }
   };
 
@@ -2337,7 +3510,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       id_processo_ref: referenciaProcesso,
       id_slot: '',
       data_entrevista: '',
-      status_entrevista: 'Agendado',
+      status_entrevista: CANDIDATE_STATUS_PENDING_CONFIRMATION,
       link_agendamento: '',
       observacoes_rh: '',
       mensagem_personalizada: '',
@@ -2460,7 +3633,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         id_processo_ref: formularioEntrevista.id_processo_ref || '',
         id_slot: Number(formularioEntrevista.id_slot),
         data_entrevista: dataEntrevista,
-        status_entrevista: formularioEntrevista.status_entrevista || 'Agendado',
+        status_entrevista: CANDIDATE_STATUS_PENDING_CONFIRMATION,
         link_agendamento: formularioEntrevista.link_agendamento || '',
         observacoes_rh: formularioEntrevista.observacoes_rh || '',
         mensagem_personalizada: mensagemFinal,
@@ -2501,7 +3674,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
     setEntrevistaEdicao(entrevista);
     setFormularioEdicaoEntrevista({
       id_slot: '',
-      status_entrevista: entrevista.status_entrevista || 'Agendado',
+      status_entrevista: entrevista.status_entrevista || CANDIDATE_STATUS_PENDING_CONFIRMATION,
       observacoes_rh: entrevista.observacoes_rh || '',
       mensagem_personalizada: entrevista.mensagem_personalizada || '',
     });
@@ -2595,117 +3768,126 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           `
       : null}
 
-      <${SectionCard}
-        title="Resumo do processo"
-        description=${processo
-      ? `${processo.id_processo || '-'} • ${processo.vaga || '-'}`
-      : 'Processo não localizado.'}
-        className="process-summary-panel compact-dashboard-card"
-        tourId="process-summary"
-        actions=${html`
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
-          >
-            Voltar
-          </button>
-        `}
-      >
-        <div class="process-summary-grid">
-          ${[
-            {
-              icon: 'flag',
-              label: 'Status',
-              value: processo?.status || '-',
-            },
-            {
-              icon: 'work',
-              label: 'Cargo/Vaga',
-              value: processo?.vaga || '-',
-            },
-            {
-              icon: 'groups',
-              label: 'Vagas',
-              value: processo?.quantidade_vagas || 0,
-            },
-            {
-              icon: 'person_search',
-              label: 'Candidatos no processo',
-              value: candidatosOperacionais.length || 0,
-            },
-            {
-              icon: 'verified',
-              label: 'Aprovados',
-              value: candidatosAprovados.length || 0,
-            },
-            {
-              icon: 'event_available',
-              label: 'Entrevistas agendadas',
-              value: entrevistas.length || resumo?.entrevistas || 0,
-            },
-            {
-              icon: 'calendar_month',
-              label: 'Abertura',
-              value: formatarDataCurta(processo?.data_criacao),
-            },
-            {
-              icon: 'event_busy',
-              label: 'Encerramento',
-              value: formatarDataCurta(processo?.data_encerramento),
-            },
-          ].map(
-            (item) => html`
-              <article class="process-summary-card summary-metric-card" key=${item.label}>
-                <span class="material-symbols-outlined summary-metric-icon">
-                  ${item.icon}
-                </span>
-                <div class="summary-metric-content">
-                  <span class="summary-metric-label">${item.label}</span>
-                  <strong class="summary-metric-value">${item.value}</strong>
-                </div>
-              </article>
-            `,
-          )}
-        </div>
+      <div class="process-detail-top-grid">
+        <${SectionCard}
+          title="Resumo do processo"
+          description=${processo
+        ? `${processo.id_processo || '-'} • ${processo.vaga || '-'}`
+        : 'Processo não localizado.'}
+          className="process-summary-panel compact-dashboard-card"
+          tourId="process-summary"
+          actions=${html`
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
+            >
+              Voltar
+            </button>
+          `}
+        >
+          <div class="process-summary-grid">
+            ${[
+              {
+                icon: 'flag',
+                label: 'Status',
+                value: processo?.status || '-',
+              },
+              {
+                icon: 'work',
+                label: 'Cargo/Vaga',
+                value: processo?.vaga || '-',
+              },
+              {
+                icon: 'groups',
+                label: 'Vagas',
+                value: processo?.quantidade_vagas || 0,
+              },
+              {
+                icon: 'person_search',
+                label: 'Candidatos no processo',
+                value: candidatosOperacionais.length || 0,
+              },
+              {
+                icon: 'verified',
+                label: 'Aprovados',
+                value: candidatosAprovados.length || 0,
+              },
+              {
+                icon: 'event_available',
+                label: 'Entrevistas agendadas',
+                value: entrevistas.length || resumo?.entrevistas || 0,
+              },
+              {
+                icon: 'calendar_month',
+                label: 'Abertura',
+                value: formatarDataCurta(processo?.data_criacao),
+              },
+              {
+                icon: 'event_busy',
+                label: 'Encerramento',
+                value: formatarDataCurta(processo?.data_encerramento),
+              },
+            ].map(
+              (item) => html`
+                <article class="process-summary-card summary-metric-card" key=${item.label}>
+                  <span class="material-symbols-outlined summary-metric-icon">
+                    ${item.icon}
+                  </span>
+                  <div class="summary-metric-content">
+                    <span class="summary-metric-label">${item.label}</span>
+                    <strong class="summary-metric-value">${item.value}</strong>
+                  </div>
+                </article>
+              `,
+            )}
+          </div>
 
-        <div class="process-summary-secondary process-meta-row">
-          <span class="process-meta-chip">
-            <span>Operação</span>
-            <strong>${processo?.operacao || '-'}</strong>
-          </span>
-          <span class="process-meta-chip">
-            <span>Trilha</span>
-            <strong>${processo?.trilha || '-'}</strong>
-          </span>
-          <span class="process-meta-chip">
-            <span>Nota de corte</span>
-            <strong>
-              ${Number(processo?.usa_nota_corte || 0)
-                ? processo?.nota_corte || '-'
-                : 'Não'}
-            </strong>
-          </span>
-          ${processo?.link_agendamento
-            ? html`
-                <a
-                  href=${processo.link_agendamento}
-                  target="_blank"
-                  rel="noreferrer"
-                  class="process-meta-chip process-meta-link"
-                >
-                  <span>Link legado</span>
-                  <strong>Abrir link</strong>
-                </a>
-              `
-            : html`
-                <span class="process-meta-chip">
-                  <span>Link legado</span>
-                  <strong>Não informado</strong>
-                </span>
-              `}
-        </div>
-      </${SectionCard}>
+          <div class="process-summary-secondary process-meta-row">
+            <span class="process-meta-chip">
+              <span>Operação</span>
+              <strong>${processo?.operacao || '-'}</strong>
+            </span>
+            <span class="process-meta-chip">
+              <span>Trilha</span>
+              <strong>${processo?.trilha || '-'}</strong>
+            </span>
+            <span class="process-meta-chip">
+              <span>Nota de corte</span>
+              <strong>
+                ${Number(processo?.usa_nota_corte || 0)
+                  ? processo?.nota_corte || '-'
+                  : 'Não'}
+              </strong>
+            </span>
+            ${processo?.link_agendamento
+              ? html`
+                  <a
+                    href=${processo.link_agendamento}
+                    target="_blank"
+                    rel="noreferrer"
+                    class="process-meta-chip process-meta-link"
+                  >
+                    <span>Link legado</span>
+                    <strong>Abrir link</strong>
+                  </a>
+                `
+              : html`
+                  <span class="process-meta-chip">
+                    <span>Link legado</span>
+                    <strong>Não informado</strong>
+                  </span>
+                `}
+          </div>
+        </${SectionCard}>
+
+        <${WidgetEntrevistasProcesso}
+          entrevistas=${entrevistas}
+          carregando=${carregando}
+          onAbrirAgenda=${() => controlador.irParaTelaProtegida('screen-interviews')}
+          onEditar=${abrirEdicaoEntrevista}
+        />
+      </div>
 
       ${EXIBIR_PAGINA_PUBLICA_CANDIDATURA
       ? html`<${SecaoDetalheExpansivel}
@@ -3131,10 +4313,12 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         </div>
       </${SecaoDetalheExpansivel}>` : null}
 
+      <div class="process-main-grid">
       <${SecaoDetalheExpansivel}
         aberto=${secoesExpandidas.preAnaliseCv}
         titulo="Pré-análise de CV"
         description="Análise automática com possibilidade de ajuste manual antes da inclusão no processo."
+        className="process-preanalysis-section"
         tourId="process-cv-preanalysis"
         onToggle=${() => alternarSecao('preAnaliseCv')}
       >
@@ -3415,9 +4599,12 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           </table>
         </div>
 
-        <${GrupoPaginacao}
+        <${PaginacaoCompacta}
           paginaAtual=${paginaPreAnalises}
           totalPaginas=${totalPaginasPreAnalises}
+          totalItens=${totalItensPreAnalises}
+          tamanhoPagina=${TAMANHO_PAGINA_PRE_ANALISE_DETALHE}
+          itensNaPagina=${preAnalises.length}
           onChange=${(pagina) => carregar(pagina)}
         />
       </${SecaoDetalheExpansivel}>
@@ -3427,336 +4614,257 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           aberto=${secoesExpandidas.candidatosProcesso}
           titulo="Candidatos no processo"
           description="As ações aparecem somente quando a etapa do candidato permite movimentação dentro do fluxo do RH."
+          className="process-candidates-section"
           tourId="process-candidates"
           onToggle=${() => alternarSecao('candidatosProcesso')}
         >
-        <div class="table-responsive">
-          <table class="table align-middle rh-modern-history-table">
-            <thead>
-              <tr>
-                <th>Candidato</th>
-                <th>Contato / origem</th>
-                <th>Localidade</th>
-                <th>Status</th>
-                <th>Prova</th>
-                <th>CV</th>
-                <th class="text-end">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${candidatosOperacionais.length
-      ? candidatosOperacionais.map(
-        (candidato) => {
-          const tagsCandidato = Array.isArray(candidato?.tags)
-            ? candidato.tags
-            : [];
-          return html`
-                      <tr key=${candidato.id_registro}>
-                        <td>
-                          <strong>${candidato.nome_candidato || '-'}</strong>
-                          <div class="small text-muted mt-1">
-                            ${candidato.vaga || '-'}
-                          </div>
-                          ${tagsCandidato.length
-              ? html`
-                                <div class="rh-chip-wrap mt-2">
-                                  ${tagsCandidato.slice(0, 3).map(
-                (tag) => html`
-                                      <span key=${tag} class="rh-chip">${tag}</span>
-                                    `,
-              )}
-                                </div>
-                              `
-              : null}
-                        </td>
-                        <td>
-                          <div>${candidato.email || '-'}</div>
-                          <div class="small text-muted">
-                            ${candidato.whatsapp || candidato.telefone || '-'}
-                          </div>
-                          <div class="small text-muted">
-                            Origem: ${formatarOrigemCandidato(candidato)}
-                          </div>
-                          ${formatarOrigemCandidato(candidato) === 'Banco de Talentos' &&
-              (candidato.processo_origem || candidato.id_processo_origem)
-              ? html`
-                                <div class="small text-muted">
-                                  Processo anterior:
-                                  ${candidato.processo_origem || candidato.id_processo_origem}
-                                </div>
-                              `
-              : null}
-                        </td>
-                        <td>
-                          <div>${candidato.cidade || '-'}</div>
-                          <div class="small text-muted">
-                            ${candidato.bairro || '-'}
-                          </div>
-                        </td>
-                        <td>
-                          <span
-                            class=${`process-candidate-status-badge ${obterClasseStatusProcesso(candidato.status_fluxo)}`}
-                          >
-                            ${candidato.status_fluxo || '-'}
-                          </span>
-                        </td>
-                        <td>
-                          ${candidatoTemProvaSalva(candidato)
-              ? html`
-                                <div class="rh-cell-stack">
-                                  <strong>${obterNotaProvaCandidato(candidato)}</strong>
-                                  <div class="d-flex gap-2 flex-wrap">
-                                    <button
-                                      type="button"
-                                      class="btn btn-sm btn-outline-dark rh-action-btn"
-                                      disabled=${carregandoDetalheProva ===
-                String(candidato.id_registro || candidato.id_teste || '')}
-                                      onClick=${() => abrirDetalheProva(candidato)}
-                                    >
-                                      <span class="material-symbols-outlined">analytics</span>
-                                      Notas
-                                    </button>
-                                    <button
-                                      type="button"
-                                      class="btn btn-sm btn-outline-primary rh-action-btn"
-                                      disabled=${carregandoDetalheProva ===
-                String(candidato.id_registro || candidato.id_teste || '')}
-                                      onClick=${() => abrirDetalheProva(candidato)}
-                                    >
-                                      <span class="material-symbols-outlined">visibility</span>
-                                      Resultado
-                                    </button>
-                                  </div>
-                                </div>
-                              `
-              : html`<span class="text-muted">Sem prova</span>`}
-                        </td>
-                        <td>
-                          ${candidato.cv_disponivel
-              ? html`
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-secondary rh-action-btn"
-                                  onClick=${() => abrirCurriculo(candidato)}
-                                >
-                                  <span class="material-symbols-outlined">description</span>
-                                  Ver CV
-                                </button>
-                              `
-              : 'Sem CV'}
-                        </td>
-                        <td class="text-end">
-                          ${renderizarAcoesDoCandidato({
-                candidato,
-                onAgendarEntrevista: abrirAgendamento,
-                onAprovar: abrirAprovacao,
-                onEditar: abrirEdicaoCandidato,
-                onAtualizarStatus: (item, status) =>
-                  atualizarStatus(item.id_registro, status),
-              })}
-                        </td>
-                      </tr>
-                    `},
-      )
-      : html`
-                    <${TabelaVazia}
-                      colunas=${7}
-                      texto="Nenhum candidato vinculado a este processo."
-                    />
-                  `}
-            </tbody>
-          </table>
+        <div class="process-section-toolbar">
+          <label class="process-search-field" aria-label="Buscar candidato no processo">
+            <span class="material-symbols-outlined">search</span>
+            <input
+              class="form-control"
+              placeholder="Buscar candidato..."
+              value=${buscaCandidatosProcesso}
+              onInput=${(event) => setBuscaCandidatosProcesso(event.target.value)}
+            />
+          </label>
+          <span class="process-list-counter">
+            ${candidatosOperacionaisFiltrados.length} de ${candidatosOperacionais.length}
+          </span>
         </div>
+        ${candidatosOperacionaisFiltrados.length
+      ? html`
+            <div class="candidate-list process-candidate-list">
+              ${candidatosProcessoPaginados.itens.map((candidato) => {
+                const tagsCandidato = Array.isArray(candidato?.tags)
+                  ? candidato.tags
+                  : [];
+                const nome = candidato.nome_candidato || '-';
+                const origem = formatarOrigemCandidato(candidato);
+                const idCandidato =
+                  candidato.id_registro ||
+                  candidato.id_teste ||
+                  candidato.id_candidato ||
+                  '-';
+                const localidade = [candidato.cidade, candidato.bairro]
+                  .map((valor) => String(valor || '').trim())
+                  .filter(Boolean)
+                  .join(' / ') || '-';
+                const temProvaSalva = candidatoTemProvaSalva(candidato);
+                const carregandoDetalhe =
+                  carregandoDetalheProva ===
+                  String(candidato.id_registro || candidato.id_teste || '');
+                const podeBaixarCv =
+                  candidato.cv_disponivel &&
+                  controlador.possuiPermissao('candidatos.baixar_curriculo');
+                const idMenuCandidato = String(
+                  candidato.id_registro ||
+                  candidato.id_teste ||
+                  candidato.id_candidato ||
+                  '',
+                );
+
+                return html`
+                  <article class="candidate-card process-candidate-card" key=${candidato.id_registro}>
+                    <div class="candidate-main process-candidate-person">
+                      <span class="candidate-avatar process-candidate-avatar">
+                        ${String(nome).trim().slice(0, 2).toUpperCase()}
+                      </span>
+                      <div class="candidate-info">
+                        <strong class="candidate-name">${nome}</strong>
+                        <span class="candidate-role">${candidato.vaga || '-'}</span>
+                        <span class="candidate-id">ID: ${idCandidato}</span>
+                        <span class="candidate-origin">Origem: ${origem}</span>
+                        <span class="candidate-location">Localidade: ${localidade}</span>
+                        ${tagsCandidato.length
+                          ? html`
+                              <div class="rh-chip-wrap mt-2">
+                                ${tagsCandidato.slice(0, 3).map(
+                                  (tag) => html`
+                                    <span key=${tag} class="rh-chip">${tag}</span>
+                                  `,
+                                )}
+                              </div>
+                            `
+                          : null}
+                        ${origem === 'Banco de Talentos' &&
+                        (candidato.processo_origem || candidato.id_processo_origem)
+                          ? html`
+                              <span class="candidate-origin">
+                                Processo anterior:
+                                ${candidato.processo_origem || candidato.id_processo_origem}
+                              </span>
+                            `
+                          : null}
+                      </div>
+                    </div>
+
+                    <div class="candidate-meta process-candidate-meta-grid">
+                      <span class=${`candidate-status-chip process-candidate-status-badge ${obterClasseStatusProcesso(candidato.status_fluxo)}`}>
+                        ${candidato.status_fluxo || '-'}
+                      </span>
+                      <span class="candidate-meta-chip">
+                        Prova
+                        <strong>${temProvaSalva ? obterNotaProvaCandidato(candidato) : 'Sem prova'}</strong>
+                      </span>
+                      <span class="candidate-meta-chip">
+                        ${candidato.cv_disponivel ? 'CV disponivel' : 'Sem CV'}
+                      </span>
+                    </div>
+
+                    <div class="candidate-actions process-candidate-actions">
+                      ${renderizarAcoesCompactasDoCandidato({
+                        candidato,
+                        onAgendarEntrevista: abrirAgendamento,
+                        onAprovar: abrirAprovacao,
+                        onEditar: abrirEdicaoCandidato,
+                        onFicha: abrirFichaCandidato,
+                        onDetalheProva: abrirDetalheProva,
+                        onCurriculo: abrirCurriculo,
+                        fichaCarregandoId: carregandoFichaCandidato,
+                        carregandoDetalhe,
+                        temProvaSalva,
+                        podeBaixarCv,
+                        onAtualizarStatus: (item, status) =>
+                          atualizarStatus(item.id_registro, status),
+                        controlador,
+                        menuAberto: menuAcoesCandidatoAberto === idMenuCandidato,
+                        onToggleMenu: () =>
+                          setMenuAcoesCandidatoAberto((atual) =>
+                            atual === idMenuCandidato ? '' : idMenuCandidato,
+                          ),
+                        onCloseMenu: () => setMenuAcoesCandidatoAberto(''),
+                      })}
+                    </div>
+                  </article>
+                `;
+              })}
+            </div>
+            <${PaginacaoCompacta}
+              paginaAtual=${candidatosProcessoPaginados.paginaAtual}
+              totalPaginas=${candidatosProcessoPaginados.totalPaginas}
+              totalItens=${candidatosProcessoPaginados.totalItens}
+              tamanhoPagina=${TAMANHO_PAGINA_CANDIDATOS_DETALHE}
+              itensNaPagina=${candidatosProcessoPaginados.itens.length}
+              onChange=${setPaginaCandidatosProcesso}
+            />
+          `
+      : html`
+            <div class="c24-empty-state c24-empty-state-horizontal">
+              <span class="material-symbols-outlined">person_search</span>
+              <div>
+                <h3>${candidatosOperacionais.length ? 'Nenhum candidato encontrado' : 'Nenhum candidato vinculado'}</h3>
+                <p>
+                  ${candidatosOperacionais.length
+                    ? 'Ajuste a busca para visualizar os candidatos deste processo.'
+                    : 'Nenhum candidato vinculado a este processo.'}
+                </p>
+              </div>
+            </div>
+          `}
         </${SecaoDetalheExpansivel}>
 
         <${SecaoDetalheExpansivel}
           aberto=${secoesExpandidas.candidatosAprovados}
           titulo="Candidatos aprovados"
           description="Aprovados ficam fora do fluxo ativo e permanecem disponíveis para consulta, resultado e relatórios."
+          className="process-approved-section"
           tourId="process-approved-candidates"
           onToggle=${() => alternarSecao('candidatosAprovados')}
         >
-        <div class="table-responsive">
-          <table class="table align-middle rh-modern-history-table">
-            <thead>
-              <tr>
-                <th>Candidato</th>
-                <th>Contato</th>
-                <th>Nota</th>
-                <th>Data de aprovação</th>
-                <th class="text-end">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${candidatosAprovados.length
-      ? candidatosAprovados.map(
-        (candidato) => html`
-                      <tr key=${`aprovado-${candidato.id_registro}`}>
-                        <td>
-                          <strong>${candidato.nome_candidato || '-'}</strong>
-                          <div class="small text-muted">${candidato.vaga || '-'}</div>
-                        </td>
-                        <td>
-                          <div>${candidato.email || '-'}</div>
-                          <div class="small text-muted">
-                            ${candidato.whatsapp || candidato.telefone || '-'}
-                          </div>
-                        </td>
-                        <td>${obterNotaProvaCandidato(candidato) || 'Sem prova'}</td>
-                        <td>
-                          ${formatarDataHora(
-          candidato.aprovado_em ||
-          candidato.data_aprovacao ||
-          candidato.data_atualizacao_pipeline,
-        )}
-                        </td>
-                        <td class="text-end">
-                          <div class="d-flex justify-content-end gap-2 flex-wrap">
+        ${candidatosAprovados.length
+      ? html`
+            <div class="approved-candidate-list">
+              ${candidatosAprovadosPaginados.itens.map(
+                (candidato) => html`
+                  <article class="approved-candidate-card" key=${`aprovado-${candidato.id_registro}`}>
+                    <div>
+                      <strong>${candidato.nome_candidato || '-'}</strong>
+                      <span>${candidato.vaga || '-'}</span>
+                    </div>
+                    <div>
+                      <span>Contato</span>
+                      <strong>${candidato.email || '-'}</strong>
+                      <small>${candidato.whatsapp || candidato.telefone || '-'}</small>
+                    </div>
+                    <div>
+                      <span>Nota</span>
+                      <strong>${obterNotaProvaCandidato(candidato) || 'Sem prova'}</strong>
+                    </div>
+                    <div>
+                      <span>Data de aprovacao</span>
+                      <strong>
+                        ${formatarDataHora(
+                          candidato.aprovado_em ||
+                          candidato.data_aprovacao ||
+                          candidato.data_atualizacao_pipeline,
+                        )}
+                      </strong>
+                    </div>
+                    <div class="approved-candidate-actions">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-dark"
+                        disabled=${carregandoFichaCandidato === String(candidato.id_teste || '')}
+                        onClick=${() => abrirFichaCandidato(candidato)}
+                      >
+                        Ficha
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-primary"
+                        onClick=${() => setDetalheCandidatoSelecionado(candidato)}
+                      >
+                        Detalhes
+                      </button>
+                      ${candidatoTemProvaSalva(candidato)
+                        ? html`
                             <button
                               type="button"
-                              class="btn btn-sm btn-outline-primary"
-                              onClick=${() => setDetalheCandidatoSelecionado(candidato)}
+                              class="btn btn-sm btn-outline-dark"
+                              disabled=${carregandoDetalheProva ===
+                              String(candidato.id_registro || candidato.id_teste || '')}
+                              onClick=${() => abrirDetalheProva(candidato)}
                             >
-                              Detalhes
+                              Ver resultado
                             </button>
-                            ${candidatoTemProvaSalva(candidato)
-            ? html`
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-dark"
-                                    disabled=${carregandoDetalheProva ===
-              String(candidato.id_registro || candidato.id_teste || '')}
-                                    onClick=${() => abrirDetalheProva(candidato)}
-                                  >
-                                    Ver resultado
-                                  </button>
-                                `
-            : null}
-                            ${candidato.cv_disponivel
-            ? html`
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-secondary"
-                                    onClick=${() => abrirCurriculo(candidato)}
-                                  >
-                                    Ver CV
-                                  </button>
-                                `
-            : null}
-                          </div>
-                        </td>
-                      </tr>
-                    `,
-      )
+                          `
+                        : null}
+                      ${candidato.cv_disponivel
+                        ? html`
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-secondary"
+                              onClick=${() => abrirCurriculo(candidato)}
+                            >
+                              Ver CV
+                            </button>
+                          `
+                        : null}
+                    </div>
+                  </article>
+                `,
+              )}
+            </div>
+            <${PaginacaoCompacta}
+              paginaAtual=${candidatosAprovadosPaginados.paginaAtual}
+              totalPaginas=${candidatosAprovadosPaginados.totalPaginas}
+              totalItens=${candidatosAprovadosPaginados.totalItens}
+              tamanhoPagina=${TAMANHO_PAGINA_APROVADOS_DETALHE}
+              itensNaPagina=${candidatosAprovadosPaginados.itens.length}
+              onChange=${setPaginaCandidatosAprovados}
+            />
+          `
       : html`
-                    <${TabelaVazia}
-                      colunas=${5}
-                      texto="Nenhum candidato aprovado neste processo."
-                    />
-                  `}
-            </tbody>
-          </table>
-        </div>
+            <div class="c24-empty-state">
+              <span class="material-symbols-outlined">groups</span>
+              <h3>Nenhum candidato aprovado neste processo.</h3>
+              <p>Aprovados ficam disponiveis aqui para consulta e relatorios.</p>
+            </div>
+          `}
         </${SecaoDetalheExpansivel}>
       </div>
-
-      <${SectionCard}
-        title="Entrevistas agendadas"
-        description="Agenda vinculada ao processo atual, usando horários internos."
-        tourId="process-interviews"
-        actions=${html`
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            onClick=${() => controlador.irParaTelaProtegida('screen-interviews')}
-          >
-            Ver agenda completa
-          </button>
-        `}
-      >
-        ${carregando
-      ? html`
-              <${LoadingState}
-                titulo="Carregando entrevistas"
-                descricao="Sincronizando agenda e status do candidato."
-              />
-            `
-      : entrevistas.length
-        ? html`
-                <div class="table-responsive">
-                  <table class="table align-middle rh-modern-history-table process-interviews-table">
-                    <thead>
-                      <tr>
-                        <th>Candidato</th>
-                        <th>Data</th>
-                        <th>Hora</th>
-                        <th>Tipo/etapa</th>
-                        <th>Status</th>
-                        <th class="text-end">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${entrevistas.map(
-          (entrevista) => html`
-                          <tr key=${entrevista.id_entrevista}>
-                            <td>
-                              <strong>${entrevista.nome_candidato || '-'}</strong>
-                              ${entrevista.observacoes_rh
-                                ? html`<small>${entrevista.observacoes_rh}</small>`
-                                : null}
-                            </td>
-                            <td>${formatarDataCurta(entrevista.data_entrevista)}</td>
-                            <td>${formatarHoraCurta(entrevista.data_entrevista)}</td>
-                            <td>${entrevista.tipo_entrevista || entrevista.etapa_entrevista || (entrevista.id_slot ? 'Calendário interno' : 'Registro legado')}</td>
-                            <td>
-                              <span
-                                class=${`rh-status-pill ${obterClasseStatusEntrevista(entrevista.status_entrevista)}`}
-                              >
-                                ${entrevista.status_entrevista || '-'}
-                              </span>
-                            </td>
-                            <td class="text-end">
-                              <div class="rh-action-cluster justify-content-end">
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-secondary rh-action-btn"
-                                  onClick=${() =>
-                                    copiarTexto(entrevista.mensagem_base || '')
-                                      .then(() =>
-                                        window.alert('Mensagem copiada para a area de transferencia.'),
-                                      )
-                                      .catch(() =>
-                                        window.alert('Nao foi possivel copiar a mensagem automaticamente.'),
-                                      )}
-                                  >
-                                    <span class="material-symbols-outlined">content_copy</span>
-                                  Copiar
-                                </button>
-                                <button
-                                  type="button"
-                                  class="btn btn-sm btn-outline-primary rh-action-btn"
-                                  disabled=${isProcessClosed(entrevista.status_processo)}
-                                  onClick=${() => abrirEdicaoEntrevista(entrevista)}
-                                >
-                                  <span class="material-symbols-outlined">edit</span>
-                                  Editar
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        `,
-        )}
-                    </tbody>
-                  </table>
-                </div>
-              `
-        : html`
-                <${EmptyState}
-                  title="Nenhuma entrevista agendada"
-                  text="Use o botão “Agendar entrevista” na tabela de candidatos para registrar o compromisso."
-                />
-              `}
-      </${SectionCard}>
+      </div>
 
       <${ModalPadrao}
         aberto=${!!agendamentoSelecionado}
@@ -3794,18 +4902,11 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Status inicial</label>
-                    <select
-                      class="form-select"
-                      value=${formularioEntrevista.status_entrevista}
-                      onChange=${(event) =>
-          setFormularioEntrevista({
-            ...formularioEntrevista,
-            status_entrevista: event.target.value,
-          })}
-                    >
-                      <option value="Agendado">Agendado</option>
-                      <option value="Confirmado">Confirmado</option>
-                    </select>
+                    <input
+                      class="form-control"
+                      readonly
+                      value=${CANDIDATE_STATUS_PENDING_CONFIRMATION}
+                    />
                   </div>
                   <div class="col-md-6">
                     <label class="form-label">Horário disponível</label>
@@ -4076,6 +5177,23 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         onClose=${() => setEntrevistaEdicao(null)}
         onChange=${setFormularioEdicaoEntrevista}
         onSave=${salvarEdicaoEntrevista}
+      />
+
+      <${ModalFichaCandidato}
+        ficha=${fichaCandidatoSelecionada}
+        formulario=${formularioFichaCandidato}
+        salvando=${salvandoFichaCandidato}
+        erro=${erroFichaCandidato}
+        mensagem=${mensagemFichaCandidato}
+        onClose=${() => {
+          setFichaCandidatoSelecionada(null);
+          setErroFichaCandidato('');
+          setMensagemFichaCandidato('');
+        }}
+        onChange=${atualizarCampoFichaCandidato}
+        onSave=${salvarFichaCandidato}
+        onPrint=${imprimirFichaSelecionada}
+        onAbrirCurriculo=${abrirCurriculo}
       />
 
       <${ModalPadrao}

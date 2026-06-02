@@ -1,33 +1,128 @@
-# Conecta C24h — Documentação Atualizada
+# Conecta C24h
 
-Documentação gerada a partir da análise do projeto `RH(21).zip`, em **14/05/2026**.
+Sistema local para RH com frontend web, backend FastAPI e persistencia em SQL Server. A arquitetura foi reorganizada para deixar cada responsabilidade mais facil de localizar, manter e evoluir sem perder o comportamento existente.
 
-Este pacote consolida a visão técnica, funcional e operacional do sistema Conecta C24h/Conecta RH. A documentação foi organizada para servir tanto a apresentação interna quanto manutenção por outro desenvolvedor.
+## Visao geral
 
-## Índice recomendado
+- `Front/`: frontend em JavaScript modular com ESM, HTM e runtime React.
+- `api/`: backend FastAPI com rotas, servicos, schemas e repositorios separados por dominio.
+- `data/`: dados legados e artefatos locais que nao fazem parte do codigo ativo.
+- `docs/`: guias de arquitetura, manutencao, leitura e testes.
 
-1. [`docs/01-visao-geral.md`](docs/01-visao-geral.md) — visão executiva, escopo e módulos.
-2. [`docs/02-arquitetura.md`](docs/02-arquitetura.md) — arquitetura frontend/backend/banco.
-3. [`docs/03-estrutura-projeto.md`](docs/03-estrutura-projeto.md) — mapa de pastas e responsabilidade de arquivos.
-4. [`docs/04-regras-negocio.md`](docs/04-regras-negocio.md) — regras de processos, candidatos, CVs, entrevistas e prova.
-5. [`docs/05-banco-dados.md`](docs/05-banco-dados.md) — entidades/tabelas e relacionamento lógico.
-6. [`docs/06-api.md`](docs/06-api.md) — endpoints, contratos e observações.
-7. [`docs/07-frontend.md`](docs/07-frontend.md) — telas, rotas, navegação e camada visual.
-8. [`docs/08-backend.md`](docs/08-backend.md) — rotas, serviços, repositórios e configuração.
-9. [`docs/09-manual-usuario-rh.md`](docs/09-manual-usuario-rh.md) — manual prático para o RH usar o sistema.
-10. [`docs/10-manual-administrador-suporte.md`](docs/10-manual-administrador-suporte.md) — instalação, execução e sustentação.
-11. [`docs/11-diagramas-uml.md`](docs/11-diagramas-uml.md) — UMLs/diagramas em Mermaid.
-12. [`docs/12-testes-qualidade.md`](docs/12-testes-qualidade.md) — testes, riscos e validações.
-13. [`docs/13-checklist-producao.md`](docs/13-checklist-producao.md) — checklist para estabilização/produção.
+## Estrutura principal
 
-## Inventários anexos
+```text
+RH/
+|-- Front/
+|   |-- estilos/
+|   |-- Exames/
+|   |-- fonte/
+|   |   |-- app/
+|   |   |-- dados-excel/
+|   |   |-- features/
+|   |   |   |-- entrevistas/
+|   |   |   |-- gestao/
+|   |   |   |-- pipeline/
+|   |   |   |-- processos/
+|   |   |   |-- prova/
+|   |   |-- services/
+|   |   |-- shared/
+|   |   |-- types/
+|   |   |-- ui/
+|   |-- index.html
+|-- api/
+|   |-- app.py
+|   |-- rh_api/
+|   |   |-- repositories/
+|   |   |-- routers/
+|   |   |-- schemas/
+|   |   |-- services/
+|   |-- tests/
+|-- data/
+|   |-- legacy/
+|-- docs/
+|   |-- arquitetura.md
+|   |-- estrutura-do-projeto.md
+|   |-- guia-de-manutencao.md
+|   |-- guia-para-novo-mantenedor.md
+|   |-- testes.md
+|   |-- legacy/
+|-- .env.example
+|-- .gitignore
+|-- pytest.ini
+|-- requirements.txt
+```
 
-- [`docs/anexos/inventario-endpoints.csv`](docs/anexos/inventario-endpoints.csv)
-- Diagramas `.mmd` em [`docs/diagramas`](docs/diagramas)
+## Decisoes arquiteturais
 
-## Observações importantes
+- Frontend padronizado em JavaScript modular. A base atual ja funcionava assim, entao a refatoracao consolidou esse caminho em vez de iniciar uma migracao parcial para React + TypeScript.
+- Backend mantido em FastAPI com separacao clara entre rotas, servicos, schemas e persistencia.
+- `db_repository.py` virou uma fachada de compatibilidade. As queries e regras de persistencia agora ficam em repositorios menores por dominio.
+- Dados pesados do frontend deixaram de ser carregados de forma eager no fluxo principal da prova.
+- Testes do backend usam fake repository e nao dependem do banco real.
 
-- A documentação **não replica segredos** do `.env` real. Só usa nomes de variáveis e exemplos seguros.
-- O projeto tem dados/artefatos privados em `data/private/`; essa pasta deve ser tratada como sensível.
-- A tela pública de candidatura existe no código, mas a operação atual descrita no projeto prioriza a **caixa de e-mail de currículos** como entrada principal.
-- Os testes não puderam ser executados neste ambiente porque faltou o pacote `pyodbc`, que é dependência obrigatória do backend.
+## Como rodar
+
+### Backend
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
+```
+
+### Frontend
+
+Sirva a raiz do projeto com um servidor estatico local:
+
+```powershell
+python -m http.server 5500
+```
+
+Abra:
+
+```text
+http://127.0.0.1:5500/Front/index.html#/login
+```
+
+## Testes
+
+```powershell
+python -m pytest
+```
+
+O `pytest.ini` desabilita o cache do pytest para evitar ruido em ambientes com OneDrive.
+
+## Configuracao
+
+Use `.env.example` como base para o `.env`.
+
+Variaveis principais:
+
+- `RH_SQL_SERVER`
+- `RH_SQL_DATABASE`
+- `RH_SQL_DRIVER`
+- `RH_AUTH_USER`
+- `RH_AUTH_PASSWORD`
+- `RH_AUTH_TOKEN_SECRET`
+- `RH_AUTH_TOKEN_TTL_MINUTES`
+
+## Onde alterar cada coisa
+
+- Menu lateral e logo: [Front/fonte/ui/components/layout.js](Front/fonte/ui/components/layout.js)
+- Estilos do layout: [Front/estilos/layout.css](Front/estilos/layout.css)
+- Telas de gestao: [Front/fonte/features/gestao/index.js](Front/fonte/features/gestao/index.js)
+- Telas de processos: [Front/fonte/features/processos/index.js](Front/fonte/features/processos/index.js)
+- Telas de prova: [Front/fonte/features/prova/index.js](Front/fonte/features/prova/index.js)
+- Rotas da API: [api/rh_api/routers](api/rh_api/routers)
+- Queries e persistencia: [api/rh_api/repositories](api/rh_api/repositories)
+
+## Documentacao
+
+- [docs/README.md](docs/README.md)
+- [docs/estrutura-do-projeto.md](docs/estrutura-do-projeto.md)
+- [docs/arquitetura.md](docs/arquitetura.md)
+- [docs/guia-de-manutencao.md](docs/guia-de-manutencao.md)
+- [docs/guia-para-novo-mantenedor.md](docs/guia-para-novo-mantenedor.md)
+- [docs/testes.md](docs/testes.md)

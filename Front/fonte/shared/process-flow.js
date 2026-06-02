@@ -3,9 +3,12 @@ const PROCESS_STATUS_CLOSED = 'Encerrado';
 const CANDIDATE_STATUS_ANALYSIS = 'Em análise';
 const CANDIDATE_STATUS_QUALIFIED = 'Qualificado';
 const CANDIDATE_STATUS_NOT_QUALIFIED = 'Não qualificado';
+const CANDIDATE_STATUS_PENDING_CONFIRMATION = 'Pendente de confirmação';
 const CANDIDATE_STATUS_SCHEDULED = 'Agendado';
 const CANDIDATE_STATUS_CONFIRMED = 'Confirmado';
 const CANDIDATE_STATUS_RESCHEDULED = 'Reagendado';
+const CANDIDATE_STATUS_NO_RESPONSE = 'Não respondeu';
+const CANDIDATE_STATUS_CANCELED = 'Cancelado';
 const CANDIDATE_STATUS_ATTENDED = 'Compareceu';
 const CANDIDATE_STATUS_MISSED = 'Faltou';
 const CANDIDATE_STATUS_WITHDREW = 'Desistente';
@@ -14,9 +17,12 @@ const CANDIDATE_STATUS_ELIMINATED = 'Eliminado';
 const CANDIDATE_STATUS_TALENT_BANK = 'Banco de Talentos';
 
 const INTERVIEW_STATUSES = new Set([
+  CANDIDATE_STATUS_PENDING_CONFIRMATION,
   CANDIDATE_STATUS_SCHEDULED,
   CANDIDATE_STATUS_CONFIRMED,
   CANDIDATE_STATUS_RESCHEDULED,
+  CANDIDATE_STATUS_NO_RESPONSE,
+  CANDIDATE_STATUS_CANCELED,
   CANDIDATE_STATUS_ATTENDED,
   CANDIDATE_STATUS_MISSED,
 ]);
@@ -32,9 +38,12 @@ const TERMINAL_STATUSES = new Set([
 const ACTIVE_STATUSES = new Set([
   CANDIDATE_STATUS_ANALYSIS,
   CANDIDATE_STATUS_QUALIFIED,
+  CANDIDATE_STATUS_PENDING_CONFIRMATION,
   CANDIDATE_STATUS_SCHEDULED,
   CANDIDATE_STATUS_CONFIRMED,
   CANDIDATE_STATUS_RESCHEDULED,
+  CANDIDATE_STATUS_NO_RESPONSE,
+  CANDIDATE_STATUS_CANCELED,
   CANDIDATE_STATUS_ATTENDED,
 ]);
 
@@ -78,13 +87,18 @@ export function canonicalizeCandidateStatus(status) {
   }
   if (value === 'qualificado') return CANDIDATE_STATUS_QUALIFIED;
   if (value === 'nao qualificado') return CANDIDATE_STATUS_NOT_QUALIFIED;
+  if (value === 'pendente de confirmacao' || value === 'pendente confirmacao') {
+    return CANDIDATE_STATUS_PENDING_CONFIRMATION;
+  }
   if (value === 'agendado') return CANDIDATE_STATUS_SCHEDULED;
   if (value === 'entrevista agendada') return CANDIDATE_STATUS_SCHEDULED;
   if (value === 'confirmado') return CANDIDATE_STATUS_CONFIRMED;
   if (value === 'reagendado') return CANDIDATE_STATUS_RESCHEDULED;
+  if (value === 'nao respondeu') return CANDIDATE_STATUS_NO_RESPONSE;
+  if (value === 'cancelado') return CANDIDATE_STATUS_CANCELED;
   if (value === 'compareceu') return CANDIDATE_STATUS_ATTENDED;
   if (value === 'faltou') return CANDIDATE_STATUS_MISSED;
-  if (value === 'desistente') return CANDIDATE_STATUS_WITHDREW;
+  if (value === 'desistiu' || value === 'desistente') return CANDIDATE_STATUS_WITHDREW;
   if (value === 'aprovado') return CANDIDATE_STATUS_APPROVED;
   if (value === 'banco de talentos') return CANDIDATE_STATUS_TALENT_BANK;
   if (value === 'reprovado' || value.includes('eliminado')) {
@@ -240,9 +254,12 @@ export {
   CANDIDATE_STATUS_APPROVED,
   CANDIDATE_STATUS_ATTENDED,
   CANDIDATE_STATUS_CONFIRMED,
+  CANDIDATE_STATUS_CANCELED,
   CANDIDATE_STATUS_ELIMINATED,
   CANDIDATE_STATUS_MISSED,
+  CANDIDATE_STATUS_NO_RESPONSE,
   CANDIDATE_STATUS_NOT_QUALIFIED,
+  CANDIDATE_STATUS_PENDING_CONFIRMATION,
   CANDIDATE_STATUS_QUALIFIED,
   CANDIDATE_STATUS_RESCHEDULED,
   CANDIDATE_STATUS_SCHEDULED,
