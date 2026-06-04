@@ -146,7 +146,7 @@ export function EditorTextoRich({ valor, onChange }) {
         onBlur=${sincronizarConteudo}
       ></div>
       <div class="form-text mt-2">
-        Campo de resposta em texto livre. O sistema considera o conteudo digitado para a avaliacao.
+        Campo de resposta em texto livre. O sistema considera o conteúdo digitado para a avaliação.
       </div>
     </div>
   `;
@@ -191,7 +191,7 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
     } catch (error) {
       window.alert(
         error?.message ||
-          'Nao foi possivel localizar o arquivo-base da prova de Excel.',
+          'Não foi possível localizar o arquivo-base da prova de Excel.',
       );
     }
   };
@@ -214,7 +214,7 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
         type: 'excel_external',
         uploaded: false,
         validation: null,
-        statusText: 'Nao foi possivel ler o arquivo enviado.',
+        statusText: 'Não foi possível ler o arquivo enviado.',
         statusClass: 'excel-status-error',
       });
     } finally {
@@ -235,7 +235,7 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
               <li>Baixe a planilha da etapa.</li>
               <li>Execute a atividade no Excel ou LibreOffice Calc.</li>
               <li>Salve o arquivo corretamente.</li>
-              <li>Envie o arquivo respondido para validacao.</li>
+              <li>Envie o arquivo respondido para validação.</li>
             </ol>
           </div>
 

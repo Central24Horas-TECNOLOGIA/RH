@@ -23,43 +23,43 @@ const PAGINAS_BUSCA = [
     id: 'pagina-inicio',
     tela: 'screen-menu',
     titulo: 'Painel executivo do RH',
-    descricao: 'Visao geral, atalhos e provas recentes.',
+    descricao: 'Visão geral, atalhos e provas recentes.',
   },
   {
     id: 'pagina-historico',
     tela: 'screen-history',
-    titulo: 'Historico de provas',
+    titulo: 'Histórico de provas',
     descricao: 'Consulta de resultados, filtros e detalhes salvos.',
   },
   {
     id: 'pagina-processos',
     tela: 'screen-processes',
     titulo: 'Processos seletivos',
-    descricao: 'Gestao de processos, candidatos e encerramentos.',
+    descricao: 'Gestão de processos, candidatos e encerramentos.',
   },
   {
     id: 'pagina-candidatos',
     tela: 'screen-candidates',
     titulo: 'Candidatos',
-    descricao: 'Central de candidatos, status e vinculacoes rapidas.',
+    descricao: 'Central de candidatos, status e vinculações rápidas.',
   },
   {
     id: 'pagina-pipeline',
     tela: 'screen-candidate-pipeline',
     titulo: 'Pipeline de candidatos',
-    descricao: 'Kanban por etapa com persistencia no backend.',
+    descricao: 'Kanban por etapa com persistência no backend.',
   },
   {
     id: 'pagina-entrevistas',
     tela: 'screen-interviews',
-    titulo: 'Entrevistas agendadas',
+    titulo: 'Agenda de entrevistas',
     descricao: 'Agenda de entrevistas, status e mensagens base do RH.',
   },
   {
     id: 'pagina-analise',
     tela: 'screen-analysis-candidates',
-    titulo: 'Analise de candidatos',
-    descricao: 'Leitura analitica, afinidade e parecer final.',
+    titulo: 'Análise de candidatos',
+    descricao: 'Leitura analítica, afinidade e parecer final.',
   },
   {
     id: 'pagina-talentos',
@@ -70,14 +70,14 @@ const PAGINAS_BUSCA = [
   {
     id: 'pagina-configuracao',
     tela: 'screen-config',
-    titulo: 'Configuracao da prova',
-    descricao: 'Parametros da avaliacao e requisitos por vaga.',
+    titulo: 'Configuração da prova',
+    descricao: 'Parâmetros da avaliação e requisitos por vaga.',
   },
   {
     id: 'pagina-configuracoes',
     tela: 'screen-settings',
-    titulo: 'Configuracoes do sistema',
-    descricao: 'Usuarios, perfis, permissoes, logs e regras reutilizaveis.',
+    titulo: 'Configurações do sistema',
+    descricao: 'Usuários, perfis, permissões, logs e regras reutilizáveis.',
   },
 ];
 
@@ -182,7 +182,7 @@ function filtrarResultados(query, indice) {
 }
 
 function rotuloTipo(tipo) {
-  if (tipo === 'pagina') return 'Pagina';
+  if (tipo === 'pagina') return 'Página';
   if (tipo === 'processo') return 'Processo';
   if (tipo === 'candidato') return 'Candidato';
   return 'Requisito';
@@ -300,7 +300,7 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
                                 ${rotuloTipo(resultado.tipo)}
                               </span>
                             </div>
-                            <p>${resultado.descricao || 'Sem descricao adicional.'}</p>
+                            <p>${resultado.descricao || 'Sem descrição adicional.'}</p>
                             ${resultado.meta
                               ? html`<span class="rh-global-search-meta">${resultado.meta}</span>`
                               : null}

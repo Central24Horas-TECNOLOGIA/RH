@@ -49,7 +49,7 @@ export function TelaCandidaturaPublica() {
     const carregar = async () => {
       if (!slug) {
         setDados(null);
-        setErro('Link de candidatura invalido.');
+        setErro('Link de candidatura inválido.');
         setCarregando(false);
         return;
       }

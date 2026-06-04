@@ -105,13 +105,13 @@ def clean_analysis_text(text):
         "titulo:",
         "enunciado:",
         "gabarito / criterio:",
-        "pontuacao obtida:",
+        "pontuação obtida:",
         "=== gabarito completo ===",
     )
     ignored_exact = {
         "sem resposta.",
-        "arquivo nao enviado.",
-        "nenhuma observacao registrada.",
+        "arquivo não enviado.",
+        "nenhuma observação registrada.",
     }
 
     useful_lines = []

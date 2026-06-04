@@ -299,9 +299,9 @@ function wordAdvancedPool() {
       'word_advanced',
       STAGE_LABELS.word_advanced,
       'Redação de relatório técnico',
-      'Após uma falha de integração entre sistemas, a gerência solicitou um relatório técnico resumido para entender o que aconteceu e quais foram os impactos gerados na operação. Nesse tipo de documento, é importante apresentar o ocorrido de forma clara, mencionando o incidente e os reflexos observados, como lentidão, interrupções ou dificuldades no andamento das atividades. Considerando esse contexto, escreva o título "RELATORIO TECNICO" em negrito e centralizado. Em seguida, descreva o incidente e os impactos operacionais em pelo menos 2 frases.',
+      'Após uma falha de integração entre sistemas, a gerência solicitou um relatório técnico resumido para entender o que aconteceu e quais foram os impactos gerados na operação. Nesse tipo de documento, é importante apresentar o ocorrido de forma clara, mencionando o incidente e os reflexos observados, como lentidão, interrupções ou dificuldades no andamento das atividades. Considerando esse contexto, escreva o título "RELATÓRIO TÉCNICO" em negrito e centralizado. Em seguida, descreva o incidente e os impactos operacionais em pelo menos 2 frases.',
       {
-        titleText: 'RELATORIO TECNICO',
+        titleText: 'RELATÓRIO TÉCNICO',
         titleBold: true,
         titleCenter: true,
         minSentences: 2,
@@ -319,8 +319,8 @@ function wordAdvancedPool() {
       'word_advanced',
       STAGE_LABELS.word_advanced,
       'Organização de procedimentos',
-      'Quando um problema é identificado em produção, torna-se necessário acompanhar a correção de forma organizada, registrando as ações executadas, o andamento da análise e a evolução da solução aplicada. Esse acompanhamento ajuda a dar mais clareza ao processo e facilita a comunicação entre as áreas envolvidas. Com base nesse cenário, escreva "PLANO DE ACAO" centralizado e, abaixo, redija um texto objetivo sobre como acompanhar a correção de um problema em produção.',
-      { titleText: 'PLANO DE ACAO', titleCenter: true, minTextLength: 55 },
+      'Quando um problema é identificado em produção, torna-se necessário acompanhar a correção de forma organizada, registrando as ações executadas, o andamento da análise e a evolução da solução aplicada. Esse acompanhamento ajuda a dar mais clareza ao processo e facilita a comunicação entre as áreas envolvidas. Com base nesse cenário, escreva "PLANO DE AÇÃO" centralizado e, abaixo, redija um texto objetivo sobre como acompanhar a correção de um problema em produção.',
+      { titleText: 'PLANO DE AÇÃO', titleCenter: true, minTextLength: 55 },
     ),
   ];
 }
@@ -1995,5 +1995,4 @@ export {
   resolveExamBlueprint as resolverBlueprintProva,
   buildExamFromBlueprint as montarProvaPorBlueprint,
 };
-
 

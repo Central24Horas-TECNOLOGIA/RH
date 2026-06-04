@@ -196,7 +196,7 @@ class SecurityRepositoryMixin:
     def authenticate_system_user(self, usuario: str, senha: str, *, origem: str = "") -> dict:
         safe_login = normalize_text(usuario)
         if not safe_login:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario ou senha invalidos.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário ou senha inválidos.")
 
         conn = self._connect()
         try:
@@ -230,16 +230,16 @@ class SecurityRepositoryMixin:
                 self._insert_audit_log(
                     cursor,
                     user={"email": safe_login, "nome": safe_login},
-                    modulo="Autenticacao",
+                    modulo="Autenticação",
                     acao="login_negado",
                     entidade="usuario",
                     entidade_id=safe_login,
-                    justificativa="Usuario nao encontrado.",
+                    justificativa="Usuário não encontrado.",
                     origem=origem,
                     sucesso=False,
                 )
                 conn.commit()
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario ou senha invalidos.")
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário ou senha inválidos.")
 
             user_row = rows_to_dicts(cursor, [row])[0]
             user_context = self._serialize_system_user(user_row)
@@ -247,31 +247,31 @@ class SecurityRepositoryMixin:
                 self._insert_audit_log(
                     cursor,
                     user=user_context,
-                    modulo="Autenticacao",
+                    modulo="Autenticação",
                     acao="login_negado",
                     entidade="usuario",
                     entidade_id=str(user_row.get("id_usuario") or ""),
-                    justificativa=f"Usuario com status {user_row.get('status') or 'indefinido'}.",
+                    justificativa=f"Usuário com status {user_row.get('status') or 'indefinido'}.",
                     origem=origem,
                     sucesso=False,
                 )
                 conn.commit()
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario inativo ou bloqueado.")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuário inativo ou bloqueado.")
 
             if not verify_password(senha, user_row.get("senha_hash")):
                 self._insert_audit_log(
                     cursor,
                     user=user_context,
-                    modulo="Autenticacao",
+                    modulo="Autenticação",
                     acao="login_negado",
                     entidade="usuario",
                     entidade_id=str(user_row.get("id_usuario") or ""),
-                    justificativa="Senha invalida.",
+                    justificativa="Senha inválida.",
                     origem=origem,
                     sucesso=False,
                 )
                 conn.commit()
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario ou senha invalidos.")
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário ou senha inválidos.")
 
             permissions = self._get_role_permissions_from_db(cursor, user_row.get("perfil_id"))
             cursor.execute(
@@ -286,7 +286,7 @@ class SecurityRepositoryMixin:
             self._insert_audit_log(
                 cursor,
                 user=result,
-                modulo="Autenticacao",
+                modulo="Autenticação",
                 acao="login",
                 entidade="usuario",
                 entidade_id=str(user_row.get("id_usuario") or ""),
@@ -335,7 +335,7 @@ class SecurityRepositoryMixin:
     ) -> dict:
         safe_role = normalize_role_id(role_id)
         if safe_role not in ROLE_DEFINITIONS:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil não encontrado.")
 
         requested_permissions = sanitize_permissions(data.get("permissoes") or data.get("permissions"))
         conn = self._connect()
@@ -377,7 +377,7 @@ class SecurityRepositoryMixin:
             self._insert_audit_log(
                 cursor,
                 user=actor,
-                modulo="Configuracoes",
+                modulo="Configurações",
                 acao="atualizar_permissoes_perfil",
                 entidade="perfil",
                 entidade_id=safe_role,
@@ -447,7 +447,7 @@ class SecurityRepositoryMixin:
         safe_status = normalize_text(data.get("status")) or "Ativo"
 
         if not safe_name or not safe_email or not safe_login or not safe_password:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nome, e-mail, login e senha sao obrigatorios.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nome, e-mail, login e senha são obrigatórios.")
 
         actor_info = _actor_payload(actor)
         conn = self._connect()
@@ -486,7 +486,7 @@ class SecurityRepositoryMixin:
             self._insert_audit_log(
                 cursor,
                 user=actor,
-                modulo="Usuarios",
+                modulo="Usuários",
                 acao="criar_usuario",
                 entidade="usuario",
                 entidade_id=str(id_usuario),
@@ -529,7 +529,7 @@ class SecurityRepositoryMixin:
         )
         row = cursor.fetchone()
         if not row:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
         return rows_to_dicts(cursor, [row])[0]
 
     def update_system_user(self, id_usuario: int, data: dict, *, actor: AuthenticatedUser | dict | None = None) -> dict:
@@ -573,7 +573,7 @@ class SecurityRepositoryMixin:
             self._insert_audit_log(
                 cursor,
                 user=actor,
-                modulo="Usuarios",
+                modulo="Usuários",
                 acao=action,
                 entidade="usuario",
                 entidade_id=str(id_usuario),
@@ -612,7 +612,7 @@ class SecurityRepositoryMixin:
             self._insert_audit_log(
                 cursor,
                 user=actor,
-                modulo="Usuarios",
+                modulo="Usuários",
                 acao="redefinir_senha",
                 entidade="usuario",
                 entidade_id=str(id_usuario),
@@ -633,7 +633,7 @@ class SecurityRepositoryMixin:
             "desbloquear": "Ativo",
         }
         if action not in status_by_action:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Acao de status invalida.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ação de status inválida.")
 
         conn = self._connect()
         try:
@@ -663,7 +663,7 @@ class SecurityRepositoryMixin:
             self._insert_audit_log(
                 cursor,
                 user=actor,
-                modulo="Usuarios",
+                modulo="Usuários",
                 acao=f"{action}_usuario",
                 entidade="usuario",
                 entidade_id=str(id_usuario),
@@ -680,7 +680,7 @@ class SecurityRepositoryMixin:
     def deactivate_system_user(self, id_usuario: int, *, actor: AuthenticatedUser | dict | None = None, justificativa: str = "") -> dict:
         return self.set_system_user_status(
             id_usuario,
-            {"acao": "desativar", "justificativa": justificativa or "Exclusao logica solicitada."},
+            {"acao": "desativar", "justificativa": justificativa or "Exclusão lógica solicitada."},
             actor=actor,
         )
 
@@ -813,7 +813,7 @@ class SecurityRepositoryMixin:
     ) -> dict:
         definition = SETTINGS_CATALOGS.get(normalize_text(tipo))
         if not definition:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalogo de configuracao nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catálogo de configuração não encontrado.")
 
         table = definition["table"]
         payload = data.get("payload") if isinstance(data.get("payload"), dict) else {}
@@ -826,7 +826,7 @@ class SecurityRepositoryMixin:
             "ativo": 1 if data.get("ativo", True) else 0,
         }
         if not values["nome"]:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nome da configuracao e obrigatorio.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nome da configuração é obrigatório.")
         if not values["chave"]:
             values["chave"] = values["nome"].lower().replace(" ", "_")[:120]
 
@@ -838,7 +838,7 @@ class SecurityRepositoryMixin:
                 cursor.execute(f"SELECT TOP 1 * FROM {table} WHERE id_item = ?", (int(id_item),))
                 row = cursor.fetchone()
                 if not row:
-                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item de configuracao nao encontrado.")
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item de configuração não encontrado.")
                 previous = rows_to_dicts(cursor, [row])[0]
                 cursor.execute(
                     f"""
@@ -898,7 +898,7 @@ class SecurityRepositoryMixin:
             self._insert_audit_log(
                 cursor,
                 user=actor,
-                modulo="Configuracoes",
+                modulo="Configurações",
                 acao=action,
                 entidade=table,
                 entidade_id=str(resolved_id),
@@ -922,7 +922,7 @@ class SecurityRepositoryMixin:
     ) -> dict:
         definition = SETTINGS_CATALOGS.get(normalize_text(tipo))
         if not definition:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalogo de configuracao nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catálogo de configuração não encontrado.")
 
         table = definition["table"]
         conn = self._connect()
@@ -931,7 +931,7 @@ class SecurityRepositoryMixin:
             cursor.execute(f"SELECT TOP 1 * FROM {table} WHERE id_item = ?", (int(id_item),))
             row = cursor.fetchone()
             if not row:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item de configuracao nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item de configuração não encontrado.")
             previous = rows_to_dicts(cursor, [row])[0]
             cursor.execute(
                 f"""
@@ -944,7 +944,7 @@ class SecurityRepositoryMixin:
             self._insert_audit_log(
                 cursor,
                 user=actor,
-                modulo="Configuracoes",
+                modulo="Configurações",
                 acao="desativar_configuracao",
                 entidade=table,
                 entidade_id=str(id_item),
@@ -967,17 +967,17 @@ class SecurityRepositoryMixin:
             "status": "Registrada",
         }
         if not payload["tipo_solicitacao"] or not payload["titular"]:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de solicitacao e titular sao obrigatorios.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de solicitação e titular são obrigatórios.")
         return self.upsert_configuration_item(
             "lgpd",
             {
                 "chave": f"solicitacao_{datetime.now().strftime('%Y%m%d%H%M%S')}",
                 "nome": f"{payload['tipo_solicitacao']} - {payload['titular']}",
                 "descricao": payload["descricao"],
-                "categoria": "Solicitacoes LGPD",
+                "categoria": "Solicitações LGPD",
                 "payload": payload,
                 "ativo": True,
-                "justificativa": "Solicitacao LGPD operacional registrada.",
+                "justificativa": "Solicitação LGPD operacional registrada.",
             },
             actor=actor,
         )

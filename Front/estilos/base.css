@@ -6,6 +6,10 @@ body {
   overflow-x: hidden;
 }
 
+html {
+  font-size: 14.5px;
+}
+
 body {
   margin: 0;
   background:
@@ -14,7 +18,7 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: var(--font-md);
-  line-height: 1.45;
+  line-height: 1.42;
   overflow-x: hidden;
 }
 
@@ -101,7 +105,7 @@ a {
 
 .form-control,
 .form-select {
-  min-height: 42px;
+  min-height: 38px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   box-shadow: none;
@@ -116,7 +120,7 @@ a {
 }
 
 .form-label {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.28rem;
   font-size: var(--font-sm);
   font-weight: 600;
 }
@@ -126,16 +130,16 @@ a {
   min-width: 0;
   border-radius: 999px;
   font-weight: 600;
-  letter-spacing: 0.01em;
-  min-height: 38px;
-  padding: 0.42rem 0.95rem;
+  letter-spacing: 0;
+  min-height: 34px;
+  padding: 0.34rem 0.82rem;
   font-size: var(--font-sm);
   white-space: nowrap;
 }
 
 .btn-sm {
-  min-height: 32px;
-  padding: 0.24rem 0.72rem;
+  min-height: 28px;
+  padding: 0.2rem 0.62rem;
   font-size: var(--font-xs);
 }
 
@@ -179,14 +183,14 @@ a {
 }
 
 .rh-inline-alert {
-  padding: 0.8rem 0.9rem;
+  padding: 0.68rem 0.78rem;
   border: 1px solid rgba(185, 120, 16, 0.28);
   background: var(--color-warning-soft);
   color: #77510d;
 }
 
 .rh-empty-state {
-  padding: var(--space-6);
+  padding: var(--space-5);
   text-align: center;
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-sm);
@@ -214,12 +218,12 @@ a {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  min-height: 28px;
-  padding: 0.24rem 0.72rem;
+  min-height: 24px;
+  padding: 0.18rem 0.58rem;
   border-radius: 999px;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
 }
 
 .rh-status-pill,
@@ -409,8 +413,8 @@ a {
 .rh-loading-state {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.9rem 1rem;
+  gap: 0.75rem;
+  padding: 0.72rem 0.82rem;
   border: 1px solid rgba(21, 61, 138, 0.16);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.92);
@@ -430,8 +434,8 @@ a {
 .rh-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0.14rem 0.6rem;
+  min-height: 22px;
+  padding: 0.12rem 0.52rem;
   border-radius: 999px;
   background: var(--color-primary-soft);
   color: var(--color-primary);
@@ -504,6 +508,19 @@ a {
 
 .table {
   max-width: 100%;
+}
+
+.table > :not(caption) > * > * {
+  padding: 0.5rem 0.58rem;
+  line-height: 1.3;
+}
+
+.table thead th {
+  font-size: 0.72rem;
+}
+
+.table tbody td {
+  font-size: 0.84rem;
 }
 
 .card-body,

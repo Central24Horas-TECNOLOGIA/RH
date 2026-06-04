@@ -134,25 +134,25 @@ export function montarResumoAnaliticoCv(item) {
   }
 
   if (problemas.length) {
-    partes.push(`Pontos de atencao: ${problemas.join(' ')}`);
+    partes.push(`Pontos de atenção: ${problemas.join(' ')}`);
   } else {
-    partes.push('Nao foram identificados problemas criticos na leitura automatica do curriculo.');
+    partes.push('Não foram identificados problemas críticos na leitura automática do currículo.');
   }
 
   if (educationStrength) {
-    partes.push(`Analise de formacao: ${educationStrength}.`);
+    partes.push(`Análise de formação: ${educationStrength}.`);
   }
 
   if (experienceStrength) {
-    partes.push(`Analise de experiencia profissional: ${experienceStrength}.`);
+    partes.push(`Análise de experiência profissional: ${experienceStrength}.`);
   }
 
   if (score >= 7) {
-    partes.push('Por isso, o curriculo foi considerado com forte aderencia ao processo.');
+    partes.push('Por isso, o currículo foi considerado com forte aderência ao processo.');
   } else if (score >= 4.5) {
-    partes.push('Por isso, o curriculo foi considerado razoavelmente aderente ao processo.');
+    partes.push('Por isso, o currículo foi considerado razoavelmente aderente ao processo.');
   } else {
-    partes.push('Por isso, o curriculo foi considerado pouco aderente ao processo.');
+    partes.push('Por isso, o currículo foi considerado pouco aderente ao processo.');
   }
 
   return partes.join('\n\n');

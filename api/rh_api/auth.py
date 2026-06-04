@@ -118,7 +118,7 @@ def authenticate_credentials(usuario: str, senha: str) -> str:
     if safe_user != settings.auth_user or senha != settings.auth_password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuario ou senha invalidos.",
+            detail="Usuário ou senha inválidos.",
         )
 
     return _build_token(_build_env_admin_user(safe_user))
@@ -147,7 +147,7 @@ def authenticate_session(
                 raise
         except Exception:
             # Fallback intencional para manter compatibilidade quando o banco ainda
-            # nao possui as tabelas novas ou esta indisponivel durante manutencao.
+            # não possui as tabelas novas ou está indisponível durante manutenção.
             pass
 
     token = authenticate_credentials(safe_user, senha)
@@ -159,21 +159,21 @@ def validate_access_token(token: str) -> AuthenticatedUser:
     try:
         payload, signature = normalize_text(token).split(".", 1)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido.") from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido.") from exc
 
     expected_signature = _sign(payload, settings.auth_token_secret)
     if not hmac.compare_digest(signature, expected_signature):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido.")
 
     try:
         data = json.loads(_b64decode(payload).decode("utf-8"))
         username = normalize_text(data.get("sub"))
         expires_at = int(data.get("exp") or 0)
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido.") from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido.") from exc
 
     if not username or expires_at < int(datetime.now(timezone.utc).timestamp()):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessao expirada.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão expirada.")
 
     role = get_role_definition(data.get("role") or data.get("perfil") or ROLE_ADMIN)
     permissions = sanitize_permissions(data.get("permissions") or data.get("permissoes"))

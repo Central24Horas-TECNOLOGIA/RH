@@ -85,7 +85,7 @@ class BaseRepository:
                     raise HTTPException(
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                         detail=final_message
-                        or "O banco de dados ficou temporariamente indisponivel por conflito de concorrencia. Tente novamente em instantes.",
+                        or "O banco de dados ficou temporariamente indisponível por conflito de concorrência. Tente novamente em instantes.",
                     ) from exc
 
                 wait_seconds = base_delay_seconds * attempt
@@ -1025,7 +1025,7 @@ class BaseRepository:
             )
 
         if not id_processo:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo do candidato nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo do candidato não encontrado.")
 
         processo = resolve_process_row_for_related_record(
             cursor,
@@ -1038,7 +1038,7 @@ class BaseRepository:
             ],
         )
         if not processo:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo não encontrado.")
         if is_process_closed(processo.get("status")):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

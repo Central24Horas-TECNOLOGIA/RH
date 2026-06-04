@@ -64,7 +64,7 @@ def _get_validation_message(error: dict) -> str:
     ctx = error.get("ctx")
     if isinstance(ctx, dict) and ctx.get("error"):
         return str(ctx["error"])
-    return error.get("msg") or "Dados invalidos."
+    return error.get("msg") or "Dados inválidos."
 
 
 def create_app() -> FastAPI:
@@ -76,12 +76,12 @@ def create_app() -> FastAPI:
             bootstrap_runtime_schema(settings)
         except pyodbc.Error as exc:
             logger.exception(
-                "Falha ao preparar o schema complementar do RH na inicializacao: %s",
+                "Falha ao preparar o schema complementar do RH na inicialização: %s",
                 describe_database_error(exc),
             )
         except Exception as exc:
             logger.exception(
-                "Falha ao preparar o schema complementar do RH na inicializacao: %s",
+                "Falha ao preparar o schema complementar do RH na inicialização: %s",
                 exc,
             )
         yield
@@ -115,7 +115,7 @@ def create_app() -> FastAPI:
         if loc:
             message = f"{loc}: {message}"
 
-        logger.warning("Falha de validacao na API: %s", errors)
+        logger.warning("Falha de validação na API: %s", errors)
         return JSONResponse(
             status_code=422,
             content={"success": False, "message": message, "details": errors},
@@ -123,7 +123,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def handle_unexpected_exception(_: Request, exc: Exception):
-        logger.exception("Erro nao tratado na API: %s", exc)
+        logger.exception("Erro não tratado na API: %s", exc)
         return JSONResponse(
             status_code=500,
             content={"success": False, "message": "Erro interno do servidor."},
@@ -134,19 +134,19 @@ def create_app() -> FastAPI:
         detailed_message = describe_database_error(exc)
         if is_deadlock_error(exc):
             logger.warning(
-                "Deadlock nao tratado interceptado pela API: %s",
+                "Deadlock não tratado interceptado pela API: %s",
                 detailed_message,
             )
             return JSONResponse(
                 status_code=503,
                 content={
                     "success": False,
-                    "message": "O banco de dados ficou temporariamente indisponivel por conflito de concorrencia. Tente novamente em instantes.",
+                    "message": "O banco de dados ficou temporariamente indisponível por conflito de concorrência. Tente novamente em instantes.",
                 },
             )
 
         logger.exception(
-            "Erro de banco de dados nao tratado: %s",
+            "Erro de banco de dados não tratado: %s",
             detailed_message,
         )
         message = "Falha ao acessar o banco de dados."
@@ -169,7 +169,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_router)
 
     logger.info(
-        "Aplicacao inicializada no ambiente '%s' com banco '%s/%s'.",
+        "Aplicação inicializada no ambiente '%s' com banco '%s/%s'.",
         settings.app_env,
         settings.sql_server,
         settings.sql_database,

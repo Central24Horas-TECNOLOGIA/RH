@@ -24,7 +24,7 @@ def get_current_user(
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Autenticacao obrigatoria.",
+            detail="Autenticação obrigatória.",
         )
 
     return validate_access_token(credentials.credentials)
@@ -48,7 +48,7 @@ def _log_permission_denied(
     try:
         repository.record_audit_log(
             user=user,
-            modulo="Seguranca",
+            modulo="Segurança",
             acao="acesso_negado",
             entidade="rota",
             entidade_id=f"{request.method} {request.url.path}" if request else "",

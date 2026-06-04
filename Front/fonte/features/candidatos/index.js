@@ -1462,7 +1462,7 @@ export function TelaCandidatos({ controlador }) {
     }
 
     if (candidatoJaVinculadoAoProcessoSelecionado()) {
-      window.alert('Este candidato ja esta vinculado a um processo seletivo.');
+      window.alert('Este candidato já está vinculado a um processo seletivo.');
       return;
     }
 
@@ -1819,7 +1819,7 @@ export function TelaCandidatos({ controlador }) {
                     <div class="col-md-6">
                       <div><strong>Tags:</strong> ${(detalhe.tags || []).join(', ') || '-'}</div>
                       <div><strong>Habilidades:</strong> ${(detalhe.habilidades || []).join(', ') || '-'}</div>
-                      <div><strong>Observacao RH:</strong> ${detalhe.observacao_rh || '-'}</div>
+                      <div><strong>Observação RH:</strong> ${detalhe.observacao_rh || '-'}</div>
                     </div>
                   </div>
                 </${SectionCard}>
@@ -1847,7 +1847,7 @@ export function TelaCandidatos({ controlador }) {
                       disabled=${!detalhe.cv_disponivel}
                       onClick=${() => abrirCurriculo(detalhe)}
                     >
-                      ${detalhe.cv_disponivel ? 'Visualizar ou baixar CV' : 'CV indisponivel'}
+                      ${detalhe.cv_disponivel ? 'Visualizar ou baixar CV' : 'CV indisponível'}
                     </button>
                   </div>
                 </${SectionCard}>
@@ -2116,7 +2116,7 @@ export function TelaCandidatos({ controlador }) {
                   />
                 </div>
                 <div class="col-12">
-                  <label class="form-label">Observacao do RH</label>
+                  <label class="form-label">Observação do RH</label>
                   <textarea
                     class="form-control"
                     rows="4"

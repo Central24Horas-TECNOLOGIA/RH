@@ -22,7 +22,7 @@ export function formatarHorarioSlotEntrevista(slot) {
   if (!slot) return '-';
   const inicio = formatarDataHora(slot.inicio);
   const fim = formatarDataHora(slot.fim);
-  return `${inicio} ate ${fim} | ${slot.ocupados || 0}/${slot.capacidade_total || 1} ocupados`;
+  return `${inicio} até ${fim} | ${slot.ocupados || 0}/${slot.capacidade_total || 1} ocupados`;
 }
 
 export function ModalEdicaoEntrevista({
@@ -71,7 +71,7 @@ export function ModalEdicaoEntrevista({
                   />
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Horario atual</label>
+                  <label class="form-label">Horário atual</label>
                   <input
                     class="form-control"
                     readonly
@@ -96,14 +96,14 @@ export function ModalEdicaoEntrevista({
                   </select>
                 </div>
                 <div class="col-md-12">
-                  <label class="form-label">Novo horario para reagendar</label>
+                  <label class="form-label">Novo horário para reagendar</label>
                   <select
                     class="form-select"
                     value=${formulario.id_slot}
                     onChange=${(event) =>
                       atualizar('id_slot', event.target.value)}
                   >
-                    <option value="">Manter horario atual</option>
+                    <option value="">Manter horário atual</option>
                     ${slotsDisponiveis.map(
                       (slot) => html`
                         <option key=${slot.id_slot} value=${slot.id_slot}>
@@ -125,7 +125,7 @@ export function ModalEdicaoEntrevista({
                   ></textarea>
                 </div>
                 <div class="col-md-12">
-                  <label class="form-label">Observacoes RH</label>
+                  <label class="form-label">Observações RH</label>
                   <textarea
                     class="form-control"
                     rows="4"
@@ -154,7 +154,7 @@ export function ModalEdicaoEntrevista({
                   ? 'Salvando...'
                   : isProcessClosed(entrevista.status_processo)
                     ? 'Processo encerrado'
-                    : 'Salvar atualizacao'}
+                    : 'Salvar atualização'}
               </button>
             </footer>
           `

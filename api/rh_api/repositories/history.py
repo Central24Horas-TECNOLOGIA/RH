@@ -315,7 +315,7 @@ class HistoryRepositoryMixin:
             if not column_lookup:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Nao foi possivel identificar as colunas da tabela historico_provas.",
+                    detail="Não foi possível identificar as colunas da tabela historico_provas.",
                 )
 
             id_teste = normalize_text(row.get("id_teste"))
@@ -400,7 +400,7 @@ class HistoryRepositoryMixin:
             if not ordered_columns:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Nenhuma coluna valida foi encontrada para gravar o historico da prova.",
+                    detail="Nenhuma coluna válida foi encontrada para gravar o histórico da prova.",
                 )
 
             if self.settings.is_development:
@@ -467,7 +467,7 @@ class HistoryRepositoryMixin:
         record_id = normalize_text(data.get("recordId"))
         payload = data.get("payload")
         if not record_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="recordId e obrigatorio.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="recordId é obrigatório.")
 
         payload_text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
         conn = self._connect()

@@ -114,7 +114,7 @@ function formatarHorarioSlot(slot) {
   if (!slot) return '-';
   const inicio = formatarDataHora(slot.inicio);
   const fim = formatarDataHora(slot.fim);
-  return `${inicio} ate ${fim}`;
+  return `${inicio} até ${fim}`;
 }
 
 function obterSlotDisponivel(slot) {
@@ -242,7 +242,7 @@ export function TelaEntrevistas({ controlador }) {
       setSlots(Array.isArray(listaSlots) ? listaSlots : []);
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel carregar a agenda de entrevistas.',
+        error?.message || 'Não foi possível carregar a agenda de entrevistas.',
       );
       setEntrevistas([]);
       setSlots([]);
@@ -352,7 +352,7 @@ export function TelaEntrevistas({ controlador }) {
           obterReferenciaProcesso(processo) === formularioSlots.id_processo_ref,
       );
       if (processoSelecionado && isProcessClosed(processoSelecionado.status)) {
-        setErro('O processo selecionado esta encerrado e nao permite criar horarios.');
+        setErro('O processo selecionado está encerrado e não permite criar horários.');
         return;
       }
 
@@ -366,7 +366,7 @@ export function TelaEntrevistas({ controlador }) {
         `Slots criados: ${resultado?.created || 0}. Ignorados por conflito: ${resultado?.skipped || 0}.`,
       );
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel criar os horarios.');
+      setErro(error?.message || 'Não foi possível criar os horários.');
     } finally {
       setSalvando(false);
     }
@@ -389,7 +389,7 @@ export function TelaEntrevistas({ controlador }) {
       return;
     }
     if (capacidade < Number(slotEdicao.ocupados || 0)) {
-      setErro('A capacidade nao pode ser menor que a quantidade ja ocupada.');
+      setErro('A capacidade não pode ser menor que a quantidade já ocupada.');
       return;
     }
 
@@ -404,7 +404,7 @@ export function TelaEntrevistas({ controlador }) {
       setSlotEdicao(null);
       await carregar();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel atualizar o slot.');
+      setErro(error?.message || 'Não foi possível atualizar o slot.');
     } finally {
       setSalvando(false);
     }
@@ -426,7 +426,7 @@ export function TelaEntrevistas({ controlador }) {
       await excluirSlotEntrevista(slot.id_slot);
       await carregar();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel excluir o slot.');
+      setErro(error?.message || 'Não foi possível excluir o slot.');
     } finally {
       setSalvando(false);
     }
@@ -434,7 +434,7 @@ export function TelaEntrevistas({ controlador }) {
 
   const abrirEdicao = (entrevista) => {
     if (isProcessClosed(entrevista?.status_processo)) {
-      setErro('O processo seletivo desta entrevista esta encerrado e nao permite atualizacao operacional.');
+      setErro('O processo seletivo desta entrevista está encerrado e não permite atualização operacional.');
       return;
     }
 
@@ -450,7 +450,7 @@ export function TelaEntrevistas({ controlador }) {
   const salvar = async () => {
     if (!entrevistaEdicao) return;
     if (isProcessClosed(entrevistaEdicao.status_processo)) {
-      setErro('O processo seletivo desta entrevista esta encerrado e nao permite atualizacao operacional.');
+      setErro('O processo seletivo desta entrevista está encerrado e não permite atualização operacional.');
       return;
     }
 
@@ -485,7 +485,7 @@ export function TelaEntrevistas({ controlador }) {
       await carregar();
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel atualizar a entrevista selecionada.',
+        error?.message || 'Não foi possível atualizar a entrevista selecionada.',
       );
     } finally {
       setSalvando(false);
@@ -497,7 +497,7 @@ export function TelaEntrevistas({ controlador }) {
       screenId="screen-interviews"
       navAtiva="screen-interviews"
       subtituloMarca="Agenda de entrevistas"
-      placeholderBusca="Entrevistas e confirmacoes"
+      placeholderBusca="Entrevistas e confirmações"
       controlador=${controlador}
       acoesTopo=${html`
         <button
@@ -569,7 +569,7 @@ export function TelaEntrevistas({ controlador }) {
             <button
               type="button"
               class="calendar-arrow-btn"
-              aria-label="Proximo dia"
+              aria-label="Próximo dia"
               onClick=${() => selecionarData(moverDataIso(filtros.data, 1))}
             >
               <span class="material-symbols-outlined">chevron_right</span>
@@ -615,8 +615,8 @@ export function TelaEntrevistas({ controlador }) {
                 <div class="c24-empty-state c24-empty-state-horizontal">
                   <span class="material-symbols-outlined">calendar_clock</span>
                   <div>
-                    <h3>Nenhuma entrevista agendada hoje</h3>
-                    <p>Use os slots ou confirmações para agendar entrevistas.</p>
+                    <h3>Nenhuma entrevista registrada hoje</h3>
+                    <p>Use os slots ou confirmações para registrar entrevistas.</p>
                   </div>
                 </div>
               `}
@@ -834,13 +834,13 @@ export function TelaEntrevistas({ controlador }) {
       <div class="interview-bottom-grid">
         <${SectionCard}
           title="Slots do dia"
-          description="Visao por horario com disponibilidade, candidato e status."
+          description="Visão por horário com disponibilidade, candidato e status."
           className="interview-slots-card compact-dashboard-card"
         >
           ${carregando
             ? html`
                 <${LoadingState}
-                  titulo="Carregando horarios"
+                  titulo="Carregando horários"
                   descricao="Buscando slots internos da agenda."
                 />
               `
@@ -943,12 +943,12 @@ export function TelaEntrevistas({ controlador }) {
                           </div>
                           <div>
                             <span>${formatarDataHora(item.data_entrevista)}</span>
-                            <small>${item.id_slot ? 'Calendario interno' : 'Registro legado'}</small>
+                            <small>${item.id_slot ? 'Calendário interno' : 'Registro legado'}</small>
                           </div>
                           <span class=${`rh-status-pill ${obterClasseStatusEntrevista(item.status_entrevista)}`}>
                             ${item.status_entrevista || '-'}
                           </span>
-                          <p>${item.observacoes_rh || 'Sem observacoes.'}</p>
+                          <p>${item.observacoes_rh || 'Sem observações.'}</p>
                           <div class="interview-row-actions">
                             <button
                               type="button"
@@ -956,10 +956,10 @@ export function TelaEntrevistas({ controlador }) {
                               onClick=${() =>
                                 copiarTexto(item.mensagem_base || '')
                                   .then(() =>
-                                    window.alert('Mensagem copiada para a area de transferencia.'),
+                                    window.alert('Mensagem copiada para a área de transferência.'),
                                   )
                                   .catch(() =>
-                                    window.alert('Nao foi possivel copiar a mensagem automaticamente.'),
+                                    window.alert('Não foi possível copiar a mensagem automaticamente.'),
                                   )}
                             >
                               Copiar mensagem
@@ -1014,7 +1014,7 @@ export function TelaEntrevistas({ controlador }) {
       <${ModalPadrao}
         aberto=${!!slotEdicao}
         titulo="Editar slot"
-        subtitulo="Altere capacidade, status operacional e observacoes do horario."
+        subtitulo="Altere capacidade, status operacional e observações do horário."
         onClose=${() => setSlotEdicao(null)}
       >
         ${slotEdicao
@@ -1022,7 +1022,7 @@ export function TelaEntrevistas({ controlador }) {
               <div class="rh-details-body">
                 <div class="row g-3">
                   <div class="col-md-6">
-                    <label class="form-label">Horario</label>
+                    <label class="form-label">Horário</label>
                     <input class="form-control" readonly value=${formatarHorarioSlot(slotEdicao)} />
                   </div>
                   <div class="col-md-3">
@@ -1055,12 +1055,12 @@ export function TelaEntrevistas({ controlador }) {
                           status_slot: event.target.value,
                         })}
                     >
-                      <option value=${STATUS_SLOT_DISPONIVEL}>Disponivel</option>
+                      <option value=${STATUS_SLOT_DISPONIVEL}>Disponível</option>
                       <option value=${STATUS_SLOT_BLOQUEADO}>Bloqueado</option>
                     </select>
                   </div>
                   <div class="col-md-12">
-                    <label class="form-label">Observacoes</label>
+                    <label class="form-label">Observações</label>
                     <textarea
                       class="form-control"
                       rows="4"

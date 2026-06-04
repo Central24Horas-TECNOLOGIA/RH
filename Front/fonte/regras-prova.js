@@ -1,5 +1,6 @@
 ﻿import { ROTULOS_ETAPAS } from './perguntas.js';
 import { obterDadosBaseExcel } from './features/prova/services/excel-base-data.js';
+import { corrigirRespostaDiscursivaInteligente } from './features/prova/services/personalizacao-inteligente.js';
 import {
   baixarBlob,
   contarFrases,
@@ -23,8 +24,9 @@ function criarResultadoPontuacao(
   notes = [],
   pendingManual = false,
   completedTasks = [],
+  extra = {},
 ) {
-  return { score, max, notes, pendingManual, completedTasks };
+  return { score, max, notes, pendingManual, completedTasks, ...extra };
 }
 
 function criarResultadoChecklist(tarefas, pontos, notas = []) {
@@ -58,7 +60,11 @@ function resumirConclusaoChecklist(completedTasks = []) {
 function possuiValidacaoExcelImplementada(validation) {
   const notas = Array.isArray(validation?.notes) ? validation.notes : [];
   return !notas.some((item) =>
-    String(item || '').toLowerCase().includes('validacao nao implementada'),
+    String(item || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .includes('validacao nao implementada'),
   );
 }
 
@@ -132,10 +138,10 @@ function contarTermosEncontrados(textoNormalizado, termos) {
 
 function classificarConfianca(confidence) {
   const valor = limitarNumero(confidence);
-  if (valor >= LIMIAR_CONFIANCA_ALTA) return 'alta confianca';
-  if (valor >= LIMIAR_CONFIANCA_MEDIA) return 'media confianca';
-  if (valor >= LIMIAR_CONFIANCA_BAIXA) return 'baixa confianca';
-  return 'nao encontrado';
+  if (valor >= LIMIAR_CONFIANCA_ALTA) return 'alta confiança';
+  if (valor >= LIMIAR_CONFIANCA_MEDIA) return 'média confiança';
+  if (valor >= LIMIAR_CONFIANCA_BAIXA) return 'baixa confiança';
+  return 'não encontrado';
 }
 
 function decodificarEndereco(endereco) {
@@ -316,10 +322,10 @@ function escolherMelhorEvidencia(evidencias) {
 function descreverLocalEvidencia(evidencia) {
   const sheetName = evidencia?.sheetName || evidencia?.cell?.sheetName;
   const address = evidencia?.address || evidencia?.cell?.address;
-  if (sheetName && address) return `aba ${sheetName}, celula ${address}`;
+  if (sheetName && address) return `aba ${sheetName}, célula ${address}`;
   if (sheetName) return `aba ${sheetName}`;
-  if (address) return `celula ${address}`;
-  return 'local nao determinado';
+  if (address) return `célula ${address}`;
+  return 'local não determinado';
 }
 
 function descreverValorFormula(evidencia) {
@@ -328,24 +334,24 @@ function descreverValorFormula(evidencia) {
   const formula = String(evidencia?.formula ?? '').trim();
 
   if (valor) partes.push(`Valor encontrado: ${valor}.`);
-  if (formula) partes.push(`Formula encontrada: ${formula}.`);
+  if (formula) partes.push(`Fórmula encontrada: ${formula}.`);
   return partes.join(' ');
 }
 
 function criarDescricaoEvidencia(label, evidencia, done) {
   if (!evidencia) {
-    return 'Nenhuma resposta com evidencia suficiente foi encontrada para esta tarefa.';
+    return 'Nenhuma resposta com evidência suficiente foi encontrada para esta tarefa.';
   }
 
   const local = descreverLocalEvidencia(evidencia);
   const valorFormula = descreverValorFormula(evidencia);
-  const motivo = evidencia.reason || 'foram encontrados sinais relacionados a tarefa';
+  const motivo = evidencia.reason || 'foram encontrados sinais relacionados à tarefa';
 
   if (done) {
-    return `Resposta localizada na ${local}. ${valorFormula}A resposta foi considerada relacionada a tarefa porque ${motivo}.`;
+    return `Resposta localizada na ${local}. ${valorFormula}A resposta foi considerada relacionada à tarefa porque ${motivo}.`;
   }
 
-  return `Foi encontrado possivel candidato na ${local}, mas a confianca ficou baixa para a tarefa "${label}". ${valorFormula}Motivo: ${motivo}.`;
+  return `Foi encontrado possível candidato na ${local}, mas a confiança ficou baixa para a tarefa "${label}". ${valorFormula}Motivo: ${motivo}.`;
 }
 
 function criarTarefaComEvidencias(label, evidencias) {
@@ -381,7 +387,7 @@ function evidenciaDeTarefa(tarefa) {
   if (!tarefa || tarefa.confidence <= 0) return null;
   return criarEvidencia({
     score: tarefa.confidence,
-    reason: tarefa.description || tarefa.confidenceLabel || 'evidencia relacionada encontrada',
+    reason: tarefa.description || tarefa.confidenceLabel || 'evidência relacionada encontrada',
     value: tarefa.value,
     formula: tarefa.formula,
     extra: {
@@ -398,7 +404,7 @@ function normalizarDetalheTarefa(tarefa) {
   );
 
   return {
-    label: tarefa?.label || 'Tarefa sem descricao',
+    label: tarefa?.label || 'Tarefa sem descrição',
     done: !!tarefa?.done,
     confidence,
     confidenceLabel: tarefa?.confidenceLabel || classificarConfianca(confidence),
@@ -409,8 +415,8 @@ function normalizarDetalheTarefa(tarefa) {
     description:
       tarefa?.description ||
       (tarefa?.done
-        ? 'Tarefa identificada pela validacao automatica.'
-        : 'Nenhuma resposta com evidencia suficiente foi encontrada para esta tarefa.'),
+        ? 'Tarefa identificada pela validação automática.'
+        : 'Nenhuma resposta com evidência suficiente foi encontrada para esta tarefa.'),
     candidates: Array.isArray(tarefa?.candidates) ? tarefa.candidates : [],
   };
 }
@@ -430,7 +436,7 @@ function formatarDetalheTarefa(detalheBruto) {
     partes.push(`Valor: ${detalhe.value}`);
   }
   if (String(detalhe.formula || '').trim()) {
-    partes.push(`Formula: ${detalhe.formula}`);
+    partes.push(`Fórmula: ${detalhe.formula}`);
   }
   if (detalhe.description) {
     partes.push(detalhe.description);
@@ -543,7 +549,7 @@ function avaliarCelulasPorCriterio(indice, criterios = {}) {
     const pontosPlanilha = pontuarPlanilha(celula, criterios.sheetNames || []);
     if (pontosPlanilha) {
       score += pontosPlanilha;
-      motivos.push('esta em aba relacionada');
+      motivos.push('está em aba relacionada');
     }
 
     const pontosLocal = pontuarLocal(celula, {
@@ -552,25 +558,25 @@ function avaliarCelulasPorCriterio(indice, criterios = {}) {
     });
     if (pontosLocal) {
       score += pontosLocal;
-      motivos.push('esta em celula ou regiao esperada/proxima');
+      motivos.push('está em célula ou região esperada/próxima');
     }
 
     const termosNaCelula = contarTermosEncontrados(textoCompleto, keywords);
     if (termosNaCelula) {
       score += Math.min(0.24, termosNaCelula * 0.1);
-      motivos.push('contem palavra-chave da tarefa');
+      motivos.push('contém palavra-chave da tarefa');
     }
 
     const termosNaFormula = contarTermosEncontrados(celula.formulaNormalized, formulaKeywords);
     if (termosNaFormula) {
       score += Math.min(0.36, termosNaFormula * 0.18);
-      motivos.push('possui formula compativel');
+      motivos.push('possui fórmula compatível');
     }
 
     const termosNoContexto = contarTermosEncontrados(contexto, contextKeywords);
     if (termosNoContexto) {
       score += Math.min(0.2, termosNoContexto * 0.07);
-      motivos.push('esta perto de palavras-chave da tarefa');
+      motivos.push('está perto de palavras-chave da tarefa');
     }
 
     const pontosTipo = tipoCelulaCombina(celula, criterios.types || []);
@@ -600,7 +606,7 @@ function avaliarCelulasPorCriterio(indice, criterios = {}) {
         criarEvidencia({
           score,
           cell: celula,
-          reason: motivos.join(', ') || 'ha conteudo preenchido relacionado',
+          reason: motivos.join(', ') || 'há conteúdo preenchido relacionado',
         }),
       );
     }
@@ -650,8 +656,8 @@ function avaliarCabecalhoComPreenchimento(indice, label, opcoes = {}) {
           formula: preenchidas.find((item) => item.formula)?.formula || '',
           reason:
             preenchidas.length >= minFilled
-              ? `cabecalho relacionado encontrado com ${preenchidas.length} celula(s) preenchida(s) abaixo`
-              : 'cabecalho relacionado encontrado, mas sem preenchimento suficiente abaixo',
+              ? `cabeçalho relacionado encontrado com ${preenchidas.length} célula(s) preenchida(s) abaixo`
+              : 'cabeçalho relacionado encontrado, mas sem preenchimento suficiente abaixo',
         }),
       );
     }
@@ -698,8 +704,8 @@ function avaliarOrdenacaoPorCabecalho(indice, label, opcoes = {}) {
         cell: celula,
         value: valores.slice(0, 4).join(', '),
         reason: ordenado
-          ? `coluna ${celula.text} possui ${valores.length} registro(s) em ordem alfabetica`
-          : `coluna ${celula.text} foi localizada, mas a ordem alfabetica nao ficou consistente`,
+          ? `coluna ${celula.text} possui ${valores.length} registro(s) em ordem alfabética`
+          : `coluna ${celula.text} foi localizada, mas a ordem alfabética não ficou consistente`,
       }),
     );
   });
@@ -729,7 +735,7 @@ function avaliarFormatoMoeda(indice, label, opcoes = {}) {
       criarEvidencia({
         score,
         cell: celula,
-        reason: 'formato de moeda/contabil detectado em regiao relacionada',
+        reason: 'formato de moeda/contábil detectado em região relacionada',
       }),
     );
   });
@@ -774,7 +780,7 @@ function avaliarEstiloVisual(indice, label, opcoes = {}) {
       criarEvidencia({
         score,
         cell: celula,
-        reason: 'formatacao visual detectada em celula relacionada',
+        reason: 'formatação visual detectada em célula relacionada',
       }),
     );
   });
@@ -809,7 +815,7 @@ function avaliarFiltroOrdenacao(indice, label, opcoes = {}) {
 
     if (colunaOrdenada) {
       score += 0.18;
-      reason = 'filtro encontrado e ha coluna numerica em ordem decrescente';
+      reason = 'filtro encontrado e há coluna numérica em ordem decrescente';
     }
 
     evidencias.push(
@@ -853,7 +859,7 @@ function avaliarLinhaTotal(indice, label, opcoes = {}) {
         cell: calculos[0] || celula,
         value: calculos[0]?.text || celula.text,
         formula: calculos[0]?.formula || '',
-        reason: `rotulo Total encontrado com ${calculos.length} celula(s) calculada(s) ou preenchida(s) proximas`,
+        reason: `rótulo Total encontrado com ${calculos.length} célula(s) calculada(s) ou preenchida(s) próximas`,
       }),
     );
   });
@@ -949,7 +955,7 @@ function avaliarListaPreenchida(indice, label, opcoes = {}) {
         cell: primeiro,
         value: primeiro.text,
         formula: primeiro.formula,
-        reason: `${unicos.length} item(ns) esperado(s) possuem resposta proxima`,
+        reason: `${unicos.length} item(ns) esperado(s) possuem resposta próxima`,
         extra: {
           candidates: unicos.map((match) =>
             criarEvidencia({
@@ -1055,7 +1061,7 @@ function avaliarGraficoCriado(indice, label, opcoes = {}) {
       evidencias.push(
         criarEvidencia({
           score: 0.86 + pontuarPlanilha({ sheetName }, opcoes.sheetNames || []),
-          reason: 'objeto grafico detectado no arquivo',
+          reason: 'objeto gráfico detectado no arquivo',
           extra: { sheetName },
         }),
       );
@@ -1076,7 +1082,7 @@ function avaliarGraficoCriado(indice, label, opcoes = {}) {
       evidencias.push(
         criarEvidencia({
           score: 0.58 + pontuarPlanilha({ sheetName }, opcoes.sheetNames || []),
-          reason: 'dados auxiliares de grafico encontrados em contexto relacionado',
+          reason: 'dados auxiliares de gráfico encontrados em contexto relacionado',
           extra: {
             sheetName,
             address: adicionais[0]?.address,
@@ -1481,7 +1487,7 @@ async function montarPlanilhaQualidade(workbook) {
         "3) Calcule o 'Valor Total' multiplicando 'Valor (R$)' por 'Quantidade'.",
       ],
       [
-        "4) Formate os resultados da coluna 'Valor (R$)' e da coluna 'Valor Total' para o formato contabil.",
+        "4) Formate os resultados da coluna 'Valor (R$)' e da coluna 'Valor Total' para o formato contábil.",
       ],
     ],
     'A16',
@@ -1510,7 +1516,7 @@ async function montarPlanilhaQualidade(workbook) {
     procv,
     [
       ['1) Utilize PROCV para localizar os supervisores existentes na Planilha A.'],
-      ['2) Liste, a partir da celula BC255, os operadores que nao foram encontrados.'],
+      ['2) Liste, a partir da célula BC255, os operadores que não foram encontrados.'],
     ],
     'A17',
   );
@@ -1518,7 +1524,7 @@ async function montarPlanilhaQualidade(workbook) {
 
   const tabdin = converterMatrizParaPlanilha([
     [
-      '1) Crie abaixo, comecando na celula A5, um resumo dos produtos do supervisor Lula, contendo o Valor Total desse supervisor.',
+      '1) Crie abaixo, começando na célula A5, um resumo dos produtos do supervisor Lula, contendo o Valor Total desse supervisor.',
     ],
     ['A tabela sera criada a partir da tabela da aba Planilha A.'],
   ]);
@@ -1526,7 +1532,7 @@ async function montarPlanilhaQualidade(workbook) {
 
   const copiar = converterMatrizParaPlanilha([
     [
-      '1) Copie a tabela trabalhada na Planilha A e cole a partir da celula A5. Depois, filtre para exibir apenas Wesley Nunes.',
+      '1) Copie a tabela trabalhada na Planilha A e cole a partir da célula A5. Depois, filtre para exibir apenas Wesley Nunes.',
     ],
   ]);
   XLSX.utils.book_append_sheet(workbook, copiar, 'Copiar_Colar');
@@ -1539,10 +1545,10 @@ async function montarPlanilhaQualidade(workbook) {
     ['Tony', 2000, 1200, 3000, 3000],
     [],
     [
-      '1) Crie um grafico de colunas agrupadas com os supervisores e os valores do mes de marco.',
+      '1) Crie um gráfico de colunas agrupadas com os supervisores e os valores do mês de março.',
     ],
   ]);
-  XLSX.utils.book_append_sheet(workbook, grafico, 'Grafico');
+  XLSX.utils.book_append_sheet(workbook, grafico, 'Gráfico');
 
   await adicionarPlanilhasBase(workbook);
   return workbook;
@@ -1552,7 +1558,7 @@ async function montarPlanilhaPlanejamento(workbook) {
   const XLSX = obterBibliotecaXlsx();
 
   const q1 = converterMatrizParaPlanilha([
-    ['Questao 1.'],
+    ['Questão 1.'],
     ['* Utilize CONT.SE para descobrir quantos nomes foram listados para cada cidade abaixo.'],
     ['* Organize em ordem decrescente de acordo com a quantidade de nomes.'],
     [],
@@ -1573,7 +1579,7 @@ async function montarPlanilhaPlanejamento(workbook) {
   XLSX.utils.book_append_sheet(workbook, q1, 'Q1.');
 
   const q2 = converterMatrizParaPlanilha([
-    ['Questao 2.'],
+    ['Questão 2.'],
     ['Com base na planilha Dados, utilize PROCV e localize o volume de cada um dos status abaixo.'],
     [],
     ['Status da Chamada', 'Volume'],
@@ -1597,22 +1603,22 @@ async function montarPlanilhaPlanejamento(workbook) {
   XLSX.utils.book_append_sheet(workbook, q2, 'Q2.');
 
   const q3 = converterMatrizParaPlanilha([
-    ['Questao 3.'],
+    ['Questão 3.'],
     ['* Crie uma tabela com todos os DDD e a quantidade de chamadas que cada um recebeu.'],
-    ['* Utilizando a tabela criada, insira um grafico em Pizza 3D.'],
-    ['* Titulo: Controle de Ligacao por DDD.'],
+    ['* Utilizando a tabela criada, insira um gráfico em Pizza 3D.'],
+    ['* Título: Controle de Ligação por DDD.'],
     ['* Exibir rotulo em percentual na extremidade externa.'],
   ]);
   XLSX.utils.book_append_sheet(workbook, q3, 'Q3.');
 
   const q4 = converterMatrizParaPlanilha([
-    ['Questao 4.'],
-    ['Calcule a media da quantidade de clientes por zona.'],
+    ['Questão 4.'],
+    ['Calcule a média da quantidade de clientes por zona.'],
     ['Calcule o percentual de cada zona de acordo com o total de clientes.'],
-    ['Utilize SE / logica para identificar a situacao de cada zona.'],
-    ['Insira formatacao condicional de acordo com a situacao.'],
+    ['Utilize SE / lógica para identificar a situação de cada zona.'],
+    ['Insira formatação condicional de acordo com a situação.'],
     [],
-    ['Zonas', 'Qtde de Clientes', 'Percentual', 'Situacao'],
+    ['Zonas', 'Qtde de Clientes', 'Percentual', 'Situação'],
     ['OESTE', 506, '', ''],
     ['CENTRO SUL', 365, '', ''],
     ['SUDESTE', 361, '', ''],
@@ -1628,9 +1634,9 @@ async function montarPlanilhaPlanejamento(workbook) {
   XLSX.utils.book_append_sheet(workbook, q4, 'Q4.');
 
   const q5 = converterMatrizParaPlanilha([
-    ['Questao 5.'],
-    ['Utilizando PROCV localize as informacoes dos status de venda.'],
-    ['Calcule a quantidade nao vendida, total de contatos, % de vendido e % nao vendido.'],
+    ['Questão 5.'],
+    ['Utilizando PROCV localize as informações dos status de venda.'],
+    ['Calcule a quantidade não vendida, total de contatos, % de vendido e % não vendido.'],
     [],
     [
       'OPERADOR',
@@ -1669,22 +1675,22 @@ async function montarPlanilhaAvancada(workbook) {
   await montarPlanilhaPlanejamento(workbook);
 
   const q6 = converterMatrizParaPlanilha([
-    ['Questao 6.'],
+    ['Questão 6.'],
     [
-      'Crie um grafico analitico com colunas para os indicadores gerais e linhas em eixo secundario para Nivel de Servico e % Aban.',
+      'Crie um gráfico analítico com colunas para os indicadores gerais e linhas em eixo secundário para Nível de Serviço e % Aban.',
     ],
     [],
     ['', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro', 'Janeiro'],
     ['Chamadas Realizadas', 2350, 2597, 2778, 3058, 2371, 3243, 4061, 1861],
     ['Chamadas Recebidas', 5614, 5528, 5582, 5025, 5162, 5078, 4691, 5103],
     ['Chamadas Atendidas', 4636, 4974, 4873, 4448, 4319, 4024, 3648, 4922],
-    ['Nivel Servico', 0.81, 0.89, 0.8583, 0.8675, 0.81, 0.75, 0.7401256661, 0.9592374289],
+    ['Nível Serviço', 0.81, 0.89, 0.8583, 0.8675, 0.81, 0.75, 0.7401256661, 0.9592374289],
     ['% Aban', 0.1742073388, 0.1002170767, 0.1270154066, 0.1148258706, 0.163308795, 0.2075620323, 0.2223406523, 0.0121497158],
   ]);
   XLSX.utils.book_append_sheet(workbook, q6, 'Q6.');
 
   const q7 = converterMatrizParaPlanilha([
-    ['Questao 7: some todos os valores apenas do Estado do RJ e informe o resultado na celula F10.'],
+    ['Questão 7: some todos os valores apenas do Estado do RJ e informe o resultado na célula F10.'],
     [],
     ['ESTADO', 'VALORES'],
     ['RJ', 10],
@@ -1715,7 +1721,7 @@ export async function montarWorkbookDaTarefa(taskId, titulo) {
   if (taskId === 'advanced_exam') return { workbook: await montarPlanilhaAvancada(workbook) };
 
   const planilha = converterMatrizParaPlanilha([['Arquivo de prova'], [titulo]]);
-  XLSX.utils.book_append_sheet(workbook, planilha, 'Questao');
+  XLSX.utils.book_append_sheet(workbook, planilha, 'Questão');
   return { workbook };
 }
 
@@ -1723,10 +1729,10 @@ function validarExameBasico(workbook, pontos) {
   const indice = criarIndiceWorkbook(workbook);
   const planilha = obterPlanilha(workbook, 'Teste de Excel');
   const notas = [
-    'Formatacao visual, cores e estilo devem ser revisados visualmente pelo RH.',
+    'Formatação visual, cores e estilo devem ser revisados visualmente pelo RH.',
   ];
   if (!planilha) {
-    notas.push("Aba 'Teste de Excel' nao encontrada; a busca flexivel analisou as demais abas.");
+    notas.push("Aba 'Teste de Excel' não encontrada; a busca flexível analisou as demais abas.");
   }
 
   function normalizarCabecalho(valor) {
@@ -1814,7 +1820,7 @@ function validarExameBasico(workbook, pontos) {
 
   const info = planilha ? obterInformacoesCabecalho() : null;
   if (!info) {
-    notas.push('A estrutura principal da tabela nao foi localizada no ponto esperado; foram usadas evidencias por proximidade e palavras-chave.');
+    notas.push('A estrutura principal da tabela não foi localizada no ponto esperado; foram usadas evidências por proximidade e palavras-chave.');
   }
 
   let subtotalCriado = false;
@@ -1936,7 +1942,7 @@ function validarExameBasico(workbook, pontos) {
   );
   const formatoFlex = avaliarFormatoMoeda(
     indice,
-    'Valor Unitario e Subtotal em formato contabil',
+    'Valor Unitário e Subtotal em formato contábil',
     {
       sheetNames: ['Teste de Excel'],
       contextKeywords: ['valor', 'subtotal', 'produto'],
@@ -1959,7 +1965,7 @@ function validarExameBasico(workbook, pontos) {
   });
   const filtroFlex = avaliarFiltroOrdenacao(
     indice,
-    'Filtro aplicado e ordenacao por maior valor unitario',
+    'Filtro aplicado e ordenação por maior valor unitário',
     {
       sheetNames: ['Teste de Excel'],
     },
@@ -1979,20 +1985,20 @@ function validarExameBasico(workbook, pontos) {
             ? criarEvidencia({
                 score: 0.94,
                 cell: subtotalHeaderCell,
-                reason: 'cabecalho Subtotal foi localizado e a coluna possui preenchimento nas linhas da tabela',
+                reason: 'cabeçalho Subtotal foi localizado e a coluna possui preenchimento nas linhas da tabela',
               })
             : null,
           evidenciaDeTarefa(subtotalFlex),
         ].filter(Boolean),
       ),
       criarTarefaComEvidencias(
-        'Valor Unitario e Subtotal em formato contabil',
+        'Valor Unitário e Subtotal em formato contábil',
         [
           formatoContabil
             ? criarEvidencia({
                 score: 0.86,
                 cell: moedaCell,
-                reason: 'formato contabil/moeda foi identificado na regiao de Valor Unitario ou Subtotal',
+                reason: 'formato contábil/moeda foi identificado na região de Valor Unitário ou Subtotal',
               })
             : null,
           evidenciaDeTarefa(formatoFlex),
@@ -2005,7 +2011,7 @@ function validarExameBasico(workbook, pontos) {
             ? criarEvidencia({
                 score: 0.82,
                 cell: estiloCell,
-                reason: 'formatacao visual foi identificada na coluna relacionada ao Subtotal',
+                reason: 'formatação visual foi identificada na coluna relacionada ao Subtotal',
               })
             : null,
           evidenciaDeTarefa(estiloFlex),
@@ -2018,14 +2024,14 @@ function validarExameBasico(workbook, pontos) {
             ? criarEvidencia({
                 score: 0.78,
                 cell: corCell,
-                reason: 'formatacao visual/cor foi identificada em A1 ou cabecalhos proximos',
+                reason: 'formatação visual/cor foi identificada em A1 ou cabeçalhos próximos',
               })
             : null,
           evidenciaDeTarefa(corFlex),
         ].filter(Boolean),
       ),
       criarTarefaComEvidencias(
-        'Filtro aplicado e ordenacao por maior valor unitario',
+        'Filtro aplicado e ordenação por maior valor unitário',
         [
           filtroOrdenado
             ? criarEvidencia({
@@ -2044,7 +2050,7 @@ function validarExameBasico(workbook, pontos) {
             ? criarEvidencia({
                 score: 0.9,
                 cell: totalCell,
-                reason: 'linha Total foi localizada com valores ou formulas de soma preenchidos',
+                reason: 'linha Total foi localizada com valores ou fórmulas de soma preenchidos',
               })
             : null,
           evidenciaDeTarefa(totalFlex),
@@ -2059,7 +2065,7 @@ function validarExameBasico(workbook, pontos) {
 function validarExameQualidade(workbook, pontos) {
   const indice = criarIndiceWorkbook(workbook);
   const notas = [
-    'Itens visuais, grafico e alguns posicionamentos podem precisar de revisao manual do RH.',
+    'Itens visuais, gráfico e alguns posicionamentos podem precisar de revisão manual do RH.',
   ];
 
   const planilhaA = obterPlanilha(workbook, 'Planilha A');
@@ -2115,7 +2121,7 @@ function validarExameQualidade(workbook, pontos) {
 
   const ordenacaoFlex = avaliarOrdenacaoPorCabecalho(
     indice,
-    'Planilha A em ordem alfabetica por Operador',
+    'Planilha A em ordem alfabética por Operador',
     {
       sheetNames: ['Planilha A'],
       headers: ['Operador'],
@@ -2175,7 +2181,7 @@ function validarExameQualidade(workbook, pontos) {
   });
   const naoEncontradosFlex = avaliarTextosEsperados(
     indice,
-    'Operadores nao encontrados listados a partir de BC255',
+    'Operadores não encontrados listados a partir de BC255',
     {
       texts: ['Tania Santana', 'Nancy Vanderley', 'Luzia Mendonca', 'Eloisa Gouvea'],
       sheetNames: ['PROCV'],
@@ -2209,7 +2215,7 @@ function validarExameQualidade(workbook, pontos) {
   );
   const graficoFlex = avaliarGraficoCriado(
     indice,
-    'Grafico de colunas agrupadas criado com supervisores e marco',
+    'Gráfico de colunas agrupadas criado com supervisores e março',
     {
       sheetNames: ['Grafico', 'Gráfico'],
       contextKeywords: ['mar', 'marco', 'angela', 'barack', 'lula', 'tony'],
@@ -2221,12 +2227,12 @@ function validarExameQualidade(workbook, pontos) {
 
   const tarefas = [
     criarTarefaComEvidencias(
-      'Planilha A em ordem alfabetica por Operador',
+      'Planilha A em ordem alfabética por Operador',
       [
         estaOrdenado
           ? criarEvidencia({
               score: 0.92,
-              reason: 'a coluna Operador esta em ordem alfabetica na Planilha A',
+              reason: 'a coluna Operador está em ordem alfabética na Planilha A',
               extra: { sheetName: 'Planilha A', address: 'A3' },
             })
           : null,
@@ -2234,13 +2240,13 @@ function validarExameQualidade(workbook, pontos) {
       ].filter(Boolean),
     ),
     criarTarefaComEvidencias(
-      'Coluna F com titulo Valor Total',
+      'Coluna F com título Valor Total',
       [
         cabecalhoValorTotal
           ? criarEvidencia({
               score: 0.9,
               cell: indice.lookup['Planilha A']?.['2:5'],
-              reason: 'cabecalho Valor Total localizado na coluna esperada',
+              reason: 'cabeçalho Valor Total localizado na coluna esperada',
             })
           : null,
         evidenciaDeTarefa(cabecalhoValorFlex),
@@ -2253,7 +2259,7 @@ function validarExameQualidade(workbook, pontos) {
           ? criarEvidencia({
               score: 0.82,
               cell: indice.lookup['Planilha A']?.['3:5'],
-              reason: 'a coluna Valor Total possui celulas preenchidas na regiao esperada',
+              reason: 'a coluna Valor Total possui células preenchidas na região esperada',
             })
           : null,
         evidenciaDeTarefa(valorTotalFlex),
@@ -2266,20 +2272,20 @@ function validarExameQualidade(workbook, pontos) {
           ? criarEvidencia({
               score: 0.9,
               cell: indice.lookup.PROCV?.['2:2'],
-              reason: `${resultadosProcv} resultado(s) preenchido(s) na area esperada de PROCV`,
+              reason: `${resultadosProcv} resultado(s) preenchido(s) na área esperada de PROCV`,
             })
           : null,
         evidenciaDeTarefa(procvFlex),
       ].filter(Boolean),
     ),
     criarTarefaComEvidencias(
-      'Operadores nao encontrados listados a partir de BC255',
+      'Operadores não encontrados listados a partir de BC255',
       [
         listaNaoEncontrados
           ? criarEvidencia({
               score: 0.86,
               cell: indice.lookup.PROCV?.['255:54'] || indice.lookup.PROCV?.['255:55'],
-              reason: 'lista de nao encontrados localizada a partir da regiao BC255',
+              reason: 'lista de não encontrados localizada a partir da região BC255',
             })
           : null,
         evidenciaDeTarefa(naoEncontradosFlex),
@@ -2292,7 +2298,7 @@ function validarExameQualidade(workbook, pontos) {
           ? criarEvidencia({
               score: 0.84,
               cell: indice.lookup.TAB_DIN?.['5:0'] || indice.lookup.TAB_DIN?.['5:1'],
-              reason: 'resumo preenchido na area esperada da aba TAB_DIN',
+              reason: 'resumo preenchido na área esperada da aba TAB_DIN',
             })
           : null,
         evidenciaDeTarefa(resumoLulaFlex),
@@ -2312,12 +2318,12 @@ function validarExameQualidade(workbook, pontos) {
       ].filter(Boolean),
     ),
     criarTarefaComEvidencias(
-      'Grafico de colunas agrupadas criado com supervisores e marco',
+      'Gráfico de colunas agrupadas criado com supervisores e março',
       [
         possuiGrafico
           ? criarEvidencia({
               score: 0.86,
-              reason: 'objeto grafico detectado na aba Grafico',
+              reason: 'objeto gráfico detectado na aba Gráfico',
               extra: { sheetName: grafico === obterPlanilha(workbook, 'Gráfico') ? 'Gráfico' : 'Grafico' },
             })
           : null,
@@ -2332,7 +2338,7 @@ function validarExameQualidade(workbook, pontos) {
 function validarExamePlanejamento(workbook, pontos) {
   const indice = criarIndiceWorkbook(workbook);
   const notas = [
-    'Graficos, formatacao condicional e parte visual devem ser validados manualmente pelo RH.',
+    'Gráficos, formatação condicional e parte visual devem ser validados manualmente pelo RH.',
   ];
 
   const q1 = obterPlanilha(workbook, 'Q1.');
@@ -2443,7 +2449,7 @@ function validarExamePlanejamento(workbook, pontos) {
     ].filter(Boolean),
   );
   const q3Flex = criarTarefaComEvidencias(
-    'Tabela por DDD e grafico Pizza 3D',
+    'Tabela por DDD e gráfico Pizza 3D',
     [
       ...avaliarCelulasPorCriterio(indice, {
         sheetNames: ['Q3.'],
@@ -2454,7 +2460,7 @@ function validarExamePlanejamento(workbook, pontos) {
         minCandidateScore: 0.42,
       }),
       evidenciaDeTarefa(
-        avaliarGraficoCriado(indice, 'Tabela por DDD e grafico Pizza 3D', {
+        avaliarGraficoCriado(indice, 'Tabela por DDD e gráfico Pizza 3D', {
           sheetNames: ['Q3.'],
           contextKeywords: ['ddd', 'grafico', 'pizza', 'percentual'],
           minRow: 5,
@@ -2465,7 +2471,7 @@ function validarExamePlanejamento(workbook, pontos) {
     ].filter(Boolean),
   );
   const q4Flex = criarTarefaComEvidencias(
-    'Percentual e situacao por zona',
+    'Percentual e situação por zona',
     [
       ...avaliarCelulasPorCriterio(indice, {
         sheetNames: ['Q4.'],
@@ -2476,7 +2482,7 @@ function validarExamePlanejamento(workbook, pontos) {
         minCandidateScore: 0.42,
       }),
       evidenciaDeTarefa(
-        avaliarListaPreenchida(indice, 'Percentual e situacao por zona', {
+        avaliarListaPreenchida(indice, 'Percentual e situação por zona', {
           anchors: zonas,
           sheetNames: ['Q4.'],
           onlyRight: true,
@@ -2489,7 +2495,7 @@ function validarExamePlanejamento(workbook, pontos) {
     ].filter(Boolean),
   );
   const q5Flex = criarTarefaComEvidencias(
-    'Analise de vendas preenchida com totais e percentuais',
+    'Análise de vendas preenchida com totais e percentuais',
     [
       ...avaliarCelulasPorCriterio(indice, {
         sheetNames: ['Q5.'],
@@ -2502,7 +2508,7 @@ function validarExamePlanejamento(workbook, pontos) {
       evidenciaDeTarefa(
         avaliarListaPreenchida(
           indice,
-          'Analise de vendas preenchida com totais e percentuais',
+          'Análise de vendas preenchida com totais e percentuais',
           {
             anchors: operadoresVendas,
             sheetNames: ['Q5.'],
@@ -2524,7 +2530,7 @@ function validarExamePlanejamento(workbook, pontos) {
           ? criarEvidencia({
               score: 0.86,
               cell: indice.lookup['Q1.']?.['6:1'],
-              reason: 'valores de CONT.SE preenchidos na regiao esperada da Q1',
+              reason: 'valores de CONT.SE preenchidos na região esperada da Q1',
             })
           : null,
         evidenciaDeTarefa(q1Flex),
@@ -2537,46 +2543,46 @@ function validarExamePlanejamento(workbook, pontos) {
           ? criarEvidencia({
               score: 0.86,
               cell: indice.lookup['Q2.']?.['4:1'],
-              reason: 'volumes preenchidos na regiao esperada da Q2',
+              reason: 'volumes preenchidos na região esperada da Q2',
             })
           : null,
         evidenciaDeTarefa(q2Flex),
       ].filter(Boolean),
     ),
     criarTarefaComEvidencias(
-      'Tabela por DDD e grafico Pizza 3D',
+      'Tabela por DDD e gráfico Pizza 3D',
       [
         q3Pronto
           ? criarEvidencia({
               score: 0.82,
               cell: indice.lookup['Q3.']?.['5:0'] || indice.lookup['Q3.']?.['5:1'],
-              reason: 'tabela ou objeto grafico localizado na regiao esperada da Q3',
+              reason: 'tabela ou objeto gráfico localizado na região esperada da Q3',
             })
           : null,
         evidenciaDeTarefa(q3Flex),
       ].filter(Boolean),
     ),
     criarTarefaComEvidencias(
-      'Percentual e situacao por zona',
+      'Percentual e situação por zona',
       [
         q4Pronto
           ? criarEvidencia({
               score: 0.86,
               cell: indice.lookup['Q4.']?.['7:2'] || indice.lookup['Q4.']?.['7:3'],
-              reason: 'percentuais e/ou situacoes preenchidos na regiao esperada da Q4',
+              reason: 'percentuais e/ou situações preenchidos na região esperada da Q4',
             })
           : null,
         evidenciaDeTarefa(q4Flex),
       ].filter(Boolean),
     ),
     criarTarefaComEvidencias(
-      'Analise de vendas preenchida com totais e percentuais',
+      'Análise de vendas preenchida com totais e percentuais',
       [
         q5Pronto
           ? criarEvidencia({
               score: 0.86,
               cell: indice.lookup['Q5.']?.['5:6'] || indice.lookup['Q5.']?.['5:7'],
-              reason: 'campos de totais e percentuais preenchidos na regiao esperada da Q5',
+              reason: 'campos de totais e percentuais preenchidos na região esperada da Q5',
             })
           : null,
         evidenciaDeTarefa(q5Flex),
@@ -2603,7 +2609,7 @@ function validarExameAvancado(workbook, pontos) {
 
   const graficoCombinadoFlex = avaliarGraficoCriado(
     indice,
-    'Grafico combinado com eixo secundario',
+    'Gráfico combinado com eixo secundário',
     {
       sheetNames: ['Q6.'],
       contextKeywords: ['nivel servico', 'aban', 'chamadas', 'eixo secundario'],
@@ -2629,12 +2635,12 @@ function validarExameAvancado(workbook, pontos) {
 
   tarefas.push(
     criarTarefaComEvidencias(
-      'Grafico combinado com eixo secundario',
+      'Gráfico combinado com eixo secundário',
       [
         q6 && (q6['!images'] || q6['!drawings'] || q6['!charts'])
           ? criarEvidencia({
               score: 0.86,
-              reason: 'objeto grafico detectado na aba Q6',
+              reason: 'objeto gráfico detectado na aba Q6',
               extra: { sheetName: 'Q6.' },
             })
           : null,
@@ -2650,7 +2656,7 @@ function validarExameAvancado(workbook, pontos) {
           ? criarEvidencia({
               score: 0.9,
               cell: indice.lookup['Q7.']?.['10:5'],
-              reason: 'resposta preenchida na celula F10 solicitada',
+              reason: 'resposta preenchida na célula F10 solicitada',
             })
           : null,
         evidenciaDeTarefa(somaRjFlex),
@@ -2667,7 +2673,7 @@ export function validarWorkbookPorTarefa(taskId, workbook, pontos) {
   if (taskId === 'planning_exam') return validarExamePlanejamento(workbook, pontos);
   if (taskId === 'advanced_exam') return validarExameAvancado(workbook, pontos);
 
-  return criarResultadoPontuacao(0, pontos, ['Validacao nao implementada.'], true);
+  return criarResultadoPontuacao(0, pontos, ['Validação não implementada.'], true);
 }
 
 export async function validarArquivoExcel(taskId, arquivo, pontos) {
@@ -2686,7 +2692,7 @@ export async function validarArquivoExcel(taskId, arquivo, pontos) {
   const validacaoImplementada = possuiValidacaoExcelImplementada(validation);
   const statusText = validacaoImplementada
     ? `Arquivo analisado com sucesso. ${resumoChecklist.concluidas}/${resumoChecklist.total} tarefa(s) detectada(s).`
-    : 'Arquivo recebido, mas esta etapa ainda nao possui validacao automatica completa.';
+    : 'Arquivo recebido, mas esta etapa ainda não possui validação automática completa.';
 
   return {
     type: 'excel_external',
@@ -2722,7 +2728,7 @@ export function validarEntregaObrigatoriaDaProva({ questoes, respostas }) {
         ok: false,
         tipo: 'excel_sem_validacao',
         indice,
-        mensagem: `A etapa "${questao.stage || questao.title || 'Excel'}" ainda nao conseguiu ser analisada automaticamente. Envie novamente o arquivo ou valide o checklist configurado.`,
+        mensagem: `A etapa "${questao.stage || questao.title || 'Excel'}" ainda não conseguiu ser analisada automaticamente. Envie novamente o arquivo ou valide o checklist configurado.`,
       };
     }
   }
@@ -2947,7 +2953,26 @@ export function finalizarProva({ questoes, respostas, blueprint }) {
 
     if (questao.type === 'word') {
       const score = avaliarRespostaTexto(resposta, questao.expected, questao.points);
-      resultado = criarResultadoPontuacao(score, questao.points, [], false);
+      const correcaoInteligente = corrigirRespostaDiscursivaInteligente(
+        questao,
+        resposta,
+        score,
+        questao.points,
+      );
+      const notasCorrecao = correcaoInteligente
+        ? [
+            `Correção inteligente sugerida: ${correcaoInteligente.nota_sugerida}/${correcaoInteligente.nota_maxima}. Revisão final do RH obrigatória.`,
+            ...(correcaoInteligente.alertas || []),
+          ]
+        : [];
+      resultado = criarResultadoPontuacao(
+        score,
+        questao.points,
+        notasCorrecao,
+        Boolean(correcaoInteligente?.revisao_humana),
+        [],
+        { intelligentCorrection: correcaoInteligente },
+      );
     } else if (questao.type === 'multiple') {
       const score = avaliarRespostaMultiplaEscolha(resposta, questao, questao.points);
       resultado = criarResultadoPontuacao(score, questao.points, [], false);
@@ -3035,6 +3060,7 @@ export function finalizarProva({ questoes, respostas, blueprint }) {
       notes: resultados[indice].notes || [],
       completedTasks: resultados[indice].completedTasks || [],
       taskDetails: resultados[indice].taskDetails || [],
+      intelligentCorrection: resultados[indice].intelligentCorrection || null,
       answerKey:
         questao.type === 'excel_external'
           ? obterGabaritoDaTarefa(questao.taskId)
@@ -3131,14 +3157,14 @@ export function montarResumoHistoricoDaProva({
   totalScore,
   totalMax,
 }) {
-  const partes = [`Pontuacao bruta: ${totalScore}/${totalMax}`];
+  const partes = [`Pontuação bruta: ${totalScore}/${totalMax}`];
 
   (Array.isArray(questoes) ? questoes : []).forEach((questao, indice) => {
     if (questao?.type !== 'excel_external') return;
 
     const resposta = Array.isArray(respostas) ? respostas[indice] : null;
     if (!resposta?.uploaded || !resposta?.validation) {
-      partes.push(`${questao.stage || 'Excel'}: arquivo nao enviado.`);
+      partes.push(`${questao.stage || 'Excel'}: arquivo não enviado.`);
       return;
     }
 
@@ -3176,6 +3202,7 @@ export function montarPayloadGabarito({
   questoes,
   respostas,
   resultados,
+  personalizacaoProva = null,
 }) {
   const arquivosEnviados = questoes
     .map((questao, indice) => {
@@ -3233,6 +3260,7 @@ export function montarPayloadGabarito({
     }),
     uploadedFiles: arquivosEnviados,
     excelCorrectionDetails,
+    personalization: personalizacaoProva,
   };
 }
 

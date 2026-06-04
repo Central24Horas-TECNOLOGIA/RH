@@ -65,7 +65,7 @@ export function EmptyState({ title, text }) {
 
 export function LoadingState({
   titulo = 'Carregando dados',
-  descricao = 'Aguarde enquanto as informacoes sao atualizadas.',
+  descricao = 'Aguarde enquanto as informações são atualizadas.',
 }) {
   return html`
     <div class="rh-loading-state">

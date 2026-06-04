@@ -16,13 +16,13 @@ class CandidateProfileRepositoryMixin:
     def update_standalone_candidate_status(self, id_teste: str, data: dict) -> dict:
         safe_id_teste = normalize_text(id_teste)
         if not safe_id_teste:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato nao informado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato não informado.")
 
         requested_status = canonicalize_candidate_status(data.get("status_candidato"))
         if requested_status not in {CANDIDATE_STATUS_APPROVED, CANDIDATE_STATUS_ELIMINATED}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Status avulso permitido apenas para aprovacao ou eliminacao.",
+                detail="Status avulso permitido apenas para aprovação ou eliminação.",
             )
 
         conn = self._connect()
@@ -58,7 +58,7 @@ class CandidateProfileRepositoryMixin:
             )
             history_row = cursor.fetchone()
             if not history_row:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato nao encontrado para atualizar o status.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato não encontrado para atualizar o status.")
 
             current_status = canonicalize_candidate_status(history_row[1])
             if normalize_compare_text(current_status) == normalize_compare_text(CANDIDATE_STATUS_APPROVED):
@@ -92,7 +92,7 @@ class CandidateProfileRepositoryMixin:
     def upsert_candidate_profile(self, id_teste: str, data: dict) -> dict:
         safe_id_teste = normalize_text(id_teste)
         if not safe_id_teste:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato nao informado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato não informado.")
 
         conn = self._connect()
         try:
@@ -112,7 +112,7 @@ class CandidateProfileRepositoryMixin:
             )
             candidate_row = cursor.fetchone()
             if not candidate_row:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato nao encontrado para atualizar o perfil.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato não encontrado para atualizar o perfil.")
 
             safe_name = normalize_text(data.get("nome_candidato")) or normalize_text(candidate_row[0])
             if not safe_name:
@@ -120,14 +120,14 @@ class CandidateProfileRepositoryMixin:
 
             safe_email = normalize_text(data.get("email"))
             if safe_email and not is_valid_email(safe_email):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail valido.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail válido.")
 
             safe_phone = normalize_text(data.get("telefone"))
             safe_whatsapp = normalize_text(data.get("whatsapp"))
             if safe_phone and not is_valid_phone(safe_phone):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone valido.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone válido.")
             if safe_whatsapp and not is_valid_phone(safe_whatsapp):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um WhatsApp valido.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um WhatsApp válido.")
 
             safe_skills = normalize_string_list(data.get("habilidades", []))
             safe_tags = normalize_string_list(data.get("tags", []))

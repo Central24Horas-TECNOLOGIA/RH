@@ -1,11 +1,11 @@
 :root {
   --font-sans: 'DM Sans', sans-serif;
   --font-mono: 'DM Mono', monospace;
-  --font-xs: clamp(0.68rem, 0.72vw, 0.75rem);
-  --font-sm: clamp(0.75rem, 0.78vw, 0.82rem);
-  --font-md: clamp(0.82rem, 0.86vw, 0.94rem);
-  --font-lg: clamp(1rem, 1.05vw, 1.12rem);
-  --font-xl: clamp(1.38rem, 1.7vw, 1.88rem);
+  --font-xs: 0.7rem;
+  --font-sm: 0.8rem;
+  --font-md: 0.9rem;
+  --font-lg: 1rem;
+  --font-xl: 1.42rem;
   --sidebar-width: 224px;
   --sidebar-width-compact: 92px;
   --color-bg: #edf1f7;
@@ -38,9 +38,9 @@
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
-  --space-4: 0.875rem;
-  --space-5: 1rem;
-  --space-6: 1.25rem;
-  --space-7: 1.5rem;
-  --space-8: 2rem;
+  --space-4: 0.78rem;
+  --space-5: 0.9rem;
+  --space-6: 1.1rem;
+  --space-7: 1.35rem;
+  --space-8: 1.75rem;
 }

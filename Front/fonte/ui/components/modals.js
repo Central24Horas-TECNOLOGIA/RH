@@ -55,7 +55,7 @@ export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
     <${ModalPadrao}
       aberto=${true}
       titulo=${`Detalhes da prova • ${linha.nome_candidato || 'Candidato'}`}
-      subtitulo="Informacoes registradas no historico e no gabarito salvo."
+      subtitulo="Informações registradas no histórico e no gabarito salvo."
       onClose=${onClose}
     >
       <div class="rh-details-body">
@@ -70,7 +70,7 @@ export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
               value: payload?.candidate?.role || linha.vaga || '-',
             },
             {
-              label: 'Nivel',
+              label: 'Nível',
               value: payload?.candidate?.level || linha.nivel || '-',
             },
             {
@@ -85,7 +85,7 @@ export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
               value: linha.data_exibicao || '-',
             },
             {
-              label: 'Situacao',
+              label: 'Situação',
               value: html`
                 <span
                   class=${`rh-status-pill ${obterClasseSituacaoAtual(situacaoAtual)}`}
@@ -131,7 +131,7 @@ export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
               : html`
                   <${EmptyState}
                     title="Sem detalhamento salvo"
-                    text="Esta prova possui apenas o resumo consolidado no historico."
+                    text="Esta prova possui apenas o resumo consolidado no histórico."
                   />
                 `
           }
@@ -146,8 +146,8 @@ export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
               ? html`<pre class="rh-detail-log">${payload.textContent}</pre>`
               : html`
                   <${EmptyState}
-                    title="Gabarito indisponivel"
-                    text="Nao existe texto detalhado salvo para esta prova."
+                    title="Gabarito indisponível"
+                    text="Não existe texto detalhado salvo para esta prova."
                   />
                 `
           }

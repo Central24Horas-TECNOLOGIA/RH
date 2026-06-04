@@ -1396,8 +1396,8 @@ function WidgetEntrevistasProcesso({
 
   return html`
     <${SectionCard}
-      title="Entrevistas agendadas"
-      description="Agenda vinculada ao processo atual, usando horarios internos."
+      title="Entrevistas registradas"
+      description="Agenda vinculada ao processo atual, usando horários internos."
       className="process-interview-widget compact-dashboard-card"
       tourId="process-interviews"
       actions=${html`
@@ -1476,10 +1476,10 @@ function WidgetEntrevistasProcesso({
                           onClick=${() =>
                             copiarTexto(entrevista.mensagem_base || '')
                               .then(() =>
-                                window.alert('Mensagem copiada para a area de transferencia.'),
+                                window.alert('Mensagem copiada para a área de transferência.'),
                               )
                               .catch(() =>
-                                window.alert('Nao foi possivel copiar a mensagem automaticamente.'),
+                                window.alert('Não foi possível copiar a mensagem automaticamente.'),
                               )}
                         >
                           <span class="material-symbols-outlined">content_copy</span>
@@ -1504,7 +1504,7 @@ function WidgetEntrevistasProcesso({
               <div class="c24-empty-state c24-empty-state-horizontal">
                 <span class="material-symbols-outlined">calendar_month</span>
                 <div>
-                  <h3>Nenhuma entrevista agendada</h3>
+                  <h3>Nenhuma entrevista registrada</h3>
                   <p>Use os slots ou confirmações para agendar entrevistas.</p>
                 </div>
               </div>
@@ -1762,7 +1762,7 @@ export function TelaProcessos({ controlador }) {
       { exigeOperacao: false, exigeTrilha: false, trilhaFixa: '' },
     );
     if (mensagemErro || !obterReferenciaProcesso(edicao)) {
-      setErro(mensagemErro || 'Preencha os campos obrigatorios para editar o processo.');
+      setErro(mensagemErro || 'Preencha os campos obrigatórios para editar o processo.');
       return;
     }
 
@@ -2114,7 +2114,7 @@ export function TelaProcessos({ controlador }) {
         actions=${html`
           <${CabecalhoSecaoColapsavel}
             aberto=${blocos.candidatos}
-            titulo="Decisoes finais pendentes"
+            titulo="Decisões finais pendentes"
             onClick=${() =>
         setBlocos({ ...blocos, candidatos: !blocos.candidatos })}
           />
@@ -2830,7 +2830,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       vagasDisponiveis === 1 ? 'vaga disponível' : 'vagas disponíveis';
 
     if (!inicio || !fim) {
-      return `${formatarDataHora(slot.inicio)} ate ${formatarDataHora(slot.fim)} — ${vagasDisponiveis} ${rotuloVagas}`;
+      return `${formatarDataHora(slot.inicio)} até ${formatarDataHora(slot.fim)} — ${vagasDisponiveis} ${rotuloVagas}`;
     }
 
     const horaInicio = inicio.toLocaleTimeString('pt-BR', {
@@ -3653,7 +3653,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       }
 
       if (!canal) {
-        window.alert('Mensagem preparada com sucesso e copiada para a area de transferencia.');
+        window.alert('Mensagem preparada com sucesso e copiada para a área de transferência.');
       }
 
       setAgendamentoSelecionado(null);
@@ -3815,7 +3815,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
               },
               {
                 icon: 'event_available',
-                label: 'Entrevistas agendadas',
+                label: 'Entrevistas registradas',
                 value: entrevistas.length || resumo?.entrevistas || 0,
               },
               {
@@ -4047,7 +4047,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             <textarea
               class="form-control"
               rows="4"
-              placeholder="Ex.: Necessario disponibilidade para escala 6x1."
+              placeholder="Ex.: Necessário ter disponibilidade para escala 6x1."
               value=${observacoesPublicasVaga}
               onInput=${(event) =>
           setObservacoesPublicasVaga(event.target.value)}
@@ -4077,7 +4077,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       ${false ? html`<${SecaoDetalheExpansivel}
         aberto=${secoesExpandidas.recebimentoEmail}
         titulo="Recebimento de e-mail"
-        description="Caixa de entrada configuravel para curriculos recebidos por e-mail."
+        description="Caixa de entrada configurável para currículos recebidos por e-mail."
         onToggle=${() => alternarSecao('recebimentoEmail')}
       >
         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
@@ -4381,7 +4381,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             />
           </div>
           <div class="rh-filter-field">
-            <label>Score minimo</label>
+            <label>Score mínimo</label>
             <input
               class="form-control"
               type="number"
@@ -4397,7 +4397,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             />
           </div>
           <div class="rh-filter-field">
-            <label>Score maximo</label>
+            <label>Score máximo</label>
             <input
               class="form-control"
               type="number"
@@ -4413,7 +4413,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             />
           </div>
           <div class="rh-filter-field">
-            <label>Classificacao</label>
+            <label>Classificação</label>
             <select
               class="form-select"
               value=${filtrosPreAnalises.classificacao}
@@ -4708,7 +4708,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                         <strong>${temProvaSalva ? obterNotaProvaCandidato(candidato) : 'Sem prova'}</strong>
                       </span>
                       <span class="candidate-meta-chip">
-                        ${candidato.cv_disponivel ? 'CV disponivel' : 'Sem CV'}
+                      ${candidato.cv_disponivel ? 'CV disponível' : 'Sem CV'}
                       </span>
                     </div>
 
@@ -4792,7 +4792,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                       <strong>${obterNotaProvaCandidato(candidato) || 'Sem prova'}</strong>
                     </div>
                     <div>
-                      <span>Data de aprovacao</span>
+                      <span>Data de aprovação</span>
                       <strong>
                         ${formatarDataHora(
                           candidato.aprovado_em ||
@@ -4859,7 +4859,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             <div class="c24-empty-state">
               <span class="material-symbols-outlined">groups</span>
               <h3>Nenhum candidato aprovado neste processo.</h3>
-              <p>Aprovados ficam disponiveis aqui para consulta e relatorios.</p>
+              <p>Aprovados ficam disponíveis aqui para consulta e relatórios.</p>
             </div>
           `}
         </${SecaoDetalheExpansivel}>

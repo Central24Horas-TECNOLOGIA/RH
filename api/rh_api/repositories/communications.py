@@ -157,8 +157,8 @@ class CommunicationRepositoryMixin:
 
     def _graph_unconfigured_message(self) -> str:
         return (
-            "Microsoft Graph ainda nao configurado. Informe RH_EMAIL_GRAPH_TENANT_ID, "
-            "RH_EMAIL_GRAPH_CLIENT_ID e a variavel definida em RH_EMAIL_GRAPH_CLIENT_SECRET_ENV."
+            "Microsoft Graph ainda não configurado. Informe RH_EMAIL_GRAPH_TENANT_ID, "
+            "RH_EMAIL_GRAPH_CLIENT_ID e a variável definida em RH_EMAIL_GRAPH_CLIENT_SECRET_ENV."
         )
 
     def _graph_mailbox_user(self) -> str:
@@ -195,7 +195,7 @@ class CommunicationRepositoryMixin:
         except httpx.HTTPError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Nao foi possivel obter token do Microsoft Graph. Verifique conectividade e tenant.",
+                detail="Não foi possível obter token do Microsoft Graph. Verifique conectividade e tenant.",
             ) from exc
 
         if response.status_code >= 400:
@@ -203,14 +203,14 @@ class CommunicationRepositoryMixin:
             detail = normalize_text(payload.get("error_description") or payload.get("error"))
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=detail or "Microsoft Graph recusou a autenticacao da aplicacao.",
+                detail=detail or "Microsoft Graph recusou a autenticação da aplicação.",
             )
 
         token = normalize_text(response.json().get("access_token"))
         if not token:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Microsoft Graph nao retornou token de acesso.",
+                detail="Microsoft Graph não retornou token de acesso.",
             )
         return token
 
@@ -227,7 +227,7 @@ class CommunicationRepositoryMixin:
         except httpx.HTTPError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Nao foi possivel consultar o Microsoft Graph.",
+                detail="Não foi possível consultar o Microsoft Graph.",
             ) from exc
 
         if response.status_code in {401, 403}:
@@ -378,7 +378,7 @@ class CommunicationRepositoryMixin:
         token = self._get_graph_token()
         message_id = self._strip_graph_uid(uid)
         if not message_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail nao informado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail não informado.")
 
         message = self._graph_request(
             token,
@@ -402,13 +402,13 @@ class CommunicationRepositoryMixin:
 
         if fallback:
             return message, *fallback
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sem anexo de CV compativel neste e-mail.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sem anexo de CV compatível neste e-mail.")
 
     def _open_inbox(self, *, readonly: bool = True):
         if not getattr(self.settings, "email_inbox_enabled", False):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Recebimento de e-mail ainda nao configurado ou indisponivel no momento.",
+                detail="Recebimento de e-mail ainda não configurado ou indisponível no momento.",
             )
 
         host = normalize_text(getattr(self.settings, "email_inbox_imap_host", ""))
@@ -423,7 +423,7 @@ class CommunicationRepositoryMixin:
         if not host or not username or not password:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Recebimento de e-mail ainda nao configurado ou indisponivel no momento.",
+                detail="Recebimento de e-mail ainda não configurado ou indisponível no momento.",
             )
 
         mailbox_client = imaplib.IMAP4_SSL(host, port)
@@ -434,17 +434,17 @@ class CommunicationRepositoryMixin:
     def _fetch_email_message(self, uid: str):
         safe_uid = normalize_text(uid)
         if not safe_uid:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail nao informado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail não informado.")
 
         mailbox = self._open_inbox(readonly=True)
         try:
             typ, data = mailbox.uid("fetch", safe_uid, "(RFC822)")
             if typ != "OK" or not data:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail não encontrado.")
             for item in data:
                 if isinstance(item, tuple) and item[1]:
                     return BytesParser(policy=policy.default).parsebytes(item[1])
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail não encontrado.")
         finally:
             try:
                 mailbox.logout()
@@ -561,7 +561,7 @@ class CommunicationRepositoryMixin:
             self.logger.warning("metadata.json invalido em %s: %s", metadata_path, exc)
             return None
         except OSError as exc:
-            self.logger.warning("Nao foi possivel ler metadata.json em %s: %s", metadata_path, exc)
+            self.logger.warning("Não foi possível ler metadata.json em %s: %s", metadata_path, exc)
             return None
         if not isinstance(payload, dict):
             self.logger.warning("metadata.json ignorado por nao ser objeto JSON: %s", metadata_path)
@@ -597,7 +597,7 @@ class CommunicationRepositoryMixin:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=EMAIL_INBOX_UNCONFIGURED_MESSAGE)
         safe_id = normalize_text(item_id)
         if not safe_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail nao informado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail não informado.")
         try:
             for candidate in root.iterdir():
                 if candidate.is_dir() and candidate.name == safe_id:
@@ -605,7 +605,7 @@ class CommunicationRepositoryMixin:
         except OSError as exc:
             self.logger.exception("Falha ao acessar pasta de e-mails recebidos: %s", exc)
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=EMAIL_INBOX_UNCONFIGURED_MESSAGE) from exc
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail recebido nao encontrado.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail recebido não encontrado.")
 
     def _resolve_email_drop_attachment(self, folder: Path, metadata: dict) -> dict | None:
         requested_name = normalize_text(metadata.get("nome_anexo"))
@@ -623,7 +623,7 @@ class CommunicationRepositoryMixin:
                 and item.name not in {"metadata.json", EMAIL_INBOX_STATUS_FILE, EMAIL_INBOX_IGNORED_FLAG}
             )
         except OSError as exc:
-            self.logger.warning("Nao foi possivel listar anexos em %s: %s", folder, exc)
+            self.logger.warning("Não foi possível listar anexos em %s: %s", folder, exc)
 
         seen: set[str] = set()
         for path in candidates:
@@ -654,7 +654,7 @@ class CommunicationRepositoryMixin:
     ) -> dict:
         status_data = status_data or {}
         item_id = normalize_text(metadata.get("id")) or folder.name
-        sender = normalize_text(metadata.get("remetente")) or "Remetente nao informado"
+        sender = normalize_text(metadata.get("remetente")) or "Remetente não informado"
         subject = normalize_text(metadata.get("assunto")) or "Sem assunto"
         body = normalize_text(metadata.get("corpo"))
         attachment = self._resolve_email_drop_attachment(folder, metadata)
@@ -745,10 +745,10 @@ class CommunicationRepositoryMixin:
         folder = self._resolve_email_drop_folder(item_id)
         metadata_path = folder / "metadata.json"
         if not metadata_path.exists():
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="metadata.json nao encontrado para este e-mail.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="metadata.json não encontrado para este e-mail.")
         metadata = self._read_email_drop_metadata(metadata_path)
         if metadata is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="metadata.json invalido para este e-mail.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="metadata.json inválido para este e-mail.")
         status_data = self._read_email_drop_status(folder)
         item = self._serialize_email_drop_item(folder, metadata, status_data, include_body=include_body)
         return item, metadata, status_data, folder
@@ -808,15 +808,15 @@ class CommunicationRepositoryMixin:
     def _read_email_drop_attachment_content(self, folder: Path, metadata: dict) -> tuple[str, str, bytes, Path]:
         attachment = self._resolve_email_drop_attachment(folder, metadata)
         if not attachment:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este e-mail nao possui anexo de curriculo.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este e-mail não possui anexo de currículo.")
         filename = normalize_text(attachment.get("nome"))
         if _attachment_extension(filename) not in CV_ATTACHMENT_EXTENSIONS:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de curriculo nao suportado. Use PDF, DOC ou DOCX.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato de currículo não suportado. Use PDF, DOC ou DOCX.")
         path = attachment["path"]
         try:
             content = path.read_bytes()
         except OSError as exc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anexo de curriculo nao encontrado.") from exc
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anexo de currículo não encontrado.") from exc
         return filename, normalize_text(attachment.get("mime_type")) or "application/octet-stream", content, path
 
     def _save_email_drop_attachment_link(
@@ -902,7 +902,7 @@ class CommunicationRepositoryMixin:
             try:
                 self._write_email_drop_status(folder, {"status": "Erro na análise"})
             except OSError:
-                self.logger.warning("Nao foi possivel atualizar status do e-mail %s apos erro de analise.", item_id)
+                self.logger.warning("Não foi possível atualizar status do e-mail %s após erro de análise.", item_id)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.user_message) from exc
 
         normalized_text = normalize_cv_text(extracted)
@@ -968,7 +968,7 @@ class CommunicationRepositoryMixin:
                     "success": True,
                     "duplicate": True,
                     "id_pre_analise": existing_id,
-                    "message": "CV recebido por e-mail ja existia na pre-analise.",
+                    "message": "CV recebido por e-mail já existia na pré-análise.",
                 }
 
             cursor.execute(
@@ -1070,7 +1070,7 @@ class CommunicationRepositoryMixin:
         item, metadata, status_data, folder = self._get_email_drop_item(item_id, include_body=True)
         process_ref = normalize_text(data.get("id_processo_ref") or data.get("id_processo"))
         if not process_ref:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo de destino nao informado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo de destino não informado.")
 
         conn = self._connect()
         try:
@@ -1080,7 +1080,7 @@ class CommunicationRepositoryMixin:
             ensure_candidate_attachments_table(cursor)
             processo = get_process_row(cursor, process_ref)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo de destino nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo de destino não encontrado.")
             if is_process_closed(processo.get("status")):
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este processo está encerrado e não aceita novos candidatos.")
 
@@ -1241,7 +1241,7 @@ class CommunicationRepositoryMixin:
             (folder / EMAIL_INBOX_IGNORED_FLAG).write_text(datetime.now().isoformat(), encoding="utf-8")
             self._write_email_drop_status(folder, {"status": "Ignorado", "oculto": True})
         except OSError as exc:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Nao foi possivel marcar este e-mail como ignorado.") from exc
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Não foi possível marcar este e-mail como ignorado.") from exc
         return {"success": True}
 
     def list_process_email_inbox(self, id_processo: str, limit: int = 12) -> dict:
@@ -1250,7 +1250,7 @@ class CommunicationRepositoryMixin:
             cursor = conn.cursor()
             processo = get_process_row(cursor, id_processo)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
         finally:
             conn.close()
 
@@ -1268,7 +1268,7 @@ class CommunicationRepositoryMixin:
             except Exception as exc:
                 self.logger.exception("Falha ao consultar e-mails pelo Microsoft Graph: %s", exc)
                 return self._inbox_unavailable_payload(
-                    "Nao foi possivel consultar o Microsoft Graph agora.",
+                    "Não foi possível consultar o Microsoft Graph agora.",
                 )
 
         try:
@@ -1278,13 +1278,13 @@ class CommunicationRepositoryMixin:
         except Exception as exc:
             self.logger.exception("Falha ao conectar na caixa de e-mail: %s", exc)
             return self._inbox_unavailable_payload(
-                "Nao foi possivel conectar na caixa de e-mail. Verifique credenciais e permissao IMAP.",
+                "Não foi possível conectar à caixa de e-mail. Verifique credenciais e permissão IMAP.",
             )
 
         try:
             typ, data = mailbox.uid("search", None, "ALL")
             if typ != "OK":
-                return self._inbox_unavailable_payload("Nao foi possivel pesquisar mensagens na caixa de entrada.")
+                return self._inbox_unavailable_payload("Não foi possível pesquisar mensagens na caixa de entrada.")
             uids = (data[0] or b"").split()
             selected = list(reversed(uids[-max(1, min(int(limit or 12), 30)):]))
             items = []
@@ -1309,7 +1309,7 @@ class CommunicationRepositoryMixin:
         except Exception as exc:
             self.logger.exception("Falha ao listar e-mails recebidos: %s", exc)
             return self._inbox_unavailable_payload(
-                "Nao foi possivel listar os e-mails recebidos agora.",
+                "Não foi possível listar os e-mails recebidos agora.",
             )
         finally:
             try:
@@ -1335,7 +1335,7 @@ class CommunicationRepositoryMixin:
 
         if fallback:
             return fallback
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sem anexo de CV compativel neste e-mail.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sem anexo de CV compatível neste e-mail.")
 
     def analyze_email_cv_attachment(self, id_processo: str, data: dict) -> dict:
         conn = self._connect()
@@ -1346,7 +1346,7 @@ class CommunicationRepositoryMixin:
             ensure_process_reference_columns(cursor)
             processo = get_process_row(cursor, id_processo)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
             if is_process_closed(processo.get("status")):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -1441,7 +1441,7 @@ class CommunicationRepositoryMixin:
                         "success": True,
                         "duplicate": True,
                         "id_pre_analise": int(existing[0]),
-                        "message": "CV recebido por e-mail ja existia na pre-analise deste processo.",
+                        "message": "CV recebido por e-mail já existia na pré-análise deste processo.",
                     }
 
             cursor.execute(
@@ -1593,7 +1593,7 @@ class CommunicationRepositoryMixin:
         )
         rows = rows_to_dicts(cursor, cursor.fetchall())
         if not rows:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato não encontrado.")
         return rows[0]
 
     def record_candidate_approval_whatsapp(
@@ -1617,7 +1617,7 @@ class CommunicationRepositoryMixin:
                 nome_candidato=row.get("nome_candidato"),
                 vaga=row.get("vaga"),
                 origem_inicial=row.get("origem"),
-                tipo_movimentacao="Mensagem de aprovacao enviada por WhatsApp",
+                tipo_movimentacao="Mensagem de aprovação enviada por WhatsApp",
                 status_anterior=row.get("status_candidato"),
                 status_novo=row.get("status_candidato"),
                 observacao=normalize_text(data.get("mensagem_aprovacao")),
@@ -1646,7 +1646,7 @@ class CommunicationRepositoryMixin:
         if not getattr(self.settings, "email_smtp_enabled", False):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Envio de e-mail ainda nao configurado. Configure EMAIL_SMTP/RH_EMAIL_SMTP_* no backend.",
+                detail="Envio de e-mail ainda não configurado. Configure EMAIL_SMTP/RH_EMAIL_SMTP_* no backend.",
             )
 
         conn = self._connect()
@@ -1671,18 +1671,18 @@ class CommunicationRepositoryMixin:
             if not host or not sender:
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Envio de e-mail ainda nao configurado. Informe host e remetente SMTP.",
+                    detail="Envio de e-mail ainda não configurado. Informe host e remetente SMTP.",
                 )
             if username and not password:
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Envio de e-mail ainda nao configurado. Variavel de senha SMTP nao definida.",
+                    detail="Envio de e-mail ainda não configurado. Variável de senha SMTP não definida.",
                 )
 
             message = EmailMessage()
             message["From"] = sender
             message["To"] = recipient
-            message["Subject"] = normalize_text(data.get("assunto")) or "Aprovacao no processo seletivo"
+            message["Subject"] = normalize_text(data.get("assunto")) or "Aprovação no processo seletivo"
             message.set_content(normalize_text(data.get("mensagem_aprovacao")))
 
             attachment_name = normalize_text(data.get("anexo_aprovacao_nome"))
@@ -1717,7 +1717,7 @@ class CommunicationRepositoryMixin:
                 nome_candidato=row.get("nome_candidato"),
                 vaga=row.get("vaga"),
                 origem_inicial=row.get("origem"),
-                tipo_movimentacao="Mensagem de aprovacao enviada por e-mail",
+                tipo_movimentacao="Mensagem de aprovação enviada por e-mail",
                 status_anterior=row.get("status_candidato"),
                 status_novo=row.get("status_candidato"),
                 observacao=normalize_text(data.get("mensagem_aprovacao")),
@@ -1732,6 +1732,6 @@ class CommunicationRepositoryMixin:
                 (int(id_registro),),
             )
             conn.commit()
-            return {"success": True, "message": "E-mail de aprovacao enviado."}
+            return {"success": True, "message": "E-mail de aprovação enviado."}
         finally:
             conn.close()

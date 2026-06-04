@@ -5,13 +5,13 @@ const TOUR_TEXTOS = {
     introText:
       'Aqui o RH acompanha os registros mais recentes, acessa atalhos operacionais e inicia novos fluxos sem perder o contexto.',
     primaryActionText:
-      'Use este atalho para iniciar uma nova avaliacao a partir do painel principal.',
+      'Use este atalho para iniciar uma nova avaliação a partir do painel principal.',
     extraSteps: [
       {
         tourId: 'home-shortcuts',
         title: 'Atalhos operacionais',
         text:
-          'Os cards levam direto para prova, processos e historico, reduzindo o caminho ate as rotinas mais usadas.',
+          'Os cards levam direto para prova, processos e histórico, reduzindo o caminho até as rotinas mais usadas.',
       },
       {
         tourId: 'home-recent',
@@ -22,12 +22,12 @@ const TOUR_TEXTOS = {
     ],
   },
   'screen-history': {
-    label: 'Historico',
-    introTitle: 'Historico de provas',
+    label: 'Histórico',
+    introTitle: 'Histórico de provas',
     introText:
-      'Esta tela centraliza consultas por candidato, vaga e data para auditoria e reaproveitamento das avaliacoes.',
+      'Esta tela centraliza consultas por candidato, vaga e data para auditoria e reaproveitamento das avaliações.',
     primaryActionText:
-      'Inicie uma nova avaliacao sem sair da area de historico.',
+      'Inicie uma nova avaliação sem sair da área de histórico.',
     extraSteps: [
       {
         tourId: 'history-filters',
@@ -39,7 +39,7 @@ const TOUR_TEXTOS = {
         tourId: 'history-results',
         title: 'Tabela de resultados',
         text:
-          'Use as acoes da tabela para abrir detalhes da prova ou baixar o pacote salvo.',
+          'Use as ações da tabela para abrir detalhes da prova ou baixar o pacote salvo.',
       },
     ],
   },
@@ -47,23 +47,23 @@ const TOUR_TEXTOS = {
     label: 'Novo processo',
     introTitle: 'Novo processo seletivo',
     introText:
-      'Configure a vaga, prazo e regras de corte preservando a integracao com provas, pipeline e entrevistas.',
+      'Configure a vaga, prazo e regras de corte preservando a integração com provas, pipeline e entrevistas.',
     primaryActionText:
-      'Volte rapidamente para a gestao de processos quando precisar revisar a lista atual.',
+      'Volte rapidamente para a gestão de processos quando precisar revisar a lista atual.',
     extraSteps: [
       {
         tourId: 'process-create-form',
         title: 'Cadastro do processo',
         text:
-          'Preencha os campos principais da vaga, defina nota de corte quando necessario e salve o processo para abrir o funil.',
+          'Preencha os campos principais da vaga, defina nota de corte quando necessário e salve o processo para abrir o funil.',
       },
     ],
   },
   'screen-processes': {
     label: 'Processos seletivos',
-    introTitle: 'Gestao de processos',
+    introTitle: 'Gestão de processos',
     introText:
-      'Esta area consolida processos abertos, encerrados e candidatos em analise com acesso direto ao detalhe do funil.',
+      'Esta área consolida processos abertos, encerrados e candidatos em análise com acesso direto ao detalhe do funil.',
     primaryActionText:
       'Crie um novo processo seletivo mantendo o cadastro alinhado com o backend atual.',
     extraSteps: [
@@ -71,13 +71,13 @@ const TOUR_TEXTOS = {
         tourId: 'process-filters',
         title: 'Filtros de processos',
         text:
-          'Aplique filtros por vaga, operacao, nota de corte e status antes de navegar nas listas.',
+          'Aplique filtros por vaga, operação, nota de corte e status antes de navegar nas listas.',
       },
       {
         tourId: 'process-open-table',
         title: 'Processos abertos',
         text:
-          'Use a tabela para editar, abrir detalhes e encerrar processos sem perder a referencia operacional.',
+          'Use a tabela para editar, abrir detalhes e encerrar processos sem perder a referência operacional.',
       },
     ],
   },
@@ -85,21 +85,21 @@ const TOUR_TEXTOS = {
     label: 'Detalhes do processo',
     introTitle: 'Detalhes do processo',
     introText:
-      'Aqui voce acompanha o resumo da vaga, as pre-analises de CV, os candidatos vinculados e a agenda de entrevistas do processo.',
+      'Aqui você acompanha o resumo da vaga, as pré-análises de CV, os candidatos vinculados e a agenda de entrevistas do processo.',
     primaryActionText:
-      'Use este atalho para retornar a tela de gestao completa de processos.',
+      'Use este atalho para retornar à tela de gestão completa de processos.',
     extraSteps: [
       {
         tourId: 'process-summary',
         title: 'Resumo do processo',
         text:
-          'Consulte vagas, operacao, trilha, nota de corte e indicadores consolidados do processo selecionado.',
+          'Consulte vagas, operação, trilha, nota de corte e indicadores consolidados do processo selecionado.',
       },
       {
         tourId: 'process-cv-preanalysis',
-        title: 'Pre-analise de CV',
+        title: 'Pré-análise de CV',
         text:
-          'Envie curriculos, revise a extração automatica e aprove candidatos para o processo sem retrabalho manual.',
+          'Envie currículos, revise a extração automática e aprove candidatos para o processo sem retrabalho manual.',
       },
       {
         tourId: 'process-candidates',
@@ -121,7 +121,7 @@ const TOUR_TEXTOS = {
     introText:
       'O kanban mostra o avanço real do candidato por etapa, refletindo status persistidos no backend.',
     primaryActionText:
-      'Crie um card manual quando precisar registrar um candidato fora do fluxo automatico.',
+      'Crie um card manual quando precisar registrar um candidato fora do fluxo automático.',
     extraSteps: [
       {
         tourId: 'pipeline-filters',
@@ -133,7 +133,7 @@ const TOUR_TEXTOS = {
         tourId: 'pipeline-board',
         title: 'Quadro por etapa',
         text:
-          'Cada coluna representa uma etapa do funil e permite avancar, retroceder ou excluir cards com seguranca.',
+          'Cada coluna representa uma etapa do funil e permite avançar, retroceder ou excluir cards com segurança.',
       },
     ],
   },
@@ -161,53 +161,53 @@ const TOUR_TEXTOS = {
     label: 'Banco de talentos',
     introTitle: 'Banco de talentos',
     introText:
-      'Reaproveite candidatos aprovados em etapas anteriores com tags, habilidades e observacoes persistidas.',
+      'Reaproveite candidatos aprovados em etapas anteriores com tags, habilidades e observações persistidas.',
     extraSteps: [
       {
         tourId: 'talent-filters',
         title: 'Filtros do banco',
         text:
-          'Busque por nome, habilidade e tag para localizar perfis reutilizaveis com mais rapidez.',
+          'Busque por nome, habilidade e tag para localizar perfis reutilizáveis com mais rapidez.',
       },
       {
         tourId: 'talent-table',
-        title: 'Lista reutilizavel',
+        title: 'Lista reutilizável',
         text:
           'A tabela permite atualizar perfil RH, eliminar registros ou reaproveitar o candidato em um novo processo.',
       },
     ],
   },
   'screen-analysis-candidates': {
-    label: 'Analise de candidatos',
-    introTitle: 'Analise por candidato',
+    label: 'Análise de candidatos',
+    introTitle: 'Análise por candidato',
     introText:
-      'Compare nota, afinidade e recomendacao para apoiar decisoes do RH com o mesmo conjunto de dados do sistema.',
+      'Compare nota, afinidade e recomendação para apoiar decisões do RH com o mesmo conjunto de dados do sistema.',
     extraSteps: [
       {
         tourId: 'analysis-filters',
-        title: 'Filtros analiticos',
+        title: 'Filtros analíticos',
         text:
-          'Restrinja o ranking por processo, candidato, vaga ou nota minima antes de abrir os detalhes.',
+          'Restrinja o ranking por processo, candidato, vaga ou nota mínima antes de abrir os detalhes.',
       },
       {
         tourId: 'analysis-ranking',
-        title: 'Ranking analitico',
+        title: 'Ranking analítico',
         text:
-          'Abra o detalhe do candidato para validar afinidade, recomendacao e aplicar a acao adequada.',
+          'Abra o detalhe do candidato para validar afinidade, recomendação e aplicar a ação adequada.',
       },
     ],
   },
   'screen-config': {
-    label: 'Configuracao da prova',
-    introTitle: 'Configuracao da prova',
+    label: 'Configuração da prova',
+    introTitle: 'Configuração da prova',
     introText:
-      'Defina processo, perfil, nivel e tempo da avaliacao antes de iniciar o fluxo do candidato.',
+      'Defina processo, perfil, nível e tempo da avaliação antes de iniciar o fluxo do candidato.',
     primaryActionText:
-      'Reinicie o fluxo de configuracao quando quiser montar uma nova avaliacao rapidamente.',
+      'Reinicie o fluxo de configuração quando quiser montar uma nova avaliação rapidamente.',
     extraSteps: [
       {
         tourId: 'config-parameters',
-        title: 'Parametros da avaliacao',
+        title: 'Parâmetros da avaliação',
         text:
           'Esses campos alimentam o estado global da prova e garantem que o resultado volte ao processo correto.',
       },
@@ -226,9 +226,9 @@ export function obterTourDaTela(screenId, { hasPrimaryAction = false } = {}) {
     label: 'Tela atual',
     introTitle: 'Tela atual',
     introText:
-      'Use o menu lateral, a busca global e o contexto da pagina para navegar pelo fluxo atual com seguranca.',
+      'Use o menu lateral, a busca global e o contexto da página para navegar pelo fluxo atual com segurança.',
     primaryActionText:
-      'Use esta acao principal para avancar no fluxo da tela atual.',
+      'Use esta ação principal para avançar no fluxo da tela atual.',
     extraSteps: [],
   };
 
@@ -243,7 +243,7 @@ export function obterTourDaTela(screenId, { hasPrimaryAction = false } = {}) {
       target: montarSeletor(screenId, 'topbar-search'),
       title: 'Busca global',
       text:
-        'Pesquise paginas, processos, candidatos e requisitos diretamente pelo topo da aplicacao.',
+        'Pesquise páginas, processos, candidatos e requisitos diretamente pelo topo da aplicação.',
     },
     {
       target: montarSeletor(screenId, 'page-intro'),
@@ -255,7 +255,7 @@ export function obterTourDaTela(screenId, { hasPrimaryAction = false } = {}) {
   if (hasPrimaryAction) {
     steps.push({
       target: montarSeletor(screenId, 'topbar-primary-action'),
-      title: 'Acao principal',
+      title: 'Ação principal',
       text: config.primaryActionText,
     });
   }
@@ -280,21 +280,21 @@ export function obterTourLogin() {
     steps: [
       {
         target: '#screen-login [data-tour-id="login-hero"]',
-        title: 'Visao da plataforma',
+        title: 'Visão da plataforma',
         text:
-          'Este painel resume o escopo da solucao para RH, incluindo processos, provas, entrevistas e analise.',
+          'Este painel resume o escopo da solução para RH, incluindo processos, provas, entrevistas e análise.',
       },
       {
         target: '#screen-login [data-tour-id="login-panel"]',
         title: 'Credenciais de acesso',
         text:
-          'Informe login e senha corporativos para liberar o console com os modulos protegidos do RH.',
+          'Informe login e senha corporativos para liberar o console com os módulos protegidos do RH.',
       },
       {
         target: '#screen-login [data-tour-id="login-submit"]',
         title: 'Entrada segura',
         text:
-          'Use este botao para validar a sessao e seguir para o painel principal da plataforma.',
+          'Use este botão para validar a sessão e seguir para o painel principal da plataforma.',
       },
     ],
   };

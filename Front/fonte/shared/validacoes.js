@@ -23,7 +23,7 @@ export function validarFormularioProcesso(formulario, regras) {
   }
 
   if (regras.exigeOperacao && !normalizarTexto(formulario.operacao)) {
-    return 'Para essa vaga, informe a operacao.';
+    return 'Para essa vaga, informe a operação.';
   }
 
   if (regras.exigeTrilha && !normalizarTexto(formulario.trilha)) {
@@ -41,7 +41,7 @@ export function validarFormularioProcesso(formulario, regras) {
     normalizarTexto(formulario.linkAgendamento) &&
     !/^https?:\/\//i.test(normalizarTexto(formulario.linkAgendamento))
   ) {
-    return 'Informe um link de agendamento valido.';
+    return 'Informe um link de agendamento válido.';
   }
 
   return '';
@@ -57,18 +57,18 @@ export function validarCardPipeline(formulario) {
 
 export function validarFormularioEntrevista(formulario) {
   if (!Number(formulario.id_registro || 0)) {
-    return 'Selecione um candidato valido para agendar a entrevista.';
+    return 'Selecione um candidato válido para agendar a entrevista.';
   }
 
   if (formulario.exige_slot && !Number(formulario.id_slot || 0)) {
-    return 'Selecione um horario disponivel para agendar a entrevista.';
+    return 'Selecione um horário disponível para agendar a entrevista.';
   }
 
   if (
     normalizarTexto(formulario.link_agendamento) &&
     !/^https?:\/\//i.test(normalizarTexto(formulario.link_agendamento))
   ) {
-    return 'Informe um link de agendamento valido.';
+    return 'Informe um link de agendamento válido.';
   }
 
   return '';
@@ -84,7 +84,7 @@ export function validarPerfilCandidato(formulario) {
   }
 
   if (observacao.length > 3000) {
-    return 'A observacao RH deve ter no maximo 3000 caracteres.';
+    return 'A observação RH deve ter no máximo 3000 caracteres.';
   }
 
   return '';

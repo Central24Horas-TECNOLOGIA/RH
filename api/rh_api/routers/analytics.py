@@ -47,7 +47,7 @@ def export_process_report(
     audit_action(
         repository,
         user,
-        modulo="Relatorios",
+        modulo="Relatórios",
         acao="exportar_relatorio_processos",
         entidade="relatorio",
         entidade_id="processos",
@@ -94,7 +94,7 @@ def export_candidate_report(
     audit_action(
         repository,
         user,
-        modulo="Relatorios",
+        modulo="Relatórios",
         acao="exportar_relatorio_candidatos",
         entidade="relatorio",
         entidade_id="candidatos",

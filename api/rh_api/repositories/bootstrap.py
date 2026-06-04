@@ -1109,7 +1109,7 @@ def _ensure_process_reference_column(cursor, table_name: str) -> None:
     if not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_table):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Nao foi possivel preparar a coluna de referencia de processo.",
+            detail="Não foi possível preparar a coluna de referência de processo.",
         )
 
     cursor.execute(
@@ -1152,7 +1152,7 @@ def _ensure_nullable_decimal_column(cursor, table_name: str, column_name: str, *
     if not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_table) or not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_column):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Nao foi possivel ajustar a tipagem numerica da tabela.",
+            detail="Não foi possível ajustar a tipagem numérica da tabela.",
         )
 
     current_type = _get_column_type(cursor, safe_table, safe_column)
@@ -1308,7 +1308,7 @@ def insert_candidate_process_record(
         status_candidato,
         payload.get("pontuacao_final"),
         payload.get("data_prova") or datetime.now().isoformat(),
-        payload.get("origem") or "Pre-analise de CV",
+        payload.get("origem") or "Pré-análise de CV",
         payload.get("etapa_pipeline") or "Prova",
         payload.get("data_atualizacao_pipeline") or datetime.now(),
     ]
@@ -1339,7 +1339,7 @@ def get_next_numeric_id(cursor, table_name: str, column_name: str) -> int:
     if not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_table) or not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_column):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Nao foi possivel gerar o proximo identificador numerico solicitado.",
+            detail="Não foi possível gerar o próximo identificador numérico solicitado.",
         )
 
     cursor.execute(f"SELECT ISNULL(MAX({safe_column}), 0) + 1 FROM {safe_table}")
@@ -1359,7 +1359,7 @@ def get_gabaritos_payload_column(cursor) -> str:
 
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=f"Coluna de payload nao encontrada na tabela dbo.gabaritos. Colunas disponiveis: {columns}",
+        detail=f"Coluna de payload não encontrada na tabela dbo.gabaritos. Colunas disponíveis: {columns}",
     )
 
 
@@ -1578,7 +1578,7 @@ def build_process_where_clause(process_row_or_ref) -> tuple[str, tuple]:
     if not safe_process_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Identificador do processo nao informado.",
+            detail="Identificador do processo não informado.",
         )
 
     if safe_created_at:
@@ -1592,7 +1592,7 @@ def generate_unique_process_id(cursor, requested_process_id: str) -> str:
     if not base_process_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Identificador base do processo nao informado.",
+            detail="Identificador base do processo não informado.",
         )
 
     cursor.execute(

@@ -18,6 +18,8 @@ import {
 } from '../../shared/helpers-visuais.js';
 import { AcaoSair } from '../../shared/components/actions.js';
 import {
+  CANDIDATE_STATUS_SCHEDULED,
+  canonicalizeCandidateStatus,
   getCandidateActionState,
   getCandidateVisibleStatus,
   getPipelineStageLabel,
@@ -85,7 +87,7 @@ export function TelaPipelineCandidatos({ controlador }) {
 
   const abrirCurriculo = async (card) => {
     if (!card?.id_teste || !card?.cv_disponivel) {
-      setErro('Nao ha curriculo disponivel para este candidato.');
+      setErro('Não há currículo disponível para este candidato.');
       return;
     }
 
@@ -100,7 +102,7 @@ export function TelaPipelineCandidatos({ controlador }) {
       baixarBlob(arquivo.filename || 'curriculo', arquivo.blob);
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel abrir o curriculo do candidato.',
+        error?.message || 'Não foi possível abrir o currículo do candidato.',
       );
     }
   };
@@ -119,7 +121,7 @@ export function TelaPipelineCandidatos({ controlador }) {
       setCards(Array.isArray(listaCards) ? listaCards : []);
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel carregar o pipeline de candidatos.',
+        error?.message || 'Não foi possível carregar o pipeline de candidatos.',
       );
       setCards([]);
     } finally {
@@ -173,7 +175,11 @@ export function TelaPipelineCandidatos({ controlador }) {
         (item) => String(item.etapa_pipeline || '').trim() === etapa,
       ).length;
     });
-    base.entrevistasAtivas = cards.filter((item) => item.status_entrevista).length;
+    base.entrevistasAtivas = cards.filter(
+      (item) =>
+        canonicalizeCandidateStatus(item.status_entrevista) ===
+        CANDIDATE_STATUS_SCHEDULED,
+    ).length;
     return base;
   }, [cards]);
 
@@ -182,8 +188,8 @@ export function TelaPipelineCandidatos({ controlador }) {
     if (!estadoAcoes.canMoveCandidate) {
       setErro(
         estadoAcoes.processClosed
-          ? 'O processo seletivo deste candidato esta encerrado e nao permite movimentacao no pipeline.'
-          : 'Este candidato esta com fluxo finalizado e nao permite movimentacao no pipeline.',
+          ? 'O processo seletivo deste candidato está encerrado e não permite movimentação no pipeline.'
+          : 'Este candidato está com fluxo finalizado e não permite movimentação no pipeline.',
       );
       return;
     }
@@ -206,7 +212,7 @@ export function TelaPipelineCandidatos({ controlador }) {
       await carregar(true);
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel mover o candidato no pipeline.',
+        error?.message || 'Não foi possível mover o candidato no pipeline.',
       );
     } finally {
       setSalvando(false);
@@ -218,14 +224,14 @@ export function TelaPipelineCandidatos({ controlador }) {
     if (!estadoAcoes.canMoveCandidate) {
       setErro(
         estadoAcoes.processClosed
-          ? 'O processo seletivo deste candidato esta encerrado e nao permite movimentacao no pipeline.'
-          : 'Este candidato esta com fluxo finalizado e nao permite exclusao operacional.',
+          ? 'O processo seletivo deste candidato está encerrado e não permite movimentação no pipeline.'
+          : 'Este candidato está com fluxo finalizado e não permite exclusão operacional.',
       );
       return;
     }
 
     const confirmar = window.confirm(
-      `Deseja realmente excluir o card de ${card.nome_candidato || 'candidato'}? Essa remocao sera persistida e refletida nas telas relacionadas.`,
+      `Deseja realmente excluir o card de ${card.nome_candidato || 'candidato'}? Essa remoção será persistida e refletida nas telas relacionadas.`,
     );
     if (!confirmar) return;
 
@@ -237,7 +243,7 @@ export function TelaPipelineCandidatos({ controlador }) {
       await carregar(true);
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel excluir o card selecionado.',
+        error?.message || 'Não foi possível excluir o card selecionado.',
       );
     } finally {
       setSalvando(false);
@@ -267,7 +273,7 @@ export function TelaPipelineCandidatos({ controlador }) {
         (item) => obterReferenciaProcesso(item) === novoCard.id_processo,
       );
       if (isProcessClosed(processo?.status)) {
-        setErro('O processo selecionado esta encerrado e nao aceita movimentacoes.');
+        setErro('O processo selecionado está encerrado e não aceita movimentações.');
         return;
       }
 
@@ -288,7 +294,7 @@ export function TelaPipelineCandidatos({ controlador }) {
       await carregar(true);
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel criar o card do candidato.',
+        error?.message || 'Não foi possível criar o card do candidato.',
       );
     } finally {
       setSalvando(false);
@@ -330,7 +336,7 @@ export function TelaPipelineCandidatos({ controlador }) {
       <${PageIntro}
         kicker="Console • Pipeline"
         title="Pipeline de candidatos"
-        description="Acompanhe o fluxo operacional por etapa. Processos encerrados permanecem visiveis, mas sem permitir movimentacao."
+        description="Acompanhe o fluxo operacional por etapa. Processos encerrados permanecem visíveis, mas sem permitir movimentação."
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
@@ -342,7 +348,7 @@ export function TelaPipelineCandidatos({ controlador }) {
         <${MetricGrid}
           items=${[
             { label: 'Total', value: resumo.total || 0 },
-            { label: 'Analise', value: resumo.Triagem || 0, variant: 'is-analysis' },
+            { label: 'Análise', value: resumo.Triagem || 0, variant: 'is-analysis' },
             { label: 'Qualificados', value: resumo.Prova || 0, variant: 'is-highlight' },
             { label: 'Entrevistas', value: resumo.Entrevista || 0, variant: 'is-confirmed' },
             { label: 'Entrevistas agendadas', value: resumo.entrevistasAtivas || 0, variant: 'is-highlight' },
@@ -408,7 +414,7 @@ export function TelaPipelineCandidatos({ controlador }) {
                     ? html`
                         <${LoadingState}
                           titulo="Carregando cards"
-                          descricao="Buscando movimentacoes persistidas no pipeline."
+                          descricao="Buscando movimentações persistidas no pipeline."
                         />
                       `
                     : coluna.items.length
@@ -493,7 +499,7 @@ export function TelaPipelineCandidatos({ controlador }) {
                                                 ${card.status_entrevista}
                                               </span>
                                             `
-                                          : 'Nao agendada'}
+                                          : 'Não agendada'}
                                       </span>
                                       ${card.data_entrevista
                                         ? html`

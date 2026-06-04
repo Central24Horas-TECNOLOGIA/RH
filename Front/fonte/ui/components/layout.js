@@ -20,7 +20,7 @@ function BarraLateral({
     {
       tela: 'screen-history',
       icone: 'history',
-      label: 'Historico',
+      label: 'Histórico',
       permissao: 'candidatos.consultar_historico',
     },
     {
@@ -51,7 +51,7 @@ function BarraLateral({
     {
       tela: 'screen-analysis-candidates',
       icone: 'analytics',
-      label: 'Analise',
+      label: 'Análise',
       permissao: 'relatorios.visualizar',
     },
     {
@@ -63,7 +63,7 @@ function BarraLateral({
     {
       tela: 'screen-settings',
       icone: 'settings',
-      label: 'Configuracoes',
+      label: 'Configurações',
       permissao: 'configuracoes.visualizar',
     },
   ];
@@ -231,12 +231,12 @@ function CartaoUsuarioTopo({ controlador }) {
   const nome =
     estado.nomeUsuarioAutenticado ||
     estado.usuarioAutenticado ||
-    'Usuario RH';
+    'Usuário RH';
   const perfilBase =
     estado.perfilUsuarioNome ||
     estado.perfilUsuario ||
     estado.nivelPerfilUsuario ||
-    'Usuario';
+    'Usuário';
   const perfil = String(perfilBase).includes('/')
     ? perfilBase
     : `RH / ${perfilBase}`;
@@ -253,8 +253,8 @@ function CartaoUsuarioTopo({ controlador }) {
     <button
       type="button"
       class="c24-user-menu"
-      title="Perfil do usuario"
-      aria-label=${`Perfil do usuario ${nome}`}
+      title="Perfil do usuário"
+      aria-label=${`Perfil do usuário ${nome}`}
       onClick=${podeAbrirPerfil
         ? () => controlador.irParaTelaProtegida('screen-settings')
         : undefined}
@@ -336,7 +336,7 @@ export function PainelRh({
       ? html`
                     <${BotaoAjudaTour}
                       compact=${true}
-                      label="Ver orientacoes"
+                      label="Ver orientações"
                       onClick=${() => setTourReopenSignal((valor) => valor + 1)}
                     />
                   `

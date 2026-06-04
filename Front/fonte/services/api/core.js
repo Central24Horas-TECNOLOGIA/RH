@@ -84,7 +84,7 @@ export function limparSessaoAutenticacao() {
       armazenamento.removeItem(CHAVE_USUARIO_AUTENTICADO);
       armazenamento.removeItem(CHAVE_SESSAO_AUTENTICACAO);
     } catch (error) {
-      logger.warn('Nao foi possivel limpar dados locais de autenticacao.', error);
+      logger.warn('Não foi possível limpar dados locais de autenticação.', error);
     }
   });
   cacheMemoria.clear();
@@ -133,7 +133,7 @@ async function executarRequisicao(caminho, opcoes = {}, configuracao = {}) {
       mensagem: error?.message || '',
     });
     throw new Error(
-      `Nao foi possivel conectar com a API em ${URL_API_BASE}${caminho}. Verifique se o servidor da API esta ativo.`,
+      `Não foi possível conectar com a API em ${URL_API_BASE}${caminho}. Verifique se o servidor da API está ativo.`,
     );
   }
 
@@ -151,12 +151,12 @@ async function executarRequisicao(caminho, opcoes = {}, configuracao = {}) {
       textoErro,
     });
     if (resposta.status === 400 || resposta.status === 422) {
-      throw new Error(textoErro || 'Nao foi possivel validar os dados enviados para a API.');
+      throw new Error(textoErro || 'Não foi possível validar os dados enviados para a API.');
     }
     if (resposta.status >= 500) {
       throw new Error(
         textoErro ||
-          'Nao foi possivel concluir a operacao. A API retornou erro interno. Verifique o log do servidor.',
+          'Não foi possível concluir a operação. A API retornou erro interno. Verifique o log do servidor.',
       );
     }
     throw new Error(textoErro || `Falha na API (${resposta.status}).`);

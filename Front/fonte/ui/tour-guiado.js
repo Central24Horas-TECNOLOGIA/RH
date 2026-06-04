@@ -76,7 +76,7 @@ function calcularPosicao(step) {
 
 export function BotaoAjudaTour({
   onClick,
-  label = 'Ver orientacoes',
+  label = 'Ver orientações',
   compact = false,
 }) {
   return html`

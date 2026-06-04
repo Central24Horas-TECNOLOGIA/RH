@@ -21,9 +21,9 @@ import { AcaoSair } from '../../shared/components/actions.js';
 import { PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
 
 const ABAS = [
-  { id: 'usuarios', label: 'Usuarios', permissao: 'usuarios.visualizar', icon: 'group' },
-  { id: 'perfis', label: 'Perfis e permissoes', permissao: 'configuracoes.visualizar', icon: 'admin_panel_settings' },
-  { id: 'catalogos', label: 'Regras reutilizaveis', permissao: 'configuracoes.visualizar', icon: 'rebase_edit' },
+  { id: 'usuarios', label: 'Usuários', permissao: 'usuarios.visualizar', icon: 'group' },
+  { id: 'perfis', label: 'Perfis e permissões', permissao: 'configuracoes.visualizar', icon: 'admin_panel_settings' },
+  { id: 'catalogos', label: 'Regras reutilizáveis', permissao: 'configuracoes.visualizar', icon: 'rebase_edit' },
   { id: 'logs', label: 'Logs', permissao: 'logs.visualizar', icon: 'history_edu' },
 ];
 
@@ -188,7 +188,7 @@ function inferirCriticidadeLog(log) {
     acao.includes('permiss') ||
     acao.includes('senha')
   ) {
-    return 'Critica';
+    return 'Crítica';
   }
   return 'Operacional';
 }
@@ -260,7 +260,7 @@ function PaginacaoCompacta({ paginacao, onChange }) {
   return html`
     <div class="c24-pagination">
       <span>
-        ${paginacao.totalItens} itens, pagina ${paginacao.paginaAtual} de ${paginacao.totalPaginas}
+        ${paginacao.totalItens} itens, página ${paginacao.paginaAtual} de ${paginacao.totalPaginas}
       </span>
       <div class="c24-pagination-actions">
         ${Array.from({ length: paginacao.totalPaginas }, (_, indice) => indice + 1).map(
@@ -434,7 +434,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
         (item) => item.status === 'rejected',
       );
       if (falha) {
-        setErro(falha.reason?.message || 'Nao foi possivel carregar parte das configuracoes.');
+        setErro(falha.reason?.message || 'Não foi possível carregar parte das configurações.');
       }
     } finally {
       setCarregando(false);
@@ -475,19 +475,19 @@ export function TelaConfiguracoesSistema({ controlador }) {
         if (formUsuario.senha) {
           await redefinirSenhaUsuario(formUsuario.id_usuario, {
             senha: formUsuario.senha,
-            justificativa: formUsuario.justificativa || 'Senha redefinida em Configuracoes.',
+            justificativa: formUsuario.justificativa || 'Senha redefinida em Configurações.',
           });
         }
-        setFeedback('Usuario atualizado.');
+        setFeedback('Usuário atualizado.');
       } else {
         await criarUsuario({ ...payload, senha: formUsuario.senha });
-        setFeedback('Usuario criado.');
+        setFeedback('Usuário criado.');
       }
       setCriandoUsuario(false);
       setFormUsuario(FORM_USUARIO_INICIAL);
       await carregarTudo();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel salvar o usuario.');
+      setErro(error?.message || 'Não foi possível salvar o usuário.');
     } finally {
       setSalvando(false);
     }
@@ -499,25 +499,25 @@ export function TelaConfiguracoesSistema({ controlador }) {
     try {
       await alterarStatusUsuario(usuario.id_usuario, {
         acao,
-        justificativa: `Status alterado por Configuracoes: ${acao}.`,
+        justificativa: `Status alterado por Configurações: ${acao}.`,
       });
-      setFeedback('Status do usuario atualizado.');
+      setFeedback('Status do usuário atualizado.');
       await carregarTudo();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel alterar o status do usuario.');
+      setErro(error?.message || 'Não foi possível alterar o status do usuário.');
     }
   };
 
   const desativarUsuario = async (usuario) => {
-    if (!window.confirm(`Desativar o usuario ${usuario.nome || usuario.email}?`)) return;
+    if (!window.confirm(`Desativar o usuário ${usuario.nome || usuario.email}?`)) return;
     setErro('');
     setFeedback('');
     try {
-      await excluirUsuario(usuario.id_usuario, 'Desativacao logica por Configuracoes.');
-      setFeedback('Usuario desativado.');
+      await excluirUsuario(usuario.id_usuario, 'Desativação lógica por Configurações.');
+      setFeedback('Usuário desativado.');
       await carregarTudo();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel desativar o usuario.');
+      setErro(error?.message || 'Não foi possível desativar o usuário.');
     }
   };
 
@@ -550,9 +550,9 @@ export function TelaConfiguracoesSistema({ controlador }) {
     setFormItem((atual) => ({
       ...atual,
       id_item: '',
-      nome: `Copia de ${item.nome || 'item'}`,
+      nome: `Cópia de ${item.nome || 'item'}`,
       chave: item.chave ? `${item.chave}_copia` : '',
-      justificativa: 'Duplicacao de regra reutilizavel.',
+      justificativa: 'Duplicação de regra reutilizável.',
     }));
   };
 
@@ -567,7 +567,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
       try {
         payload = JSON.parse(formItem.payloadJson || '{}');
       } catch (error) {
-        throw new Error('O payload JSON da configuracao esta invalido.');
+        throw new Error('O payload JSON da configuração está inválido.');
       }
       payload = {
         ...payload,
@@ -589,15 +589,15 @@ export function TelaConfiguracoesSistema({ controlador }) {
 
       if (formItem.id_item) {
         await atualizarItemConfiguracao(secaoCatalogoAtiva.tipo, formItem.id_item, data);
-        setFeedback('Configuracao atualizada.');
+        setFeedback('Configuração atualizada.');
       } else {
         await criarItemConfiguracao(secaoCatalogoAtiva.tipo, data);
-        setFeedback('Configuracao criada.');
+        setFeedback('Configuração criada.');
       }
       setFormItem(FORM_ITEM_INICIAL);
       await carregarTudo();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel salvar a configuracao.');
+      setErro(error?.message || 'Não foi possível salvar a configuração.');
     } finally {
       setSalvando(false);
     }
@@ -612,12 +612,12 @@ export function TelaConfiguracoesSistema({ controlador }) {
       await desativarItemConfiguracao(
         secaoCatalogoAtiva.tipo,
         item.id_item,
-        'Arquivamento logico por Configuracoes.',
+        'Arquivamento lógico por Configurações.',
       );
-      setFeedback('Configuracao arquivada.');
+      setFeedback('Configuração arquivada.');
       await carregarTudo();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel arquivar a configuracao.');
+      setErro(error?.message || 'Não foi possível arquivar a configuração.');
     }
   };
 
@@ -631,10 +631,10 @@ export function TelaConfiguracoesSistema({ controlador }) {
         permissoes: permissoesPerfilDraft,
         justificativa: justificativaPerfil,
       });
-      setFeedback('Permissoes do perfil atualizadas.');
+      setFeedback('Permissões do perfil atualizadas.');
       await carregarTudo();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel salvar as permissoes do perfil.');
+      setErro(error?.message || 'Não foi possível salvar as permissões do perfil.');
     } finally {
       setSalvando(false);
     }
@@ -683,7 +683,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
       const arquivo = await baixarLogsAuditoria();
       baixarBlob(arquivo.filename || 'logs_auditoria.csv', arquivo.blob);
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel exportar os logs.');
+      setErro(error?.message || 'Não foi possível exportar os logs.');
     }
   };
 
@@ -856,7 +856,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
   const metricasGerais = [
     {
       icon: 'group',
-      label: 'Usuarios ativos',
+      label: 'Usuários ativos',
       value: contarPor(usuarios, (usuario) => normalizarBusca(usuario.status) === 'ativo'),
       helper: `${usuarios.length} cadastrados`,
       tone: 'blue',
@@ -865,7 +865,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
       icon: 'admin_panel_settings',
       label: 'Perfis',
       value: perfis.length,
-      helper: `${permissoes.length} permissoes mapeadas`,
+      helper: `${permissoes.length} permissões mapeadas`,
       tone: 'indigo',
     },
     {
@@ -875,7 +875,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
         (total, secao) => total + contarPor(secao.items, (item) => item.ativo),
         0,
       ),
-      helper: `${catalogo.length} catalogos`,
+      helper: `${catalogo.length} catálogos`,
       tone: 'green',
     },
     {
@@ -892,12 +892,12 @@ export function TelaConfiguracoesSistema({ controlador }) {
       <header class="c24-card-header compact">
         <div>
           <span class="c24-eyebrow">Auditoria recente</span>
-          <h3>Ultimas acoes administrativas</h3>
+          <h3>Últimas ações administrativas</h3>
         </div>
         ${controlador.possuiPermissao('logs.visualizar')
           ? html`
               <button type="button" class="c24-link-btn" onClick=${() => setAbaAtiva('logs')}>
-                Ver todas as acoes
+                Ver todas as ações
               </button>
             `
           : null}
@@ -910,7 +910,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                   <article class="settings-audit-item" key=${log.id_log}>
                     <span class="settings-audit-icon"><${Icone} name="history" /></span>
                     <div>
-                      <strong>${log.acao || 'Acao registrada'}</strong>
+                      <strong>${log.acao || 'Ação registrada'}</strong>
                       <small>${log.nome_usuario || '-'} - ${formatarData(log.data_hora)}</small>
                     </div>
                     <${Badge}
@@ -926,7 +926,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
             <${EmptyPanel}
               icon="history"
               title="Sem auditoria recente"
-              text="As acoes administrativas aparecerao aqui quando forem registradas."
+              text="As ações administrativas aparecerão aqui quando forem registradas."
             />
           `}
     </section>
@@ -940,7 +940,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
       <div class="settings-admin-shell">
         <${StatGrid}
           items=${[
-            { icon: 'group', label: 'Total de usuarios', value: usuarios.length, helper: 'Contas registradas', tone: 'blue' },
+            { icon: 'group', label: 'Total de usuários', value: usuarios.length, helper: 'Contas registradas', tone: 'blue' },
             {
               icon: 'check_circle',
               label: 'Ativos',
@@ -952,12 +952,12 @@ export function TelaConfiguracoesSistema({ controlador }) {
               icon: 'block',
               label: 'Inativos ou bloqueados',
               value: contarPor(usuarios, (usuario) => normalizarBusca(usuario.status) !== 'ativo'),
-              helper: 'Requerem revisao',
+              helper: 'Requerem revisão',
               tone: 'yellow',
             },
             {
               icon: 'person_add',
-              label: 'Novos este mes',
+              label: 'Novos este mês',
               value: contarPor(usuarios, (usuario) => {
                 const data = new Date(usuario.criado_em);
                 const agora = new Date();
@@ -974,12 +974,12 @@ export function TelaConfiguracoesSistema({ controlador }) {
             <header class="c24-card-header">
               <div>
                 <span class="c24-eyebrow">Acessos</span>
-                <h3>Usuarios do sistema</h3>
+                <h3>Usuários do sistema</h3>
                 <p>${usuariosFiltrados.length} resultado(s) com os filtros atuais.</p>
               </div>
               <div class="settings-card-actions">
                 <button type="button" class="btn btn-primary btn-sm" disabled=${!podeCriar} onClick=${iniciarNovoUsuario}>
-                  <${Icone} name="person_add" /> Novo usuario
+                  <${Icone} name="person_add" /> Novo usuário
                 </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${carregarTudo}>
                   <${Icone} name="refresh" /> Atualizar
@@ -1031,7 +1031,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
               <${FilterField} label="Area/op." icon="account_tree">
                 <input
                   class="form-control"
-                  placeholder="Area ou operacao"
+                  placeholder="Área ou operação"
                   value=${filtrosUsuarios.area}
                   onInput=${(event) => {
                     setFiltrosUsuarios({ ...filtrosUsuarios, area: event.target.value });
@@ -1049,7 +1049,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                   }}
                 >
                   <option value="">Todos</option>
-                  <option value="recentes">Ultimos 7 dias</option>
+                  <option value="recentes">Últimos 7 dias</option>
                   <option value="sem_acesso">Sem acesso</option>
                 </select>
               </${FilterField}>
@@ -1124,9 +1124,9 @@ export function TelaConfiguracoesSistema({ controlador }) {
               : html`
                   <${EmptyPanel}
                     icon="group_off"
-                    title="Sem usuarios"
-                    text="Nenhum usuario corresponde aos filtros atuais."
-                    action=${html`<button type="button" class="btn btn-primary btn-sm" disabled=${!podeCriar} onClick=${iniciarNovoUsuario}>Novo usuario</button>`}
+                    title="Sem usuários"
+                    text="Nenhum usuário corresponde aos filtros atuais."
+                    action=${html`<button type="button" class="btn btn-primary btn-sm" disabled=${!podeCriar} onClick=${iniciarNovoUsuario}>Novo usuário</button>`}
                   />
                 `}
           </section>
@@ -1134,8 +1134,8 @@ export function TelaConfiguracoesSistema({ controlador }) {
           <section class="c24-card settings-detail-panel">
             <header class="c24-card-header">
               <div>
-                <span class="c24-eyebrow">${formUsuario.id_usuario ? 'Edicao' : 'Cadastro'}</span>
-                <h3>${formUsuario.id_usuario ? 'Detalhes do usuario' : 'Novo usuario'}</h3>
+                <span class="c24-eyebrow">${formUsuario.id_usuario ? 'Edição' : 'Cadastro'}</span>
+                <h3>${formUsuario.id_usuario ? 'Detalhes do usuário' : 'Novo usuário'}</h3>
                 <p>Dados, perfil, senha e status ficam conectados ao controle de acesso real.</p>
               </div>
               ${formUsuario.id_usuario
@@ -1211,7 +1211,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                 <textarea
                   class="form-control"
                   rows="2"
-                  placeholder="Explique alteracoes sensiveis, como perfil, status ou senha."
+                  placeholder="Explique alterações sensíveis, como perfil, status ou senha."
                   value=${formUsuario.justificativa}
                   onInput=${(event) => setFormUsuario({ ...formUsuario, justificativa: event.target.value })}
                 ></textarea>
@@ -1260,7 +1260,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
       const exibidos = usuariosPerfil.slice(0, 3);
       return html`
         <div class="settings-profile-users-preview">
-          <span>Usuarios</span>
+          <span>Usuários</span>
           <div class="settings-profile-avatar-stack">
             ${exibidos.length
               ? exibidos.map(
@@ -1268,13 +1268,13 @@ export function TelaConfiguracoesSistema({ controlador }) {
                     <span
                       class="settings-profile-user-avatar"
                       key=${usuario.id_usuario}
-                      title=${usuario.nome || usuario.email || 'Usuario'}
+                      title=${usuario.nome || usuario.email || 'Usuário'}
                     >
                       ${obterIniciais(usuario.nome || usuario.email)}
                     </span>
                   `,
                 )
-              : html`<span class="settings-profile-users-empty">Sem usuarios</span>`}
+              : html`<span class="settings-profile-users-empty">Sem usuários</span>`}
             ${usuariosPerfil.length > exibidos.length
               ? html`<span class="settings-profile-user-more">+${usuariosPerfil.length - exibidos.length}</span>`
               : null}
@@ -1288,11 +1288,11 @@ export function TelaConfiguracoesSistema({ controlador }) {
         <${StatGrid}
           items=${[
             { icon: 'badge', label: 'Total de perfis', value: perfis.length, helper: `${perfilMaisUsado} em destaque`, tone: 'blue' },
-            { icon: 'shield', label: 'Permissoes cadastradas', value: permissoes.length, helper: `${contarPor(permissoes, (item) => item.critica)} criticas`, tone: 'yellow' },
-            { icon: 'groups', label: 'Usuarios vinculados', value: usuarios.length, helper: 'Base real cadastrada', tone: 'green' },
+            { icon: 'shield', label: 'Permissões cadastradas', value: permissoes.length, helper: `${contarPor(permissoes, (item) => item.critica)} críticas`, tone: 'yellow' },
+            { icon: 'groups', label: 'Usuários vinculados', value: usuarios.length, helper: 'Base real cadastrada', tone: 'green' },
             {
               icon: 'pending_actions',
-              label: 'Alteracoes pendentes',
+              label: 'Alterações pendentes',
               value: alteracoesPendentesPerfil,
               helper: perfilSelecionado?.nome || 'Nenhum perfil selecionado',
               tone: 'indigo',
@@ -1306,7 +1306,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
               <div>
                 <span class="c24-eyebrow">Perfis</span>
                 <h3>Escopos de acesso</h3>
-                <p>Selecione um perfil para consultar usuarios vinculados e editar a matriz de permissoes.</p>
+                <p>Selecione um perfil para consultar usuários vinculados e editar a matriz de permissões.</p>
               </div>
             </header>
             <div class="settings-profile-list">
@@ -1323,7 +1323,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                             <span class="settings-profile-icon"><${Icone} name="badge" /></span>
                             <span class="settings-profile-title">
                               <strong>${perfil.nome}</strong>
-                              <small>${normalizarLista(perfil.permissoes).length} permissoes</small>
+                              <small>${normalizarLista(perfil.permissoes).length} permissões</small>
                             </span>
                             <span class="settings-profile-badges">
                               <${Badge} label=${perfil.nivel || 'Nivel'} tone="info" />
@@ -1332,7 +1332,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                           </div>
                           <p>${perfil.descricao || '-'}</p>
                           <div class="settings-profile-card-meta">
-                            <span>${contagemUsuariosPorPerfil[perfil.id] || 0} usuario(s) vinculados</span>
+                            <span>${contagemUsuariosPorPerfil[perfil.id] || 0} usuário(s) vinculados</span>
                             ${renderPreviaUsuarios(perfil)}
                           </div>
                           <button
@@ -1341,7 +1341,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                             onClick=${() => selecionarPerfilPermissoes(perfil.id)}
                           >
                             <${Icone} name="admin_panel_settings" />
-                            ${selecionado ? 'Selecionado' : 'Gerenciar permissoes'}
+                            ${selecionado ? 'Selecionado' : 'Gerenciar permissões'}
                           </button>
                         </article>
                       `;
@@ -1362,12 +1362,12 @@ export function TelaConfiguracoesSistema({ controlador }) {
                 <section class="c24-card settings-linked-users-card">
                   <header class="c24-card-header compact">
                     <div>
-                      <span class="c24-eyebrow">Usuarios vinculados</span>
+                      <span class="c24-eyebrow">Usuários vinculados</span>
                       <h3>${perfilSelecionado.nome}</h3>
-                      <p>Usuarios com este escopo de acesso.</p>
+                      <p>Usuários com este escopo de acesso.</p>
                     </div>
                     <div class="settings-card-actions">
-                      <${Badge} label=${`${usuariosPerfilSelecionado.length} usuario(s)`} tone="info" />
+                      <${Badge} label=${`${usuariosPerfilSelecionado.length} usuário(s)`} tone="info" />
                       ${usuariosPerfilSelecionado.length
                         ? html`
                             <button type="button" class="btn btn-outline-primary btn-sm" onClick=${abrirUsuariosDoPerfil}>
@@ -1399,7 +1399,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                                     <button
                                       type="button"
                                       class="c24-icon-btn"
-                                      title="Abrir usuario"
+                                      title="Abrir usuário"
                                       onClick=${() => abrirUsuarioVinculado(usuario)}
                                     >
                                       <${Icone} name="open_in_new" />
@@ -1413,7 +1413,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                       `
                     : html`
                         <p class="settings-linked-users-empty">
-                          Este perfil ainda nao possui usuarios vinculados.
+                          Este perfil ainda não possui usuários vinculados.
                         </p>
                       `}
                 </section>
@@ -1423,7 +1423,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                     <div>
                       <span class="c24-eyebrow">Matriz granular</span>
                       <h3>${perfilSelecionado.nome}</h3>
-                      <p>${perfilSelecionado.descricao || 'Revise as permissoes deste perfil.'}</p>
+                      <p>${perfilSelecionado.descricao || 'Revise as permissões deste perfil.'}</p>
                     </div>
                     <div class="settings-card-actions">
                       <${Badge}
@@ -1454,10 +1454,10 @@ export function TelaConfiguracoesSistema({ controlador }) {
                   </header>
 
                   <div class="c24-filter-bar settings-permission-filter">
-                    <${FilterField} label="Buscar permissao" icon="search">
+                    <${FilterField} label="Buscar permissão" icon="search">
                       <input
                         class="form-control"
-                        placeholder="Modulo, chave ou descricao"
+                        placeholder="Módulo, chave ou descrição"
                         value=${buscaPermissao}
                         onInput=${(event) => setBuscaPermissao(event.target.value)}
                       />
@@ -1468,7 +1468,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                         value=${perfilComparadoId}
                         onChange=${(event) => setPerfilComparadoId(event.target.value)}
                       >
-                        <option value="">Nao comparar</option>
+                        <option value="">Não comparar</option>
                         ${perfis
                           .filter((perfil) => perfil.id !== perfilSelecionado.id)
                           .map((perfil) => html`<option key=${perfil.id} value=${perfil.id}>${perfil.nome}</option>`)}
@@ -1482,11 +1482,11 @@ export function TelaConfiguracoesSistema({ controlador }) {
                       />
                       Ver apenas ativas
                     </label>
-                    <${FilterField} label="Justificativa da alteracao" icon="edit_note">
+                    <${FilterField} label="Justificativa da alteração" icon="edit_note">
                       <input
                         class="form-control"
                         value=${justificativaPerfil}
-                        placeholder="Opcional, recomendado para alteracoes criticas"
+                        placeholder="Opcional, recomendado para alterações críticas"
                         onInput=${(event) => setJustificativaPerfil(event.target.value)}
                       />
                     </${FilterField}>
@@ -1544,7 +1544,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                                             <small>${permissao.descricao || '-'}</small>
                                           </span>
                                           <span class="settings-permission-badges">
-                                            <${Badge} label=${permissao.critica ? 'critica' : 'operacional'} tone=${permissao.critica ? 'danger' : 'muted'} />
+                                            <${Badge} label=${permissao.critica ? 'Crítica' : 'Operacional'} tone=${permissao.critica ? 'danger' : 'muted'} />
                                             ${perfilComparado
                                               ? html`<${Badge} label=${ativaComparado ? 'no comparado' : 'fora do comparado'} tone=${ativaComparado ? 'success' : 'muted'} />`
                                               : null}
@@ -1561,8 +1561,8 @@ export function TelaConfiguracoesSistema({ controlador }) {
                       : html`
                           <${EmptyPanel}
                             icon="shield_off"
-                            title="Sem permissoes"
-                            text="Nenhuma permissao corresponde ao filtro atual."
+                            title="Sem permissões"
+                            text="Nenhuma permissão corresponde ao filtro atual."
                           />
                         `}
                   </div>
@@ -1573,7 +1573,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                   <${EmptyPanel}
                     icon="rule"
                     title="Selecione um perfil"
-                    text="Selecione um perfil para visualizar e editar permissoes."
+                    text="Selecione um perfil para visualizar e editar permissões."
                   />
                 </section>
               `}
@@ -1590,8 +1590,8 @@ export function TelaConfiguracoesSistema({ controlador }) {
         <section class="c24-card settings-area-panel">
           <header class="c24-card-header compact">
             <div>
-              <span class="c24-eyebrow">Catalogos</span>
-              <h3>Areas de configuracao</h3>
+              <span class="c24-eyebrow">Catálogos</span>
+              <h3>Áreas de configuração</h3>
             </div>
           </header>
           <div class="settings-area-list">
@@ -1618,9 +1618,9 @@ export function TelaConfiguracoesSistema({ controlador }) {
         <section class="c24-card settings-rule-form-card">
           <header class="c24-card-header">
             <div>
-              <span class="c24-eyebrow">${secaoCatalogoAtiva?.label || 'Catalogo'}</span>
+              <span class="c24-eyebrow">${secaoCatalogoAtiva?.label || 'Catálogo'}</span>
               <h3>${formItem.id_item ? 'Editar regra' : 'Nova regra'}</h3>
-              <p>Campos principais ficam no topo; o JSON avancado preserva integracoes existentes.</p>
+              <p>Campos principais ficam no topo; o JSON avançado preserva integrações existentes.</p>
             </div>
             <div class="settings-card-actions">
               ${itemEmEdicao
@@ -1669,12 +1669,12 @@ export function TelaConfiguracoesSistema({ controlador }) {
                 onChange=${(event) => setFormItem({ ...formItem, criticidade: event.target.value })}
               >
                 <option value="operacional">Operacional</option>
-                <option value="atencao">Atencao</option>
-                <option value="critica">Critica</option>
+                <option value="atencao">Atenção</option>
+                <option value="critica">Crítica</option>
               </select>
             </label>
             <label class="is-wide">
-              <span>Descricao</span>
+              <span>Descrição</span>
               <textarea
                 class="form-control"
                 rows="2"
@@ -1686,25 +1686,25 @@ export function TelaConfiguracoesSistema({ controlador }) {
               <span>Tags</span>
               <input
                 class="form-control"
-                placeholder="Separadas por virgula"
+                placeholder="Separadas por vírgula"
                 value=${formItem.tags}
                 onInput=${(event) => setFormItem({ ...formItem, tags: event.target.value })}
               />
             </label>
             <label>
-              <span>Aplicavel a</span>
+              <span>Aplicável a</span>
               <select
                 class="form-select"
                 value=${formItem.aplicavel}
                 onChange=${(event) => setFormItem({ ...formItem, aplicavel: event.target.value })}
               >
                 <option value="todos">Todos os fluxos</option>
-                <option value="fluxos_especificos">Fluxos especificos</option>
+                <option value="fluxos_especificos">Fluxos específicos</option>
                 <option value="somente_rh">Somente RH</option>
               </select>
             </label>
             <label class="is-wide">
-              <span>Permissoes relacionadas</span>
+              <span>Permissões relacionadas</span>
               <input
                 class="form-control"
                 placeholder="Ex.: configuracoes.editar, lgpd.configurar"
@@ -1729,7 +1729,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
               />
             </label>
             <details class="settings-json-details is-wide">
-              <summary>Payload JSON avancado</summary>
+              <summary>Payload JSON avançado</summary>
               <textarea
                 class="form-control font-monospace"
                 rows="5"
@@ -1753,7 +1753,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
             <div>
               <span class="c24-eyebrow">${secaoCatalogoAtiva?.label || 'Regras'}</span>
               <h3>Itens cadastrados</h3>
-              <p>Desative itens usados nos fluxos; nao remova fisicamente.</p>
+              <p>Desative itens usados nos fluxos; não remova fisicamente.</p>
             </div>
             <button type="button" class="btn btn-primary btn-sm" onClick=${() => setFormItem(FORM_ITEM_INICIAL)}>
               <${Icone} name="add" /> Novo item
@@ -1792,7 +1792,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                           <span class="settings-catalog-icon"><${Icone} name=${CATALOGO_ICONS[secaoCatalogoAtiva?.tipo] || 'settings'} /></span>
                           <span>
                             <strong>${item.nome || '-'}</strong>
-                            <small>${item.descricao || item.categoria || item.chave || 'Sem descricao'}</small>
+                            <small>${item.descricao || item.categoria || item.chave || 'Sem descrição'}</small>
                           </span>
                         </button>
                         <div class="settings-catalog-item-actions">
@@ -1819,7 +1819,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                 <${EmptyPanel}
                   icon="inventory_2"
                   title="Sem itens"
-                  text="Cadastre o primeiro item reutilizavel deste catalogo."
+                  text="Cadastre o primeiro item reutilizável deste catálogo."
                   action=${html`<button type="button" class="btn btn-primary btn-sm" onClick=${() => setFormItem(FORM_ITEM_INICIAL)}>Novo item</button>`}
                 />
               `}
@@ -1836,7 +1836,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
         items=${[
           {
             icon: 'today',
-            label: 'Acoes hoje',
+            label: 'Ações hoje',
             value: contarPor(logs, (log) => {
               const data = new Date(log.data_hora);
               return !Number.isNaN(data.getTime()) && data.getTime() >= hojeSemHora().getTime();
@@ -1846,9 +1846,9 @@ export function TelaConfiguracoesSistema({ controlador }) {
           },
           {
             icon: 'priority_high',
-            label: 'Criticas',
-            value: contarPor(logs, (log) => inferirCriticidadeLog(log) === 'Critica'),
-            helper: 'Permissoes, senha e bloqueios',
+            label: 'Críticas',
+            value: contarPor(logs, (log) => inferirCriticidadeLog(log) === 'Crítica'),
+            helper: 'Permissões, senha e bloqueios',
             tone: 'yellow',
           },
           {
@@ -1897,7 +1897,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
               }}
             />
           </${FilterField}>
-          <${FilterField} label="Modulo">
+          <${FilterField} label="Módulo">
             <select
               class="form-select"
               value=${filtrosLogs.modulo}
@@ -1910,7 +1910,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
               ${modulosLogs.map((modulo) => html`<option key=${modulo} value=${modulo}>${modulo}</option>`)}
             </select>
           </${FilterField}>
-          <${FilterField} label="Acao" icon="bolt">
+          <${FilterField} label="Ação" icon="bolt">
             <select
               class="form-select"
               value=${filtrosLogs.acao}
@@ -1923,7 +1923,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
               ${acoesLogs.map((acao) => html`<option key=${acao} value=${acao}>${acao}</option>`)}
             </select>
           </${FilterField}>
-          <${FilterField} label="Usuario" icon="person">
+          <${FilterField} label="Usuário" icon="person">
             <input
               class="form-control"
               value=${filtrosLogs.usuario}
@@ -1944,11 +1944,11 @@ export function TelaConfiguracoesSistema({ controlador }) {
             >
               <option value="">Todas</option>
               <option value="Operacional">Operacional</option>
-              <option value="Critica">Critica</option>
+              <option value="Critica">Crítica</option>
               <option value="Falha">Falha</option>
             </select>
           </${FilterField}>
-          <${FilterField} label="Periodo" icon="date_range">
+          <${FilterField} label="Período" icon="date_range">
             <select
               class="form-select"
               value=${filtrosLogs.periodo}
@@ -1957,7 +1957,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                 setPaginaLogs(1);
               }}
             >
-              <option value="">Todo periodo</option>
+              <option value="">Todo período</option>
               <option value="hoje">Hoje</option>
               <option value="7d">7 dias</option>
               <option value="30d">30 dias</option>
@@ -2048,16 +2048,16 @@ export function TelaConfiguracoesSistema({ controlador }) {
     <${PainelRh}
       screenId="screen-settings"
       navAtiva="screen-settings"
-      subtituloMarca="Configuracoes"
-      placeholderBusca="Configuracoes, usuarios, permissoes e logs"
+      subtituloMarca="Configurações"
+      placeholderBusca="Configurações, usuários, permissões e logs"
       controlador=${controlador}
       mostrarAtalhos=${false}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Console - Administracao"
-        title="Configuracoes"
-        description="Centralize usuarios, perfis, permissoes, logs e regras reutilizaveis sem retirar as acoes do fluxo operacional."
+        kicker="Console - Administração"
+        title="Configurações"
+        description="Centralize usuários, perfis, permissões, logs e regras reutilizáveis sem retirar as ações do fluxo operacional."
         actions=${html`
           <div class="c24-tabs">
             ${abasPermitidas.map(
@@ -2081,8 +2081,8 @@ export function TelaConfiguracoesSistema({ controlador }) {
             <div class="c24-loading-panel">
               <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
               <div>
-                <strong>Carregando configuracoes</strong>
-                <p>Buscando usuarios, perfis, regras e logs de auditoria.</p>
+                <strong>Carregando configurações</strong>
+                <p>Buscando usuários, perfis, regras e logs de auditoria.</p>
               </div>
             </div>
           `
@@ -2090,8 +2090,8 @@ export function TelaConfiguracoesSistema({ controlador }) {
           ? html`
               <${EmptyPanel}
                 icon="lock"
-                title="Sem permissao"
-                text="Seu perfil nao tem acesso a esta area administrativa."
+                title="Sem permissão"
+                text="Seu perfil não tem acesso a esta área administrativa."
               />
             `
           : abaRenderizada === 'usuarios'

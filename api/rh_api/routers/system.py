@@ -39,7 +39,7 @@ def debug_historico_provas_columns(
     if not settings.is_development:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Endpoint disponivel apenas em ambiente de desenvolvimento.",
+            detail="Endpoint disponível apenas em ambiente de desenvolvimento.",
         )
 
     return repository.get_history_columns()

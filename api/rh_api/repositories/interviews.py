@@ -51,7 +51,7 @@ class InterviewRepositoryMixin:
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Informe data e horario em formato valido para os slots.",
+                detail="Informe data e horário em formato válido para os slots.",
             ) from exc
 
         return datetime.combine(parsed_date, parsed_time)
@@ -138,12 +138,12 @@ class InterviewRepositoryMixin:
         )
         rows = rows_to_dicts(cursor, cursor.fetchall())
         if not rows:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Horario de entrevista nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Horário de entrevista não encontrado.")
         return rows[0]
 
     def _assert_slot_available(self, cursor, slot: dict, *, current_interview_id: int | None = None) -> None:
         if self._normalize_slot_status(slot.get("status_slot")) == SLOT_STATUS_BLOCKED:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este horario nao esta disponivel para agendamento.")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este horário não está disponível para agendamento.")
 
         occupied = self._count_slot_occupancy(
             cursor,
@@ -152,7 +152,7 @@ class InterviewRepositoryMixin:
         )
         capacity = max(1, int(slot.get("capacidade_total") or 1))
         if occupied >= capacity:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este horario esta lotado.")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este horário está lotado.")
 
     def _assert_slot_matches_process(self, slot: dict, process_row: dict) -> None:
         slot_process_ref = normalize_text(slot.get("id_processo_ref"))
@@ -161,9 +161,9 @@ class InterviewRepositoryMixin:
         process_id = normalize_text(process_row.get("id_processo"))
 
         if slot_process_ref and slot_process_ref != process_ref:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="O horario selecionado pertence a outro processo.")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="O horário selecionado pertence a outro processo.")
         if not slot_process_ref and slot_process_id and slot_process_id != process_id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="O horario selecionado pertence a outro processo.")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="O horário selecionado pertence a outro processo.")
 
     def _release_slot(self, cursor, id_slot: int | None, *, id_entrevista: int | None = None) -> None:
         if not int(id_slot or 0):
@@ -218,7 +218,7 @@ class InterviewRepositoryMixin:
             ),
         )
         if int(cursor.fetchone()[0] or 0):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ja existe entrevista neste horario.")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Já existe entrevista neste horário.")
 
     def _get_interview_identity_column(self, cursor) -> str:
         cursor.execute(
@@ -239,7 +239,7 @@ class InterviewRepositoryMixin:
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="A tabela de entrevistas nao possui coluna identity para retornar o ID gerado.",
+            detail="A tabela de entrevistas não possui coluna identity para retornar o ID gerado.",
         )
 
     def list_interview_slots(
@@ -352,7 +352,7 @@ class InterviewRepositoryMixin:
             "listar slots de entrevista",
             operation,
             retries=1,
-            final_message="Nao foi possivel consultar os horarios de entrevista agora. Tente novamente em instantes.",
+            final_message="Não foi possível consultar os horários de entrevista agora. Tente novamente em instantes.",
         )
 
     def create_interview_slots(self, data: dict) -> dict:
@@ -370,11 +370,11 @@ class InterviewRepositoryMixin:
                 if process_reference:
                     process_row = get_process_row(cursor, process_reference)
                     if not process_row:
-                        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo nao encontrado para criar horarios.")
+                        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo não encontrado para criar horários.")
                     if is_process_closed(process_row.get("status")):
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
-                            detail=build_process_closed_message("criar horarios de entrevista", process_row.get("id_processo")),
+                            detail=build_process_closed_message("criar horários de entrevista", process_row.get("id_processo")),
                         )
 
                 start = self._parse_slot_datetime(data.get("data"), data.get("hora_inicio"))
@@ -440,7 +440,7 @@ class InterviewRepositoryMixin:
             "criar slots de entrevista",
             operation,
             retries=1,
-            final_message="Nao foi possivel criar os horarios agora por conta de concorrencia no banco. Tente novamente em instantes.",
+            final_message="Não foi possível criar os horários agora por conta de concorrência no banco. Tente novamente em instantes.",
         )
 
     def update_interview_slot(self, id_slot: int, data: dict) -> dict:
@@ -462,7 +462,7 @@ class InterviewRepositoryMixin:
                 if new_capacity < 1:
                     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A capacidade do slot deve ser maior que zero.")
                 if new_capacity < occupied:
-                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A capacidade nao pode ser menor que a quantidade ja ocupada.")
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A capacidade não pode ser menor que a quantidade já ocupada.")
 
                 new_status = (
                     self._normalize_slot_status(data.get("status_slot"))
@@ -507,7 +507,7 @@ class InterviewRepositoryMixin:
             f"atualizar slot de entrevista {id_slot}",
             operation,
             retries=1,
-            final_message="Nao foi possivel atualizar o horario agora por conta de concorrencia no banco. Tente novamente em instantes.",
+            final_message="Não foi possível atualizar o horário agora por conta de concorrência no banco. Tente novamente em instantes.",
         )
 
     def delete_interview_slot(self, id_slot: int) -> dict:
@@ -536,7 +536,7 @@ class InterviewRepositoryMixin:
             f"excluir slot de entrevista {id_slot}",
             operation,
             retries=1,
-            final_message="Nao foi possivel excluir o horario agora por conta de concorrencia no banco. Tente novamente em instantes.",
+            final_message="Não foi possível excluir o horário agora por conta de concorrência no banco. Tente novamente em instantes.",
         )
 
     def list_interviews(
@@ -636,7 +636,7 @@ class InterviewRepositoryMixin:
             "listar entrevistas",
             operation,
             retries=1,
-            final_message="Nao foi possivel consultar a agenda de entrevistas agora por conta de concorrencia no banco. Tente novamente em instantes.",
+            final_message="Não foi possível consultar a agenda de entrevistas agora por conta de concorrência no banco. Tente novamente em instantes.",
         )
 
     def create_interview(self, data: dict) -> dict:
@@ -672,13 +672,13 @@ class InterviewRepositoryMixin:
                 )
                 candidate_rows = rows_to_dicts(cursor, cursor.fetchall())
                 if not candidate_rows:
-                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato do processo nao encontrado para agendamento.")
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato do processo não encontrado para agendamento.")
                 candidate_row = candidate_rows[0]
 
                 id_processo = normalize_text(data.get("id_processo")) or normalize_text(candidate_row.get("id_processo"))
                 process_row = get_process_row(cursor, data.get("id_processo_ref") or candidate_row.get("id_processo_ref") or id_processo)
                 if not process_row:
-                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo nao encontrado para a entrevista.")
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo não encontrado para a entrevista.")
                 if is_process_closed(process_row.get("status")):
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
@@ -717,7 +717,7 @@ class InterviewRepositoryMixin:
                     ),
                 )
                 if int(cursor.fetchone()[0] or 0):
-                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este candidato ja esta agendado neste slot para este processo.")
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este candidato já está agendado neste slot para este processo.")
 
                 link_agendamento = normalize_text(data.get("link_agendamento"))
                 interview_status = CANDIDATE_STATUS_PENDING_CONFIRMATION
@@ -731,7 +731,7 @@ class InterviewRepositoryMixin:
                     custom_message=mensagem_personalizada,
                 )
                 if not mensagem_base:
-                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Nao foi possivel gerar a mensagem: confirme nome, vaga, data e horario.")
+                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Não foi possível gerar a mensagem: confirme nome, vaga, data e horário.")
 
                 identity_column = self._get_interview_identity_column(cursor)
                 cursor.execute(
@@ -776,7 +776,7 @@ class InterviewRepositoryMixin:
                 if not row or row[0] is None:
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="Nao foi possivel obter o ID da entrevista criada.",
+                        detail="Não foi possível obter o ID da entrevista criada.",
                     )
 
                 id_entrevista = int(row[0])
@@ -831,7 +831,7 @@ class InterviewRepositoryMixin:
             "agendar entrevista",
             operation,
             retries=1,
-            final_message="Nao foi possivel agendar a entrevista agora por conta de concorrencia no banco. Tente novamente em instantes.",
+            final_message="Não foi possível agendar a entrevista agora por conta de concorrência no banco. Tente novamente em instantes.",
         )
 
     def update_interview(self, id_entrevista: int, data: dict) -> dict:
@@ -869,7 +869,7 @@ class InterviewRepositoryMixin:
                 )
                 current_rows = rows_to_dicts(cursor, cursor.fetchall())
                 if not current_rows:
-                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entrevista nao encontrada.")
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entrevista não encontrada.")
                 current = current_rows[0]
 
                 process_row = resolve_process_row_for_related_record(
@@ -918,7 +918,7 @@ class InterviewRepositoryMixin:
                         ),
                     )
                     if int(cursor.fetchone()[0] or 0):
-                        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este candidato ja esta agendado neste slot para este processo.")
+                        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este candidato já está agendado neste slot para este processo.")
                 else:
                     interview_date = data.get("data_entrevista", current.get("data_entrevista")) or current.get("data_entrevista") or datetime.now()
                     interview_status = normalize_interview_status(
@@ -954,7 +954,7 @@ class InterviewRepositoryMixin:
                     custom_message=mensagem_personalizada,
                 )
                 if not mensagem_base:
-                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Nao foi possivel gerar a mensagem: confirme nome, vaga, data e horario.")
+                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Não foi possível gerar a mensagem: confirme nome, vaga, data e horário.")
 
                 cursor.execute(
                     """
@@ -1034,5 +1034,5 @@ class InterviewRepositoryMixin:
             f"atualizar entrevista {id_entrevista}",
             operation,
             retries=1,
-            final_message="Nao foi possivel atualizar a entrevista agora por conta de concorrencia no banco. Tente novamente em instantes.",
+            final_message="Não foi possível atualizar a entrevista agora por conta de concorrência no banco. Tente novamente em instantes.",
         )

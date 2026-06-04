@@ -1,4 +1,5 @@
 import { html, useEffect } from '../infraestrutura-react.js';
+"Teste de commit - Aplicação Raiz";
 import {
   navegarParaTela,
   usarTelaAtual,
@@ -89,7 +90,9 @@ export function Aplicacao() {
 
   useEffect(() => {
     if (telaResolvida !== telaAtual) {
-      navegarParaTela(telaResolvida);
+      navegarParaTela(telaResolvida, {
+        replace: telaResolvida === 'screen-login',
+      });
     }
   }, [telaAtual, telaResolvida]);
 
@@ -102,7 +105,7 @@ export function Aplicacao() {
       <section class="active screen" id="screen-loading">
         <div class="container py-5">
           <div class="alert alert-secondary mb-0">
-            Validando sessao do usuario...
+            Validando sessão do usuário...
           </div>
         </div>
       </section>
@@ -167,7 +170,7 @@ export function Aplicacao() {
         <div class="container py-5">
           <div class="alert alert-warning mb-3">
             ${controlador.estado.avisoAcessoNegado ||
-            'Voce nao possui permissao para acessar esta area ou executar esta acao.'}
+            'Você não possui permissão para acessar esta área ou executar esta ação.'}
           </div>
           <button
             type="button"

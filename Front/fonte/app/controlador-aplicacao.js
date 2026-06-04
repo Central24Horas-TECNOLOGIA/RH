@@ -121,7 +121,7 @@ export const TAMANHO_HISTORICO = 10;
 export const TAMANHO_ANALISE = 5;
 export const TAMANHO_DETALHE_PROCESSO = 5;
 export const MENSAGEM_ACESSO_NEGADO =
-  'Voce nao possui permissao para acessar esta area ou executar esta acao.';
+  'Você não possui permissão para acessar esta área ou executar esta ação.';
 export const PERMISSOES_TELAS = {
   'screen-menu': 'inicio.visualizar',
   'screen-email-inbox': 'candidatos.criar',
@@ -176,6 +176,12 @@ export function criarEstadoInicial() {
       name: '',
     },
     processoSelecionado: '',
+    personalizacaoProva: {
+      enabled: false,
+      status: 'Não personalizada',
+      questoes: [],
+      historico: null,
+    },
     questoes: [],
     indiceAtual: 0,
     respostas: [],
@@ -214,6 +220,10 @@ export function hidratarEstado() {
         ...criarEstadoInicial().candidato,
         ...(salvo?.candidato || {}),
       },
+      personalizacaoProva: {
+        ...criarEstadoInicial().personalizacaoProva,
+        ...(salvo?.personalizacaoProva || {}),
+      },
       autenticado: criarEstadoInicial().autenticado,
       validandoSessao: criarEstadoInicial().validandoSessao,
       usuarioAutenticado: criarEstadoInicial().usuarioAutenticado,
@@ -229,7 +239,7 @@ export function hidratarEstado() {
 
     return estado;
   } catch (error) {
-    logger.warn('Nao foi possivel restaurar o estado salvo.', error);
+    logger.warn('Não foi possível restaurar o estado salvo.', error);
     return criarEstadoInicial();
   }
 }
@@ -258,7 +268,7 @@ export function persistirEstado(estado) {
       }),
     );
   } catch (error) {
-    logger.warn('Nao foi possivel persistir o estado da aplicacao.', error);
+    logger.warn('Não foi possível persistir o estado da aplicação.', error);
   }
 }
 
@@ -266,12 +276,24 @@ export function limparEstadoPersistido() {
   try {
     sessionStorage.removeItem(CHAVE_ESTADO);
   } catch (error) {
-    logger.warn('Nao foi possivel limpar o estado persistido.', error);
+    logger.warn('Não foi possível limpar o estado persistido.', error);
   }
 }
 
-export function navegarParaTela(tela) {
-  window.location.hash = montarHashDaTela(tela);
+export function navegarParaTela(tela, opcoes = {}) {
+  const hash = montarHashDaTela(tela);
+  if (opcoes?.replace) {
+    const url = `${window.location.pathname}${window.location.search}${hash}`;
+    window.history.replaceState(null, '', url);
+    const evento =
+      typeof HashChangeEvent === 'function'
+        ? new HashChangeEvent('hashchange')
+        : new Event('hashchange');
+    window.dispatchEvent(evento);
+    return;
+  }
+
+  window.location.hash = hash;
 }
 
 export function usarTelaAtual(autenticado) {
@@ -450,7 +472,7 @@ export async function carregarDetalhesProva(idTeste, idProcessoRef = '') {
     : linhasMesmoId[0];
 
   if (!linha) {
-    throw new Error('Prova nao encontrada.');
+    throw new Error('Prova não encontrada.');
   }
 
   const arquivoSalvo = arquivos[idTeste];
@@ -478,14 +500,14 @@ export async function baixarPacoteHistorico(
   nomeCandidato = 'candidato',
 ) {
   if (!window.JSZip) {
-    throw new Error('A biblioteca JSZip nao foi carregada.');
+    throw new Error('A biblioteca JSZip não foi carregada.');
   }
 
   const arquivos = await lerArquivosResposta();
   const salvo = arquivos[idTeste];
 
   if (!salvo?.content) {
-    throw new Error('Prova nao encontrada para este registro.');
+    throw new Error('Prova não encontrada para este registro.');
   }
 
   const payload = lerJsonSeguro(salvo.content, null);
@@ -576,7 +598,7 @@ export function useControladorAplicacao() {
 
         limparEstadoPersistido();
         setEstado(criarEstadoInicial());
-        navegarParaTela('screen-login');
+        navegarParaTela('screen-login', { replace: true });
       }
     };
 
@@ -585,7 +607,7 @@ export function useControladorAplicacao() {
     const aoExpirarSessao = () => {
       limparEstadoPersistido();
       setEstado(criarEstadoInicial());
-      navegarParaTela('screen-login');
+      navegarParaTela('screen-login', { replace: true });
     };
 
     window.addEventListener(EVENTO_AUTENTICACAO_EXPIRADA, aoExpirarSessao);
@@ -756,7 +778,7 @@ export function useControladorAplicacao() {
     } catch (error) {
       return {
         ok: false,
-        mensagem: error?.message || 'Usuario ou senha invalidos.',
+        mensagem: error?.message || 'Usuário ou senha inválidos.',
       };
     }
   };
@@ -794,7 +816,7 @@ export function useControladorAplicacao() {
     limparSessaoAutenticacao();
     limparEstadoPersistido();
     setEstado(criarEstadoInicial());
-    navegarParaTela('screen-login');
+    navegarParaTela('screen-login', { replace: true });
   };
 
   const exigirNovoLogin = () => {
@@ -824,6 +846,12 @@ export function useControladorAplicacao() {
         name: '',
       },
       processoSelecionado: '',
+      personalizacaoProva: {
+        enabled: false,
+        status: 'Não personalizada',
+        questoes: [],
+        historico: null,
+      },
       questoes: [],
       indiceAtual: 0,
       respostas: [],
@@ -856,6 +884,7 @@ export function useControladorAplicacao() {
     time,
     processId,
     scheduledCandidate = null,
+    personalizacaoProva = null,
   }) => {
     const resolvedProcessRef = processId === 'PROCESSO_UNICO' ? '' : processId;
     const resolvedProcessId = resolvedProcessRef
@@ -879,6 +908,12 @@ export function useControladorAplicacao() {
           scheduledCandidate?.nome_candidato || anterior.candidato.name || '',
       },
       processoSelecionado: resolvedProcessRef,
+      personalizacaoProva: personalizacaoProva || {
+        enabled: false,
+        status: 'Não personalizada',
+        questoes: [],
+        historico: null,
+      },
     }));
 
     navegarParaTela('screen-candidate');
@@ -903,7 +938,13 @@ export function useControladorAplicacao() {
       };
     }
 
-    const questoes = montarProvaPorBlueprint(blueprint);
+    const questoesPersonalizadas = estado.personalizacaoProva?.enabled
+      ? estado.personalizacaoProva.questoes
+      : null;
+    const questoes = Array.isArray(questoesPersonalizadas) &&
+      questoesPersonalizadas.length
+      ? questoesPersonalizadas
+      : montarProvaPorBlueprint(blueprint);
     const tempoMinutos = Number(estado.candidato.time || 40);
     const timestampTermino = Date.now() + tempoMinutos * 60 * 1000;
 
@@ -1100,6 +1141,7 @@ export function useControladorAplicacao() {
         questoes: estado.questoes,
         respostas: estado.respostas,
         resultados: estado.resultados,
+        personalizacaoProva: estado.personalizacaoProva,
       });
 
       const linhaHistorico = {
@@ -1176,7 +1218,7 @@ export function useControladorAplicacao() {
         ok: false,
         mensagem:
           error?.message ||
-          'Nao foi possivel salvar a prova no servidor. Verifique a API e tente novamente.',
+          'Não foi possível salvar a prova no servidor. Verifique a API e tente novamente.',
       };
     }
   };

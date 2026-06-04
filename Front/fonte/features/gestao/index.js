@@ -124,7 +124,7 @@ function PaginacaoCompacta({
         <button
           type="button"
           class="c24-page-btn"
-          aria-label="Pagina anterior"
+          aria-label="Página anterior"
           disabled=${paginaAtual <= 1}
           onClick=${() => onChange(paginaAtual - 1)}
         >
@@ -145,7 +145,7 @@ function PaginacaoCompacta({
         <button
           type="button"
           class="c24-page-btn"
-          aria-label="Proxima pagina"
+          aria-label="Próxima página"
           disabled=${paginaAtual >= totalPaginas}
           onClick=${() => onChange(paginaAtual + 1)}
         >
@@ -758,15 +758,15 @@ export function TelaLogin({ controlador }) {
       <div class="rh-login-page">
         <div class="rh-login-hero" data-tour-id="login-hero">
           <div class="rh-login-hero-badge">Sistema Interno RH</div>
-          <h1 class="rh-login-hero-title">Plataforma de provas, processos e analise.</h1>
+          <h1 class="rh-login-hero-title">Plataforma de provas, processos e análise.</h1>
           <p class="rh-login-hero-text">
-            Um fluxo unico para aplicacao de provas, acompanhamento de candidatos,
-            banco de talentos e analise operacional.
+            Um fluxo único para aplicação de provas, acompanhamento de candidatos,
+            banco de talentos e análise operacional.
           </p>
           <div class="rh-login-hero-points">
-            <span>Historico consolidado</span>
+            <span>Histórico consolidado</span>
             <span>Processos seletivos</span>
-            <span>Analise de candidatos</span>
+            <span>Análise de candidatos</span>
           </div>
         </div>
 
@@ -842,7 +842,7 @@ export function TelaLogin({ controlador }) {
           <div class="rh-login-help-row">
             <${BotaoAjudaTour}
               compact=${true}
-              label="Ver orientacoes"
+              label="Ver orientações"
               onClick=${() => setTourReopenSignal((valor) => valor + 1)}
             />
           </div>
@@ -1061,14 +1061,15 @@ export function TelaInicio({ controlador }) {
     >
       <${PageIntro}
         kicker="Painel principal"
-        title="Ultimas provas salvas"
-        description="Acesso rapido aos registros mais recentes com historico detalhado e download do pacote salvo."
+        title="Últimas provas salvas"
+        description="Acesso rápido aos registros mais recentes com histórico detalhado e download do pacote salvo."
         actions=${html`
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="btn btn-outline-secondary rh-action-btn c24-top-refresh-btn"
             onClick=${carregar}
           >
+            <span class="material-symbols-outlined">refresh</span>
             Atualizar
           </button>
         `}
@@ -1089,7 +1090,7 @@ export function TelaInicio({ controlador }) {
               >
                 <span class="material-symbols-outlined">play_circle</span>
                 <strong>Nova prova</strong>
-                <p>Inicie uma avaliacao individual ou vinculada a um processo.</p>
+                <p>Inicie uma avaliação individual ou vinculada a um processo.</p>
               </button>
             `
       : null}
@@ -1108,7 +1109,7 @@ export function TelaInicio({ controlador }) {
             onClick=${() => controlador.irParaTelaProtegida('screen-history')}
           >
             <span class="material-symbols-outlined">history</span>
-            <strong>Historico completo</strong>
+            <strong>Histórico completo</strong>
             <p>Filtre provas salvas por nome, vaga e data.</p>
           </button>
         </div>
@@ -1116,14 +1117,14 @@ export function TelaInicio({ controlador }) {
 
       <div class="home-dashboard-grid home-dashboard-grid--day">
         <${SectionCard}
-          title="Resumo do dia"
-          description="Notificacoes e indicadores rapidos da operacao."
+          title="Resumo do Dia"
+          description="Notificações e indicadores rápidos da operação."
           className="day-summary-card compact-dashboard-card"
         >
           <div class="day-summary-layout">
             <div class="day-notifications-panel">
               <div class="day-summary-subtitle">
-                <span>Notificacoes</span>
+                <span>Notificações</span>
                 <button type="button" class="btn btn-link btn-sm p-0">
                   Ver todas
                 </button>
@@ -1160,7 +1161,7 @@ export function TelaInicio({ controlador }) {
                 },
                 {
                   icon: 'person',
-                  label: 'Aprovacoes pendentes',
+                  label: 'Aprovações pendentes',
                   value: candidatosEmAnalise.length,
                   helper: '+1 vs ontem',
                   variant: 'is-yellow',
@@ -1169,7 +1170,7 @@ export function TelaInicio({ controlador }) {
                   icon: 'warning',
                   label: 'Alertas',
                   value: alertasOperacionais.length,
-                  helper: 'Requer atencao',
+                  helper: 'Requer atenção',
                   variant: 'is-red',
                 },
               ].map(
@@ -1189,7 +1190,7 @@ export function TelaInicio({ controlador }) {
         </${SectionCard}>
 
         <${SectionCard}
-          title="Registros recentes"
+          title="Registros Recentes"
           description="Clique em um registro para abrir o detalhamento salvo."
           className="recent-records-card compact-dashboard-card"
           tourId="home-recent"
@@ -1250,7 +1251,7 @@ export function TelaInicio({ controlador }) {
           : html`
                   <${EmptyState}
                     title="Nenhum registro salvo"
-                    text="Assim que uma prova for concluida e salva, ela aparecera aqui."
+                    text="Assim que uma prova for concluída e salva, ela aparecerá aqui."
                   />
                 `}
         </${SectionCard}>
@@ -1297,14 +1298,14 @@ export function TelaInicio({ controlador }) {
               : html`
                   <${EmptyState}
                     title="Nenhum processo em andamento"
-                    text="Os processos abertos aparecerao aqui assim que forem cadastrados."
+                    text="Os processos abertos aparecerão aqui assim que forem cadastrados."
                   />
                 `}
           </${SectionCard}>
 
           <${SectionCard}
-            title="Resumo rapido"
-            description="Visao imediata do volume mais recente salvo no sistema."
+            title="Resumo rápido"
+            description="Visão imediata do volume mais recente salvo no sistema."
             className="quick-summary-card compact-dashboard-card"
           >
             <div class="quick-summary-grid">
@@ -1316,7 +1317,7 @@ export function TelaInicio({ controlador }) {
                   <span class="quick-summary-label">Registros recentes</span>
                   <strong class="quick-summary-value">${recentes.length}</strong>
                   <span class="quick-summary-helper">
-                    Ultimos itens visiveis no painel
+                    Últimos itens visíveis no painel
                   </span>
                 </div>
               </article>
@@ -1330,7 +1331,7 @@ export function TelaInicio({ controlador }) {
                     ${carregando ? 'Atualizando' : 'Pronto'}
                   </strong>
                   <span class="quick-summary-helper">
-                    Consulta do historico consolidado
+                    Consulta do histórico consolidado
                   </span>
                 </div>
               </article>
@@ -1420,8 +1421,8 @@ export function TelaHistorico({ controlador }) {
     <${PainelRh}
       screenId="screen-history"
       navAtiva="screen-history"
-      subtituloMarca="Historico de provas"
-      placeholderBusca="Consulta do historico de avaliacoes"
+      subtituloMarca="Histórico de provas"
+      placeholderBusca="Consulta do histórico de avaliações"
       controlador=${controlador}
       acaoPrimaria=${{
       label: 'Iniciar teste',
@@ -1431,8 +1432,8 @@ export function TelaHistorico({ controlador }) {
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Console • Historico"
-        title="Historico de exames"
+        kicker="Console • Histórico"
+        title="Histórico de exames"
         description="Consulte resultados salvos com filtros por candidato, vaga e data."
       />
 
@@ -1478,7 +1479,7 @@ export function TelaHistorico({ controlador }) {
 
       <${SectionCard}
         title="Resultados salvos"
-        description="Tabela consolidada com status atualizado e acoes de consulta."
+        description="Tabela consolidada com status atualizado e ações de consulta."
         tourId="history-results"
       >
         <div class="table-responsive">
@@ -1487,16 +1488,16 @@ export function TelaHistorico({ controlador }) {
               <tr>
                 <th>Candidato</th>
                 <th>Vaga</th>
-                <th>Nivel</th>
+                <th>Nível</th>
                 <th>Data</th>
                 <th>Nota</th>
                 <th>Status</th>
-                <th class="text-end">Acoes</th>
+                <th class="text-end">Ações</th>
               </tr>
             </thead>
             <tbody>
               ${carregando
-      ? html`<${TabelaVazia} colunas=${7} texto="Carregando historico..." />`
+      ? html`<${TabelaVazia} colunas=${7} texto="Carregando histórico..." />`
       : linhas.length
         ? linhas.map(
           (linha) => html`
@@ -1627,7 +1628,7 @@ export function TelaCriarProcesso({ controlador }) {
 
       controlador.irParaTelaProtegida('screen-processes');
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel criar o processo.');
+      setErro(error?.message || 'Não foi possível criar o processo.');
     } finally {
       setSalvando(false);
     }
@@ -1649,12 +1650,12 @@ export function TelaCriarProcesso({ controlador }) {
       <${PageIntro}
         kicker="Console • Novo processo"
         title="Abrir processo seletivo"
-        description="Cadastre uma vaga com a mesma logica funcional do sistema atual, agora em uma composicao mais previsivel."
+        description="Cadastre uma vaga com a mesma lógica funcional do sistema atual, agora em uma composição mais previsível."
       />
 
       <${SectionCard}
         title="Dados do processo"
-        description="Os campos abaixo mantem a compatibilidade com a API e com o fluxo atual de provas."
+        description="Os campos abaixo mantêm a compatibilidade com a API e com o fluxo atual de provas."
         tourId="process-create-form"
       >
         <div class="row g-3">
@@ -1669,7 +1670,7 @@ export function TelaCriarProcesso({ controlador }) {
               <option value="">Selecione...</option>
               <option>Jovem Aprendiz</option>
               <option>Operador</option>
-              <option>Estagiario</option>
+              <option>Estagiário</option>
               <option>Supervisor</option>
               <option>Control Desk</option>
               <option>Planejamento</option>
@@ -1706,7 +1707,7 @@ export function TelaCriarProcesso({ controlador }) {
           </div>
 
           <div class="col-md-6">
-            <label class="form-label">Operacao</label>
+            <label class="form-label">Operação</label>
             <select
               class="form-select rh-flow-input"
               value=${formulario.operacao}
@@ -1837,7 +1838,7 @@ export function TelaBancoTalentos({ controlador }) {
       );
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel carregar o banco de talentos.',
+        error?.message || 'Não foi possível carregar o banco de talentos.',
       );
       setLinhas([]);
     } finally {
@@ -1851,7 +1852,7 @@ export function TelaBancoTalentos({ controlador }) {
 
   const abrirCurriculo = async (candidato) => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
-      window.alert('Nao ha curriculo disponivel para este candidato.');
+      window.alert('Não há currículo disponível para este candidato.');
       return;
     }
 
@@ -1866,7 +1867,7 @@ export function TelaBancoTalentos({ controlador }) {
       baixarBlob(arquivo.filename || 'curriculo', arquivo.blob);
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel abrir o curriculo do candidato.',
+        error?.message || 'Não foi possível abrir o currículo do candidato.',
       );
     }
   };
@@ -1883,7 +1884,7 @@ export function TelaBancoTalentos({ controlador }) {
       await carregar();
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel remover o candidato do banco.',
+        error?.message || 'Não foi possível remover o candidato do banco.',
       );
     } finally {
       setSalvando(false);
@@ -1923,7 +1924,7 @@ export function TelaBancoTalentos({ controlador }) {
       setPerfilEdicao(null);
       await carregar();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel atualizar o perfil RH.');
+      setErro(error?.message || 'Não foi possível atualizar o perfil RH.');
     } finally {
       setSalvando(false);
     }
@@ -1957,7 +1958,7 @@ export function TelaBancoTalentos({ controlador }) {
       await carregar();
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel reutilizar o candidato selecionado.',
+        error?.message || 'Não foi possível reutilizar o candidato selecionado.',
       );
     } finally {
       setSalvando(false);
@@ -1975,8 +1976,8 @@ export function TelaBancoTalentos({ controlador }) {
     >
       <${PageIntro}
         kicker="Console • Banco de talentos"
-        title="Candidatos reaproveitaveis"
-        description="Acompanhe candidatos guardados para oportunidades futuras, filtre por habilidade e registre tags e observacoes do RH."
+        title="Candidatos reaproveitáveis"
+        description="Acompanhe candidatos guardados para oportunidades futuras, filtre por habilidade e registre tags e observações do RH."
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
@@ -2011,7 +2012,7 @@ export function TelaBancoTalentos({ controlador }) {
             <label>Tag</label>
             <input
               class="form-control"
-              placeholder="Prioritario, Boa aderencia..."
+              placeholder="Prioritário, Boa aderência..."
               value=${filtros.tag}
               onInput=${(event) =>
       setFiltros({ ...filtros, tag: event.target.value })}
@@ -2022,14 +2023,14 @@ export function TelaBancoTalentos({ controlador }) {
 
       <${SectionCard}
         title="Lista atual"
-        description="Reaproveitamento, perfil RH e filtros avancados funcionando sobre dados persistidos."
+        description="Reaproveitamento, perfil RH e filtros avançados funcionando sobre dados persistidos."
         tourId="talent-table"
       >
         ${carregando
       ? html`
               <${LoadingState}
                 titulo="Carregando banco de talentos"
-                descricao="Buscando candidatos, tags e observacoes persistidas."
+                descricao="Buscando candidatos, tags e observações persistidas."
               />
             `
       : html`
@@ -2044,10 +2045,10 @@ export function TelaBancoTalentos({ controlador }) {
                       <th>Vaga</th>
                       <th>Nota</th>
                       <th>Habilidades / tags</th>
-                      <th>Observacoes RH</th>
+                      <th>Observações RH</th>
                       <th>Entrevista</th>
                       <th>CV</th>
-                      <th class="text-end">Acoes</th>
+                      <th class="text-end">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2083,7 +2084,7 @@ export function TelaBancoTalentos({ controlador }) {
                                   <small>${linha.origem || '-'}</small>
                                 </div>
                               </td>
-                              <td>${linha.observacao_rh || 'Sem observacoes.'}</td>
+                              <td>${linha.observacao_rh || 'Sem observações.'}</td>
                               <td>
                                 ${linha.status_entrevista
                 ? html`
@@ -2096,7 +2097,7 @@ export function TelaBancoTalentos({ controlador }) {
                                         <small>${formatarDataHora(linha.data_entrevista)}</small>
                                       </div>
                                     `
-                : 'Nao agendada'}
+                : 'Não agendada'}
                               </td>
                               <td>
                                 ${linha.cv_disponivel
@@ -2158,7 +2159,7 @@ export function TelaBancoTalentos({ controlador }) {
       <${ModalPadrao}
         aberto=${!!candidatoParaUtilizar}
         titulo="Utilizar candidato"
-        subtitulo="Selecione o processo aberto e confirme a reutilizacao."
+        subtitulo="Selecione o processo aberto e confirme a reutilização."
         onClose=${() => {
       setCandidatoParaUtilizar(null);
       setProcessoSelecionadoUso('');
@@ -2199,7 +2200,7 @@ export function TelaBancoTalentos({ controlador }) {
             disabled=${salvando}
             onClick=${confirmarUso}
           >
-            Confirmar utilizacao
+            Confirmar utilização
           </button>
         </footer>
       </${ModalPadrao}>
@@ -2207,7 +2208,7 @@ export function TelaBancoTalentos({ controlador }) {
       <${ModalPadrao}
         aberto=${!!perfilEdicao}
         titulo="Perfil RH do candidato"
-        subtitulo="Cadastre habilidades, tags e observacoes persistidas para reutilizacao futura."
+        subtitulo="Cadastre habilidades, tags e observações persistidas para reutilização futura."
         onClose=${() => setPerfilEdicao(null)}
       >
         ${perfilEdicao
@@ -2239,7 +2240,7 @@ export function TelaBancoTalentos({ controlador }) {
                     <label class="form-label">Tags</label>
                     <input
                       class="form-control"
-                      placeholder="Prioritario, Boa aderencia..."
+                      placeholder="Prioritário, Boa aderência..."
                       value=${formularioPerfil.tags}
                       onInput=${(event) =>
           setFormularioPerfil({
@@ -2249,7 +2250,7 @@ export function TelaBancoTalentos({ controlador }) {
                     />
                   </div>
                   <div class="col-md-12">
-                    <label class="form-label">Observacao RH</label>
+                    <label class="form-label">Observação RH</label>
                     <textarea
                       class="form-control"
                       rows="5"
@@ -2300,8 +2301,8 @@ function GraficoComparativoAnalise({ itens = [] }) {
   if (!dados.length) {
     return html`
       <${EmptyState}
-        title="Sem dados para o grafico"
-        text="Nao ha informacoes suficientes para exibir a comparacao."
+        title="Sem dados para o gráfico"
+        text="Não há informações suficientes para exibir a comparação."
       />
     `;
   }
@@ -2438,28 +2439,28 @@ export function TelaAnaliseCandidatos({ controlador }) {
   const aplicarAcao = async (statusCandidato) => {
     if (!detalhe?.id_teste) return;
     if (detalheEstadoAcoes.processClosed) {
-      window.alert('O processo seletivo deste candidato esta encerrado e nao permite novas movimentacoes.');
+      window.alert('O processo seletivo deste candidato está encerrado e não permite novas movimentações.');
       return;
     }
     if (
       statusCandidato === 'Aprovado' &&
       !detalheEstadoAcoes.canApprove
     ) {
-      window.alert('A aprovacao nao esta disponivel para o status atual deste candidato.');
+      window.alert('A aprovação não está disponível para o status atual deste candidato.');
       return;
     }
     if (
       statusCandidato === 'Eliminado' &&
       !detalheEstadoAcoes.canEliminate
     ) {
-      window.alert('A eliminacao nao esta disponivel para o status atual deste candidato.');
+      window.alert('A eliminação não está disponível para o status atual deste candidato.');
       return;
     }
     if (
       statusCandidato === 'Banco de talentos' &&
       !detalheEstadoAcoes.canSendToTalentBank
     ) {
-      window.alert('O envio para banco de talentos nao esta disponivel para o status atual deste candidato.');
+      window.alert('O envio para banco de talentos não está disponível para o status atual deste candidato.');
       return;
     }
 
@@ -2472,7 +2473,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
 
     if (!vinculo) {
       window.alert(
-        'Nao foi possivel localizar o vinculo do candidato com o processo.',
+        'Não foi possível localizar o vínculo do candidato com o processo.',
       );
       return;
     }
@@ -2490,21 +2491,21 @@ export function TelaAnaliseCandidatos({ controlador }) {
     <${PainelRh}
       screenId="screen-analysis-candidates"
       navAtiva="screen-analysis-candidates"
-      subtituloMarca="Analise por candidato"
-      placeholderBusca="Inteligencia analitica do RH"
+      subtituloMarca="Análise por candidato"
+      placeholderBusca="Inteligência analítica do RH"
       controlador=${controlador}
       mostrarAtalhos=${false}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Console • Relatorios"
-        title="Relatorios e analise por candidato"
-        description="Exporte processos e candidatos por periodo, mantendo a analise individual disponivel para consulta operacional."
+        kicker="Console • Relatórios"
+        title="Relatórios e análise por candidato"
+        description="Exporte processos e candidatos por período, mantendo a análise individual disponível para consulta operacional."
       />
 
       <${SectionCard}
-        title="Relatorios exportaveis"
-        description="Os dados sao gerados sob demanda pela API, sem criar arquivo permanente no servidor."
+        title="Relatórios exportáveis"
+        description="Os dados são gerados sob demanda pela API, sem criar arquivo permanente no servidor."
         actions=${html`
           <button
             type="button"
@@ -2530,14 +2531,14 @@ export function TelaAnaliseCandidatos({ controlador }) {
             class=${`btn ${relatorioAtivo === 'processos' ? 'btn-primary' : 'btn-outline-primary'}`}
             onClick=${() => setRelatorioAtivo('processos')}
           >
-            Relatorio de Processos
+            Relatório de Processos
           </button>
           <button
             type="button"
             class=${`btn ${relatorioAtivo === 'candidatos' ? 'btn-primary' : 'btn-outline-primary'}`}
             onClick=${() => setRelatorioAtivo('candidatos')}
           >
-            Relatorio de Candidatos
+            Relatório de Candidatos
           </button>
         </div>
 
@@ -2634,7 +2635,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                             </tr>
                           `,
           )
-          : html`<${TabelaVazia} colunas=${8} texto="Nenhum processo no periodo." />`}
+          : html`<${TabelaVazia} colunas=${8} texto="Nenhum processo no período." />`}
                   </tbody>
                 </table>
               </div>
@@ -2689,7 +2690,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                             </tr>
                           `,
           )
-          : html`<${TabelaVazia} colunas=${14} texto="Nenhum candidato no periodo." />`}
+          : html`<${TabelaVazia} colunas=${14} texto="Nenhum candidato no período." />`}
                   </tbody>
                 </table>
               </div>
@@ -2728,7 +2729,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
     }}
             />
           </${CampoFiltro}>
-          <${CampoFiltro} label="Nota minima" icon="star">
+          <${CampoFiltro} label="Nota mínima" icon="star">
             <input
               class="form-control"
               type="number"
@@ -2746,8 +2747,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
       </${BlocoFiltro}>
 
       <${SectionCard}
-        title="Ranking analitico"
-        description="O modal de detalhe respeita o status atual do candidato e bloqueia movimentacoes em processo encerrado."
+        title="Ranking analítico"
+        description="O modal de detalhe respeita o status atual do candidato e bloqueia movimentações em processo encerrado."
         tourId="analysis-ranking"
       >
         <div class="table-responsive">
@@ -2759,9 +2760,9 @@ export function TelaAnaliseCandidatos({ controlador }) {
                 <th>Vaga</th>
                 <th>Nota</th>
                 <th>Afinidade</th>
-                <th>Recomendacao</th>
+                <th>Recomendação</th>
                 <th>Status</th>
-                <th class="text-end">Acoes</th>
+                <th class="text-end">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -2802,7 +2803,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
       : html`
                     <${TabelaVazia}
                       colunas=${8}
-                      texto="Nenhuma analise disponivel."
+                      texto="Nenhuma análise disponível."
                     />
                   `}
             </tbody>
@@ -2818,8 +2819,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
 
       <${ModalPadrao}
         aberto=${!!detalhe}
-        titulo=${`Analise do candidato • ${detalhe?.nome_candidato || 'Candidato'}`}
-        subtitulo="Comparativo analitico entre desempenho e expectativa da vaga."
+        titulo=${`Análise do candidato • ${detalhe?.nome_candidato || 'Candidato'}`}
+        subtitulo="Comparativo analítico entre desempenho e expectativa da vaga."
         onClose=${() => setDetalhe(null)}
       >
         ${detalhe
@@ -2841,7 +2842,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
             )}%`,
           },
           {
-            label: 'Recomendacao',
+            label: 'Recomendação',
             value: html`
                         <span class=${obterClasseAderencia(detalhe.recomendacao)}>
                           ${detalhe.recomendacao || '-'}
@@ -2867,7 +2868,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                 </${SectionCard}>
 
                 <${SectionCard}
-                  title="Observacoes"
+                  title="Observações"
                   className="rh-section-card--flat"
                 >
                   <div class="rh-detail-list">
@@ -2926,8 +2927,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
           ? html`
                         <span class="text-muted">
                           ${isProcessClosed(detalhe?.status_processo)
-              ? 'Processo encerrado: sem movimentacoes.'
-              : 'Sem acoes operacionais para o status atual.'}
+              ? 'Processo encerrado: sem movimentações.'
+              : 'Sem ações operacionais para o status atual.'}
                         </span>
                       `
           : null}
