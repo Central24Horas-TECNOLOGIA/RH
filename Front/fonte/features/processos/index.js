@@ -10,6 +10,7 @@ import {
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
   analisarCvEmailRecebido,
+  atualizarAnotacaoDossieProcesso,
   atualizarEntrevista,
   atualizarFichaCandidato,
   atualizarPerfilCandidato,
@@ -20,6 +21,7 @@ import {
   baixarPacoteHistorico,
   baixarCvCandidato,
   carregarDetalhesProva,
+  criarAnotacaoDossieProcesso,
   desativarLinkPublicoCandidatura,
   encerrarProcesso,
   excluirPreAnaliseCv,
@@ -27,6 +29,7 @@ import {
   enviarEmailAprovacao,
   gerarLinkPublicoCandidatura,
   lerEmailsRecebidosProcesso,
+  lerAnotacoesDossieProcesso,
   lerCandidatosProcessos,
   lerDetalheProcesso,
   lerEntrevistas,
@@ -87,6 +90,7 @@ import {
   obterReferenciaProcessoDoCandidato,
 } from '../../shared/process-reference.js';
 import { CHAVE_PROCESSO_DETALHE } from './state.js';
+import { gerarAnaliseInteligenteProcesso } from '../../services/process-dossier-ai.js';
 import { CabecalhoSecaoColapsavel } from './components/section-toggle.js';
 import {
   LoadingState,
@@ -435,6 +439,146 @@ function obterNotaProvaCandidato(candidato) {
   );
 }
 
+function converterNumeroDossie(valor) {
+  const texto = String(valor ?? '').replace(',', '.').trim();
+  if (!texto || texto === '-') return null;
+  const numero = Number(texto);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+function formatarNumeroDossie(valor, fallback = '-') {
+  const numero = converterNumeroDossie(valor);
+  return numero === null ? fallback : numero.toFixed(1).replace('.', ',');
+}
+
+function obterScoreCvCandidato(candidato) {
+  return (
+    candidato?.cv_score_final ||
+    candidato?.score_curriculo ||
+    candidato?.nota_curriculo ||
+    candidato?.score_cv ||
+    ''
+  );
+}
+
+function obterStatusDossie(candidato) {
+  return (
+    candidato?.status_fluxo ||
+    candidato?.status_candidato ||
+    candidato?.status ||
+    'Não informado'
+  );
+}
+
+function obterEtapaDossie(candidato, entrevistas = []) {
+  const idTeste = String(candidato?.id_teste || '').trim();
+  const idRegistro = String(candidato?.id_registro || '').trim();
+  const entrevista = entrevistas.find((item) => {
+    const mesmoTeste =
+      idTeste && String(item?.id_teste || '').trim() === idTeste;
+    const mesmoRegistro =
+      idRegistro && String(item?.id_registro || '').trim() === idRegistro;
+    return mesmoTeste || mesmoRegistro;
+  });
+
+  if (entrevista?.status_entrevista) return entrevista.status_entrevista;
+  return candidato?.etapa_pipeline || obterStatusDossie(candidato);
+}
+
+function montarCandidatosDossie(candidatos = [], entrevistas = []) {
+  return candidatos.map((candidato) => {
+    const notaProva = converterNumeroDossie(obterNotaProvaCandidato(candidato));
+    const scoreCv = converterNumeroDossie(obterScoreCvCandidato(candidato));
+    const mediaBase = [notaProva, scoreCv].filter((valor) => valor !== null);
+    const mediaGeral = mediaBase.length
+      ? mediaBase.reduce((soma, valor) => soma + valor, 0) / mediaBase.length
+      : null;
+
+    return {
+      id: String(candidato.id_registro || candidato.id_teste || ''),
+      id_teste: candidato.id_teste || '',
+      nome: candidato.nome_candidato || 'Candidato sem nome',
+      processo:
+        candidato.id_processo_ref ||
+        candidato.id_processo ||
+        candidato.vaga ||
+        '',
+      vaga: candidato.vaga || '',
+      data:
+        candidato.data_prova ||
+        candidato.data_atualizacao_pipeline ||
+        candidato.aprovado_em ||
+        candidato.eliminado_em ||
+        '',
+      etapa: obterEtapaDossie(candidato, entrevistas),
+      classificacao:
+        candidato.cv_classificacao ||
+        candidato.classificacao ||
+        obterStatusDossie(candidato),
+      status: obterStatusDossie(candidato),
+      notaProva,
+      scoreCv,
+      mediaGeral,
+      email: candidato.email || '',
+      whatsapp: candidato.whatsapp || candidato.telefone || '',
+      origem: formatarOrigemCandidato(candidato),
+      raw: candidato,
+    };
+  });
+}
+
+function filtrarCandidatosDossie(candidatos = [], filtros = {}) {
+  const processo = normalizarTextoComparacao(filtros.processo);
+  const candidato = normalizarTextoComparacao(filtros.candidato);
+  const etapa = normalizarTextoComparacao(filtros.etapa);
+  const classificacao = normalizarTextoComparacao(filtros.classificacao);
+  const status = normalizarTextoComparacao(filtros.status);
+  const dataFiltro = String(filtros.data || '').trim();
+  const notaMin = converterNumeroDossie(filtros.notaMin);
+  const notaMax = converterNumeroDossie(filtros.notaMax);
+  const scoreMin = converterNumeroDossie(filtros.scoreMin);
+  const scoreMax = converterNumeroDossie(filtros.scoreMax);
+
+  return candidatos.filter((item) => {
+    const textoProcesso = normalizarTextoComparacao([item.processo, item.vaga].join(' '));
+    const textoCandidato = normalizarTextoComparacao([item.nome, item.email, item.whatsapp].join(' '));
+    const textoEtapa = normalizarTextoComparacao(item.etapa);
+    const textoClassificacao = normalizarTextoComparacao(item.classificacao);
+    const textoStatus = normalizarTextoComparacao(item.status);
+    const dataItem = item.data ? formatarIsoDataLocal(item.data) : '';
+
+    if (processo && !textoProcesso.includes(processo)) return false;
+    if (candidato && !textoCandidato.includes(candidato)) return false;
+    if (etapa && !textoEtapa.includes(etapa)) return false;
+    if (classificacao && !textoClassificacao.includes(classificacao)) return false;
+    if (status && !textoStatus.includes(status)) return false;
+    if (dataFiltro && dataItem !== dataFiltro) return false;
+    if (notaMin !== null && (item.notaProva === null || item.notaProva < notaMin)) return false;
+    if (notaMax !== null && (item.notaProva === null || item.notaProva > notaMax)) return false;
+    if (scoreMin !== null && (item.scoreCv === null || item.scoreCv < scoreMin)) return false;
+    if (scoreMax !== null && (item.scoreCv === null || item.scoreCv > scoreMax)) return false;
+    return true;
+  });
+}
+
+function calcularEstatisticasDossie(candidatos = []) {
+  const media = (valores) => {
+    const validos = valores.filter((valor) => valor !== null);
+    if (!validos.length) return null;
+    return validos.reduce((soma, valor) => soma + valor, 0) / validos.length;
+  };
+
+  return {
+    total: candidatos.length,
+    avaliados: candidatos.filter(
+      (item) => item.notaProva !== null || item.scoreCv !== null,
+    ).length,
+    mediaProva: media(candidatos.map((item) => item.notaProva)),
+    mediaCv: media(candidatos.map((item) => item.scoreCv)),
+    mediaGeral: media(candidatos.map((item) => item.mediaGeral)),
+  };
+}
+
 function formatarOrigemCandidato(candidato) {
   const rotulo = String(candidato?.origem_rotulo || '').trim();
   if (rotulo) return rotulo;
@@ -708,12 +852,12 @@ function renderizarAcoesDoCandidato({
         <button
           type="button"
           class="btn btn-sm btn-outline-dark rh-action-btn btn-action btn-neutral"
-          title="Abrir ficha geral do candidato"
+          title="Abrir detalhes completos do candidato"
           disabled=${fichaCarregandoId === String(candidato.id_teste || '')}
           onClick=${() => onFicha(candidato)}
         >
           <span class="material-symbols-outlined">badge</span>
-          ${fichaCarregandoId === String(candidato.id_teste || '') ? 'Abrindo...' : 'Ficha'}
+          ${fichaCarregandoId === String(candidato.id_teste || '') ? 'Abrindo...' : 'Detalhes'}
         </button>
       `,
     );
@@ -951,7 +1095,7 @@ function renderizarAcoesCompactasDoCandidato({
 
   if (typeof onFicha === 'function') {
     acoesMenu.push({
-      label: fichaCarregandoId === String(candidato.id_teste || '') ? 'Abrindo...' : 'Ficha',
+      label: fichaCarregandoId === String(candidato.id_teste || '') ? 'Abrindo...' : 'Detalhes',
       icon: 'badge',
       disabled: fichaCarregandoId === String(candidato.id_teste || ''),
       onClick: () => onFicha(candidato),
@@ -1510,6 +1654,421 @@ function WidgetEntrevistasProcesso({
               </div>
             `}
     </${SectionCard}>
+  `;
+}
+
+function DossieProcesso({
+  processo,
+  candidatos = [],
+  candidatosFiltrados = [],
+  estatisticas,
+  filtros,
+  onFiltroChange,
+  onLimparFiltros,
+  analise,
+  anotacoes = [],
+  formularioAnotacao,
+  anotacaoEditandoId,
+  salvandoAnotacao,
+  erro,
+  mensagem,
+  onChangeAnotacao,
+  onSelecionarCandidatoAnotacao,
+  onSalvarAnotacao,
+  onEditarAnotacao,
+  onCancelarEdicao,
+}) {
+  const opcoesEtapa = Array.from(
+    new Set(candidatos.map((item) => item.etapa).filter(Boolean)),
+  );
+  const opcoesClassificacao = Array.from(
+    new Set(candidatos.map((item) => item.classificacao).filter(Boolean)),
+  );
+  const opcoesStatus = Array.from(
+    new Set(candidatos.map((item) => item.status).filter(Boolean)),
+  );
+  const candidatosGrafico = candidatosFiltrados
+    .filter(
+      (item) =>
+        item.notaProva !== null ||
+        item.scoreCv !== null ||
+        item.mediaGeral !== null,
+    )
+    .slice()
+    .sort((a, b) => Number(b.mediaGeral || 0) - Number(a.mediaGeral || 0))
+    .slice(0, 8);
+  const largura = (valor) =>
+    `${Math.max(4, Math.min(100, Number(valor || 0) * 10))}%`;
+
+  return html`
+    <div class="process-dossier-shell">
+      ${erro ? html`<div class="alert alert-warning py-2">${erro}</div>` : null}
+      ${mensagem ? html`<div class="alert alert-success py-2">${mensagem}</div>` : null}
+
+      <${MetricGrid}
+        items=${[
+          { label: 'Candidatos avaliados', value: estatisticas?.avaliados || 0 },
+          { label: 'Média da prova', value: formatarNumeroDossie(estatisticas?.mediaProva) },
+          { label: 'Média do currículo', value: formatarNumeroDossie(estatisticas?.mediaCv) },
+          { label: 'Média geral', value: formatarNumeroDossie(estatisticas?.mediaGeral) },
+        ]}
+      />
+
+      <div class="process-dossier-filter-grid">
+        <label>
+          <span>Processo</span>
+          <input
+            class="form-control"
+            value=${filtros.processo}
+            placeholder=${processo?.id_processo || 'Filtrar processo'}
+            onInput=${(event) => onFiltroChange('processo', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Candidato</span>
+          <input
+            class="form-control"
+            value=${filtros.candidato}
+            placeholder="Nome, e-mail ou WhatsApp"
+            onInput=${(event) => onFiltroChange('candidato', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Data/dia</span>
+          <input
+            class="form-control"
+            type="date"
+            value=${filtros.data}
+            onInput=${(event) => onFiltroChange('data', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Etapa</span>
+          <select
+            class="form-select"
+            value=${filtros.etapa}
+            onChange=${(event) => onFiltroChange('etapa', event.target.value)}
+          >
+            <option value="">Todas</option>
+            ${opcoesEtapa.map(
+              (item) => html`<option key=${item} value=${item}>${item}</option>`,
+            )}
+          </select>
+        </label>
+        <label>
+          <span>Classificação</span>
+          <select
+            class="form-select"
+            value=${filtros.classificacao}
+            onChange=${(event) => onFiltroChange('classificacao', event.target.value)}
+          >
+            <option value="">Todas</option>
+            ${opcoesClassificacao.map(
+              (item) => html`<option key=${item} value=${item}>${item}</option>`,
+            )}
+          </select>
+        </label>
+        <label>
+          <span>Status</span>
+          <select
+            class="form-select"
+            value=${filtros.status}
+            onChange=${(event) => onFiltroChange('status', event.target.value)}
+          >
+            <option value="">Todos</option>
+            ${opcoesStatus.map(
+              (item) => html`<option key=${item} value=${item}>${item}</option>`,
+            )}
+          </select>
+        </label>
+        <label>
+          <span>Nota mínima</span>
+          <input
+            class="form-control"
+            type="number"
+            min="0"
+            max="10"
+            step="0.1"
+            value=${filtros.notaMin}
+            onInput=${(event) => onFiltroChange('notaMin', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Nota máxima</span>
+          <input
+            class="form-control"
+            type="number"
+            min="0"
+            max="10"
+            step="0.1"
+            value=${filtros.notaMax}
+            onInput=${(event) => onFiltroChange('notaMax', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Score mínimo</span>
+          <input
+            class="form-control"
+            type="number"
+            min="0"
+            max="10"
+            step="0.1"
+            value=${filtros.scoreMin}
+            onInput=${(event) => onFiltroChange('scoreMin', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Score máximo</span>
+          <input
+            class="form-control"
+            type="number"
+            min="0"
+            max="10"
+            step="0.1"
+            value=${filtros.scoreMax}
+            onInput=${(event) => onFiltroChange('scoreMax', event.target.value)}
+          />
+        </label>
+        <div class="process-dossier-filter-actions">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            onClick=${onLimparFiltros}
+          >
+            Limpar filtros
+          </button>
+        </div>
+      </div>
+
+      <div class="process-dossier-layout">
+        <section class="process-dossier-panel">
+          <header>
+            <h4>Comparativo entre candidatos</h4>
+            <span>${candidatosFiltrados.length} candidato(s)</span>
+          </header>
+          ${candidatosGrafico.length
+            ? html`
+                <div class="process-dossier-chart">
+                  ${candidatosGrafico.map(
+                    (item) => html`
+                      <article class="process-dossier-chart-row" key=${item.id || item.nome}>
+                        <div class="process-dossier-chart-name">
+                          <strong>${item.nome}</strong>
+                          <small>${item.etapa || item.status}</small>
+                        </div>
+                        <div class="process-dossier-bars">
+                          <span>
+                            <i style=${{ width: largura(item.notaProva) }}></i>
+                            Nota ${formatarNumeroDossie(item.notaProva)}
+                          </span>
+                          <span class="is-cv">
+                            <i style=${{ width: largura(item.scoreCv) }}></i>
+                            CV ${formatarNumeroDossie(item.scoreCv)}
+                          </span>
+                          <span class="is-average">
+                            <i style=${{ width: largura(item.mediaGeral) }}></i>
+                            Média ${formatarNumeroDossie(item.mediaGeral)}
+                          </span>
+                        </div>
+                      </article>
+                    `,
+                  )}
+                </div>
+              `
+            : html`
+                <div class="c24-empty-state">
+                  <span class="material-symbols-outlined">bar_chart</span>
+                  <h3>Ainda não há dados suficientes para o gráfico.</h3>
+                  <p>Registre nota de prova ou score de currículo para comparar candidatos.</p>
+                </div>
+              `}
+        </section>
+
+        <section class="process-dossier-panel">
+          <header>
+            <h4>Análise inteligente</h4>
+            <span>${analise?.disponivel ? 'IA integrada' : 'Fallback local'}</span>
+          </header>
+          <p class="process-dossier-ai-summary">
+            ${analise?.resumo ||
+            'Ainda não há dados suficientes para gerar o dossiê inteligente.'}
+          </p>
+          <div class="process-dossier-ai-grid">
+            <div>
+              <h5>Ranking analítico</h5>
+              ${analise?.ranking?.length
+                ? html`
+                    <ol class="process-dossier-ranking">
+                      ${analise.ranking.map(
+                        (item) => html`
+                          <li key=${`${item.posicao}-${item.candidato}`}>
+                            <span>${item.posicao}</span>
+                            <strong>${item.candidato}</strong>
+                            <small>Média ${item.media}</small>
+                          </li>
+                        `,
+                      )}
+                    </ol>
+                  `
+                : html`<p class="text-muted mb-0">Sem ranking disponível.</p>`}
+            </div>
+            <div>
+              <h5>Pontos de atenção</h5>
+              <ul class="process-dossier-list">
+                ${(analise?.pontos_atencao || []).slice(0, 4).map(
+                  (item) => html`<li key=${item}>${item}</li>`,
+                )}
+              </ul>
+            </div>
+          </div>
+          <div class="process-dossier-ai-note">
+            A análise organiza informações para apoiar o RH. A decisão final continua sendo humana.
+          </div>
+        </section>
+      </div>
+
+      <section class="process-dossier-panel">
+        <header>
+          <h4>Base consolidada</h4>
+          <span>${candidatosFiltrados.length} registro(s)</span>
+        </header>
+        <div class="table-responsive">
+          <table class="table align-middle rh-modern-history-table process-dossier-table">
+            <thead>
+              <tr>
+                <th>Candidato</th>
+                <th>Etapa</th>
+                <th>Status</th>
+                <th>Classificação</th>
+                <th>Nota</th>
+                <th>Score CV</th>
+                <th>Média</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${candidatosFiltrados.length
+                ? candidatosFiltrados.map(
+                    (item) => html`
+                      <tr key=${item.id || item.nome}>
+                        <td>
+                          <strong>${item.nome}</strong>
+                          <div class="small text-muted">${item.email || item.whatsapp || '-'}</div>
+                        </td>
+                        <td>${item.etapa || '-'}</td>
+                        <td>${item.status || '-'}</td>
+                        <td>${item.classificacao || '-'}</td>
+                        <td>${formatarNumeroDossie(item.notaProva)}</td>
+                        <td>${formatarNumeroDossie(item.scoreCv)}</td>
+                        <td>${formatarNumeroDossie(item.mediaGeral)}</td>
+                        <td>${formatarDataHora(item.data)}</td>
+                      </tr>
+                    `,
+                  )
+                : html`
+                    <${TabelaVazia}
+                      colunas=${8}
+                      texto="Nenhum candidato encontrado para os filtros selecionados."
+                    />
+                  `}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="process-dossier-panel">
+        <header>
+          <h4>Anotações do RH</h4>
+          <span>${anotacoes.length} anotação(ões)</span>
+        </header>
+        <div class="process-dossier-notes-grid">
+          <div class="process-dossier-note-form">
+            <label class="form-label">Candidato relacionado</label>
+            <select
+              class="form-select"
+              value=${formularioAnotacao.id_teste}
+              onChange=${(event) => onSelecionarCandidatoAnotacao(event.target.value)}
+            >
+              <option value="">Processo geral</option>
+              ${candidatos.map(
+                (item) => html`
+                  <option key=${item.id_teste || item.id} value=${item.id_teste || item.id || ''}>
+                    ${item.nome}
+                  </option>
+                `,
+              )}
+            </select>
+            <label class="form-label mt-3">Observação</label>
+            <textarea
+              class="form-control"
+              rows="4"
+              placeholder="Registre uma observação objetiva para o RH."
+              value=${formularioAnotacao.texto}
+              onInput=${(event) => onChangeAnotacao('texto', event.target.value)}
+            ></textarea>
+            <div class="d-flex gap-2 flex-wrap mt-3">
+              <button
+                type="button"
+                class="btn btn-primary"
+                disabled=${salvandoAnotacao}
+                onClick=${onSalvarAnotacao}
+              >
+                ${salvandoAnotacao
+                  ? 'Salvando...'
+                  : anotacaoEditandoId
+                    ? 'Salvar edição'
+                    : 'Registrar anotação'}
+              </button>
+              ${anotacaoEditandoId
+                ? html`
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      disabled=${salvandoAnotacao}
+                      onClick=${onCancelarEdicao}
+                    >
+                      Cancelar edição
+                    </button>
+                  `
+                : null}
+            </div>
+          </div>
+          <div class="process-dossier-note-list">
+            ${anotacoes.length
+              ? anotacoes.map(
+                  (item) => html`
+                    <article class="process-dossier-note" key=${item.id_anotacao}>
+                      <div>
+                        <strong>${item.nome_candidato || 'Processo geral'}</strong>
+                        <small>
+                          ${formatarDataHora(item.atualizado_em || item.criado_em)}
+                          ${item.usuario_responsavel
+                            ? ` • ${item.usuario_responsavel}`
+                            : ''}
+                        </small>
+                      </div>
+                      <p>${item.texto}</p>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        onClick=${() => onEditarAnotacao(item)}
+                      >
+                        Editar
+                      </button>
+                    </article>
+                  `,
+                )
+              : html`
+                  <div class="c24-empty-state">
+                    <span class="material-symbols-outlined">edit_note</span>
+                    <h3>Nenhuma anotação registrada para este processo.</h3>
+                    <p>Use o campo ao lado para registrar contexto administrativo.</p>
+                  </div>
+                `}
+          </div>
+        </div>
+      </section>
+    </div>
   `;
 }
 
@@ -2380,6 +2939,29 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [emailsRecebidos, setEmailsRecebidos] = useState([]);
   const [statusEmailRecebido, setStatusEmailRecebido] = useState(null);
   const [avisosSecoes, setAvisosSecoes] = useState({});
+  const [anotacoesDossie, setAnotacoesDossie] = useState([]);
+  const [analiseDossie, setAnaliseDossie] = useState(null);
+  const [erroDossie, setErroDossie] = useState('');
+  const [mensagemDossie, setMensagemDossie] = useState('');
+  const [salvandoAnotacaoDossie, setSalvandoAnotacaoDossie] = useState(false);
+  const [anotacaoDossieEditandoId, setAnotacaoDossieEditandoId] = useState('');
+  const [formularioAnotacaoDossie, setFormularioAnotacaoDossie] = useState({
+    id_teste: '',
+    nome_candidato: '',
+    texto: '',
+  });
+  const [filtrosDossie, setFiltrosDossie] = useState({
+    processo: '',
+    candidato: '',
+    data: '',
+    etapa: '',
+    classificacao: '',
+    status: '',
+    notaMin: '',
+    notaMax: '',
+    scoreMin: '',
+    scoreMax: '',
+  });
   const [carregandoEmails, setCarregandoEmails] = useState(false);
   const [analisandoEmailUid, setAnalisandoEmailUid] = useState('');
   const [arquivoCv, setArquivoCv] = useState(null);
@@ -2390,8 +2972,6 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [formularioCandidato, setFormularioCandidato] = useState(
     montarFormularioCandidato(null),
   );
-  const [detalheCandidatoSelecionado, setDetalheCandidatoSelecionado] =
-    useState(null);
   const [fichaCandidatoSelecionada, setFichaCandidatoSelecionada] =
     useState(null);
   const [formularioFichaCandidato, setFormularioFichaCandidato] = useState(
@@ -2459,6 +3039,7 @@ export function TelaDetalhesProcesso({ controlador }) {
     paginaPublica: false,
     recebimentoEmail: true,
     candidatosInscritos: true,
+    dossieProcesso: true,
     preAnaliseCv: true,
     candidatosProcesso: true,
     candidatosAprovados: true,
@@ -2479,6 +3060,13 @@ export function TelaDetalhesProcesso({ controlador }) {
     const timeout = window.setTimeout(() => setFeedbackLinkPublico(''), 3200);
     return () => window.clearTimeout(timeout);
   }, [feedbackLinkPublico]);
+
+  useEffect(() => {
+    if (!mensagemDossie) return undefined;
+
+    const timeout = window.setTimeout(() => setMensagemDossie(''), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [mensagemDossie]);
 
   useEffect(() => {
     if (!menuAcoesCandidatoAberto) return undefined;
@@ -2533,11 +3121,13 @@ export function TelaDetalhesProcesso({ controlador }) {
         resultadoPreAnalises,
         resultadoEntrevistas,
         resultadoSlots,
+        resultadoAnotacoesDossie,
       ] = await Promise.allSettled([
         lerDetalheProcesso(idProcesso),
         lerPreAnalisesCv(idProcesso, pagina, 5, filtrosCv),
         lerEntrevistas({ idProcesso }),
         lerSlotsEntrevista({ idProcesso }),
+        lerAnotacoesDossieProcesso(idProcesso),
       ]);
 
       if (resultadoDetalhe.status !== 'fulfilled') {
@@ -2555,6 +3145,10 @@ export function TelaDetalhesProcesso({ controlador }) {
           : [];
       const listaSlots =
         resultadoSlots.status === 'fulfilled' ? resultadoSlots.value : [];
+      const listaAnotacoesDossie =
+        resultadoAnotacoesDossie.status === 'fulfilled'
+          ? resultadoAnotacoesDossie.value
+          : [];
       const novosAvisos = {};
 
       if (resultadoPreAnalises.status !== 'fulfilled') {
@@ -2574,6 +3168,15 @@ export function TelaDetalhesProcesso({ controlador }) {
         novosAvisos.entrevistas =
           novosAvisos.entrevistas ||
           'Não foi possível carregar os horários de entrevista agora.';
+      }
+
+      if (resultadoAnotacoesDossie.status !== 'fulfilled') {
+        console.error(
+          'Erro ao carregar anotações do dossiê.',
+          resultadoAnotacoesDossie.reason,
+        );
+        novosAvisos.dossieProcesso =
+          'Não foi possível carregar as anotações do dossiê agora.';
       }
 
       if (detalhe?.processo) {
@@ -2615,6 +3218,9 @@ export function TelaDetalhesProcesso({ controlador }) {
       );
       setEntrevistas(Array.isArray(listaEntrevistas) ? listaEntrevistas : []);
       setSlotsEntrevista(Array.isArray(listaSlots) ? listaSlots : []);
+      setAnotacoesDossie(
+        Array.isArray(listaAnotacoesDossie) ? listaAnotacoesDossie : [],
+      );
       setAvisosSecoes(novosAvisos);
     } catch (error) {
       setErro(
@@ -2770,6 +3376,18 @@ export function TelaDetalhesProcesso({ controlador }) {
       ),
     [candidatosAprovados, paginaCandidatosAprovados],
   );
+  const candidatosDossie = useMemo(
+    () => montarCandidatosDossie(candidatosComFluxo, entrevistas),
+    [candidatosComFluxo, entrevistas],
+  );
+  const candidatosDossieFiltrados = useMemo(
+    () => filtrarCandidatosDossie(candidatosDossie, filtrosDossie),
+    [candidatosDossie, filtrosDossie],
+  );
+  const estatisticasDossie = useMemo(
+    () => calcularEstatisticasDossie(candidatosDossieFiltrados),
+    [candidatosDossieFiltrados],
+  );
 
   useEffect(() => {
     setPaginaCandidatosProcesso(1);
@@ -2778,6 +3396,23 @@ export function TelaDetalhesProcesso({ controlador }) {
   useEffect(() => {
     setPaginaCandidatosAprovados(1);
   }, [candidatosAprovados.length]);
+
+  useEffect(() => {
+    let ativo = true;
+
+    gerarAnaliseInteligenteProcesso({
+      processo,
+      candidatos: candidatosDossieFiltrados,
+      anotacoes: anotacoesDossie,
+      gerado_em: new Date().toISOString(),
+    }).then((resultado) => {
+      if (ativo) setAnaliseDossie(resultado);
+    });
+
+    return () => {
+      ativo = false;
+    };
+  }, [processo, candidatosDossieFiltrados, anotacoesDossie]);
 
   const encontrarAnaliseDoInscrito = (candidato) =>
     preAnalises.find((item) => {
@@ -3456,6 +4091,118 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
   };
 
+  const atualizarFiltroDossie = (campo, valor) => {
+    setFiltrosDossie((anteriores) => ({
+      ...anteriores,
+      [campo]: valor,
+    }));
+  };
+
+  const limparFiltrosDossie = () => {
+    setFiltrosDossie({
+      processo: '',
+      candidato: '',
+      data: '',
+      etapa: '',
+      classificacao: '',
+      status: '',
+      notaMin: '',
+      notaMax: '',
+      scoreMin: '',
+      scoreMax: '',
+    });
+  };
+
+  const recarregarAnotacoesDossie = async () => {
+    const referencia = obterReferenciaProcesso(processo) || idProcesso;
+    if (!referencia) return;
+    const lista = await lerAnotacoesDossieProcesso(referencia);
+    setAnotacoesDossie(Array.isArray(lista) ? lista : []);
+  };
+
+  const atualizarCampoAnotacaoDossie = (campo, valor) => {
+    setFormularioAnotacaoDossie((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
+    setErroDossie('');
+    setMensagemDossie('');
+  };
+
+  const selecionarCandidatoAnotacaoDossie = (idTeste) => {
+    const candidato = candidatosDossie.find(
+      (item) =>
+        String(item.id_teste || item.id || '').trim() ===
+        String(idTeste || '').trim(),
+    );
+    setFormularioAnotacaoDossie((anterior) => ({
+      ...anterior,
+      id_teste: idTeste,
+      nome_candidato: candidato?.nome || '',
+    }));
+    setErroDossie('');
+  };
+
+  const cancelarEdicaoAnotacaoDossie = () => {
+    setAnotacaoDossieEditandoId('');
+    setFormularioAnotacaoDossie({
+      id_teste: '',
+      nome_candidato: '',
+      texto: '',
+    });
+    setErroDossie('');
+  };
+
+  const editarAnotacaoDossie = (anotacao) => {
+    setAnotacaoDossieEditandoId(String(anotacao?.id_anotacao || ''));
+    setFormularioAnotacaoDossie({
+      id_teste: anotacao?.id_teste || '',
+      nome_candidato: anotacao?.nome_candidato || '',
+      texto: anotacao?.texto || '',
+    });
+    setErroDossie('');
+    setMensagemDossie('');
+  };
+
+  const salvarAnotacaoDossie = async () => {
+    const texto = String(formularioAnotacaoDossie.texto || '').trim();
+    if (!texto) {
+      setErroDossie('Informe uma anotação antes de salvar.');
+      return;
+    }
+
+    const referencia = obterReferenciaProcesso(processo) || idProcesso;
+    if (!referencia) {
+      setErroDossie('Processo não identificado para salvar a anotação.');
+      return;
+    }
+
+    setSalvandoAnotacaoDossie(true);
+    setErroDossie('');
+    setMensagemDossie('');
+
+    try {
+      if (anotacaoDossieEditandoId) {
+        await atualizarAnotacaoDossieProcesso(anotacaoDossieEditandoId, {
+          texto,
+        });
+      } else {
+        await criarAnotacaoDossieProcesso(referencia, {
+          id_teste: formularioAnotacaoDossie.id_teste,
+          nome_candidato: formularioAnotacaoDossie.nome_candidato,
+          texto,
+        });
+      }
+      cancelarEdicaoAnotacaoDossie();
+      await recarregarAnotacoesDossie();
+      setMensagemDossie('Anotação salva no dossiê.');
+    } catch (error) {
+      setErroDossie(error?.message || 'Não foi possível salvar a anotação do dossiê.');
+    } finally {
+      setSalvandoAnotacaoDossie(false);
+    }
+  };
+
   const analisarCvDoEmail = async (emailItem, anexo = null) => {
     if (processoEncerrado) {
       setErro('O processo seletivo está encerrado e não permite novas movimentações.');
@@ -3889,6 +4636,40 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         />
       </div>
 
+      <${SecaoDetalheExpansivel}
+        aberto=${secoesExpandidas.dossieProcesso}
+        titulo="Dossiê do Processo"
+        description="Visão administrativa e analítica para comparar candidatos, registrar observações e preparar análise inteligente."
+        className="process-dossier-section"
+        tourId="process-dossier"
+        onToggle=${() => alternarSecao('dossieProcesso')}
+      >
+        ${avisosSecoes.dossieProcesso
+          ? html`<div class="alert alert-warning">${avisosSecoes.dossieProcesso}</div>`
+          : null}
+        <${DossieProcesso}
+          processo=${processo}
+          candidatos=${candidatosDossie}
+          candidatosFiltrados=${candidatosDossieFiltrados}
+          estatisticas=${estatisticasDossie}
+          filtros=${filtrosDossie}
+          onFiltroChange=${atualizarFiltroDossie}
+          onLimparFiltros=${limparFiltrosDossie}
+          analise=${analiseDossie}
+          anotacoes=${anotacoesDossie}
+          formularioAnotacao=${formularioAnotacaoDossie}
+          anotacaoEditandoId=${anotacaoDossieEditandoId}
+          salvandoAnotacao=${salvandoAnotacaoDossie}
+          erro=${erroDossie}
+          mensagem=${mensagemDossie}
+          onChangeAnotacao=${atualizarCampoAnotacaoDossie}
+          onSelecionarCandidatoAnotacao=${selecionarCandidatoAnotacaoDossie}
+          onSalvarAnotacao=${salvarAnotacaoDossie}
+          onEditarAnotacao=${editarAnotacaoDossie}
+          onCancelarEdicao=${cancelarEdicaoAnotacaoDossie}
+        />
+      </${SecaoDetalheExpansivel}>
+
       ${EXIBIR_PAGINA_PUBLICA_CANDIDATURA
       ? html`<${SecaoDetalheExpansivel}
         aberto=${secoesExpandidas.paginaPublica}
@@ -4082,7 +4863,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       >
         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
           <div class="text-muted small">
-            Endereco monitorado:
+            Endereço monitorado:
             ${statusEmailRecebido?.email_address || 'posilvahp7@gmail.com'}
           </div>
           <button
@@ -4146,7 +4927,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
               ? html`
                                 <div>${emailItem.nome_anexo || 'Anexo recebido'}</div>
                                 <div class="small text-muted">
-                                  ${anexosCv.length ? 'CV compativel' : 'Sem anexo de CV compativel'}
+                                  ${anexosCv.length ? 'CV compatível' : 'Sem anexo de CV compatível'}
                                 </div>
                               `
               : 'Sem anexo'}
@@ -4325,45 +5106,39 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         ${avisosSecoes.preAnaliseCv
       ? html`<div class="alert alert-warning">${avisosSecoes.preAnaliseCv}</div>`
       : null}
-        <div class="row g-3 align-items-end">
-          <div class="col-md-6">
+        <div class="process-cv-upload-row">
+          <div class="process-cv-upload-field">
             <label class="form-label">Adicionar CV</label>
             <input
               type="file"
-              class="form-control"
+              class="form-control form-control-sm"
               accept=".pdf,.doc,.docx"
               disabled=${processoEncerrado || analisandoCv}
               onChange=${(event) => setArquivoCv(event.target.files?.[0] || null)}
             />
           </div>
-          <div class="col-md-3">
-            <div class="form-check mt-4">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="guardarCvOriginal"
-                checked=${guardarCvOriginal}
-                onChange=${(event) => setGuardarCvOriginal(!!event.target.checked)}
-              />
-              <label class="form-check-label" for="guardarCvOriginal">
-                Guardar CV original
-              </label>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <button
-              type="button"
-              class="btn btn-primary w-100"
-              onClick=${enviarCv}
-              disabled=${processoEncerrado || analisandoCv}
-            >
-              ${processoEncerrado
+          <label class="form-check process-cv-keep-original">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="guardarCvOriginal"
+              checked=${guardarCvOriginal}
+              onChange=${(event) => setGuardarCvOriginal(!!event.target.checked)}
+            />
+            <span class="form-check-label">Guardar CV original</span>
+          </label>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm process-cv-action-btn"
+            onClick=${enviarCv}
+            disabled=${processoEncerrado || analisandoCv}
+          >
+            ${processoEncerrado
       ? 'Processo encerrado'
       : analisandoCv
         ? 'Analisando...'
         : 'Analisar CV'}
-            </button>
-          </div>
+          </button>
         </div>
 
         <div class="rh-filter-grid rh-filter-grid--wide mt-4">
@@ -4804,18 +5579,13 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                     <div class="approved-candidate-actions">
                       <button
                         type="button"
-                        class="btn btn-sm btn-outline-dark"
+                        class="btn btn-sm btn-outline-primary"
                         disabled=${carregandoFichaCandidato === String(candidato.id_teste || '')}
                         onClick=${() => abrirFichaCandidato(candidato)}
                       >
-                        Ficha
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-outline-primary"
-                        onClick=${() => setDetalheCandidatoSelecionado(candidato)}
-                      >
-                        Detalhes
+                        ${carregandoFichaCandidato === String(candidato.id_teste || '')
+                          ? 'Abrindo...'
+                          : 'Detalhes'}
                       </button>
                       ${candidatoTemProvaSalva(candidato)
                         ? html`
@@ -5197,88 +5967,6 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       />
 
       <${ModalPadrao}
-        aberto=${!!detalheCandidatoSelecionado}
-        titulo=${`Detalhes do candidato | ${detalheCandidatoSelecionado?.nome_candidato || 'Candidato'}`}
-        subtitulo="Consulta administrativa do candidato no processo."
-        onClose=${() => setDetalheCandidatoSelecionado(null)}
-      >
-        ${detalheCandidatoSelecionado
-      ? html`
-              <div class="rh-details-body">
-                <${MetricGrid}
-                  items=${[
-          {
-            label: 'Nome',
-            value: detalheCandidatoSelecionado.nome_candidato || '-',
-          },
-          {
-            label: 'E-mail',
-            value: detalheCandidatoSelecionado.email || '-',
-          },
-          {
-            label: 'Telefone',
-            value:
-              detalheCandidatoSelecionado.whatsapp ||
-              detalheCandidatoSelecionado.telefone ||
-              '-',
-          },
-          {
-            label: 'Status',
-            value: detalheCandidatoSelecionado.status_fluxo || '-',
-          },
-          ...(canonicalizeCandidateStatus(
-            detalheCandidatoSelecionado.status_fluxo ||
-              detalheCandidatoSelecionado.status_candidato,
-          ) === CANDIDATE_STATUS_ELIMINATED
-            ? [
-                {
-                  label: 'Motivo da eliminação',
-                  value: obterMotivoEliminacao(detalheCandidatoSelecionado),
-                },
-                {
-                  label: 'Etapa da eliminação',
-                  value: detalheCandidatoSelecionado.etapa_eliminacao || '-',
-                },
-                {
-                  label: 'Data da eliminação',
-                  value: formatarDataHora(
-                    detalheCandidatoSelecionado.data_eliminacao ||
-                      detalheCandidatoSelecionado.eliminado_em,
-                  ),
-                },
-              ]
-            : []),
-          {
-            label: 'Nota',
-            value:
-              obterNotaProvaCandidato(detalheCandidatoSelecionado) ||
-              'Sem prova',
-          },
-          {
-            label: 'Aprovação',
-            value: formatarDataHora(
-              detalheCandidatoSelecionado.aprovado_em ||
-              detalheCandidatoSelecionado.data_aprovacao ||
-              detalheCandidatoSelecionado.data_atualizacao_pipeline,
-            ),
-          },
-        ]}
-                />
-              </div>
-              <footer class="rh-modal-footer">
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  onClick=${() => setDetalheCandidatoSelecionado(null)}
-                >
-                  Fechar
-                </button>
-              </footer>
-            `
-      : null}
-      </${ModalPadrao}>
-
-      <${ModalPadrao}
         aberto=${!!candidatoEditando}
         titulo=${`Editar candidato | ${candidatoEditando?.nome_candidato || 'Candidato'}`}
         subtitulo="Atualize dados cadastrais sem alterar o vínculo com o processo."
@@ -5378,7 +6066,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
 
       <${ModalPadrao}
         aberto=${!!preAnaliseSelecionada}
-        titulo="Editar pre-cadastro"
+        titulo="Editar pré-cadastro"
         subtitulo="Ajuste as informações extraídas do CV antes de seguir."
         onClose=${() => setPreAnaliseSelecionada(null)}
       >

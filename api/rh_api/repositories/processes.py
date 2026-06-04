@@ -28,6 +28,7 @@ from ..services.process_flow import (
 )
 from .bootstrap import (
     build_process_where_clause,
+    ensure_process_dossier_notes_table,
     ensure_pipeline_columns,
     ensure_process_columns,
     ensure_process_reference_columns,
@@ -651,6 +652,176 @@ class ProcessRepositoryMixin:
             return {"success": True}
         finally:
             conn.close()
+
+    def list_process_dossier_notes(self, id_processo: str) -> list[dict]:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_dossier_notes_table(cursor)
+            ensure_process_reference_columns(cursor)
+            processo = get_process_row(cursor, id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
+
+            process_ref = normalize_text(processo.get("id_processo_ref"))
+            cursor.execute(
+                """
+                SELECT
+                    id_anotacao,
+                    id_processo,
+                    id_processo_ref,
+                    id_teste,
+                    nome_candidato,
+                    texto,
+                    usuario_responsavel,
+                    criado_em,
+                    atualizado_em
+                FROM processos_dossie_anotacoes
+                WHERE id_processo = ?
+                  AND ISNULL(id_processo_ref, '') = ?
+                ORDER BY atualizado_em DESC, id_anotacao DESC
+                """,
+                (processo.get("id_processo"), process_ref),
+            )
+            return rows_to_dicts(cursor, cursor.fetchall())
+        finally:
+            conn.close()
+
+    def create_process_dossier_note(
+        self,
+        id_processo: str,
+        data: dict,
+        *,
+        usuario_responsavel: str = "",
+    ) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_dossier_notes_table(cursor)
+            ensure_process_reference_columns(cursor)
+            processo = get_process_row(cursor, id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
+
+            id_teste = normalize_text(data.get("id_teste"))
+            nome_candidato = normalize_text(data.get("nome_candidato"))
+            if id_teste and not nome_candidato:
+                cursor.execute(
+                    """
+                    SELECT TOP 1 nome_candidato
+                    FROM candidatos_processos
+                    WHERE id_teste = ?
+                    ORDER BY id_registro DESC
+                    """,
+                    (id_teste,),
+                )
+                row = cursor.fetchone()
+                nome_candidato = normalize_text(row[0] if row else "")
+
+            cursor.execute(
+                """
+                INSERT INTO processos_dossie_anotacoes
+                (
+                    id_processo,
+                    id_processo_ref,
+                    id_teste,
+                    nome_candidato,
+                    texto,
+                    usuario_responsavel,
+                    criado_em,
+                    atualizado_em
+                )
+                OUTPUT INSERTED.id_anotacao
+                VALUES (?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                """,
+                (
+                    processo.get("id_processo"),
+                    normalize_text(processo.get("id_processo_ref")),
+                    id_teste,
+                    nome_candidato,
+                    normalize_text(data.get("texto")),
+                    normalize_text(usuario_responsavel),
+                ),
+            )
+            inserted = cursor.fetchone()
+            note_id = int(inserted[0] or 0)
+            conn.commit()
+        finally:
+            conn.close()
+
+        return self.get_process_dossier_note(note_id)
+
+    def get_process_dossier_note(self, id_anotacao: int) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_dossier_notes_table(cursor)
+            cursor.execute(
+                """
+                SELECT
+                    id_anotacao,
+                    id_processo,
+                    id_processo_ref,
+                    id_teste,
+                    nome_candidato,
+                    texto,
+                    usuario_responsavel,
+                    criado_em,
+                    atualizado_em
+                FROM processos_dossie_anotacoes
+                WHERE id_anotacao = ?
+                """,
+                (int(id_anotacao or 0),),
+            )
+            rows = rows_to_dicts(cursor, cursor.fetchall())
+            if not rows:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anotação do dossiê não encontrada.")
+            return rows[0]
+        finally:
+            conn.close()
+
+    def update_process_dossier_note(
+        self,
+        id_anotacao: int,
+        data: dict,
+        *,
+        usuario_responsavel: str = "",
+    ) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_dossier_notes_table(cursor)
+            cursor.execute(
+                """
+                SELECT id_anotacao
+                FROM processos_dossie_anotacoes
+                WHERE id_anotacao = ?
+                """,
+                (int(id_anotacao or 0),),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anotação do dossiê não encontrada.")
+
+            cursor.execute(
+                """
+                UPDATE processos_dossie_anotacoes
+                SET
+                    texto = ?,
+                    usuario_responsavel = COALESCE(NULLIF(?, ''), usuario_responsavel),
+                    atualizado_em = GETDATE()
+                WHERE id_anotacao = ?
+                """,
+                (
+                    normalize_text(data.get("texto")),
+                    normalize_text(usuario_responsavel),
+                    int(id_anotacao or 0),
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return self.get_process_dossier_note(id_anotacao)
 
     def get_process_details(self, id_processo: str) -> dict:
         def operation() -> dict:

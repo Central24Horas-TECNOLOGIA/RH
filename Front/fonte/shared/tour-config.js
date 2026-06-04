@@ -237,7 +237,7 @@ export function obterTourDaTela(screenId, { hasPrimaryAction = false } = {}) {
       target: montarSeletor(screenId, 'layout-sidebar'),
       title: 'Menu lateral',
       text:
-        'Navegue entre os modulos principais do RH sem perder a sessao nem o contexto operacional.',
+        'Navegue entre os módulos principais do RH sem perder a sessão nem o contexto operacional.',
     },
     {
       target: montarSeletor(screenId, 'topbar-search'),

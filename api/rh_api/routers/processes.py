@@ -10,6 +10,8 @@ from ..schemas.processes import (
     CandidateProfileUpdateRequest,
     CandidateSheetUpdateRequest,
     CvPreAnalysisUpdateRequest,
+    ProcessDossierNoteCreateRequest,
+    ProcessDossierNoteUpdateRequest,
     ProcessCandidateCreateRequest,
     ProcessCandidateStatusUpdateRequest,
     ProcessCreateRequest,
@@ -330,6 +332,62 @@ def get_process_details(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.get_process_details(id_processo)
+
+
+@router.get("/processes/{id_processo}/dossier/notes", dependencies=[Depends(require_permissions("processos.visualizar", "relatorios.visualizar"))])
+def list_process_dossier_notes(
+    id_processo: str,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.list_process_dossier_notes(id_processo)
+
+
+@router.post("/processes/{id_processo}/dossier/notes", dependencies=[Depends(require_permissions("candidatos.editar", "candidatos.editar_basico", "processos.editar"))])
+def create_process_dossier_note(
+    id_processo: str,
+    payload: ProcessDossierNoteCreateRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.create_process_dossier_note(
+        id_processo,
+        payload.model_dump(),
+        usuario_responsavel=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Processos",
+        acao="criar_anotacao_dossie",
+        entidade="processo",
+        entidade_id=id_processo,
+        valor_novo=payload.model_dump(),
+    )
+    return result
+
+
+@router.put("/process-dossier-notes/{id_anotacao}", dependencies=[Depends(require_permissions("candidatos.editar", "candidatos.editar_basico", "processos.editar"))])
+def update_process_dossier_note(
+    id_anotacao: int,
+    payload: ProcessDossierNoteUpdateRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.update_process_dossier_note(
+        id_anotacao,
+        payload.model_dump(),
+        usuario_responsavel=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Processos",
+        acao="editar_anotacao_dossie",
+        entidade="processos_dossie_anotacoes",
+        entidade_id=str(id_anotacao),
+        valor_novo=payload.model_dump(),
+    )
+    return result
 
 
 @router.get("/email-inbox", dependencies=[Depends(require_permissions("candidatos.visualizar"))])

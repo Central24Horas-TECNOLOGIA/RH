@@ -13,6 +13,7 @@ import {
   analisarCvEmailRecebido,
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
+  atualizarAnotacaoDossieProcesso,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
@@ -24,6 +25,7 @@ import {
   baixarAnexoEmailRecebido,
   baixarCvCandidato,
   criarCandidatoNoProcesso,
+  criarAnotacaoDossieProcesso,
   criarCardPipeline,
   criarSlotsEntrevista,
   criarProcesso,
@@ -43,6 +45,7 @@ import {
   baixarRelatorioProcessos,
   ignorarEmailRecebido,
   lerAnalisesCandidatos,
+  lerAnotacoesDossieProcesso,
   lerArquivosResposta,
   lerBancoTalentos,
   lerCandidatosProcessos,
@@ -143,6 +146,15 @@ export const PERMISSOES_TELAS = {
 };
 const logger = criarLogger('controlador-aplicacao');
 
+function validarEmailContatoCandidato(email) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email || '').trim());
+}
+
+function validarWhatsappContatoCandidato(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  return digitos.length >= 10 && digitos.length <= 13;
+}
+
 /**
  * @typedef {import('../types/models').ApplicationState} ApplicationState
  */
@@ -174,6 +186,9 @@ export function criarEstadoInicial() {
       track: '',
       time: 40,
       name: '',
+      email: '',
+      whatsapp: '',
+      contatoConfirmado: false,
     },
     processoSelecionado: '',
     personalizacaoProva: {
@@ -844,6 +859,9 @@ export function useControladorAplicacao() {
         track: '',
         time: 40,
         name: '',
+        email: '',
+        whatsapp: '',
+        contatoConfirmado: false,
       },
       processoSelecionado: '',
       personalizacaoProva: {
@@ -906,6 +924,13 @@ export function useControladorAplicacao() {
         track: track || 'automatico',
         name:
           scheduledCandidate?.nome_candidato || anterior.candidato.name || '',
+        email: scheduledCandidate?.email || anterior.candidato.email || '',
+        whatsapp:
+          scheduledCandidate?.whatsapp ||
+          scheduledCandidate?.telefone ||
+          anterior.candidato.whatsapp ||
+          '',
+        contatoConfirmado: false,
       },
       processoSelecionado: resolvedProcessRef,
       personalizacaoProva: personalizacaoProva || {
@@ -925,16 +950,126 @@ export function useControladorAplicacao() {
       candidato: {
         ...anterior.candidato,
         name,
+        contatoConfirmado: false,
       },
     }));
   };
 
-  const iniciarProva = (nomeCandidato) => {
+  const atualizarDadosContatoCandidato = (dadosContato = {}) => {
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      candidato: {
+        ...anterior.candidato,
+        name:
+          dadosContato.name !== undefined
+            ? dadosContato.name
+            : anterior.candidato.name,
+        email:
+          dadosContato.email !== undefined
+            ? dadosContato.email
+            : anterior.candidato.email,
+        whatsapp:
+          dadosContato.whatsapp !== undefined
+            ? dadosContato.whatsapp
+            : anterior.candidato.whatsapp,
+        contatoConfirmado: false,
+      },
+    }));
+  };
+
+  const confirmarDadosContatoCandidato = async (dadosContato = {}) => {
+    const nome = String(
+      dadosContato.name !== undefined
+        ? dadosContato.name
+        : estado.candidato.name || '',
+    ).trim();
+    const email = String(
+      dadosContato.email !== undefined
+        ? dadosContato.email
+        : estado.candidato.email || '',
+    ).trim();
+    const whatsapp = String(
+      dadosContato.whatsapp !== undefined
+        ? dadosContato.whatsapp
+        : estado.candidato.whatsapp || '',
+    ).trim();
+
+    if (!nome) {
+      return {
+        ok: false,
+        mensagem: 'Informe o nome do candidato para iniciar a prova.',
+      };
+    }
+    if (!validarEmailContatoCandidato(email)) {
+      return {
+        ok: false,
+        mensagem: 'Informe um e-mail válido antes de iniciar a prova.',
+      };
+    }
+    if (!validarWhatsappContatoCandidato(whatsapp)) {
+      return {
+        ok: false,
+        mensagem: 'Informe um WhatsApp válido antes de iniciar a prova.',
+      };
+    }
+
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      candidato: {
+        ...anterior.candidato,
+        name: nome,
+        email,
+        whatsapp,
+        contatoConfirmado: true,
+      },
+    }));
+
+    if (estado.candidato.id_teste) {
+      await atualizarFichaCandidato(estado.candidato.id_teste, {
+        nome_candidato: nome,
+        email,
+        whatsapp,
+        telefone: whatsapp,
+      });
+    }
+
+    return { ok: true, dados: { name: nome, email, whatsapp } };
+  };
+
+  const iniciarProva = (nomeCandidato, dadosContatoConfirmados = null) => {
     const nome = String(nomeCandidato || '').trim();
+    const email = String(
+      dadosContatoConfirmados?.email ?? estado.candidato.email ?? '',
+    ).trim();
+    const whatsapp = String(
+      dadosContatoConfirmados?.whatsapp ?? estado.candidato.whatsapp ?? '',
+    ).trim();
+    const contatoConfirmado =
+      Boolean(dadosContatoConfirmados) ||
+      Boolean(estado.candidato.contatoConfirmado);
+
     if (!nome || !blueprint) {
       return {
         ok: false,
         mensagem: 'Informe o nome do candidato para iniciar a prova.',
+      };
+    }
+    if (!contatoConfirmado) {
+      return {
+        ok: false,
+        mensagem: 'Confirme nome, e-mail e WhatsApp antes de iniciar a prova.',
+      };
+    }
+    if (!validarEmailContatoCandidato(email)) {
+      return {
+        ok: false,
+        mensagem: 'Informe um e-mail válido antes de iniciar a prova.',
+      };
+    }
+    if (!validarWhatsappContatoCandidato(whatsapp)) {
+      return {
+        ok: false,
+        mensagem: 'Informe um WhatsApp válido antes de iniciar a prova.',
       };
     }
 
@@ -953,6 +1088,9 @@ export function useControladorAplicacao() {
       candidato: {
         ...anterior.candidato,
         name: nome,
+        email,
+        whatsapp,
+        contatoConfirmado: true,
       },
       questoes,
       respostas: new Array(questoes.length).fill(null),
@@ -1191,6 +1329,22 @@ export function useControladorAplicacao() {
         });
       }
 
+      if (estado.candidato.email || estado.candidato.whatsapp) {
+        try {
+          await atualizarFichaCandidato(idResultado, {
+            nome_candidato: estado.candidato.name,
+            email: estado.candidato.email,
+            whatsapp: estado.candidato.whatsapp,
+            telefone: estado.candidato.whatsapp,
+          });
+        } catch (contactError) {
+          logger.warn(
+            'A prova foi salva, mas os dados de contato não foram sincronizados com a ficha.',
+            contactError,
+          );
+        }
+      }
+
       atualizarEstado((anterior) => ({
         ...anterior,
         idResultadoAtual: idResultado,
@@ -1251,6 +1405,8 @@ export function useControladorAplicacao() {
     iniciarNovoFluxo,
     configurarFluxo,
     atualizarNomeCandidato,
+    atualizarDadosContatoCandidato,
+    confirmarDadosContatoCandidato,
     iniciarProva,
     atualizarResposta,
     definirIndiceAtual,
@@ -1268,6 +1424,7 @@ export {
   analisarCvEmailRecebido,
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
+  atualizarAnotacaoDossieProcesso,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
@@ -1280,6 +1437,7 @@ export {
   baixarRelatorioCandidatos,
   baixarRelatorioProcessos,
   criarCardPipeline,
+  criarAnotacaoDossieProcesso,
   criarSlotsEntrevista,
   criarProcesso,
   desativarLinkPublicoCandidatura,
@@ -1293,6 +1451,7 @@ export {
   gerarLinkPublicoCandidatura,
   ignorarEmailRecebido,
   lerAnalisesCandidatos,
+  lerAnotacoesDossieProcesso,
   lerBancoTalentos,
   lerCandidatosProcessos,
   lerDetalheAnaliseCandidato,

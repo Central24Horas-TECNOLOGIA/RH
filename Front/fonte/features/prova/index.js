@@ -892,23 +892,55 @@ export function TelaConfiguracao({ controlador }) {
 
 export function TelaCandidato({ controlador }) {
   const [nome, setNome] = useState(controlador.estado.candidato.name || '');
+  const [email, setEmail] = useState(controlador.estado.candidato.email || '');
+  const [whatsapp, setWhatsapp] = useState(
+    controlador.estado.candidato.whatsapp || '',
+  );
   const [erro, setErro] = useState('');
+  const [salvandoContato, setSalvandoContato] = useState(false);
   const regrasCandidato = Array.isArray(controlador.regrasCandidato)
     ? controlador.regrasCandidato
     : [];
 
   useEffect(() => {
     setNome(controlador.estado.candidato.name || '');
-  }, [controlador.estado.candidato.name]);
+    setEmail(controlador.estado.candidato.email || '');
+    setWhatsapp(controlador.estado.candidato.whatsapp || '');
+  }, [
+    controlador.estado.candidato.name,
+    controlador.estado.candidato.email,
+    controlador.estado.candidato.whatsapp,
+  ]);
 
-  const iniciar = () => {
-    controlador.atualizarNomeCandidato(nome);
-    const resultado = controlador.iniciarProva(nome);
-    if (!resultado.ok) {
-      setErro(resultado.mensagem);
-      return;
-    }
+  const iniciar = async () => {
+    setSalvandoContato(true);
     setErro('');
+    try {
+      const dadosContato = { name: nome, email, whatsapp };
+      controlador.atualizarDadosContatoCandidato(dadosContato);
+      const confirmacao =
+        await controlador.confirmarDadosContatoCandidato(dadosContato);
+      if (!confirmacao.ok) {
+        setErro(confirmacao.mensagem);
+        return;
+      }
+
+      const resultado = controlador.iniciarProva(
+        confirmacao.dados.name,
+        confirmacao.dados,
+      );
+      if (!resultado.ok) {
+        setErro(resultado.mensagem);
+        return;
+      }
+    } catch (error) {
+      setErro(
+        error?.message ||
+          'Não foi possível confirmar seus dados. Verifique as informações e tente novamente.',
+      );
+    } finally {
+      setSalvandoContato(false);
+    }
   };
 
   return html`
@@ -916,6 +948,11 @@ export function TelaCandidato({ controlador }) {
       <div class="rh-standalone-page">
         <div class="rh-candidate-layout">
           <aside class="rh-candidate-side-card">
+            <h2 class="h5 fw-bold mb-2">Confirme seus dados</h2>
+            <p class="text-muted small mb-3">
+              Nome, e-mail e WhatsApp serão usados pelo RH para identificar sua
+              prova e acompanhar o processo seletivo.
+            </p>
             <label
               class="form-label small text-uppercase fw-bold text-muted mb-2"
             >
@@ -924,15 +961,64 @@ export function TelaCandidato({ controlador }) {
             <div class="rh-candidate-name-shell">
               <input
                 class="form-control rh-flow-input"
-                placeholder="Ex: Joao Augusto da Silva"
+                placeholder="Ex: João Augusto da Silva"
                 value=${nome}
                 onInput=${(event) => {
                   setNome(event.target.value);
-                  controlador.atualizarNomeCandidato(event.target.value);
+                  controlador.atualizarDadosContatoCandidato({
+                    name: event.target.value,
+                    email,
+                    whatsapp,
+                  });
                 }}
                 type="text"
               />
               <span class="material-symbols-outlined">badge</span>
+            </div>
+
+            <div class="rh-candidate-contact-grid">
+              <div>
+                <label
+                  class="form-label small text-uppercase fw-bold text-muted mb-2"
+                >
+                  E-mail
+                </label>
+                <input
+                  class="form-control rh-flow-input"
+                  placeholder="nome@email.com"
+                  value=${email}
+                  onInput=${(event) => {
+                    setEmail(event.target.value);
+                    controlador.atualizarDadosContatoCandidato({
+                      name: nome,
+                      email: event.target.value,
+                      whatsapp,
+                    });
+                  }}
+                  type="email"
+                />
+              </div>
+              <div>
+                <label
+                  class="form-label small text-uppercase fw-bold text-muted mb-2"
+                >
+                  WhatsApp
+                </label>
+                <input
+                  class="form-control rh-flow-input"
+                  placeholder="(11) 99999-9999"
+                  value=${whatsapp}
+                  onInput=${(event) => {
+                    setWhatsapp(event.target.value);
+                    controlador.atualizarDadosContatoCandidato({
+                      name: nome,
+                      email,
+                      whatsapp: event.target.value,
+                    });
+                  }}
+                  type="tel"
+                />
+              </div>
             </div>
 
             <div class="rh-candidate-summary-card mt-4">
@@ -961,7 +1047,8 @@ export function TelaCandidato({ controlador }) {
                 <h3>Antes de começar</h3>
                 <ul class="rules-list">
                   <li>
-                    Confira se o nome informado está correto antes de iniciar a avaliação.
+                    Confira se nome, e-mail e WhatsApp estão corretos antes de
+                    iniciar a avaliação.
                   </li>
                   <li>
                     Leia todas as orientações da tela e siga somente as instruções passadas pelo
@@ -987,15 +1074,6 @@ export function TelaCandidato({ controlador }) {
                     Caso perceba qualquer problema técnico antes do início, avise o responsável
                     pela aplicação imediatamente.
                   </li>
-                  <li>Leia atentamente cada questão.</li>
-                  <li>
-                    Em exercícios de Excel, baixe o arquivo e envie a versão
-                    respondida.
-                  </li>
-                  <li>
-                    O sistema registra automaticamente o andamento da prova.
-                  </li>
-                  <li>Revise as respostas sempre que possível.</li>
                 </ul>
               </article>
               <article class="rh-instruction-card">
@@ -1033,18 +1111,6 @@ export function TelaCandidato({ controlador }) {
                     Depois da finalização, o resultado ficará disponível apenas para análise
                     interna do RH.
                   </li>
-                  <li>
-                    Algumas etapas avaliam prática, raciocínio e organização.
-                  </li>
-                  <li>O cronômetro segue o tempo configurado pelo RH.</li>
-                  <li>
-                    Ao finalizar, o resultado fica disponível para análise
-                    interna.
-                  </li>
-                  <li>
-                    Se houver dificuldade técnica, avise o responsável pela
-                    aplicação.
-                  </li>
                 </ul>
               </article>
             </div>
@@ -1059,8 +1125,8 @@ export function TelaCandidato({ controlador }) {
               <div class="rh-candidate-disclaimer">
                 <span class="material-symbols-outlined">info</span>
                 <span>
-                    Ao iniciar, você confirma que leu e concorda com as
-                  orientações da avaliação.
+                  Ao iniciar, você confirma seus dados de contato e concorda
+                  com as orientações da avaliação.
                 </span>
               </div>
               <div class="d-flex gap-2 flex-wrap">
@@ -1076,8 +1142,9 @@ export function TelaCandidato({ controlador }) {
                   type="button"
                   class="btn btn-success btn-lg"
                   onClick=${iniciar}
+                  disabled=${salvandoContato}
                 >
-                  Iniciar prova
+                  ${salvandoContato ? 'Confirmando...' : 'Confirmar e iniciar prova'}
                 </button>
               </div>
             </div>

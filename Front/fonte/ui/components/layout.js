@@ -1,4 +1,4 @@
-import { html, useState } from '../../infraestrutura-react.js';
+import { html, useEffect, useState } from '../../infraestrutura-react.js';
 import { BuscaGlobalTopbar } from '../busca-global.js';
 import { obterTourDaTela } from '../../shared/tour-config.js';
 import { BotaoAjudaTour, TourGuiado } from '../tour-guiado.js';
@@ -227,6 +227,7 @@ function obterIniciaisUsuario(nome) {
 }
 
 function CartaoUsuarioTopo({ controlador }) {
+  const [aberto, setAberto] = useState(false);
   const estado = controlador?.estado || {};
   const nome =
     estado.nomeUsuarioAutenticado ||
@@ -249,30 +250,89 @@ function CartaoUsuarioTopo({ controlador }) {
     controlador?.possuiPermissao?.('configuracoes.visualizar') ||
     controlador?.podeAcessarTela?.('screen-settings');
 
+  useEffect(() => {
+    if (!aberto) return undefined;
+
+    const fecharAoClicarFora = (event) => {
+      if (event.target?.closest?.('.c24-user-menu-wrap')) return;
+      setAberto(false);
+    };
+    const fecharNoEscape = (event) => {
+      if (event.key === 'Escape') setAberto(false);
+    };
+
+    document.addEventListener('click', fecharAoClicarFora);
+    document.addEventListener('keydown', fecharNoEscape);
+    return () => {
+      document.removeEventListener('click', fecharAoClicarFora);
+      document.removeEventListener('keydown', fecharNoEscape);
+    };
+  }, [aberto]);
+
   return html`
-    <button
-      type="button"
-      class="c24-user-menu"
-      title="Perfil do usuário"
-      aria-label=${`Perfil do usuário ${nome}`}
-      onClick=${podeAbrirPerfil
-        ? () => controlador.irParaTelaProtegida('screen-settings')
-        : undefined}
-    >
-      <span class="c24-user-avatar">
-        ${avatar
-          ? html`<img src=${avatar} alt="" />`
-          : html`<span>${obterIniciaisUsuario(nome)}</span>`}
-        <i aria-hidden="true"></i>
-      </span>
-      <span class="c24-user-copy">
-        <strong>${nome}</strong>
-        <small>${perfil}</small>
-      </span>
-      <span class="material-symbols-outlined c24-user-chevron">
-        expand_more
-      </span>
-    </button>
+    <div class="c24-user-menu-wrap">
+      <button
+        type="button"
+        class="c24-user-menu"
+        title="Perfil do usuário"
+        aria-label=${`Abrir menu do perfil de ${nome}`}
+        aria-haspopup="menu"
+        aria-expanded=${aberto}
+        onClick=${(event) => {
+          event.stopPropagation();
+          setAberto((valor) => !valor);
+        }}
+      >
+        <span class="c24-user-avatar">
+          ${avatar
+            ? html`<img src=${avatar} alt="" />`
+            : html`<span>${obterIniciaisUsuario(nome)}</span>`}
+          <i aria-hidden="true"></i>
+        </span>
+        <span class="c24-user-copy">
+          <strong>${nome}</strong>
+          <small>${perfil}</small>
+        </span>
+        <span class="material-symbols-outlined c24-user-chevron">
+          ${aberto ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+
+      ${aberto
+        ? html`
+            <div class="c24-user-dropdown" role="menu">
+              ${podeAbrirPerfil
+                ? html`
+                    <button
+                      type="button"
+                      role="menuitem"
+                      class="c24-user-dropdown-item"
+                      onClick=${() => {
+                        setAberto(false);
+                        controlador.irParaTelaProtegida('screen-settings');
+                      }}
+                    >
+                      <span class="material-symbols-outlined">settings</span>
+                      Configurações
+                    </button>
+                  `
+                : null}
+              <button
+                type="button"
+                role="menuitem"
+                class="c24-user-dropdown-item is-danger"
+                onClick=${() => {
+                  setAberto(false);
+                  controlador.sair();
+                }}
+              >
+                <span class="material-symbols-outlined">logout</span>
+                Sair
+              </button>
+            </div>
+          `
+        : null}
+    </div>
   `;
 }
 

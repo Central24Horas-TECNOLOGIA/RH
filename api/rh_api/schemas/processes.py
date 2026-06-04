@@ -123,6 +123,44 @@ class ProcessUpdateRequest(BaseSchema):
         return self
 
 
+class ProcessDossierNoteCreateRequest(BaseSchema):
+    id_teste: str = ""
+    nome_candidato: str = ""
+    texto: str = ""
+
+    @field_validator("texto")
+    @classmethod
+    def validate_note_text(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            raise ValueError("Informe a anotação do dossiê.")
+        if len(safe_value) > 3000:
+            raise ValueError("A anotação do dossiê deve ter no máximo 3000 caracteres.")
+        return safe_value
+
+    @field_validator("id_teste", "nome_candidato")
+    @classmethod
+    def validate_note_reference(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 255:
+            raise ValueError("A referência da anotação é muito longa.")
+        return safe_value
+
+
+class ProcessDossierNoteUpdateRequest(BaseSchema):
+    texto: str = ""
+
+    @field_validator("texto")
+    @classmethod
+    def validate_note_text(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            raise ValueError("Informe a anotação do dossiê.")
+        if len(safe_value) > 3000:
+            raise ValueError("A anotação do dossiê deve ter no máximo 3000 caracteres.")
+        return safe_value
+
+
 class ProcessCandidateCreateRequest(BaseSchema):
     id_registro: int | None = None
     id_entrevista: int | None = None
@@ -209,7 +247,7 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
     def validate_elimination_text(cls, value: str) -> str:
         safe_value = str(value or "").strip()
         if len(safe_value) > 120:
-            raise ValueError("Os dados da eliminacao devem ter no maximo 120 caracteres.")
+            raise ValueError("Os dados da eliminação devem ter no máximo 120 caracteres.")
         return safe_value
 
 
@@ -378,7 +416,7 @@ class CandidateSheetUpdateRequest(BaseSchema):
             return value
         safe_value = str(value or "").strip()
         if len(safe_value) > 255:
-            raise ValueError("O nome do candidato deve ter no mÃ¡ximo 255 caracteres.")
+            raise ValueError("O nome do candidato deve ter no máximo 255 caracteres.")
         return safe_value
 
     @field_validator("email")
@@ -388,7 +426,7 @@ class CandidateSheetUpdateRequest(BaseSchema):
             return value
         safe_value = str(value or "").strip()
         if safe_value and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", safe_value):
-            raise ValueError("Informe um e-mail vÃ¡lido.")
+            raise ValueError("Informe um e-mail válido.")
         return safe_value
 
     @field_validator("telefone", "whatsapp")
@@ -399,7 +437,7 @@ class CandidateSheetUpdateRequest(BaseSchema):
         safe_value = str(value or "").strip()
         digits = re.sub(r"\D", "", safe_value)
         if safe_value and len(digits) not in (10, 11, 12, 13):
-            raise ValueError("Informe um telefone ou WhatsApp vÃ¡lido.")
+            raise ValueError("Informe um telefone ou WhatsApp válido.")
         return safe_value
 
     @field_validator("cidade", "bairro")
@@ -409,7 +447,7 @@ class CandidateSheetUpdateRequest(BaseSchema):
             return value
         safe_value = str(value or "").strip()
         if len(safe_value) > 120:
-            raise ValueError("Cidade e bairro devem ter no mÃ¡ximo 120 caracteres.")
+            raise ValueError("Cidade e bairro devem ter no máximo 120 caracteres.")
         return safe_value
 
     @field_validator("observacao_rh", "justificativa", "justificativa_indicacao")
@@ -419,7 +457,7 @@ class CandidateSheetUpdateRequest(BaseSchema):
             return value
         safe_value = str(value or "").strip()
         if len(safe_value) > 3000:
-            raise ValueError("Os textos da ficha devem ter no mÃ¡ximo 3000 caracteres.")
+            raise ValueError("Os textos da ficha devem ter no máximo 3000 caracteres.")
         return safe_value
 
     @field_validator("classificacao", "classificacao_indicacao")
@@ -436,5 +474,5 @@ class CandidateSheetUpdateRequest(BaseSchema):
             "contraindicado",
         }
         if _normalize_compare_value(safe_value) not in valid_values:
-            raise ValueError("ClassificaÃ§Ã£o da ficha do candidato invÃ¡lida.")
+            raise ValueError("Classificação da ficha do candidato inválida.")
         return safe_value

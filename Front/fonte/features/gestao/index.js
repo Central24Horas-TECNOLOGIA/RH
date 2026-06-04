@@ -1061,8 +1061,8 @@ export function TelaInicio({ controlador }) {
     >
       <${PageIntro}
         kicker="Painel principal"
-        title="Últimas provas salvas"
-        description="Acesso rápido aos registros mais recentes com histórico detalhado e download do pacote salvo."
+        title="Bem-vindo ao Conecta"
+        description="Acompanhe processos, candidatos e provas a partir dos atalhos e indicadores principais."
         actions=${html`
           <button
             type="button"

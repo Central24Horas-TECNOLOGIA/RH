@@ -943,6 +943,62 @@ def ensure_candidate_movements_table(cursor) -> None:
     )
 
 
+def ensure_process_dossier_notes_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.processos_dossie_anotacoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.processos_dossie_anotacoes (
+                id_anotacao INT IDENTITY(1,1) PRIMARY KEY,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                id_teste NVARCHAR(120) NULL,
+                nome_candidato NVARCHAR(255) NULL,
+                texto NVARCHAR(MAX) NULL,
+                usuario_responsavel NVARCHAR(180) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("id_teste", "NVARCHAR(120)"),
+        ("nome_candidato", "NVARCHAR(255)"),
+        ("texto", "NVARCHAR(MAX)"),
+        ("usuario_responsavel", "NVARCHAR(180)"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.processos_dossie_anotacoes', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.processos_dossie_anotacoes
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        UPDATE dbo.processos_dossie_anotacoes
+        SET criado_em = GETDATE()
+        WHERE criado_em IS NULL
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.processos_dossie_anotacoes
+        SET atualizado_em = criado_em
+        WHERE atualizado_em IS NULL
+        """
+    )
+
+
 def ensure_interviews_table(cursor) -> None:
     cursor.execute(
         """
@@ -1228,6 +1284,7 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_interviews_table(cursor)
             ensure_interview_slots_table(cursor)
             ensure_candidate_movements_table(cursor)
+            ensure_process_dossier_notes_table(cursor)
             ensure_process_reference_columns(cursor)
             ensure_decimal_process_columns(cursor)
         finally:

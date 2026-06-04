@@ -51,11 +51,18 @@ export type CandidateTrack =
 
 export interface Candidate {
   id_processo: string;
+  id_processo_ref?: string;
+  id_registro?: string;
+  id_entrevista?: string;
+  id_teste?: string;
   role: string;
   level: string;
   track: CandidateTrack | string;
   time: number;
   name: string;
+  email?: string;
+  whatsapp?: string;
+  contatoConfirmado?: boolean;
 }
 
 export interface Process {

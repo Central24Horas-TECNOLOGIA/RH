@@ -211,6 +211,41 @@ export async function lerDetalheProcesso(idProcesso) {
   });
 }
 
+export async function lerAnotacoesDossieProcesso(idProcesso) {
+  return requisitar(
+    `/processes/${encodeURIComponent(idProcesso)}/dossier/notes`,
+    { method: 'GET' },
+  );
+}
+
+export async function criarAnotacaoDossieProcesso(idProcesso, payload) {
+  const resultado = await requisitar(
+    `/processes/${encodeURIComponent(idProcesso)}/dossier/notes`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado;
+}
+
+export async function atualizarAnotacaoDossieProcesso(idAnotacao, payload) {
+  const resultado = await requisitar(
+    `/process-dossier-notes/${encodeURIComponent(idAnotacao)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado;
+}
+
 export async function lerPreAnalisesCv(idProcesso, pagina = 1, tamanho = 5, filtros = {}) {
   const params = new URLSearchParams({
     page: String(pagina),
