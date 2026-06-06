@@ -1729,13 +1729,68 @@
   grid-template-columns: 1fr;
 }
 
+.home-quick-card.rh-section-card {
+  padding: 0.82rem;
+}
+
+.home-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 0.58rem;
+}
+
+.home-quick-action {
+  min-width: 0;
+  min-height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.34rem;
+  padding: 0.58rem 0.5rem;
+  border: 1px solid rgba(217, 226, 238, 0.96);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  color: var(--color-text);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.035);
+  text-align: center;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.home-quick-action:hover,
+.home-quick-action:focus {
+  border-color: rgba(15, 91, 232, 0.34);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.home-quick-action .material-symbols-outlined {
+  color: #5277be;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.home-quick-action:hover .material-symbols-outlined,
+.home-quick-action:focus .material-symbols-outlined {
+  color: var(--color-primary);
+}
+
+.home-quick-action strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .compact-dashboard-card.rh-section-card,
 .process-summary-panel.rh-section-card {
   padding: 0.78rem;
   border-color: rgba(217, 226, 238, 0.95);
   border-radius: var(--radius-md);
   background: #fff;
-  box-shadow: 0 10px 24px rgba(14, 33, 61, 0.06);
+  box-shadow: var(--shadow-sm);
 }
 
 .compact-dashboard-card .rh-section-card-header,
@@ -5260,5 +5315,693 @@
     position: static;
     width: 100%;
     margin-top: 0.4rem;
+  }
+}
+
+/* ===============================
+   C24 full interface consolidation
+================================ */
+
+@media (min-width: 1101px) {
+  .rh-modern-topbar {
+    flex-wrap: nowrap;
+  }
+
+  .rh-modern-topbar-actions {
+    flex-wrap: nowrap;
+  }
+
+  .rh-modern-primary-btn,
+  .rh-modern-secondary-btn,
+  .rh-tour-help-btn,
+  .rh-page-intro-actions .btn,
+  .c24-user-menu {
+    white-space: nowrap;
+  }
+}
+
+.rh-modern-page > .rh-inline-alert,
+.rh-modern-page > .alert,
+.c24-feedback {
+  margin-bottom: 0;
+}
+
+.rh-section-card,
+.c24-card,
+.compact-dashboard-card,
+.mailbox-card,
+.process-summary-panel,
+.process-progress-card,
+.quick-summary-card,
+.interview-executive-card,
+.interview-day-card,
+.interview-slots-card,
+.interview-operation-card,
+.availability-card,
+.interview-filter-card,
+.settings-rule-form-card,
+.settings-catalog-list-card,
+.settings-logs-panel,
+.settings-permission-panel {
+  border-color: rgba(211, 222, 237, 0.96);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 8px 24px rgba(15, 33, 57, 0.055);
+}
+
+.rh-section-card-header,
+.c24-card-header {
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin-bottom: 0.85rem;
+}
+
+.rh-section-card-header h3,
+.c24-card-header h3 {
+  font-size: clamp(0.98rem, 0.95vw, 1.1rem);
+  line-height: 1.18;
+}
+
+.rh-section-card-description,
+.c24-card-header p,
+.rh-modern-description {
+  font-size: 0.84rem;
+  line-height: 1.34;
+}
+
+.rh-filter-field .form-control,
+.rh-filter-field .form-select,
+.c24-filter-field .form-control,
+.c24-filter-field .form-select,
+.c24-form-grid .form-control,
+.c24-form-grid .form-select,
+.settings-justification .form-control,
+.process-search-field .form-control,
+.interview-search-field .form-control {
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+}
+
+.rh-filter-grid,
+.rh-filter-grid--wide,
+.c24-filter-bar,
+.interview-filter-toolbar,
+.availability-form-grid {
+  gap: 0.72rem;
+}
+
+.rh-status-pill,
+.process-candidate-status-badge,
+.cv-classification-badge,
+.rh-aderencia-tag,
+.weight-badge,
+.rh-result-meta-pill,
+.exam-stage-badge,
+.c24-badge {
+  min-height: 26px;
+  padding-inline: 0.62rem;
+  font-size: 0.72rem;
+  line-height: 1.1;
+}
+
+.rh-modern-history-table > :not(caption) > * > *,
+.table > :not(caption) > * > * {
+  padding: 0.5rem 0.58rem;
+}
+
+.rh-modern-history-table thead th,
+.table thead th {
+  color: var(--color-text-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+}
+
+.rh-modern-history-table tbody td,
+.table tbody td {
+  font-size: 0.83rem;
+  line-height: 1.28;
+}
+
+#screen-menu .rh-modern-page {
+  gap: 0.82rem;
+}
+
+#screen-menu .rh-page-intro {
+  align-items: center;
+  min-height: 42px;
+}
+
+#screen-menu .rh-modern-title {
+  font-size: clamp(1.28rem, 1.55vw, 1.7rem);
+}
+
+#screen-menu .rh-modern-page > .rh-metric-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.78rem;
+}
+
+#screen-menu .rh-metric-card {
+  min-height: 88px;
+  padding: 0.9rem 0.95rem;
+  border-radius: var(--radius-md);
+}
+
+#screen-menu .rh-metric-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+}
+
+#screen-menu .rh-metric-label,
+#screen-menu .rh-metric-helper {
+  white-space: normal;
+}
+
+#screen-menu .home-quick-card.rh-section-card {
+  padding: 1.02rem;
+}
+
+#screen-menu .home-quick-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.68rem;
+}
+
+#screen-menu .home-quick-action {
+  min-height: 76px;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.78rem 0.62rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+#screen-menu .home-quick-action .material-symbols-outlined {
+  font-size: 1.45rem;
+}
+
+#screen-menu .home-quick-action strong {
+  font-size: 0.82rem;
+  white-space: normal;
+}
+
+#screen-menu .home-dashboard-grid,
+#screen-menu .home-dashboard-grid--day,
+#screen-menu .home-dashboard-grid--secondary {
+  gap: 0.82rem;
+}
+
+#screen-menu .home-dashboard-grid--day,
+#screen-menu .home-dashboard-grid--secondary {
+  grid-template-columns: minmax(0, 1.34fr) minmax(340px, 0.78fr);
+}
+
+#screen-menu .home-side-stack {
+  gap: 0.82rem;
+}
+
+#screen-menu .day-summary-layout {
+  grid-template-columns: minmax(0, 1.16fr) minmax(230px, 0.84fr);
+  gap: 0.72rem;
+}
+
+#screen-menu .day-notification-list,
+#screen-menu .recent-records-card .rh-recent-grid,
+#screen-menu .process-progress-list,
+#screen-menu .quick-summary-grid {
+  gap: 0.52rem;
+}
+
+#screen-menu .c24-notification-item,
+#screen-menu .rh-recent-card,
+#screen-menu .active-process-card,
+#screen-menu .quick-summary-item {
+  border-radius: var(--radius-sm);
+}
+
+#screen-menu .c24-notification-item {
+  min-height: 48px;
+  padding: 0.52rem 0.6rem;
+}
+
+#screen-menu .day-stat-card,
+#screen-interviews .interview-stat-card {
+  min-height: 76px;
+  padding: 0.68rem;
+  border-radius: var(--radius-sm);
+}
+
+#screen-menu .day-stat-card > .material-symbols-outlined,
+#screen-interviews .interview-stat-card > .material-symbols-outlined {
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+}
+
+#screen-menu .mailbox-card-compact .table-responsive {
+  overflow-x: auto;
+}
+
+#screen-menu .mailbox-card-compact .email-table {
+  min-width: 760px;
+}
+
+#screen-menu .quick-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#screen-candidates .rh-modern-page,
+#screen-interviews .rh-modern-page,
+#screen-settings .rh-modern-page {
+  gap: 0.9rem;
+}
+
+#screen-candidates .rh-section-card,
+#screen-interviews .rh-section-card,
+#screen-settings .c24-card {
+  padding: clamp(1rem, 1.05vw, 1.18rem);
+}
+
+#screen-candidates .rh-metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.68rem;
+}
+
+#screen-candidates .rh-metric-card {
+  min-height: 82px;
+}
+
+#screen-candidates .rh-filter-grid--wide {
+  grid-template-columns: minmax(260px, 1.2fr) repeat(2, minmax(170px, 0.7fr));
+}
+
+#screen-candidates .rh-modern-history-table {
+  min-width: 1120px;
+}
+
+#screen-candidates .rh-modern-history-table .btn,
+#screen-candidates .rh-table-actions .btn,
+.candidate-actions .btn-action,
+.candidate-actions-menu-item {
+  min-height: 36px;
+  padding: 0.34rem 0.68rem;
+  border-radius: var(--radius-sm);
+}
+
+#screen-candidates .rh-table-actions {
+  flex-wrap: nowrap;
+  gap: 0.34rem;
+}
+
+#screen-candidates .rh-table-actions .btn {
+  font-size: 0.76rem;
+}
+
+.process-candidate-list.candidate-list,
+.approved-candidate-list {
+  gap: 0.72rem;
+}
+
+.process-candidate-card.candidate-card,
+.approved-candidate-card,
+.interview-slot-card,
+.interview-operation-row,
+.interview-day-row,
+.settings-user-row,
+.settings-profile-card,
+.settings-area-button,
+.settings-catalog-item,
+.settings-log-card,
+.settings-permission-group,
+.settings-permission-row,
+.settings-linked-user-row,
+.settings-audit-item {
+  border-radius: var(--radius-sm);
+}
+
+.process-candidate-card.candidate-card {
+  padding: 0.86rem;
+  gap: 0.78rem;
+}
+
+.process-candidate-person.candidate-main {
+  gap: 0.7rem;
+}
+
+.process-candidate-avatar.candidate-avatar {
+  width: 46px;
+  height: 46px;
+  flex-basis: 46px;
+  border-radius: 14px;
+}
+
+.candidate-name,
+.candidate-info strong {
+  font-size: 0.92rem;
+  line-height: 1.18;
+}
+
+.candidate-role,
+.candidate-id,
+.candidate-origin,
+.candidate-location,
+.candidate-meta-chip,
+.candidate-status-chip {
+  font-size: 0.78rem;
+}
+
+.process-candidate-meta-grid.candidate-meta {
+  gap: 0.38rem;
+}
+
+.process-candidate-meta-grid.candidate-meta .candidate-status-chip,
+.process-candidate-meta-grid.candidate-meta .candidate-meta-chip {
+  min-height: 30px;
+  padding: 0.34rem 0.6rem;
+}
+
+.candidate-actions.process-candidate-actions {
+  gap: 0.38rem;
+}
+
+#screen-interviews .interview-dashboard-grid {
+  grid-template-columns: 1fr;
+}
+
+#screen-interviews .interview-executive-card .interview-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 0.62rem;
+}
+
+#screen-interviews .interview-main-grid,
+#screen-interviews .interview-bottom-grid {
+  gap: 0.86rem;
+}
+
+#screen-interviews .interview-main-grid {
+  grid-template-columns: minmax(0, 0.86fr) minmax(380px, 1.14fr);
+}
+
+#screen-interviews .interview-bottom-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#screen-interviews .interview-day-card .rh-section-card-header {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+#screen-interviews .interview-day-card .rh-section-card-header h3 {
+  white-space: normal;
+}
+
+#screen-interviews .interview-day-card .rh-section-card-header .rh-section-card-actions {
+  flex: 0 0 auto;
+}
+
+#screen-interviews .interview-day-strip {
+  gap: 0.42rem;
+  overflow-x: auto;
+  padding-bottom: 0.1rem;
+}
+
+#screen-interviews .interview-day-pill {
+  min-width: 58px;
+  min-height: 58px;
+  border-radius: var(--radius-sm);
+}
+
+#screen-interviews .availability-form-grid,
+#screen-interviews .interview-filter-toolbar {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  align-items: end;
+}
+
+#screen-interviews .availability-notes-field,
+#screen-interviews .availability-submit,
+#screen-interviews .interview-search-field,
+#screen-interviews .interview-filter-actions {
+  grid-column: auto;
+}
+
+#screen-interviews .availability-notes-field {
+  min-width: min(100%, 260px);
+}
+
+#screen-interviews .interview-slot-card,
+#screen-interviews .interview-operation-row {
+  grid-template-columns: minmax(145px, 1fr) minmax(130px, 0.75fr) auto minmax(150px, 0.95fr) auto;
+  padding: 0.72rem;
+}
+
+#screen-interviews .interview-slot-card strong,
+#screen-interviews .interview-operation-row strong,
+#screen-interviews .interview-day-row strong {
+  font-size: 0.88rem;
+  line-height: 1.2;
+}
+
+#screen-interviews .interview-slot-card span,
+#screen-interviews .interview-slot-card small,
+#screen-interviews .interview-operation-row span,
+#screen-interviews .interview-operation-row small,
+#screen-interviews .interview-operation-row p,
+#screen-interviews .interview-day-row small {
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+#screen-settings .rh-page-intro {
+  align-items: flex-start;
+}
+
+#screen-settings .rh-page-intro-actions {
+  max-width: min(100%, 760px);
+}
+
+#screen-settings .c24-tabs {
+  justify-content: flex-end;
+  gap: 0.46rem;
+}
+
+#screen-settings .c24-pill-tab {
+  min-height: 40px;
+  padding: 0.42rem 0.78rem;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(15, 33, 57, 0.045);
+}
+
+#screen-settings .c24-pill-tab.is-active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+#screen-settings .settings-admin-shell,
+#screen-settings .settings-users-workspace,
+#screen-settings .settings-profile-workspace,
+#screen-settings .settings-catalog-workspace {
+  gap: 0.86rem;
+}
+
+#screen-settings .c24-stat-grid,
+#screen-settings .settings-audit-list {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+#screen-settings .c24-stat-card {
+  min-height: 84px;
+  padding: 0.78rem 0.82rem;
+  border-radius: var(--radius-sm);
+}
+
+#screen-settings .c24-filter-bar,
+#screen-settings .settings-log-filter,
+#screen-settings .settings-permission-filter {
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  padding: 0.78rem;
+  border-radius: var(--radius-md);
+}
+
+#screen-settings .settings-user-row,
+#screen-settings .settings-catalog-item,
+#screen-settings .settings-log-summary,
+#screen-settings .settings-permission-row,
+#screen-settings .settings-linked-user-row,
+#screen-settings .settings-audit-item {
+  gap: 0.62rem;
+  padding: 0.68rem;
+}
+
+#screen-settings .settings-catalog-workspace {
+  grid-template-columns: minmax(210px, 270px) minmax(360px, 1fr) minmax(300px, 380px);
+}
+
+#screen-settings .settings-users-workspace {
+  grid-template-columns: minmax(420px, 1.1fr) minmax(320px, 0.9fr);
+}
+
+#screen-settings .settings-row-main strong,
+#screen-settings .settings-catalog-item-main strong,
+#screen-settings .settings-log-summary strong,
+#screen-settings .settings-profile-title strong {
+  font-size: 0.88rem;
+  line-height: 1.2;
+}
+
+#screen-settings .settings-row-main span,
+#screen-settings .settings-row-main small,
+#screen-settings .settings-catalog-item-main small,
+#screen-settings .settings-log-summary small,
+#screen-settings .settings-profile-card small {
+  font-size: 0.76rem;
+  line-height: 1.28;
+}
+
+#screen-settings .settings-log-details {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+#screen-settings .settings-log-pre {
+  max-height: 190px;
+  border-radius: var(--radius-sm);
+}
+
+.rh-modal-dialog {
+  border-radius: var(--radius-lg);
+}
+
+.rh-modal-content,
+.rh-details-body {
+  padding: 1rem;
+}
+
+.rh-modal-header,
+.rh-modal-footer {
+  padding: 0.9rem 1rem;
+}
+
+.rh-modal-dialog .rh-section-card,
+.rh-modal-dialog .rh-section-card--flat,
+.rh-modal-dialog .c24-card {
+  border-radius: var(--radius-md);
+}
+
+@media (min-width: 1281px) {
+  .process-candidate-card.candidate-card {
+    grid-template-columns: minmax(210px, 1.18fr) minmax(170px, 0.78fr) minmax(220px, 1fr);
+  }
+
+  .approved-candidate-card {
+    grid-template-columns: minmax(145px, 1fr) minmax(145px, 1fr) minmax(90px, 0.55fr) minmax(130px, 0.8fr) auto;
+  }
+}
+
+@media (max-width: 1360px) {
+  #screen-menu .home-quick-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #screen-menu .rh-modern-page > .rh-metric-grid {
+    grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
+  }
+
+  #screen-menu .day-summary-layout {
+    grid-template-columns: 1fr;
+  }
+
+  #screen-settings .settings-catalog-workspace,
+  #screen-settings .settings-users-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1180px) {
+  #screen-menu .home-dashboard-grid--day,
+  #screen-menu .home-dashboard-grid--secondary,
+  #screen-interviews .interview-main-grid,
+  #screen-interviews .interview-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #screen-candidates .rh-filter-grid--wide,
+  #screen-interviews .availability-form-grid,
+  #screen-interviews .interview-filter-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #screen-settings .rh-page-intro {
+    flex-direction: column;
+  }
+
+  #screen-settings .rh-page-intro-actions,
+  #screen-settings .c24-tabs {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 767.98px) {
+  #screen-menu .home-quick-grid,
+  #screen-menu .quick-summary-grid,
+  #screen-candidates .rh-filter-grid--wide,
+  #screen-interviews .availability-form-grid,
+  #screen-interviews .interview-filter-toolbar,
+  #screen-settings .c24-stat-grid,
+  #screen-settings .settings-audit-list,
+  #screen-settings .c24-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #screen-menu .rh-modern-page > .rh-metric-grid,
+  #screen-candidates .rh-metric-grid,
+  #screen-interviews .interview-executive-card .interview-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #screen-menu .home-quick-action {
+    min-height: 64px;
+  }
+
+  #screen-interviews .interview-day-card .rh-section-card-header {
+    flex-wrap: wrap;
+  }
+
+  #screen-interviews .interview-slot-card,
+  #screen-interviews .interview-operation-row,
+  .process-candidate-card.candidate-card,
+  .approved-candidate-card,
+  #screen-settings .settings-user-row,
+  #screen-settings .settings-catalog-item,
+  #screen-settings .settings-log-summary {
+    grid-template-columns: 1fr;
+  }
+
+  #screen-candidates .rh-table-actions,
+  .candidate-actions.process-candidate-actions,
+  #screen-interviews .interview-filter-actions,
+  #screen-interviews .availability-submit,
+  #screen-settings .settings-card-actions,
+  #screen-settings .settings-catalog-item-actions {
+    justify-content: stretch;
+  }
+
+  #screen-candidates .rh-table-actions .btn,
+  .candidate-actions .btn-action,
+  #screen-interviews .interview-filter-actions .btn,
+  #screen-interviews .availability-submit .btn,
+  #screen-settings .settings-card-actions .btn {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 480px) {
+  #screen-menu .rh-modern-page > .rh-metric-grid,
+  #screen-candidates .rh-metric-grid,
+  #screen-interviews .interview-executive-card .interview-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #screen-settings .c24-pill-tab {
+    flex: 1 1 auto;
   }
 }

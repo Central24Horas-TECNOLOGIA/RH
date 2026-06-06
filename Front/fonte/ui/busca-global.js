@@ -272,6 +272,7 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
             await garantirIndice();
           }}
         />
+        <span class="rh-global-search-shortcut" aria-hidden="true">⌘ K</span>
       </div>
 
       ${aberta

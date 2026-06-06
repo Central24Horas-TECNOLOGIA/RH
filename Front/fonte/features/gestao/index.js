@@ -1004,6 +1004,74 @@ export function TelaInicio({ controlador }) {
       }),
     [entrevistas],
   );
+  const candidatosAtivosResumo = useMemo(
+    () =>
+      (Array.isArray(candidatosProcessos) ? candidatosProcessos : []).filter((candidato) => {
+        const status = normalizarTextoPainel(getCandidateVisibleStatus(candidato)).toLowerCase();
+        return (
+          !status.includes('banco') &&
+          !status.includes('elimin') &&
+          !status.includes('reprov') &&
+          !status.includes('desist')
+        );
+      }),
+    [candidatosProcessos],
+  );
+  const contratacoesResumo = useMemo(
+    () =>
+      (Array.isArray(candidatosProcessos) ? candidatosProcessos : []).filter(
+        (candidato) => getCandidateVisibleStatus(candidato) === 'Aprovado',
+      ),
+    [candidatosProcessos],
+  );
+  const pendenciasResumo =
+    candidatosEmAnalise.length + alertasOperacionais.length;
+  const indicadoresPainel = useMemo(
+    () => [
+      {
+        icon: 'groups',
+        label: 'Candidatos ativos',
+        value: candidatosAtivosResumo.length,
+        helper: 'Em acompanhamento',
+        variant: 'is-home is-blue',
+      },
+      {
+        icon: 'folder_open',
+        label: 'Processos abertos',
+        value: processosAtivos.length,
+        helper: 'Abertos agora',
+        variant: 'is-home is-green',
+      },
+      {
+        icon: 'calendar_month',
+        label: 'Entrevistas hoje',
+        value: entrevistasHoje.length,
+        helper: 'Agenda do dia',
+        variant: 'is-home is-yellow',
+      },
+      {
+        icon: 'warning',
+        label: 'Pendências',
+        value: pendenciasResumo,
+        helper: pendenciasResumo ? 'Requer atenção' : 'Sem alertas',
+        variant: 'is-home is-red',
+      },
+      {
+        icon: 'star',
+        label: 'Contratações',
+        value: contratacoesResumo.length,
+        helper: 'Aprovados',
+        variant: 'is-home is-purple',
+      },
+    ],
+    [
+      candidatosAtivosResumo.length,
+      contratacoesResumo.length,
+      entrevistasHoje.length,
+      pendenciasResumo,
+      processosAtivos.length,
+    ],
+  );
   const notificacoesDia = useMemo(() => {
     const processoRecente = processosAtivos[0];
     const candidatoAprovado = (Array.isArray(candidatosProcessos)
@@ -1049,20 +1117,20 @@ export function TelaInicio({ controlador }) {
     <${PainelRh}
       screenId="screen-menu"
       navAtiva="screen-menu"
-      subtituloMarca="Central 24h"
-      placeholderBusca="Painel executivo do RH"
+      subtituloMarca="Plataforma de Recrutamento e Seleção"
+      placeholderBusca="Buscar candidatos, processos, vagas ou provas..."
       controlador=${controlador}
       acaoPrimaria=${{
       label: 'Iniciar teste',
+      icon: 'add',
       permissao: 'provas.enviar',
       onClick: () => controlador.iniciarNovoFluxo(),
     }}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Painel principal"
-        title="Bem-vindo ao Conecta"
-        description="Acompanhe processos, candidatos e provas a partir dos atalhos e indicadores principais."
+        title="Olá, RH!"
+        description="Aqui está o panorama geral do seu recrutamento hoje."
         actions=${html`
           <button
             type="button"
@@ -1075,50 +1143,74 @@ export function TelaInicio({ controlador }) {
         `}
       />
 
+      <${MetricGrid} items=${indicadoresPainel} />
+
       <${SectionCard}
-        title="Atalhos operacionais"
-        description="Acesse os fluxos principais do sistema."
+        title="Acessos rápidos"
+        description="Inicie ações e consulte informações com agilidade."
+        className="home-quick-card"
         tourId="home-shortcuts"
       >
-        <div class="rh-action-grid">
-          ${controlador.possuiPermissao('provas.enviar')
-      ? html`
-              <button
-                type="button"
-                class="rh-action-card"
-                onClick=${() => controlador.iniciarNovoFluxo()}
-              >
-                <span class="material-symbols-outlined">play_circle</span>
-                <strong>Nova prova</strong>
-                <p>Inicie uma avaliação individual ou vinculada a um processo.</p>
-              </button>
-            `
-      : null}
-          <button
-            type="button"
-            class="rh-action-card"
-            onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
-          >
-            <span class="material-symbols-outlined">folder_managed</span>
-            <strong>Processos seletivos</strong>
-            <p>Gerencie vagas, status e candidatos em andamento.</p>
-          </button>
-          <button
-            type="button"
-            class="rh-action-card"
-            onClick=${() => controlador.irParaTelaProtegida('screen-history')}
-          >
-            <span class="material-symbols-outlined">history</span>
-            <strong>Histórico completo</strong>
-            <p>Filtre provas salvas por nome, vaga e data.</p>
-          </button>
+        <div class="home-quick-grid">
+          ${[
+            {
+              label: 'Nova vaga',
+              icon: 'work',
+              permissao: 'vagas.criar',
+              onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
+            },
+            {
+              label: 'Adicionar candidato',
+              icon: 'person_add',
+              permissao: 'candidatos.criar',
+              onClick: () => controlador.irParaTelaProtegida('screen-candidates'),
+            },
+            {
+              label: 'Agendar entrevista',
+              icon: 'calendar_month',
+              permissao: 'entrevistas.visualizar',
+              onClick: () => controlador.irParaTelaProtegida('screen-interviews'),
+            },
+            {
+              label: 'Enviar e-mail',
+              icon: 'send',
+              permissao: 'candidatos.criar',
+              onClick: () => controlador.irParaTelaProtegida('screen-email-inbox'),
+            },
+            {
+              label: 'Relatórios',
+              icon: 'bar_chart',
+              permissao: 'relatorios.visualizar',
+              onClick: () => controlador.irParaTelaProtegida('screen-analysis-candidates'),
+            },
+            {
+              label: 'Mais opções',
+              icon: 'more_horiz',
+              permissao: 'configuracoes.visualizar',
+              onClick: () => controlador.irParaTelaProtegida('screen-settings'),
+            },
+          ]
+            .filter((item) => !item.permissao || controlador.possuiPermissao(item.permissao))
+            .map(
+              (item) => html`
+                <button
+                  key=${item.label}
+                  type="button"
+                  class="home-quick-action"
+                  onClick=${item.onClick}
+                >
+                  <span class="material-symbols-outlined">${item.icon}</span>
+                  <strong>${item.label}</strong>
+                </button>
+              `,
+            )}
         </div>
       </${SectionCard}>
 
       <div class="home-dashboard-grid home-dashboard-grid--day">
         <${SectionCard}
-          title="Resumo do Dia"
-          description="Notificações e indicadores rápidos da operação."
+          title="Resumo do dia"
+          description="Acompanhe o que mais importa hoje."
           className="day-summary-card compact-dashboard-card"
         >
           <div class="day-summary-layout">
@@ -1190,7 +1282,7 @@ export function TelaInicio({ controlador }) {
         </${SectionCard}>
 
         <${SectionCard}
-          title="Registros Recentes"
+          title="Registros recentes"
           description="Clique em um registro para abrir o detalhamento salvo."
           className="recent-records-card compact-dashboard-card"
           tourId="home-recent"

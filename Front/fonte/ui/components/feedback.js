@@ -42,11 +42,20 @@ export function MetricGrid({ items = [] }) {
             key=${item.label || indice}
             class=${`rh-metric-card ${item.variant || ''}`.trim()}
           >
-            <span class="rh-metric-label">${item.label}</span>
-            <strong class="rh-metric-value">${item.value}</strong>
-            ${item.helper
-              ? html`<span class="rh-metric-helper">${item.helper}</span>`
+            ${item.icon
+              ? html`
+                  <span class="material-symbols-outlined rh-metric-icon">
+                    ${item.icon}
+                  </span>
+                `
               : null}
+            <span class="rh-metric-content">
+              <span class="rh-metric-label">${item.label}</span>
+              <strong class="rh-metric-value">${item.value}</strong>
+              ${item.helper
+                ? html`<span class="rh-metric-helper">${item.helper}</span>`
+                : null}
+            </span>
           </article>
         `,
       )}

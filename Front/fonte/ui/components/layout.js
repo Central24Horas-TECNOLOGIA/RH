@@ -6,6 +6,7 @@ import { BotaoAjudaTour, TourGuiado } from '../tour-guiado.js';
 function BarraLateral({
   navAtiva,
   controlador,
+  subtituloMarca = 'Plataforma de Recrutamento e Seleção',
   mostrarAtalhos = true,
   recolhida = false,
 }) {
@@ -154,6 +155,11 @@ function BarraLateral({
             </div>
           `
       : null}
+
+      <div class="rh-modern-sidebar-footer">
+        <strong>Conecta RH</strong>
+        <span>${subtituloMarca}</span>
+      </div>
     </aside>
   `;
 }
@@ -388,6 +394,9 @@ export function PainelRh({
                       data-tour-id="topbar-primary-action"
                       onClick=${acaoPrimaria.onClick}
                     >
+                      ${acaoPrimaria.icon
+          ? html`<span class="material-symbols-outlined">${acaoPrimaria.icon}</span>`
+          : null}
                       ${acaoPrimaria.label}
                     </button>
                   `
