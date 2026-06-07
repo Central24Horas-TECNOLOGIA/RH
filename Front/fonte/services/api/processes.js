@@ -466,6 +466,20 @@ export async function registrarWhatsappAprovacao(idRegistro, payload) {
   );
 }
 
+export async function registrarWhatsappContatoManual(idRegistro, payload) {
+  const resultado = await requisitar(
+    `/process-candidates/${encodeURIComponent(idRegistro)}/whatsapp-contact`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('candidatos-processos', 'processos', 'pipeline-candidatos');
+  return resultado;
+}
+
 export async function enviarEmailAprovacao(idRegistro, payload) {
   return requisitar(
     `/process-candidates/${encodeURIComponent(idRegistro)}/approval-email`,

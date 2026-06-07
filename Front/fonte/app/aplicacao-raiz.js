@@ -16,6 +16,9 @@ import {
 } from '../features/telas-gestao.js';
 import {
   TelaDetalhesProcesso,
+  TelaProcessosAbertos,
+  TelaProcessosDecisoesPendentes,
+  TelaProcessosEncerrados,
   TelaProcessos,
 } from '../features/telas-processos.js';
 import { TelaCandidatos } from '../features/candidatos/index.js';
@@ -134,6 +137,18 @@ export function Aplicacao() {
 
   if (telaResolvida === 'screen-processes') {
     return html`<${TelaProcessos} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-processes-open') {
+    return html`<${TelaProcessosAbertos} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-processes-closed') {
+    return html`<${TelaProcessosEncerrados} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-process-decisions') {
+    return html`<${TelaProcessosDecisoesPendentes} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-candidates') {

@@ -1636,6 +1636,56 @@ class CommunicationRepositoryMixin:
         finally:
             conn.close()
 
+    def record_candidate_whatsapp_contact(
+        self,
+        id_registro: int,
+        data: dict,
+        *,
+        usuario_responsavel: str = "",
+    ) -> dict:
+        tipo_map = {
+            "contato_enviado": "Contato enviado",
+            "respondeu": "Respondeu",
+            "confirmou_entrevista": "Confirmou entrevista",
+            "cancelou_entrevista": "Cancelou entrevista",
+            "solicitou_reagendamento": "Solicitou reagendamento",
+            "observacao_livre": "Observação livre",
+        }
+        tipo = normalize_text(data.get("tipo_contato")) or "contato_enviado"
+        rotulo_tipo = tipo_map.get(tipo, tipo_map["contato_enviado"])
+        observacao = normalize_text(data.get("observacao"))
+        mensagem = normalize_text(data.get("mensagem"))
+        partes_observacao = [f"Registro manual: {rotulo_tipo}"]
+        if observacao:
+            partes_observacao.append(f"Observação: {observacao}")
+        if mensagem:
+            partes_observacao.append(f"Mensagem: {mensagem}")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_pipeline_columns(cursor)
+            row = self._load_process_candidate_for_message(cursor, id_registro)
+            self._record_candidate_movement(
+                cursor,
+                id_teste=row.get("id_teste"),
+                id_registro=row.get("id_registro"),
+                id_processo=row.get("id_processo"),
+                id_processo_ref=row.get("id_processo_ref"),
+                nome_candidato=row.get("nome_candidato"),
+                vaga=row.get("vaga"),
+                origem_inicial=row.get("origem"),
+                tipo_movimentacao=f"WhatsApp - {rotulo_tipo}",
+                status_anterior=row.get("status_candidato"),
+                status_novo=row.get("status_candidato"),
+                observacao="; ".join(partes_observacao),
+                usuario_responsavel=usuario_responsavel,
+            )
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()
+
     def send_candidate_approval_email(
         self,
         id_registro: int,

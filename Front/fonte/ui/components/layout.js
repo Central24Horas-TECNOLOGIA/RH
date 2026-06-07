@@ -29,6 +29,12 @@ function BarraLateral({
       icone: 'folder_managed',
       label: 'Processos',
       permissao: 'vagas.visualizar',
+      filhos: [
+        { tela: 'screen-processes', icone: 'dashboard', label: 'Visão Geral' },
+        { tela: 'screen-processes-open', icone: 'folder_open', label: 'Processos Abertos' },
+        { tela: 'screen-processes-closed', icone: 'inventory_2', label: 'Processos Encerrados' },
+        { tela: 'screen-process-decisions', icone: 'rule', label: 'Decisões Pendentes' },
+      ],
     },
     {
       tela: 'screen-candidates',
@@ -70,6 +76,22 @@ function BarraLateral({
   ];
   const possuiPermissao = (permissao) =>
     !permissao || controlador?.possuiPermissao?.(permissao);
+  const telasProcessos = new Set([
+    'screen-processes',
+    'screen-processes-open',
+    'screen-processes-closed',
+    'screen-process-decisions',
+    'screen-process-details',
+  ]);
+  const [processosExpandido, setProcessosExpandido] = useState(() =>
+    telasProcessos.has(navAtiva),
+  );
+
+  useEffect(() => {
+    if (telasProcessos.has(navAtiva)) {
+      setProcessosExpandido(true);
+    }
+  }, [navAtiva]);
 
   return html`
     <aside
@@ -106,7 +128,74 @@ function BarraLateral({
 
       <nav class="rh-modern-nav">
         ${itens.filter((item) => item.exibir !== false && possuiPermissao(item.permissao)).map(
-        (item) => html`
+        (item) => {
+          const filhos = (item.filhos || []).filter((filho) =>
+            possuiPermissao(filho.permissao || item.permissao),
+          );
+          const possuiFilhos = filhos.length > 0;
+          const paiAtivo =
+            navAtiva === item.tela ||
+            filhos.some((filho) => filho.tela === navAtiva) ||
+            (item.tela === 'screen-processes' && telasProcessos.has(navAtiva));
+
+          if (possuiFilhos) {
+            return html`
+              <div
+                key=${item.tela}
+                class=${`rh-modern-nav-group ${paiAtivo ? 'is-active' : ''} ${processosExpandido ? 'is-expanded' : ''}`.trim()}
+              >
+                <div class="rh-modern-nav-parent">
+                  <button
+                    type="button"
+                    class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${paiAtivo ? 'is-active' : ''}`}
+                    title=${item.label}
+                    onClick=${() => controlador.irParaTelaProtegida(item.tela)}
+                  >
+                    <span class="material-symbols-outlined">${item.icone}</span>
+                    <span class="rh-modern-nav-label">${item.label}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="rh-modern-nav-expander"
+                    title=${processosExpandido ? 'Recolher Processos' : 'Expandir Processos'}
+                    aria-label=${processosExpandido ? 'Recolher submenu de Processos' : 'Expandir submenu de Processos'}
+                    aria-expanded=${processosExpandido}
+                    onClick=${(event) => {
+                      event.stopPropagation();
+                      setProcessosExpandido((valor) => !valor);
+                    }}
+                  >
+                    <span class="material-symbols-outlined">
+                      ${processosExpandido ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                </div>
+
+                ${processosExpandido
+                  ? html`
+                      <div class="rh-modern-subnav">
+                        ${filhos.map(
+                          (filho) => html`
+                            <button
+                              key=${filho.tela}
+                              type="button"
+                              class=${`rh-modern-subnav-btn ${navAtiva === filho.tela ? 'is-active' : ''}`}
+                              title=${filho.label}
+                              onClick=${() => controlador.irParaTelaProtegida(filho.tela)}
+                            >
+                              <span class="material-symbols-outlined">${filho.icone}</span>
+                              <span class="rh-modern-nav-label">${filho.label}</span>
+                            </button>
+                          `,
+                        )}
+                      </div>
+                    `
+                  : null}
+              </div>
+            `;
+          }
+
+          return html`
             <button
               key=${item.tela}
               type="button"
@@ -117,7 +206,8 @@ function BarraLateral({
               <span class="material-symbols-outlined">${item.icone}</span>
               <span class="rh-modern-nav-label">${item.label}</span>
             </button>
-          `,
+          `;
+        },
       )}
       </nav>
 

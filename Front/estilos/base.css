@@ -253,10 +253,14 @@ a {
   background: var(--color-danger-soft);
 }
 
-.rh-status-pill.is-neutral,
-.process-candidate-status-badge.is-analysis {
+.rh-status-pill.is-neutral {
   color: var(--color-primary);
   background: var(--color-primary-soft);
+}
+
+.process-candidate-status-badge.is-analysis {
+  color: #9a680b;
+  background: #fff0bf;
 }
 
 .rh-status-pill.is-confirmed,
@@ -268,8 +272,8 @@ a {
 
 .rh-status-pill.is-pending,
 .process-candidate-status-badge.is-pending {
-  color: var(--color-text-muted);
-  background: #eef3f9;
+  color: #8a5a00;
+  background: #fff4cf;
 }
 
 .rh-status-pill.is-confirmed {

@@ -19,6 +19,7 @@ from ..schemas.processes import (
     StandaloneCandidateStatusUpdateRequest,
     TalentBankCreateRequest,
     TalentBankUseRequest,
+    WhatsAppManualContactRequest,
 )
 
 
@@ -159,6 +160,42 @@ def record_approval_whatsapp(
         entidade="candidato_processo",
         entidade_id=str(id_registro),
         valor_novo=payload or {},
+    )
+    return result
+
+
+@router.post(
+    "/process-candidates/{id_registro}/whatsapp-contact",
+    dependencies=[
+        Depends(
+            require_permissions(
+                "candidatos.editar",
+                "candidatos.editar_basico",
+                "entrevistas.criar",
+                "emails.enviar_modelo",
+            )
+        )
+    ],
+)
+def record_whatsapp_contact(
+    id_registro: int,
+    payload: WhatsAppManualContactRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.record_candidate_whatsapp_contact(
+        id_registro,
+        payload.model_dump(),
+        usuario_responsavel=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Candidatos",
+        acao="registrar_contato_whatsapp",
+        entidade="candidato_processo",
+        entidade_id=str(id_registro),
+        valor_novo=payload.model_dump(),
     )
     return result
 

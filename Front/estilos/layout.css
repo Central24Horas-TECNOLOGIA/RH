@@ -143,6 +143,89 @@
   box-shadow: 0 10px 24px rgba(2, 13, 32, 0.2);
 }
 
+.rh-modern-nav-group {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+}
+
+.rh-modern-nav-parent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 0.28rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.rh-modern-nav-parent-btn {
+  min-width: 0;
+}
+
+.rh-modern-nav-expander {
+  width: 36px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.86);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.rh-modern-nav-expander:hover,
+.rh-modern-nav-expander:focus {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.rh-modern-nav-expander .material-symbols-outlined {
+  font-size: 1.05rem;
+}
+
+.rh-modern-subnav {
+  display: grid;
+  gap: 0.2rem;
+  margin-left: 1rem;
+  padding-left: 0.58rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.rh-modern-subnav-btn {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  padding: 0.42rem 0.56rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.rh-modern-subnav-btn .material-symbols-outlined {
+  flex: 0 0 auto;
+  font-size: 1rem;
+}
+
+.rh-modern-subnav-btn:hover,
+.rh-modern-subnav-btn:focus {
+  background: rgba(255, 255, 255, 0.075);
+  color: #fff;
+}
+
+.rh-modern-subnav-btn.is-active {
+  border-color: rgba(147, 197, 253, 0.32);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
 .rh-modern-sidebar-actions {
   display: flex;
   flex-direction: column;
@@ -200,6 +283,16 @@
   min-height: 48px;
   justify-content: center;
   padding-inline: 0.7rem;
+}
+
+.rh-modern-sidebar.is-collapsed .rh-modern-nav-parent {
+  grid-template-columns: 56px;
+  justify-content: center;
+}
+
+.rh-modern-sidebar.is-collapsed .rh-modern-nav-expander,
+.rh-modern-sidebar.is-collapsed .rh-modern-subnav {
+  display: none;
 }
 
 .rh-modern-main {
@@ -505,10 +598,10 @@
 .rh-modern-page {
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.74rem;
   min-width: 0;
   max-width: 100%;
-  padding: clamp(1rem, 1.25vw, 1.25rem) clamp(1.1rem, 1.65vw, 1.6rem) 1.45rem;
+  padding: clamp(0.86rem, 1.1vw, 1.12rem) clamp(1rem, 1.55vw, 1.45rem) 1.25rem;
 }
 
 .rh-page-intro {
@@ -565,7 +658,7 @@
 }
 
 .rh-section-card {
-  padding: clamp(1rem, 1.15vw, 1.18rem);
+  padding: clamp(0.84rem, 1vw, 1.05rem);
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -583,7 +676,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-2);
-  margin-bottom: 0.62rem;
+  margin-bottom: 0.54rem;
   min-width: 0;
 }
 
@@ -617,7 +710,7 @@
 .rh-filter-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
+  gap: 0.56rem;
 }
 
 .rh-filter-grid--wide {
@@ -627,51 +720,63 @@
 .rh-filter-field {
   display: flex;
   flex-direction: column;
-  gap: 0.32rem;
+  gap: 0.26rem;
 }
 
 .rh-filter-field label {
-  font-size: 0.82rem;
+  color: var(--color-text-soft);
+  font-size: 0.74rem;
   font-weight: 700;
 }
 
 .rh-filter-field .form-control,
 .rh-filter-field .form-select {
-  min-height: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  min-height: 36px;
+  padding: 0.36rem 0.58rem;
+  border: 1px solid rgba(198, 211, 228, 0.95);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.82rem;
 }
 
 .rh-metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 0.72rem;
+  grid-template-columns: repeat(auto-fit, minmax(152px, 1fr));
+  gap: 0.54rem;
 }
 
 .rh-metric-card {
   display: flex;
   align-items: center;
-  gap: 0.72rem;
+  gap: 0.56rem;
   min-width: 0;
-  min-height: 86px;
-  padding: 0.88rem 0.98rem;
+  min-height: 68px;
+  padding: 0.58rem 0.68rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: #fff;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 5px 16px rgba(15, 33, 57, 0.05);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.rh-metric-card:hover {
+  border-color: rgba(128, 151, 178, 0.55);
+  box-shadow: 0 8px 22px rgba(15, 33, 57, 0.075);
+  transform: translateY(-1px);
 }
 
 .rh-metric-icon {
   flex: 0 0 auto;
-  width: 46px;
-  height: 46px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--color-primary-soft);
   color: var(--color-primary);
-  font-size: 1.45rem;
+  font-size: 1.28rem;
+  line-height: 1;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
 .rh-metric-content {
@@ -680,27 +785,51 @@
 }
 
 .rh-metric-card.is-approved {
-  background: var(--color-success-soft);
+  border-color: rgba(45, 132, 99, 0.18);
+  background: #f2fbf6;
+}
+
+.rh-metric-card.is-approved .rh-metric-icon {
+  background: #dff5e8;
+  color: #1f7a55;
 }
 
 .rh-metric-card.is-eliminated {
-  background: var(--color-danger-soft);
+  border-color: rgba(194, 65, 65, 0.18);
+  background: #fff5f5;
+}
+
+.rh-metric-card.is-eliminated .rh-metric-icon {
+  background: #fde5e5;
+  color: #b73737;
 }
 
 .rh-metric-card.is-analysis {
-  background: var(--color-primary-soft);
+  border-color: rgba(192, 132, 37, 0.2);
+  background: #fff9e9;
+}
+
+.rh-metric-card.is-analysis .rh-metric-icon {
+  background: #fff0bf;
+  color: #9a680b;
 }
 
 .rh-metric-card.is-highlight {
-  background: var(--color-info-soft);
+  border-color: rgba(43, 112, 186, 0.18);
+  background: #f1f8ff;
+}
+
+.rh-metric-card.is-highlight .rh-metric-icon {
+  background: #dcebff;
+  color: #2566a9;
 }
 
 .rh-metric-label {
   display: block;
   color: var(--color-text-soft);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.12;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -708,8 +837,8 @@
 
 .rh-metric-value {
   display: block;
-  margin-top: 0.12rem;
-  font-size: clamp(1.08rem, 1.25vw, 1.45rem);
+  margin-top: 0.08rem;
+  font-size: clamp(1rem, 1.08vw, 1.24rem);
   line-height: 1;
 }
 
@@ -1142,6 +1271,16 @@
     min-height: 48px;
     justify-content: center;
     padding-inline: 0.7rem;
+  }
+
+  .rh-modern-sidebar .rh-modern-nav-parent {
+    grid-template-columns: 56px;
+    justify-content: center;
+  }
+
+  .rh-modern-sidebar .rh-modern-nav-expander,
+  .rh-modern-sidebar .rh-modern-subnav {
+    display: none;
   }
 }
 

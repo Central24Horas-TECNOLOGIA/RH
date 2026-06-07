@@ -5,6 +5,9 @@ export const ROTAS_POR_TELA = {
   'screen-email-inbox': 'caixa-email',
   'screen-history': 'historico',
   'screen-processes': 'processos',
+  'screen-processes-open': 'processos/abertos',
+  'screen-processes-closed': 'processos/encerrados',
+  'screen-process-decisions': 'processos/decisoes-pendentes',
   'screen-candidates': 'candidatos',
   'screen-candidate-pipeline': 'pipeline-candidatos',
   'screen-process-create': 'novo-processo',
@@ -29,6 +32,8 @@ export const TELAS_POR_ROTA = Object.entries(ROTAS_POR_TELA).reduce(
   },
   {},
 );
+
+TELAS_POR_ROTA['processos/visao-geral'] = 'screen-processes';
 
 export function obterRotaPorTela(tela) {
   return ROTAS_POR_TELA[tela] || ROTAS_POR_TELA['screen-login'];

@@ -82,6 +82,7 @@ export {
   lerProcessos,
   limparListaPreAnalisesCv,
   registrarWhatsappAprovacao,
+  registrarWhatsappContatoManual,
   removerBancoTalentos,
   usarCandidatoDoBancoTalentos,
   excluirEmailRecebido,

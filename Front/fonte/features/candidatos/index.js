@@ -55,6 +55,27 @@ function normalizarTexto(valor) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function mascararEmailContato(valor) {
+  const texto = String(valor || '').trim();
+  if (!texto) return '-';
+  const [usuario, dominio] = texto.split('@');
+  if (!usuario || !dominio) return '***';
+  const prefixoUsuario = usuario.slice(0, Math.min(2, usuario.length));
+  const partesDominio = dominio.split('.');
+  const dominioBase = partesDominio.shift() || '';
+  const sufixoDominio = partesDominio.length ? `.${partesDominio.join('.')}` : '';
+  return `${prefixoUsuario}${'*'.repeat(Math.max(3, usuario.length - prefixoUsuario.length))}@${dominioBase.slice(0, 1)}***${sufixoDominio}`;
+}
+
+function mascararTelefoneContato(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  if (!digitos) return '-';
+  if (digitos.length <= 4) return '****';
+  const ultimos = digitos.slice(-4);
+  const ddd = digitos.length >= 10 ? `(${digitos.slice(-11, -9)}) ` : '';
+  return `${ddd}*****-${ultimos}`;
+}
+
 const MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO =
   'Este candidato já foi aprovado. Para alterar sua situação, será necessário um novo cadastro ou atualização manual.';
 const MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO =
@@ -1658,9 +1679,9 @@ export function TelaCandidatos({ controlador }) {
                                 </div>
                               </td>
                               <td>
-                                <div>${candidato.email || '-'}</div>
+                                <div>${mascararEmailContato(candidato.email)}</div>
                                 <div class="text-muted small">
-                                  ${candidato.telefone || candidato.whatsapp || '-'}
+                                  ${mascararTelefoneContato(candidato.telefone || candidato.whatsapp)}
                                 </div>
                               </td>
                               <td>${candidato.cidade || '-'}</td>

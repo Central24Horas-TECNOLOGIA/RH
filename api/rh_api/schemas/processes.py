@@ -266,6 +266,36 @@ class StandaloneCandidateStatusUpdateRequest(BaseSchema):
     data_eliminacao: str | None = None
 
 
+class WhatsAppManualContactRequest(BaseSchema):
+    tipo_contato: str = "contato_enviado"
+    observacao: str = ""
+    mensagem: str = ""
+
+    @field_validator("tipo_contato")
+    @classmethod
+    def validate_contact_type(cls, value: str) -> str:
+        safe_value = str(value or "").strip() or "contato_enviado"
+        allowed = {
+            "contato_enviado",
+            "respondeu",
+            "confirmou_entrevista",
+            "cancelou_entrevista",
+            "solicitou_reagendamento",
+            "observacao_livre",
+        }
+        if safe_value not in allowed:
+            raise ValueError("Tipo de contato WhatsApp inválido.")
+        return safe_value
+
+    @field_validator("observacao", "mensagem")
+    @classmethod
+    def validate_contact_text(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 2000:
+            raise ValueError("O texto do registro de WhatsApp deve ter no máximo 2000 caracteres.")
+        return safe_value
+
+
 class TalentBankUseRequest(BaseSchema):
     id_processo: str = ""
     id_processo_ref: str = ""

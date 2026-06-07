@@ -95,6 +95,27 @@ function normalizarTextoPainel(valor) {
   return String(valor || '').trim();
 }
 
+function mascararEmailContato(valor) {
+  const texto = String(valor || '').trim();
+  if (!texto) return '-';
+  const [usuario, dominio] = texto.split('@');
+  if (!usuario || !dominio) return '***';
+  const prefixoUsuario = usuario.slice(0, Math.min(2, usuario.length));
+  const partesDominio = dominio.split('.');
+  const dominioBase = partesDominio.shift() || '';
+  const sufixoDominio = partesDominio.length ? `.${partesDominio.join('.')}` : '';
+  return `${prefixoUsuario}${'*'.repeat(Math.max(3, usuario.length - prefixoUsuario.length))}@${dominioBase.slice(0, 1)}***${sufixoDominio}`;
+}
+
+function mascararTelefoneContato(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  if (!digitos) return '-';
+  if (digitos.length <= 4) return '****';
+  const ultimos = digitos.slice(-4);
+  const ddd = digitos.length >= 10 ? `(${digitos.slice(-11, -9)}) ` : '';
+  return `${ddd}*****-${ultimos}`;
+}
+
 function obterIntervaloPaginacao(paginacao) {
   const total = Number(paginacao?.totalItens || 0);
   if (!total) return '0-0';
@@ -2776,8 +2797,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
                               <td>${linha.etapa_eliminacao || '-'}</td>
                               <td>${formatarDataHora(linha.data_banco_talentos)}</td>
                               <td>
-                                <div>${linha.email || '-'}</div>
-                                <div class="small text-muted">${linha.telefone || '-'}</div>
+                                <div>${mascararEmailContato(linha.email)}</div>
+                                <div class="small text-muted">${mascararTelefoneContato(linha.telefone)}</div>
                               </td>
                             </tr>
                           `,
