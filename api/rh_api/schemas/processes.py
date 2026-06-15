@@ -60,6 +60,7 @@ class ProcessCreateRequest(BaseSchema):
 
 
 class ProcessUpdateRequest(BaseSchema):
+    vaga: str | None = None
     quantidade_vagas: int = 0
     data_encerramento: str = ""
     operacao: str = ""
@@ -78,6 +79,16 @@ class ProcessUpdateRequest(BaseSchema):
         safe_value = str(value or "").strip()
         if not safe_value:
             raise ValueError("Informe a data de encerramento do processo.")
+        return safe_value
+
+    @field_validator("vaga")
+    @classmethod
+    def validate_optional_vacancy(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            raise ValueError("Informe o cargo/vaga do processo.")
         return safe_value
 
     @field_validator("quantidade_vagas")
@@ -378,6 +389,8 @@ class CandidateProfileUpdateRequest(BaseSchema):
     habilidades: list[str] = []
     tags: list[str] = []
     observacao_rh: str = ""
+    classificacao_indicacao: str = ""
+    justificativa_indicacao: str = ""
     email: str = ""
     telefone: str = ""
     whatsapp: str = ""
@@ -392,12 +405,27 @@ class CandidateProfileUpdateRequest(BaseSchema):
             raise ValueError("Limite de 30 itens por campo.")
         return safe_items
 
-    @field_validator("observacao_rh")
+    @field_validator("observacao_rh", "justificativa_indicacao")
     @classmethod
     def validate_observation(cls, value: str) -> str:
         safe_value = str(value or "").strip()
         if len(safe_value) > 3000:
             raise ValueError("A observação RH deve ter no máximo 3000 caracteres.")
+        return safe_value
+
+    @field_validator("classificacao_indicacao")
+    @classmethod
+    def validate_profile_recommendation(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        valid_values = {
+            "indicado",
+            "indicado com restricoes",
+            "contraindicado",
+        }
+        if _normalize_compare_value(safe_value) not in valid_values:
+            raise ValueError("Classificação da ficha do candidato inválida.")
         return safe_value
 
     @field_validator("email")

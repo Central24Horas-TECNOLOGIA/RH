@@ -120,6 +120,7 @@ import {
 import { encontrarProcessoPorReferencia } from '../shared/process-reference.js';
 
 const CHAVE_ESTADO = 'rh_react_state_v1';
+const CHAVE_BARRA_LATERAL = 'rh_sidebar_collapsed_v1';
 export const TAMANHO_RECENTES = 6;
 export const TAMANHO_HISTORICO = 10;
 export const TAMANHO_ANALISE = 5;
@@ -136,12 +137,18 @@ export const PERMISSOES_TELAS = {
   'screen-processes-closed': 'vagas.visualizar',
   'screen-process-decisions': 'vagas.visualizar',
   'screen-candidates': 'candidatos.visualizar',
+  'screen-candidate-details': 'candidatos.visualizar',
   'screen-candidate-pipeline': 'candidatos.mover_etapa',
   'screen-process-details': 'processos.visualizar',
   'screen-interviews': 'entrevistas.visualizar',
   'screen-analysis-candidates': 'relatorios.visualizar',
   'screen-talent-bank': 'candidatos.visualizar',
   'screen-settings': 'configuracoes.visualizar',
+  'screen-settings-users': 'usuarios.visualizar',
+  'screen-settings-profiles': 'configuracoes.visualizar',
+  'screen-settings-rules': 'configuracoes.visualizar',
+  'screen-settings-logs': 'logs.visualizar',
+  'screen-generated-exams': 'provas.visualizar',
   'screen-config': 'provas.enviar',
   'screen-candidate': 'provas.enviar',
   'screen-exam': 'provas.enviar',
@@ -149,6 +156,26 @@ export const PERMISSOES_TELAS = {
   'screen-thanks': 'provas.enviar',
 };
 const logger = criarLogger('controlador-aplicacao');
+
+function lerPreferenciaBarraLateral(valorPadrao = false) {
+  try {
+    const valor = window.localStorage.getItem(CHAVE_BARRA_LATERAL);
+    if (valor === '1') return true;
+    if (valor === '0') return false;
+  } catch (error) {
+    logger.debug?.('Não foi possível ler a preferência da barra lateral.', error);
+  }
+
+  return Boolean(valorPadrao);
+}
+
+function salvarPreferenciaBarraLateral(recolhida) {
+  try {
+    window.localStorage.setItem(CHAVE_BARRA_LATERAL, recolhida ? '1' : '0');
+  } catch (error) {
+    logger.debug?.('Não foi possível salvar a preferência da barra lateral.', error);
+  }
+}
 
 function validarEmailContatoCandidato(email) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email || '').trim());
@@ -178,7 +205,7 @@ export function criarEstadoInicial() {
     nivelPerfilUsuario: sessao.nivel || '',
     permissoesUsuario: Array.isArray(sessao.permissoes) ? sessao.permissoes : [],
     avisoAcessoNegado: '',
-    barraLateralRecolhida: false,
+    barraLateralRecolhida: lerPreferenciaBarraLateral(false),
     candidato: {
       id_processo: '',
       id_processo_ref: '',
@@ -246,6 +273,7 @@ export function hidratarEstado() {
       autenticado: criarEstadoInicial().autenticado,
       validandoSessao: criarEstadoInicial().validandoSessao,
       usuarioAutenticado: criarEstadoInicial().usuarioAutenticado,
+      barraLateralRecolhida: lerPreferenciaBarraLateral(salvo?.barraLateralRecolhida),
       salvandoResultado: false,
     };
 
@@ -321,7 +349,8 @@ export function usarTelaAtual(autenticado) {
   );
 
   useEffect(() => {
-    if (!window.location.hash) {
+    const caminhoAtual = String(window.location.pathname || '').replace(/\/+$/, '');
+    if (!window.location.hash && caminhoAtual !== '/conecta-provas') {
       navegarParaTela(autenticado ? 'screen-menu' : 'screen-login');
     }
   }, [autenticado]);
@@ -338,25 +367,37 @@ export function usarTelaAtual(autenticado) {
 
 export function obterRegrasFormularioProcesso(vaga) {
   const vagaSegura = String(vaga || '').trim();
+  const vagaNormalizada = vagaSegura
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
-  if (vagaSegura === 'Operador' || vagaSegura === 'Supervisor') {
-    return { exigeOperacao: true, exigeTrilha: false, trilhaFixa: '' };
+  if (vagaNormalizada === 'operador' || vagaNormalizada === 'jovem aprendiz') {
+    return { exigeOperacao: true, exigeTrilha: false, trilhaFixa: 'Operação' };
   }
 
-  if (vagaSegura === 'Control Desk') {
-    return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: '' };
+  if (vagaNormalizada === 'supervisor') {
+    return { exigeOperacao: true, exigeTrilha: false, trilhaFixa: 'Operação / Gestão' };
   }
 
-  if (vagaSegura === 'Estagiario' || vagaSegura === 'Estagiário') {
-    return { exigeOperacao: false, exigeTrilha: true, trilhaFixa: '' };
-  }
-
-  if (vagaSegura === 'Analista' || vagaSegura === 'TI') {
+  if (vagaNormalizada === 'control desk') {
     return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: 'TI' };
   }
 
-  if (vagaSegura === 'Jovem Aprendiz') {
-    return { exigeOperacao: true, exigeTrilha: false, trilhaFixa: '' };
+  if (vagaNormalizada === 'estagiario') {
+    return { exigeOperacao: false, exigeTrilha: true, trilhaFixa: '' };
+  }
+
+  if (vagaNormalizada.startsWith('suporte tecnico') || vagaNormalizada === 'ti') {
+    return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: 'TI' };
+  }
+
+  if (vagaNormalizada === 'planejamento') {
+    return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: 'Operação / Gestão' };
+  }
+
+  if (vagaNormalizada === 'analista' || vagaNormalizada === 'outros') {
+    return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: 'ADM / Gestão' };
   }
 
   return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: '' };
@@ -370,6 +411,9 @@ function obterAbreviacaoVaga(vaga) {
     Analista: 'ANL',
     Estagiario: 'ESTG',
     Estagiário: 'ESTG',
+    'Suporte Técnico Júnior': 'SUP.TI.JR',
+    'Suporte Técnico Pleno': 'SUP.TI.PL',
+    'Suporte Técnico Sênior': 'SUP.TI.SR',
     Outros: 'OUT',
     'Control Desk': 'CTRL',
     Planejamento: 'PLAN',
@@ -768,10 +812,14 @@ export function useControladorAplicacao() {
   };
 
   const alternarBarraLateral = () => {
-    atualizarEstado((anterior) => ({
-      ...anterior,
-      barraLateralRecolhida: !anterior.barraLateralRecolhida,
-    }));
+    atualizarEstado((anterior) => {
+      const recolhida = !anterior.barraLateralRecolhida;
+      salvarPreferenciaBarraLateral(recolhida);
+      return {
+        ...anterior,
+        barraLateralRecolhida: recolhida,
+      };
+    });
   };
 
   const fazerLogin = async (usuario, senha) => {

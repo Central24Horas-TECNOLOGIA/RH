@@ -37,7 +37,7 @@ export function obterClasseStatusProcesso(status) {
   if (valor === 'Agendado' || valor === 'Confirmado' || valor === 'Reagendado') return 'is-scheduled';
   if (valor.startsWith('Eliminado') || valor === 'Reprovado' || valor === 'Desistente') return 'is-eliminated';
   if (valor === 'Banco de Talentos') return 'is-talent';
-  if (valor === 'Nao qualificado' || valor === 'NÃ£o qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
+  if (valor === 'Nao qualificado' || valor === 'Não qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
   return 'is-analysis';
 }
 
@@ -49,7 +49,7 @@ export function obterClasseStatusEntrevista(status) {
   if (valor === 'Faltou' || valor === 'Eliminado' || valor === 'Desistente') return 'is-eliminated';
   if (valor === 'Agendado' || valor === 'Confirmado' || valor === 'Reagendado') return 'is-scheduled';
   if (valor === 'Qualificado') return 'is-highlight';
-  if (valor === 'Nao qualificado' || valor === 'NÃ£o qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
+  if (valor === 'Nao qualificado' || valor === 'Não qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
   return 'is-analysis';
 }
 

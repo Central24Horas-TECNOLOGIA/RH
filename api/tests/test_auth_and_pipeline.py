@@ -285,7 +285,7 @@ class AuthAndPipelineApiTests(unittest.TestCase):
             get_current_user(None)
 
         self.assertEqual(context.exception.status_code, 401)
-        self.assertEqual(context.exception.detail, "Autenticacao obrigatoria.")
+        self.assertEqual(context.exception.detail, "Autentica\u00e7\u00e3o obrigat\u00f3ria.")
 
     def test_history_uses_server_side_pagination(self):
         repository = FakeRepository()

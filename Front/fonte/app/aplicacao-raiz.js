@@ -21,10 +21,15 @@ import {
   TelaProcessosEncerrados,
   TelaProcessos,
 } from '../features/telas-processos.js';
-import { TelaCandidatos } from '../features/candidatos/index.js';
+import {
+  TelaCandidatos,
+  TelaDetalhesCandidato,
+} from '../features/candidatos/index.js';
 import { TelaPipelineCandidatos } from '../features/tela-pipeline.js';
 import { TelaEntrevistas } from '../features/tela-entrevistas.js';
 import { TelaCandidaturaPublica } from '../features/public-candidacy/index.js';
+import { TelaConectaProvas } from '../features/conecta-provas/index.js';
+import { TelaProvasResultados } from '../features/provas-geradas/index.js';
 import { TelaConfiguracoesSistema } from '../features/configuracoes/index.js';
 import {
   TelaCandidato,
@@ -37,7 +42,7 @@ import {
 function resolverTelaProtegida(telaAtual, controlador) {
   const { estado, blueprint } = controlador;
 
-  if (telaAtual === 'screen-public-candidacy') {
+  if (telaAtual === 'screen-public-candidacy' || telaAtual === 'screen-conecta-provas') {
     return telaAtual;
   }
 
@@ -103,6 +108,10 @@ export function Aplicacao() {
     return html`<${TelaCandidaturaPublica} />`;
   }
 
+  if (telaResolvida === 'screen-conecta-provas') {
+    return html`<${TelaConectaProvas} />`;
+  }
+
   if (controlador.estado.validandoSessao) {
     return html`
       <section class="active screen" id="screen-loading">
@@ -155,6 +164,10 @@ export function Aplicacao() {
     return html`<${TelaCandidatos} controlador=${controlador} />`;
   }
 
+  if (telaResolvida === 'screen-candidate-details') {
+    return html`<${TelaDetalhesCandidato} controlador=${controlador} />`;
+  }
+
   if (telaResolvida === 'screen-candidate-pipeline') {
     return html`<${TelaPipelineCandidatos} controlador=${controlador} />`;
   }
@@ -175,8 +188,23 @@ export function Aplicacao() {
     return html`<${TelaAnaliseCandidatos} controlador=${controlador} />`;
   }
 
-  if (telaResolvida === 'screen-settings') {
-    return html`<${TelaConfiguracoesSistema} controlador=${controlador} />`;
+  if (
+    telaResolvida === 'screen-settings' ||
+    telaResolvida === 'screen-settings-users' ||
+    telaResolvida === 'screen-settings-profiles' ||
+    telaResolvida === 'screen-settings-rules' ||
+    telaResolvida === 'screen-settings-logs'
+  ) {
+    return html`
+      <${TelaConfiguracoesSistema}
+        controlador=${controlador}
+        telaAtual=${telaResolvida}
+      />
+    `;
+  }
+
+  if (telaResolvida === 'screen-generated-exams') {
+    return html`<${TelaProvasResultados} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-forbidden') {

@@ -3632,7 +3632,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
 
       <${SectionCard}
         title="Entrevistas agendadas"
-        description="Agenda vinculada ao processo atual, usando horários internos."
+        description=""
         tourId="process-interviews"
         actions=${html`
           <button

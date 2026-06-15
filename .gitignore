@@ -11,6 +11,7 @@ pytest-cache-files-*/
 # Ambientes e segredos
 .env
 api/.env
+config.ini
 *.local
 .venv/
 venv/
@@ -28,6 +29,7 @@ env/
 .edge-headless/
 .edge-*.png
 data/email-inbox-test-runtime/
+data/private/
 Thumbs.db
 .DS_Store
 

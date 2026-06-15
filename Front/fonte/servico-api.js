@@ -45,6 +45,25 @@ export {
   salvarHistorico,
 } from './services/api/history.js';
 export {
+  acessarProvaPorCodigo,
+  acessarProvaPorEmail,
+  acessarProvaPorTelefone,
+  cancelarProvaGerada,
+  confirmarDadosConectaProvas,
+  criarProvaGerada,
+  finalizarConectaProvas,
+  iniciarConectaProvas,
+  lerProvaGerada,
+  lerSessaoConectaProvas,
+  listarProvasGeradas,
+  marcarRevisaoConectaProvas,
+  reabrirProvaGerada,
+  recalcularScoreProva,
+  registrarDecisaoRhProva,
+  salvarAvaliacaoManualProva,
+  salvarRespostasConectaProvas,
+} from './services/api/generated-exams.js';
+export {
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
   analisarCvEmailRecebido,

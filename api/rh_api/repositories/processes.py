@@ -186,6 +186,7 @@ class ProcessRepositoryMixin:
                 f"""
                 UPDATE processos_seletivos
                 SET
+                    vaga = ?,
                     quantidade_vagas = ?,
                     data_encerramento = ?,
                     operacao = ?,
@@ -200,6 +201,9 @@ class ProcessRepositoryMixin:
                 WHERE {where_clause}
                 """,
                 (
+                    normalize_text(data.get("vaga"))
+                    if data.get("vaga") is not None
+                    else processo.get("vaga", ""),
                     int(data.get("quantidade_vagas", 0) or 0),
                     data.get("data_encerramento", ""),
                     data.get("operacao", ""),

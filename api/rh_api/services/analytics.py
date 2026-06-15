@@ -16,42 +16,121 @@ STAGE_IMPORTANCE_BY_ROLE = {
         "excel_basic": 5.0,
         "general_knowledge": 6.0,
         "logic": 6.0,
+        "professional_essay": 6.0,
     },
     "Operador": {
         "word_basic": 6.0,
         "customer_service": 7.5,
         "logic": 6.5,
         "general_knowledge": 5.5,
+        "professional_essay": 6.0,
     },
-    "Estagiario": {
+    "Estagiário": {
         "word_basic": 6.5,
         "excel_intermediate": 6.5,
         "logic": 6.5,
         "technical_support": 6.0,
+        "professional_essay": 6.0,
+    },
+    "Estagiário RH": {
+        "word_basic": 6.5,
+        "excel_basic": 6.0,
+        "general_basic": 6.0,
+        "tech_rh_basic": 6.0,
+        "professional_essay": 6.0,
+    },
+    "Estagiário TI": {
+        "word_basic": 6.5,
+        "excel_basic": 6.0,
+        "general_basic": 6.0,
+        "tech_ti_basic": 6.0,
+        "professional_essay": 6.0,
+    },
+    "Estagiário Comercial": {
+        "word_basic": 6.0,
+        "excel_basic": 6.5,
+        "general_basic": 6.0,
+        "tech_commercial_basic": 6.0,
+        "professional_essay": 6.0,
+    },
+    "Estagiário Operação": {
+        "word_basic": 6.0,
+        "excel_basic": 6.0,
+        "general_basic": 6.0,
+        "tech_operation_basic": 6.0,
+        "professional_essay": 6.0,
+    },
+    "Estagiário Financeiro": {
+        "word_basic": 6.0,
+        "excel_basic": 6.5,
+        "general_basic": 6.0,
+        "tech_finance_basic": 6.0,
+        "professional_essay": 6.0,
     },
     "Supervisor": {
         "word_intermediate": 7.0,
+        "word_basic": 7.0,
         "excel_operational": 7.0,
+        "excel_mid": 7.0,
         "logic": 7.0,
         "customer_service": 7.0,
+        "general_adv_people": 7.0,
+        "professional_essay": 7.0,
     },
     "Control Desk": {
         "word_intermediate": 6.5,
+        "word_basic": 6.5,
         "excel_quality": 7.5,
+        "excel_advanced": 7.0,
         "logic": 7.0,
         "adm": 7.0,
+        "tech_ti_basic": 7.0,
+        "analysis_eval": 7.0,
+        "professional_essay": 6.5,
+    },
+    "Suporte Técnico Júnior": {
+        "word_basic": 6.5,
+        "excel_basic": 6.0,
+        "general_basic": 6.0,
+        "tech_ti_basic": 6.5,
+        "analysis_eval": 6.0,
+        "professional_essay": 6.0,
+    },
+    "Suporte Técnico Pleno": {
+        "word_basic": 7.0,
+        "excel_advanced": 6.5,
+        "general_basic": 6.5,
+        "tech_ti_specific": 7.0,
+        "analysis_eval": 7.0,
+        "professional_essay": 7.0,
+    },
+    "Suporte Técnico Sênior": {
+        "word_advanced": 7.5,
+        "excel_advanced": 7.0,
+        "general_advanced": 7.0,
+        "tech_ti_specific": 7.5,
+        "tech_logic": 7.5,
+        "professional_essay": 7.5,
     },
     "Planejamento": {
         "word_intermediate": 6.0,
+        "word_basic": 7.0,
         "excel_planning": 8.0,
+        "excel_advanced": 8.0,
         "logic": 7.5,
         "adm": 7.0,
+        "tech_adm_basic": 7.5,
+        "analysis_eval": 7.5,
+        "professional_essay": 7.0,
     },
     "TI": {
         "word_advanced": 6.0,
         "technical_support": 7.0,
         "logic": 7.5,
         "excel_advanced": 8.0,
+        "general_advanced": 7.0,
+        "tech_ti_specific": 7.5,
+        "professional_essay": 7.0,
     },
     "Analista": {
         "word_advanced": 7.0,
@@ -59,29 +138,44 @@ STAGE_IMPORTANCE_BY_ROLE = {
         "logic": 7.5,
         "technical_support": 7.5,
         "adm": 6.5,
+        "professional_essay": 7.0,
     },
     "Outros": {
         "word_intermediate": 6.5,
         "excel_intermediate": 6.5,
         "logic": 6.5,
         "general_knowledge": 6.0,
+        "professional_essay": 6.5,
     },
 }
+STAGE_IMPORTANCE_BY_ROLE["Estagiario"] = STAGE_IMPORTANCE_BY_ROLE["Estagiário"]
 
 STAGE_LABEL_FALLBACK = {
-    "word_basic": "Word Basico",
-    "word_intermediate": "Word Intermediario",
-    "word_advanced": "Word Avancado",
-    "excel_basic": "Excel Basico",
-    "excel_intermediate": "Excel Intermediario",
-    "excel_advanced": "Excel Avancado",
+    "word_basic": "Word Básico",
+    "word_intermediate": "Word Intermediário",
+    "word_advanced": "Word Avançado",
+    "excel_basic": "Excel Básico",
+    "excel_intermediate": "Excel Intermediário",
+    "excel_advanced": "Excel Avançado",
     "excel_operational": "Excel Operacional",
     "excel_planning": "Excel Planejamento",
     "excel_quality": "Excel Qualidade",
-    "logic": "Logica",
-    "technical_support": "Conhecimentos Tecnicos",
+    "logic": "Lógica",
+    "technical_support": "Conhecimentos Técnicos",
     "customer_service": "Atendimento",
     "general_knowledge": "Conhecimentos Gerais",
+    "general_basic": "Conhecimentos Gerais",
+    "general_advanced": "Conhecimentos Gerais",
+    "general_adv_people": "Conhecimentos Gerais: Gestão de Pessoas",
+    "tech_ti_basic": "Conhecimentos Técnicos: TI",
+    "tech_ti_specific": "Conhecimentos Técnicos Específicos: TI",
+    "tech_rh_basic": "Conhecimentos Técnicos: RH",
+    "tech_commercial_basic": "Conhecimentos Técnicos: Comercial",
+    "tech_finance_basic": "Conhecimentos Técnicos: Financeiro",
+    "tech_operation_basic": "Conhecimentos Técnicos: Operação",
+    "analysis_eval": "Avaliação de Análise",
+    "tech_logic": "Avaliação Técnica e Lógica",
+    "professional_essay": "Redação: Estudo de Caso Profissional",
     "adm": "Administrativo",
     "rh": "RH",
 }
@@ -238,8 +332,18 @@ def score_text_quality(text):
 
 def build_stage_expectation(role):
     role_safe = normalize_text(role)
-    if normalize_compare_text(role_safe) == "estagiario":
-        role_safe = "Estagiario"
+    aliases = {
+        "estagiario": "Estagiário",
+        "estagiario rh": "Estagiário RH",
+        "estagiario ti": "Estagiário TI",
+        "estagiario comercial": "Estagiário Comercial",
+        "estagiario operacao": "Estagiário Operação",
+        "estagiario financeiro": "Estagiário Financeiro",
+        "suporte tecnico junior": "Suporte Técnico Júnior",
+        "suporte tecnico pleno": "Suporte Técnico Pleno",
+        "suporte tecnico senior": "Suporte Técnico Sênior",
+    }
+    role_safe = aliases.get(normalize_compare_text(role_safe), role_safe)
     return STAGE_IMPORTANCE_BY_ROLE.get(role_safe, {})
 
 
@@ -257,8 +361,18 @@ def build_analysis_from_payload(history_row, process_row, process_candidate_row,
         weighted_final_score = parse_float_br(history_row.get("pontuacao_final"))
 
     role = normalize_text(candidate.get("role") or history_row.get("vaga"))
-    if normalize_compare_text(role) == "estagiario":
-        role = "Estagiario"
+    role_aliases = {
+        "estagiario": "Estagiário",
+        "estagiario rh": "Estagiário RH",
+        "estagiario ti": "Estagiário TI",
+        "estagiario comercial": "Estagiário Comercial",
+        "estagiario operacao": "Estagiário Operação",
+        "estagiario financeiro": "Estagiário Financeiro",
+        "suporte tecnico junior": "Suporte Técnico Júnior",
+        "suporte tecnico pleno": "Suporte Técnico Pleno",
+        "suporte tecnico senior": "Suporte Técnico Sênior",
+    }
+    role = role_aliases.get(normalize_compare_text(role), role)
 
     expectation = build_stage_expectation(role)
     normalized_stages = []

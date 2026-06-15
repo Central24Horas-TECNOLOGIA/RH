@@ -2,7 +2,7 @@ import { criarLogger } from '../../logger.js';
 
 const CONFIG_RUNTIME = window.RUNTIME_CONFIG || {};
 const URL_API_BASE =
-  CONFIG_RUNTIME.API_BASE_URL || window.__RH_API_BASE__ || 'http://127.0.0.1:8010';
+  CONFIG_RUNTIME.API_BASE_URL || window.__RH_API_BASE__ || '';
 export const URL_PUBLICA_BASE_CANDIDATURA =
   CONFIG_RUNTIME.PUBLIC_CANDIDATE_BASE_URL ||
   window.__RH_PUBLIC_CANDIDATE_BASE_URL__ ||

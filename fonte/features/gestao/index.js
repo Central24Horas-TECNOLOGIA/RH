@@ -304,8 +304,8 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
       className=${`mailbox-card ${compacto ? 'mailbox-card-compact' : 'mailbox-card-full'}`}
       title=${compacto ? 'Caixa de Currículos' : 'Caixa de E-mail'}
       description=${compacto
-      ? 'Resumo dos currículos recebidos na caixa configurada.'
-      : 'Consulta completa dos e-mails recebidos com currículos.'}
+      ? ''
+      : ''}
       actions=${html`
         <div class=${`mailbox-toolbar rh-email-panel-actions ${compacto ? 'mailbox-toolbar-compact' : 'mailbox-toolbar-full'}`}>
           ${!compacto
@@ -326,6 +326,8 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                     Filtrar
                   </button>
                 </form>
+                <br>
+                <br>
               `
         : controlador
           ? html`
@@ -922,7 +924,7 @@ export function TelaInicio({ controlador }) {
         <${SecaoCurriculosRecebidosEmail} modo="resumo" controlador=${controlador} />
 
         <${SectionCard}
-          title="Registros recentes"
+          title="Provas recentes"
           description="Clique em um registro para abrir o detalhamento salvo."
           tourId="home-recent"
         >
@@ -1021,7 +1023,7 @@ export function TelaInicio({ controlador }) {
                 history
               </span>
               <div>
-                <span class="quick-summary-label">Registros recentes</span>
+                <span class="quick-summary-label">Provas recentes</span>
                 <strong class="quick-summary-value">${recentes.length}</strong>
                 <span class="quick-summary-helper">
                   Ultimos itens visiveis no painel
@@ -1072,7 +1074,7 @@ export function TelaCaixaEmail({ controlador }) {
       <${PageIntro}
         kicker="Currículos recebidos"
         title="Caixa de E-mail"
-        description="Tela dedicada para consultar, filtrar, analisar, vincular, enviar ao Banco de Talentos, ignorar ou excluir e-mails recebidos."
+        description=""
       />
 
       <${SecaoCurriculosRecebidosEmail}
@@ -1689,7 +1691,7 @@ export function TelaBancoTalentos({ controlador }) {
 
       <${SectionCard}
         title="Filtros"
-        description="Busque candidatos por nome, habilidade e tags cadastradas."
+        description=""
         tourId="talent-filters"
       >
         <div class="rh-filter-grid rh-filter-grid--wide">

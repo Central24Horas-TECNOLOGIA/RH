@@ -1,0 +1,1789 @@
+from __future__ import annotations
+
+import json
+import re
+import secrets
+import string
+from datetime import datetime, timedelta
+from typing import Any
+
+from fastapi import HTTPException, status
+
+from ..services.cv import is_valid_email, is_valid_phone
+from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts, safe_json_loads
+from ..services.score_conecta import calcular_score_conecta
+from .bootstrap import (
+    ensure_candidate_metadata_columns,
+    ensure_candidate_metadata_table,
+    ensure_conecta_exams_tables,
+    get_process_row,
+)
+
+
+EXAM_STATUS_GENERATED = "Gerada"
+EXAM_STATUS_AVAILABLE = "Disponível"
+EXAM_STATUS_WAITING = "Aguardando candidato"
+EXAM_STATUS_IN_PROGRESS = "Em andamento"
+EXAM_STATUS_REVIEW = "Em revisão"
+EXAM_STATUS_FINISHED = "Finalizada"
+EXAM_STATUS_CORRECTED = "Corrigida"
+EXAM_STATUS_PENDING_MANUAL = "Pendente de avaliação manual"
+EXAM_STATUS_REOPENED = "Reaberta"
+EXAM_STATUS_CANCELLED = "Cancelada"
+EXAM_STATUS_EXPIRED = "Expirada"
+
+PUBLIC_ACCESS_ALLOWED_STATUSES = {
+    EXAM_STATUS_GENERATED,
+    EXAM_STATUS_AVAILABLE,
+    EXAM_STATUS_WAITING,
+    EXAM_STATUS_IN_PROGRESS,
+    EXAM_STATUS_REVIEW,
+    EXAM_STATUS_REOPENED,
+}
+
+GENERIC_ACCESS_MESSAGE = "Não encontramos uma prova disponível com os dados informados."
+
+
+def _json_dumps(value: Any) -> str:
+    return json.dumps(value if value is not None else {}, ensure_ascii=False)
+
+
+def _normalize_email(value: Any) -> str:
+    return normalize_text(value).lower()
+
+
+def _normalize_phone(value: Any) -> str:
+    digits = re.sub(r"\D", "", normalize_text(value))
+    if digits.startswith("55") and len(digits) in (12, 13):
+        return digits[2:]
+    return digits
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    text = normalize_text(value)
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = f"{text[:-1]}+00:00"
+    try:
+        return datetime.fromisoformat(text).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def _format_datetime(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return normalize_text(value)
+
+
+def _score_to_old_history_scale(value: Any) -> str:
+    try:
+        number = float(value or 0)
+    except (TypeError, ValueError):
+        number = 0.0
+    if number > 10:
+        number /= 10
+    return f"{number:.1f}".replace(".", ",")
+
+
+def _strip_html(value: Any) -> str:
+    return re.sub(r"<[^>]+>", " ", normalize_text(value)).strip()
+
+
+ESSAY_MAX_LINES = 20
+ESSAY_MAX_CHARACTERS = 2200
+ESSAY_ORIENTATION = (
+    "Seu texto deve ter introdução, desenvolvimento e conclusão. "
+    f"Escreva uma redação de até {ESSAY_MAX_LINES} linhas."
+)
+ESSAY_CRITERIA = [
+    "Clareza",
+    "Coerência",
+    "Coesão",
+    "Ortografia",
+    "Organização das ideias",
+    "Adequação ao tema",
+    "Argumentação",
+    f"Cumprimento do limite de até {ESSAY_MAX_LINES} linhas",
+]
+PROMPT_INTERNAL_PHRASES = [
+    "Imagine uma situação",
+    "Use linguagem humanizada",
+    "A resposta deve mostrar",
+    "Avalie organização",
+    "sem cobrar experiência prévia",
+    "Use atendimento, rotina operacional",
+    "O cenário pode usar como referência",
+    "A personalização deve",
+    "Considere o cliente",
+    "Considere a operação",
+    "com foco em empatia",
+    "capacidade de aprender",
+    "use linguagem simples e situações de primeiro emprego",
+    "Use como eixo da questão",
+    "Use tom",
+    "A demanda deve considerar conhecimentos",
+]
+INTERNAL_QUESTION_FIELDS = {
+    "contextoInternoGeracao",
+    "contexto_interno_geracao",
+    "criteriosAvaliacao",
+    "criterios_avaliacao",
+    "respostaEsperadaInterna",
+    "resposta_esperada_interna",
+    "personalizacaoInteligente",
+    "prompt",
+    "promptInterno",
+    "prompt_interno",
+    "personalizationPrompt",
+    "generationContext",
+    "generation_context",
+}
+
+
+def _text_has_internal_prompt(value: Any) -> bool:
+    base = normalize_compare_text(value)
+    return bool(base) and any(normalize_compare_text(phrase) in base for phrase in PROMPT_INTERNAL_PHRASES)
+
+
+def _clean_candidate_text(value: Any) -> str:
+    text = normalize_text(value)
+    text = re.sub(r"^\s*Texto-(base|motivador)\s*\d+\s*:\s*", "", text, flags=re.I)
+    text = re.sub(r"^\s*Texto\s+motivador\s*\d+\s*:\s*", "", text, flags=re.I)
+    text = re.sub(r"^\s*Contexto\s*:\s*", "", text, flags=re.I)
+    text = re.sub(r"\b(central de agendamento)\s+\1\b", r"\1", text, flags=re.I)
+    text = re.sub(r"\s+([,.?!;:])", r"\1", text)
+    text = re.sub(r"[ \t]{2,}", " ", text).strip()
+    if not text or _text_has_internal_prompt(text):
+        return ""
+    return text
+
+
+def _is_essay_question(question: dict[str, Any]) -> bool:
+    return normalize_text(question.get("stageKey")) == "professional_essay" or bool(
+        question.get("essay") or (isinstance(question.get("expected"), dict) and question["expected"].get("essay"))
+    )
+
+
+def _safe_essay_max_characters(value: Any) -> int:
+    try:
+        amount = int(value or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    return amount if amount >= 1800 else ESSAY_MAX_CHARACTERS
+
+
+def _essay_support_texts(question: dict[str, Any]) -> list[str]:
+    essay = question.get("essay") if isinstance(question.get("essay"), dict) else {}
+    source = essay.get("supportTexts") or essay.get("motivatingTexts") or []
+    texts = [_clean_candidate_text(item) for item in source if _clean_candidate_text(item)]
+    if len(texts) >= 2:
+        return texts[:2]
+    return [
+        "O início da vida profissional costuma ser marcado por descobertas, dúvidas e aprendizados. Para muitos jovens, esse período representa o primeiro contato com regras, horários, responsabilidades e formas de comunicação próprias do ambiente de trabalho. Atitudes simples, como ouvir com atenção, anotar orientações, confirmar informações e cumprir combinados, ajudam a construir confiança e demonstram disposição para aprender. Elas também tornam a rotina mais segura para a pessoa e para a equipe.",
+        "Em uma situação cotidiana, uma pessoa recebeu uma lista curta de tarefas e percebeu que uma orientação estava incompleta. Antes de seguir adiante, ela decidiu conferir a informação com a pessoa responsável, evitando retrabalho e reduzindo o risco de repassar dados incorretos. Essa postura mostra que responsabilidade não depende apenas de experiência, mas também de cuidado, comunicação respeitosa e organização. Mesmo uma atividade simples pode exigir atenção aos detalhes.",
+    ]
+
+
+def _essay_criteria(criteria: Any) -> list[str]:
+    visible = []
+    if isinstance(criteria, list):
+        visible = [
+            normalize_text(item)
+            for item in criteria
+            if normalize_text(item) and "caracteres" not in normalize_compare_text(item)
+        ]
+    return list(dict.fromkeys([*visible, *ESSAY_CRITERIA]))
+
+
+def _fallback_candidate_fields(question: dict[str, Any]) -> tuple[str, str]:
+    title = normalize_compare_text(question.get("title") or question.get("titulo"))
+    base = normalize_compare_text(
+        " ".join(
+            str(question.get(key) or "")
+            for key in (
+                "stage",
+                "category",
+                "categoria",
+                "description",
+                "enunciadoCandidato",
+                "instrucaoCandidato",
+            )
+        )
+    )
+    if ("email" in title or "e mail" in title) and (
+        "davita" in base or "paciente" in base or "agendamento" in base or "consulta" in base
+    ):
+        return (
+            "Você trabalha em uma central de agendamento. Um paciente informou que está com dúvida sobre o horário e a unidade da consulta. A equipe precisa registrar a situação com atenção para evitar informações incorretas.",
+            "Escreva um e-mail curto para a equipe explicando o ocorrido e orientando que os dados da consulta sejam conferidos antes do atendimento.",
+        )
+    if "comunicado" in title:
+        return (
+            "A equipe recebeu uma orientação simples que precisa ser comunicada de forma clara para manter a rotina organizada e evitar dúvidas.",
+            "Escreva um comunicado curto, com título adequado, explicando a orientação principal de maneira objetiva e profissional.",
+        )
+    if "lista" in title or "procedimento" in title:
+        return (
+            "Antes de iniciar uma atividade de atendimento, a equipe precisa organizar informações, conferir ferramentas e seguir passos básicos.",
+            "Crie uma lista com pelo menos três procedimentos simples que ajudem a preparar a rotina antes do atendimento.",
+        )
+    if normalize_text(question.get("type")) == "multiple":
+        return (
+            "Uma orientação de trabalho chegou com informação incompleta e pode gerar erro se for seguida sem conferência.",
+            "Marque a alternativa que melhor demonstra cuidado, responsabilidade e comunicação clara.",
+        )
+    return (
+        "Durante uma rotina de trabalho, uma pessoa precisa registrar uma informação simples para que a equipe consiga dar continuidade sem dúvida.",
+        "Responda explicando o que deve ser comunicado e qual próximo passo precisa ser acompanhado.",
+    )
+
+
+def _sanitize_question_for_storage(question: dict[str, Any]) -> dict[str, Any]:
+    item = dict(question or {})
+    item["titulo"] = normalize_text(item.get("titulo") or item.get("title"))
+    item["tipo"] = normalize_text(item.get("tipo") or item.get("type"))
+    item["categoria"] = normalize_text(item.get("categoria") or item.get("stage") or item.get("stageKey"))
+
+    if _is_essay_question(item):
+        essay = dict(item.get("essay") or {})
+        proposal = _clean_candidate_text(essay.get("proposal") or item.get("enunciadoCandidato") or item.get("description"))
+        if not proposal:
+            proposal = "Com base nos textos-base e em seus conhecimentos, escreva um texto explicando a importância de agir com organização, clareza e responsabilidade em situações profissionais."
+        support_texts = _essay_support_texts(item)
+        essay["supportTexts"] = support_texts
+        essay["motivatingTexts"] = support_texts
+        essay["proposal"] = proposal
+        essay["orientation"] = ESSAY_ORIENTATION
+        essay["maxLines"] = ESSAY_MAX_LINES
+        essay["maxCharacters"] = _safe_essay_max_characters(essay.get("maxCharacters"))
+        essay["criteria"] = _essay_criteria(essay.get("criteria"))
+        item["essay"] = essay
+        expected = dict(item.get("expected") or {})
+        expected["essay"] = True
+        expected["maxLines"] = ESSAY_MAX_LINES
+        expected["maxCharacters"] = essay["maxCharacters"]
+        expected["criteria"] = essay["criteria"]
+        item["expected"] = expected
+        item["enunciadoCandidato"] = proposal
+        item["instrucaoCandidato"] = ESSAY_ORIENTATION
+        item["criteriosAvaliacao"] = essay["criteria"]
+        item["description"] = f"{proposal}\n\n{ESSAY_ORIENTATION}".strip()
+        return item
+
+    enunciado = _clean_candidate_text(item.get("enunciadoCandidato") or item.get("description"))
+    instrucao = _clean_candidate_text(item.get("instrucaoCandidato"))
+    if not enunciado or _text_has_internal_prompt(item.get("description")):
+        enunciado, instrucao = _fallback_candidate_fields(item)
+    item["enunciadoCandidato"] = enunciado
+    item["instrucaoCandidato"] = instrucao
+    item["description"] = "\n\n".join(part for part in (enunciado, instrucao) if part).strip()
+    item.setdefault("contextoInternoGeracao", "")
+    item.setdefault("criteriosAvaliacao", [])
+    item.setdefault("respostaEsperadaInterna", item.get("answer", item.get("correctIndex", "")))
+    return item
+
+
+def _sanitize_questions_for_storage(questions: Any) -> list[dict[str, Any]]:
+    if not isinstance(questions, list):
+        return []
+    return [
+        _sanitize_question_for_storage(question)
+        for question in questions
+        if isinstance(question, dict)
+    ]
+
+
+def _public_question_payload(question: dict[str, Any]) -> dict[str, Any]:
+    item = _sanitize_question_for_storage(question)
+    for key in INTERNAL_QUESTION_FIELDS:
+        item.pop(key, None)
+    item.pop("gabarito", None)
+    item.pop("expected", None)
+    if isinstance(item.get("essay"), dict):
+        essay = dict(item["essay"])
+        essay.pop("criteria", None)
+        item["essay"] = essay
+    if not _is_essay_question(item):
+        item.pop("criteriosAvaliacao", None)
+    item.pop("answer", None)
+    item.pop("correctIndex", None)
+    return item
+
+
+def _public_questions_payload(questions: Any) -> list[dict[str, Any]]:
+    return [
+        _public_question_payload(question)
+        for question in questions
+        if isinstance(question, dict)
+    ] if isinstance(questions, list) else []
+
+
+def _safe_exam_minutes(value: Any, fallback: int = 40) -> int:
+    try:
+        minutes = int(value or 0)
+    except (TypeError, ValueError):
+        minutes = 0
+    if minutes < 1:
+        return fallback
+    return min(minutes, 300)
+
+
+def _is_public_answer_complete(question: dict, answer: Any) -> bool:
+    if question.get("required") is False:
+        return True
+
+    question_type = normalize_text(question.get("type"))
+    if answer in (None, ""):
+        return False
+
+    if question_type == "multiple":
+        if isinstance(answer, dict):
+            return answer.get("selected") not in (None, "")
+        return answer not in (None, "")
+
+    if question_type == "excel_external":
+        if not isinstance(answer, dict):
+            return False
+        return bool(
+            normalize_text(answer.get("filename"))
+            and (answer.get("validation") or normalize_text(answer.get("contentBase64")))
+        )
+
+    if question_type == "word":
+        if not isinstance(answer, dict):
+            return bool(_strip_html(answer))
+        return bool(_strip_html(answer.get("content") or answer.get("text")))
+
+    if isinstance(answer, dict):
+        return any(value not in (None, "", []) for value in answer.values())
+    return True
+
+
+class GeneratedExamRepositoryMixin:
+    @staticmethod
+    def _is_public_exam_available(row: dict) -> bool:
+        status_value = normalize_text(row.get("status"))
+        if status_value not in PUBLIC_ACCESS_ALLOWED_STATUSES:
+            return False
+        expires_at = _parse_datetime(row.get("expira_em"))
+        return not (expires_at and expires_at < datetime.now())
+
+    @staticmethod
+    def _public_exam_summary(row: dict, *, token: str) -> dict:
+        return {
+            "token": token,
+            "vaga": normalize_text(row.get("vaga")),
+            "operacao": normalize_text(row.get("operacao")),
+            "trilha": normalize_text(row.get("trilha")),
+            "nivel": normalize_text(row.get("nivel")),
+            "status": normalize_text(row.get("status")),
+            "gerada_em": _format_datetime(row.get("gerada_em")),
+            "tempo_total": _safe_exam_minutes(row.get("tempo_total")),
+        }
+
+    @staticmethod
+    def _exam_public_payload(row: dict) -> dict:
+        return {
+            "token": normalize_text(row.get("token_sessao_publica")),
+            "status": normalize_text(row.get("status")),
+            "candidato": {
+                "nome_candidato": normalize_text(row.get("nome_candidato")),
+                "email": normalize_text(row.get("email_acesso")),
+                "telefone": normalize_text(row.get("telefone_acesso")),
+            },
+            "prova": {
+                "vaga": normalize_text(row.get("vaga")),
+                "operacao": normalize_text(row.get("operacao")),
+                "trilha": normalize_text(row.get("trilha")),
+                "nivel": normalize_text(row.get("nivel")),
+                "tempo_total": _safe_exam_minutes(row.get("tempo_total")),
+                "quantidade_questoes": int(row.get("quantidade_questoes") or 0),
+                "etapas": safe_json_loads(row.get("etapas_json"), []),
+                "categorias": safe_json_loads(row.get("categorias_json"), []),
+                "questoes": _public_questions_payload(safe_json_loads(row.get("questoes_json"), [])),
+                "configuracao": safe_json_loads(row.get("configuracao_json"), {}),
+                "instrucoes_operacao": normalize_text(row.get("instrucoes_operacao")),
+                "iniciada_em": _format_datetime(row.get("iniciada_em")),
+                "finalizada": normalize_text(row.get("status")) in {
+                    EXAM_STATUS_FINISHED,
+                    EXAM_STATUS_CORRECTED,
+                    EXAM_STATUS_PENDING_MANUAL,
+                },
+            },
+        }
+
+    @staticmethod
+    def _exam_detail_payload(row: dict) -> dict:
+        detail = dict(row)
+        detail["etapas"] = safe_json_loads(row.get("etapas_json"), [])
+        detail["categorias"] = safe_json_loads(row.get("categorias_json"), [])
+        detail["configuracao"] = safe_json_loads(row.get("configuracao_json"), {})
+        detail["questoes"] = safe_json_loads(row.get("questoes_json"), [])
+        detail["score"] = safe_json_loads(row.get("score_payload_json"), {})
+        detail["resultado"] = safe_json_loads(row.get("resultado_payload_json"), {})
+        detail.pop("etapas_json", None)
+        detail.pop("categorias_json", None)
+        detail.pop("configuracao_json", None)
+        detail.pop("questoes_json", None)
+        detail.pop("score_payload_json", None)
+        detail.pop("resultado_payload_json", None)
+        return detail
+
+    def _generate_candidate_id(self, cursor) -> str:
+        while True:
+            candidate_id = f"CP-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(3).upper()}"
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM candidatos_metadata WHERE id_teste = ?
+                """,
+                (candidate_id,),
+            )
+            if int(cursor.fetchone()[0] or 0) == 0:
+                return candidate_id
+
+    def _find_candidate_id(self, cursor, data: dict) -> str:
+        explicit_id = normalize_text(data.get("id_teste") or data.get("candidato_id"))
+        if explicit_id:
+            return explicit_id
+
+        id_registro = int(data.get("id_registro") or 0)
+        if id_registro:
+            cursor.execute(
+                """
+                SELECT TOP 1 id_teste
+                FROM candidatos_processos
+                WHERE id_registro = ? AND ISNULL(id_teste, '') <> ''
+                """,
+                (id_registro,),
+            )
+            row = cursor.fetchone()
+            if row and normalize_text(row[0]):
+                return normalize_text(row[0])
+
+        email = _normalize_email(data.get("email"))
+        if email:
+            cursor.execute(
+                """
+                SELECT TOP 1 id_teste
+                FROM candidatos_metadata
+                WHERE LOWER(LTRIM(RTRIM(email))) = ?
+                ORDER BY atualizado_em DESC
+                """,
+                (email,),
+            )
+            row = cursor.fetchone()
+            if row and normalize_text(row[0]):
+                return normalize_text(row[0])
+
+        phone = _normalize_phone(data.get("telefone") or data.get("whatsapp"))
+        if phone:
+            cursor.execute(
+                """
+                SELECT id_teste, telefone, whatsapp
+                FROM candidatos_metadata
+                """
+            )
+            for row in rows_to_dicts(cursor, cursor.fetchall()):
+                phones = {
+                    _normalize_phone(row.get("telefone")),
+                    _normalize_phone(row.get("whatsapp")),
+                }
+                phones.discard("")
+                if phone in phones:
+                    return normalize_text(row.get("id_teste"))
+
+        return self._generate_candidate_id(cursor)
+
+    def _generate_access_code(self, cursor) -> str:
+        alphabet = string.ascii_uppercase
+        for _ in range(200):
+            code = f"{secrets.choice(alphabet)}{secrets.choice(alphabet)}{secrets.randbelow(10)}{secrets.randbelow(10)}"
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM dbo.provas_geradas WHERE codigo_acesso = ?
+                """,
+                (code,),
+            )
+            if int(cursor.fetchone()[0] or 0) == 0:
+                return code
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Não foi possível gerar um código único para a prova.",
+        )
+
+    def _issue_public_session(self, cursor, row: dict, method: str) -> str:
+        token = secrets.token_urlsafe(36)
+        cursor.execute(
+            """
+            UPDATE dbo.provas_geradas
+            SET
+                token_sessao_publica = ?,
+                token_expira_em = DATEADD(hour, 8, GETDATE()),
+                metodo_acesso = ?,
+                tentativas_acesso = ISNULL(tentativas_acesso, 0) + 1,
+                atualizado_em = GETDATE()
+            WHERE id_prova = ?
+            """,
+            (token, method, int(row.get("id_prova") or 0)),
+        )
+        row["token_sessao_publica"] = token
+        return token
+
+    def _get_exam_row_by_token(self, cursor, token: str) -> dict:
+        safe_token = normalize_text(token)
+        if not safe_token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão da prova não encontrada.")
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM dbo.provas_geradas
+            WHERE token_sessao_publica = ?
+              AND token_expira_em IS NOT NULL
+              AND token_expira_em >= GETDATE()
+            """,
+            (safe_token,),
+        )
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        if not rows:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão da prova expirada ou inválida.")
+
+        row = rows[0]
+        if normalize_text(row.get("status")) == EXAM_STATUS_CANCELLED:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova indisponível.")
+        if normalize_text(row.get("status")) == EXAM_STATUS_EXPIRED:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova indisponível.")
+
+        expires_at = _parse_datetime(row.get("expira_em"))
+        if expires_at and expires_at < datetime.now():
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET status = ?, atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (EXAM_STATUS_EXPIRED, int(row.get("id_prova") or 0)),
+            )
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova indisponível.")
+
+        return row
+
+    def _get_exam_row_with_result(self, cursor, id_prova: int) -> dict:
+        cursor.execute(
+            """
+            SELECT
+                prova.*,
+                resultado.nota_objetiva,
+                resultado.nota_redacao,
+                resultado.nota_excel,
+                resultado.nota_tecnica,
+                resultado.nota_comunicacao,
+                resultado.nota_lgpd,
+                resultado.nota_final_prova,
+                resultado.status_correcao,
+                resultado.pendente_avaliacao_manual,
+                resultado.score_por_categoria_json,
+                resultado.resumo_etapas_json,
+                (
+                    SELECT TOP 1
+                        score_final,
+                        classificacao,
+                        confiabilidade,
+                        status_analise,
+                        componentes_json,
+                        pontos_fortes_json,
+                        pontos_atencao_json,
+                        alertas_criticos_json,
+                        dados_ausentes_json,
+                        justificativa
+                    FROM dbo.scores_conecta score
+                    WHERE score.id_prova = prova.id_prova
+                    ORDER BY score.calculado_em DESC, score.id_score DESC
+                    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+                ) AS score_payload_json,
+                (
+                    SELECT TOP 1
+                        nota_objetiva,
+                        nota_redacao,
+                        nota_excel,
+                        nota_tecnica,
+                        nota_comunicacao,
+                        nota_lgpd,
+                        nota_final_prova,
+                        status_correcao,
+                        pendente_avaliacao_manual,
+                        score_por_categoria_json,
+                        resumo_etapas_json
+                    FROM dbo.resultados_provas resultado_json
+                    WHERE resultado_json.id_prova = prova.id_prova
+                    ORDER BY resultado_json.atualizado_em DESC, resultado_json.id_resultado DESC
+                    FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+                ) AS resultado_payload_json
+            FROM dbo.provas_geradas prova
+            OUTER APPLY (
+                SELECT TOP 1 *
+                FROM dbo.resultados_provas resultado
+                WHERE resultado.id_prova = prova.id_prova
+                ORDER BY resultado.atualizado_em DESC, resultado.id_resultado DESC
+            ) resultado
+            WHERE prova.id_prova = ?
+            """,
+            (int(id_prova or 0),),
+        )
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        if not rows:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prova não encontrada.")
+        return rows[0]
+
+    def create_generated_exam(self, data: dict, *, generated_by: str = "") -> dict:
+        name = normalize_text(data.get("nome_candidato"))
+        email = normalize_text(data.get("email"))
+        phone = normalize_text(data.get("telefone") or data.get("whatsapp"))
+        questions = data.get("questoes_snapshot") or []
+        vaga = normalize_text(data.get("vaga") or data.get("cargo"))
+        nivel = normalize_text(data.get("nivel"))
+        area_prova = normalize_text(data.get("area") or data.get("area_prova") or data.get("area_atuacao") or data.get("trilha"))
+        configuracao_inicial = data.get("configuracao") if isinstance(data.get("configuracao"), dict) else {}
+        tempo_total = _safe_exam_minutes(
+            data.get("tempo_total")
+            or data.get("tempo_minutos")
+            or configuracao_inicial.get("tempo_total")
+            or configuracao_inicial.get("tempo_minutos")
+        )
+        if not name:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe o nome do candidato.")
+        if not email or not is_valid_email(email):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail válido para acesso do candidato.")
+        if not phone or not is_valid_phone(phone):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone válido para acesso do candidato.")
+        if not vaga:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe a vaga da prova.")
+        if not area_prova:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe a área da prova.")
+        if not nivel:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe o nível da prova.")
+        if not isinstance(questions, list) or not questions:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A prova precisa ter questões geradas.")
+        questions = _sanitize_questions_for_storage(questions)
+        if not questions:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A prova precisa ter questões válidas.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_candidate_metadata_table(cursor)
+            ensure_candidate_metadata_columns(cursor)
+            ensure_conecta_exams_tables(cursor)
+
+            processo = None
+            process_ref = normalize_text(data.get("id_processo_ref") or data.get("id_processo"))
+            if process_ref:
+                processo = get_process_row(cursor, process_ref)
+            operacao = normalize_text(data.get("operacao") or (processo or {}).get("operacao"))
+            trilha = normalize_text(data.get("trilha") or (processo or {}).get("trilha"))
+            area_prova = normalize_text(data.get("area") or data.get("area_prova") or data.get("area_atuacao") or trilha)
+            if not area_prova:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe a área da prova.")
+
+            id_teste = self._find_candidate_id(cursor, data)
+            self._upsert_candidate_profile(
+                cursor,
+                id_teste=id_teste,
+                nome_candidato=name,
+                email=email or None,
+                telefone=phone or None,
+                whatsapp=normalize_text(data.get("whatsapp")) or phone or None,
+            )
+            if hasattr(self, "_sync_candidate_identity_copies"):
+                self._sync_candidate_identity_copies(
+                    cursor,
+                    id_teste=id_teste,
+                    nome_candidato=name,
+                    email=email or None,
+                    telefone=phone or None,
+                    whatsapp=normalize_text(data.get("whatsapp")) or phone or None,
+                )
+
+            access_code = self._generate_access_code(cursor)
+            etapas = data.get("etapas") or []
+            categorias = data.get("categorias") or []
+            configuracao = data.get("configuracao") or {}
+            personalizacao = data.get("personalizacao") or {}
+            if isinstance(configuracao, dict):
+                personalizacao_config = configuracao.get("personalizacao") or {}
+                if not isinstance(personalizacao_config, dict):
+                    personalizacao_config = {}
+                if not isinstance(personalizacao, dict):
+                    personalizacao = {}
+                configuracao = {
+                    **configuracao,
+                    "area_prova": configuracao.get("area_prova") or area_prova,
+                    "area": configuracao.get("area") or area_prova,
+                    "operacao": configuracao.get("operacao") or operacao,
+                    "trilha": configuracao.get("trilha") or trilha or area_prova,
+                    "personalizacao": {
+                        **personalizacao_config,
+                        **personalizacao,
+                        "setor_cliente": normalize_text(
+                            personalizacao.get("setor_cliente")
+                            or personalizacao_config.get("setor_cliente")
+                            or operacao
+                        ),
+                        "tom_prova": normalize_text(
+                            personalizacao.get("tom_prova")
+                            or personalizacao_config.get("tom_prova")
+                            or data.get("tom_prova")
+                        ),
+                        "situacao_pratica": normalize_text(
+                            personalizacao.get("situacao_pratica")
+                            or personalizacao.get("situacao_pratica_operacao")
+                            or personalizacao_config.get("situacao_pratica")
+                            or personalizacao_config.get("situacao_pratica_operacao")
+                            or data.get("situacao_pratica_operacao")
+                        ),
+                    },
+                }
+            expires_at = _parse_datetime(data.get("expira_em"))
+
+            cursor.execute(
+                """
+                INSERT INTO dbo.provas_geradas
+                (
+                    id_teste,
+                    id_registro,
+                    id_entrevista,
+                    id_processo,
+                    id_processo_ref,
+                    nome_candidato,
+                    email_acesso,
+                    telefone_acesso,
+                    cpf,
+                    vaga,
+                    operacao,
+                    trilha,
+                    nivel,
+                    tempo_total,
+                    quantidade_questoes,
+                    etapas_json,
+                    categorias_json,
+                    configuracao_json,
+                    questoes_json,
+                    instrucoes_operacao,
+                    status,
+                    codigo_acesso,
+                    gerada_por,
+                    gerada_em,
+                    expira_em,
+                    atualizado_em
+                )
+                OUTPUT INSERTED.id_prova
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, GETDATE())
+                """,
+                (
+                    id_teste,
+                    int(data.get("id_registro") or 0) or None,
+                    int(data.get("id_entrevista") or 0) or None,
+                    normalize_text(data.get("id_processo")) or normalize_text(processo.get("id_processo") if processo else ""),
+                    normalize_text(data.get("id_processo_ref")) or normalize_text(processo.get("id_processo_ref") if processo else ""),
+                    name,
+                    email,
+                    phone,
+                    normalize_text(data.get("cpf")),
+                    vaga,
+                    operacao,
+                    trilha or area_prova,
+                    nivel,
+                    tempo_total,
+                    int(data.get("quantidade_questoes") or len(questions)),
+                    _json_dumps(etapas),
+                    _json_dumps(categorias),
+                    _json_dumps(configuracao),
+                    _json_dumps(questions),
+                    normalize_text(data.get("instrucoes_operacao")),
+                    EXAM_STATUS_AVAILABLE,
+                    access_code,
+                    generated_by,
+                    expires_at,
+                ),
+            )
+            row = cursor.fetchone()
+            id_prova = int(row[0])
+
+            id_registro = int(data.get("id_registro") or 0)
+            if id_registro:
+                cursor.execute(
+                    """
+                    UPDATE dbo.candidatos_processos
+                    SET
+                        id_teste = ?,
+                        nome_candidato = ?,
+                        vaga = COALESCE(NULLIF(?, ''), vaga),
+                        data_atualizacao_pipeline = GETDATE()
+                    WHERE id_registro = ?
+                    """,
+                    (id_teste, name, normalize_text(data.get("vaga")), id_registro),
+                )
+
+            conn.commit()
+            return {
+                "success": True,
+                "id_prova": id_prova,
+                "id_teste": id_teste,
+                "codigo_acesso": access_code,
+                "link_publico": "/conecta-provas",
+                "status": EXAM_STATUS_AVAILABLE,
+            }
+        finally:
+            conn.close()
+
+    def list_generated_exams(self) -> list[dict]:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            cursor.execute(
+                """
+                SELECT
+                    prova.*,
+                    resultado.nota_objetiva,
+                    resultado.nota_redacao,
+                    resultado.nota_excel,
+                    resultado.nota_tecnica,
+                    resultado.nota_comunicacao,
+                    resultado.nota_lgpd,
+                    resultado.nota_final_prova,
+                    resultado.status_correcao,
+                    resultado.pendente_avaliacao_manual,
+                    score.score_final,
+                    score.classificacao,
+                    score.confiabilidade,
+                    score.status_analise,
+                    score.alertas_criticos_json
+                FROM dbo.provas_geradas prova
+                OUTER APPLY (
+                    SELECT TOP 1 *
+                    FROM dbo.resultados_provas resultado
+                    WHERE resultado.id_prova = prova.id_prova
+                    ORDER BY resultado.atualizado_em DESC, resultado.id_resultado DESC
+                ) resultado
+                OUTER APPLY (
+                    SELECT TOP 1 *
+                    FROM dbo.scores_conecta score
+                    WHERE score.id_prova = prova.id_prova
+                    ORDER BY score.calculado_em DESC, score.id_score DESC
+                ) score
+                ORDER BY prova.gerada_em DESC, prova.id_prova DESC
+                """
+            )
+            rows = rows_to_dicts(cursor, cursor.fetchall())
+            for row in rows:
+                row["alertas_criticos"] = safe_json_loads(row.get("alertas_criticos_json"), [])
+                row.pop("token_sessao_publica", None)
+                row.pop("token_expira_em", None)
+            return rows
+        finally:
+            conn.close()
+
+    def get_generated_exam(self, id_prova: int) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_with_result(cursor, id_prova)
+            detail = self._exam_detail_payload(row)
+            detail["respostas"] = self._get_exam_answers(cursor, id_prova)
+            return detail
+        finally:
+            conn.close()
+
+    def _get_exam_answers(self, cursor, id_prova: int) -> list[dict]:
+        cursor.execute(
+            """
+            SELECT
+                id_resposta,
+                id_prova,
+                id_teste,
+                questao_indice,
+                questao_id,
+                texto_questao_snapshot,
+                alternativas_snapshot,
+                resposta_json,
+                resposta_correta,
+                categoria,
+                peso,
+                correta,
+                nota,
+                respondida_em,
+                atualizado_em
+            FROM dbo.respostas_provas
+            WHERE id_prova = ?
+            ORDER BY questao_indice ASC, id_resposta ASC
+            """,
+            (int(id_prova or 0),),
+        )
+        answers = rows_to_dicts(cursor, cursor.fetchall())
+        for answer in answers:
+            answer["alternativas"] = safe_json_loads(answer.get("alternativas_snapshot"), [])
+            answer["resposta"] = safe_json_loads(answer.get("resposta_json"), None)
+            answer["resposta_correta_payload"] = safe_json_loads(answer.get("resposta_correta"), None)
+            answer.pop("alternativas_snapshot", None)
+            answer.pop("resposta_json", None)
+        return answers
+
+    def _available_exam_rows(self, cursor) -> list[dict]:
+        cursor.execute(
+            """
+            SELECT *
+            FROM dbo.provas_geradas
+            WHERE status IN (?, ?, ?, ?, ?, ?)
+            ORDER BY gerada_em DESC, id_prova DESC
+            """,
+            (
+                EXAM_STATUS_GENERATED,
+                EXAM_STATUS_AVAILABLE,
+                EXAM_STATUS_WAITING,
+                EXAM_STATUS_IN_PROGRESS,
+                EXAM_STATUS_REVIEW,
+                EXAM_STATUS_REOPENED,
+            ),
+        )
+        return [
+            row
+            for row in rows_to_dicts(cursor, cursor.fetchall())
+            if self._is_public_exam_available(row)
+        ]
+
+    def public_access_by_email(self, email: str) -> dict:
+        safe_email = _normalize_email(email)
+        if not safe_email or not is_valid_email(safe_email):
+            return {"success": False, "message": GENERIC_ACCESS_MESSAGE, "provas": []}
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            matches = [
+                row
+                for row in self._available_exam_rows(cursor)
+                if _normalize_email(row.get("email_acesso")) == safe_email
+            ]
+            provas = [
+                self._public_exam_summary(row, token=self._issue_public_session(cursor, row, "email"))
+                for row in matches
+            ]
+            conn.commit()
+            if not provas:
+                return {"success": False, "message": GENERIC_ACCESS_MESSAGE, "provas": []}
+            return {"success": True, "message": "", "provas": provas}
+        finally:
+            conn.close()
+
+    def public_access_by_phone(self, phone: str) -> dict:
+        safe_phone = _normalize_phone(phone)
+        if not safe_phone or len(safe_phone) < 10:
+            return {"success": False, "message": GENERIC_ACCESS_MESSAGE, "provas": []}
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            matches = []
+            for row in self._available_exam_rows(cursor):
+                row_phone = _normalize_phone(row.get("telefone_acesso"))
+                if row_phone and (row_phone == safe_phone or row_phone.endswith(safe_phone[-10:]) or safe_phone.endswith(row_phone[-10:])):
+                    matches.append(row)
+            provas = [
+                self._public_exam_summary(row, token=self._issue_public_session(cursor, row, "telefone"))
+                for row in matches
+            ]
+            conn.commit()
+            if not provas:
+                return {"success": False, "message": GENERIC_ACCESS_MESSAGE, "provas": []}
+            return {"success": True, "message": "", "provas": provas}
+        finally:
+            conn.close()
+
+    def public_access_by_code(self, code: str) -> dict:
+        safe_code = normalize_text(code).upper().replace(" ", "")
+        if not re.fullmatch(r"[A-Z]{2}\d{2}", safe_code):
+            return {"success": False, "message": "Código inválido ou prova indisponível.", "provas": []}
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            matches = [
+                row
+                for row in self._available_exam_rows(cursor)
+                if normalize_text(row.get("codigo_acesso")).upper() == safe_code
+            ]
+            provas = [
+                self._public_exam_summary(row, token=self._issue_public_session(cursor, row, "codigo"))
+                for row in matches
+            ]
+            conn.commit()
+            if not provas:
+                return {"success": False, "message": "Código inválido ou prova indisponível.", "provas": []}
+            return {"success": True, "message": "", "provas": provas}
+        finally:
+            conn.close()
+
+    def public_get_exam_session(self, token: str) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_by_token(cursor, token)
+            return self._exam_public_payload(row)
+        finally:
+            conn.close()
+
+    def public_update_candidate_data(self, data: dict) -> dict:
+        name = normalize_text(data.get("nome_candidato"))
+        email = normalize_text(data.get("email"))
+        phone = normalize_text(data.get("telefone"))
+        if not name:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe o nome completo.")
+        if not is_valid_email(email):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail válido.")
+        if not is_valid_phone(phone):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone válido.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_by_token(cursor, data.get("token"))
+            if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova já finalizada.")
+            started_at = datetime.now()
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET
+                    nome_candidato = ?,
+                    email_acesso = ?,
+                    telefone_acesso = ?,
+                    atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (name, email, phone, int(row.get("id_prova") or 0)),
+            )
+            self._upsert_candidate_profile(
+                cursor,
+                id_teste=row.get("id_teste"),
+                nome_candidato=name,
+                email=email,
+                telefone=phone,
+                whatsapp=phone,
+            )
+            conn.commit()
+            return {
+                "success": True,
+                "tempo_total": _safe_exam_minutes(row.get("tempo_total")),
+                "iniciada_em": _format_datetime(row.get("iniciada_em") or started_at),
+            }
+        finally:
+            conn.close()
+
+    def public_start_exam(self, token: str) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_by_token(cursor, token)
+            if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova já finalizada.")
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET
+                    status = ?,
+                    iniciada_em = ISNULL(iniciada_em, GETDATE()),
+                    atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (EXAM_STATUS_IN_PROGRESS, int(row.get("id_prova") or 0)),
+            )
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()
+
+    def _save_answer_rows(self, cursor, row: dict, answers: list[Any], questions: list[dict], graded: list[dict] | None = None) -> None:
+        id_prova = int(row.get("id_prova") or 0)
+        id_teste = normalize_text(row.get("id_teste"))
+        cursor.execute("DELETE FROM dbo.respostas_provas WHERE id_prova = ?", (id_prova,))
+        graded = graded or []
+        for index, question in enumerate(questions):
+            answer = answers[index] if index < len(answers) else None
+            grade = graded[index] if index < len(graded) else {}
+            correct_answer = question.get("answer", question.get("correctIndex"))
+            cursor.execute(
+                """
+                INSERT INTO dbo.respostas_provas
+                (
+                    id_prova,
+                    id_teste,
+                    questao_indice,
+                    questao_id,
+                    texto_questao_snapshot,
+                    alternativas_snapshot,
+                    resposta_json,
+                    resposta_correta,
+                    categoria,
+                    peso,
+                    correta,
+                    nota,
+                    respondida_em,
+                    atualizado_em
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                """,
+                (
+                    id_prova,
+                    id_teste,
+                    index,
+                    normalize_text(question.get("id") or question.get("title") or f"q-{index + 1}"),
+                    normalize_text(question.get("description") or question.get("title")),
+                    _json_dumps(question.get("options") or []),
+                    _json_dumps(answer),
+                    _json_dumps(correct_answer),
+                    normalize_text(question.get("stage") or question.get("stageKey") or question.get("category")),
+                    float(question.get("points") or 0),
+                    1 if grade.get("correct") is True else 0 if grade.get("correct") is False else None,
+                    grade.get("score"),
+                ),
+            )
+
+    def public_save_answers(self, data: dict, *, status_value: str = EXAM_STATUS_IN_PROGRESS) -> dict:
+        answers = data.get("respostas") or []
+        if not isinstance(answers, list):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Respostas inválidas.")
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_by_token(cursor, data.get("token"))
+            if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova já finalizada.")
+            questions = safe_json_loads(row.get("questoes_json"), [])
+            self._save_answer_rows(cursor, row, answers, questions)
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET status = ?, atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (status_value, int(row.get("id_prova") or 0)),
+            )
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()
+
+    def _grade_answers(self, questions: list[dict], answers: list[Any], etapas_config: list[dict]) -> dict:
+        graded = []
+        categories: dict[str, dict[str, float]] = {}
+        stage_map: dict[str, dict[str, Any]] = {}
+        pending_manual = False
+        objective_score = 0.0
+        objective_max = 0.0
+        excel_score = 0.0
+        excel_max = 0.0
+        communication_score = 0.0
+        communication_max = 0.0
+        technical_score = 0.0
+        technical_max = 0.0
+        lgpd_score = 0.0
+        lgpd_max = 0.0
+
+        weights_by_stage = {
+            normalize_text(item.get("key") or item.get("stageKey")): float(item.get("weight") or 0)
+            for item in etapas_config
+            if isinstance(item, dict)
+        }
+
+        for index, question in enumerate(questions):
+            answer = answers[index] if index < len(answers) else None
+            q_type = normalize_text(question.get("type"))
+            points = float(question.get("points") or 10)
+            score = 0.0
+            correct = None
+            manual = False
+
+            if q_type == "multiple":
+                selected = answer.get("selected") if isinstance(answer, dict) else answer
+                expected = question.get("answer", question.get("correctIndex"))
+                correct = selected is not None and str(selected) == str(expected)
+                score = points if correct else 0.0
+                objective_score += score
+                objective_max += points
+            elif q_type == "excel_external":
+                validation = answer.get("validation") if isinstance(answer, dict) else None
+                if isinstance(validation, dict):
+                    score = float(validation.get("score") or 0)
+                    points = float(validation.get("max") or points)
+                    manual = bool(validation.get("pendingManual", True))
+                else:
+                    manual = True
+                pending_manual = pending_manual or manual
+                excel_score += score
+                excel_max += points
+            else:
+                manual = True
+                pending_manual = True
+                text = _strip_html(
+                    (answer.get("content") or answer.get("text")) if isinstance(answer, dict) else answer
+                )
+                if text:
+                    communication_score += min(points, max(0, len(text) / 80))
+                communication_max += points
+
+            stage_key = normalize_text(question.get("stageKey") or "geral")
+            stage = stage_map.setdefault(
+                stage_key,
+                {
+                    "key": stage_key,
+                    "label": normalize_text(question.get("stage")) or stage_key or "Etapa",
+                    "rawScore": 0.0,
+                    "rawMax": 0.0,
+                    "questionCount": 0,
+                    "pendings": 0,
+                    "weight": weights_by_stage.get(stage_key, 0),
+                },
+            )
+            stage["rawScore"] += score
+            stage["rawMax"] += points
+            stage["questionCount"] += 1
+            if manual:
+                stage["pendings"] += 1
+
+            category = normalize_text(question.get("stage") or question.get("category") or question.get("stageKey") or "Geral")
+            category_bucket = categories.setdefault(category, {"score": 0.0, "max": 0.0})
+            category_bucket["score"] += score
+            category_bucket["max"] += points
+
+            category_cmp = normalize_compare_text(category)
+            if any(term in category_cmp for term in ("tecnico", "sistema", "ti")):
+                technical_score += score
+                technical_max += points
+            if "lgpd" in category_cmp:
+                lgpd_score += score
+                lgpd_max += points
+
+            graded.append({"score": score, "max": points, "correct": correct, "pendingManual": manual})
+
+        resumo_etapas = []
+        for stage in stage_map.values():
+            raw_max = float(stage["rawMax"] or 0)
+            percent = (float(stage["rawScore"]) / raw_max) if raw_max else 0
+            stage["percent"] = round(percent, 4)
+            stage["weightedScore"] = round(percent * float(stage.get("weight") or 0), 2)
+            resumo_etapas.append(stage)
+
+        nota_objetiva = round((objective_score / objective_max) * 100, 2) if objective_max else None
+        nota_excel = round((excel_score / excel_max) * 100, 2) if excel_max else None
+        nota_comunicacao = round((communication_score / communication_max) * 100, 2) if communication_max else None
+        nota_tecnica = round((technical_score / technical_max) * 100, 2) if technical_max else None
+        nota_lgpd = round((lgpd_score / lgpd_max) * 100, 2) if lgpd_max else None
+        valid_scores = [item for item in (nota_objetiva, nota_excel, nota_comunicacao, nota_tecnica) if item is not None]
+        nota_final = round(sum(valid_scores) / len(valid_scores), 2) if valid_scores else 0.0
+        score_por_categoria = {
+            key: round((value["score"] / value["max"]) * 100, 2) if value["max"] else 0
+            for key, value in categories.items()
+        }
+        return {
+            "graded": graded,
+            "nota_objetiva": nota_objetiva,
+            "nota_excel": nota_excel,
+            "nota_comunicacao": nota_comunicacao,
+            "nota_tecnica": nota_tecnica,
+            "nota_lgpd": nota_lgpd,
+            "nota_final_prova": nota_final,
+            "score_por_categoria": score_por_categoria,
+            "resumo_etapas": resumo_etapas,
+            "pendente_avaliacao_manual": pending_manual,
+        }
+
+    def public_finalize_exam(self, data: dict) -> dict:
+        answers = data.get("respostas") or []
+        if not isinstance(answers, list):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Respostas inválidas.")
+        force_finalize = bool(data.get("finalizar_mesmo_assim"))
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_by_token(cursor, data.get("token"))
+            if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova já finalizada.")
+            questions = safe_json_loads(row.get("questoes_json"), [])
+            etapas_config = safe_json_loads(row.get("etapas_json"), [])
+            missing_required = []
+            for index, question in enumerate(questions):
+                answer = answers[index] if index < len(answers) else None
+                if not _is_public_answer_complete(question, answer):
+                    missing_required.append(index + 1)
+            if missing_required and not force_finalize:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Existem respostas obrigatórias pendentes: {', '.join(map(str, missing_required))}.",
+                )
+
+            grade = self._grade_answers(questions, answers, etapas_config)
+            if missing_required:
+                grade["pendente_avaliacao_manual"] = True
+                grade["resumo_etapas"] = [
+                    {
+                        **stage,
+                        "pendings": int(stage.get("pendings") or 0)
+                        + sum(
+                            1
+                            for index in missing_required
+                            if normalize_text(questions[index - 1].get("type")) == "multiple"
+                            and normalize_text(
+                                questions[index - 1].get("stageKey") or "geral"
+                            )
+                            == normalize_text(stage.get("key"))
+                        ),
+                    }
+                    for stage in grade.get("resumo_etapas", [])
+                ]
+            self._save_answer_rows(cursor, row, answers, questions, grade["graded"])
+
+            cursor.execute(
+                """
+                SELECT id_resultado
+                FROM dbo.resultados_provas
+                WHERE id_prova = ?
+                """,
+                (int(row.get("id_prova") or 0),),
+            )
+            exists = cursor.fetchone()
+            result_values = (
+                grade["nota_objetiva"],
+                None,
+                grade["nota_excel"],
+                grade["nota_tecnica"],
+                grade["nota_comunicacao"],
+                grade["nota_lgpd"],
+                grade["nota_final_prova"],
+                _json_dumps(grade["score_por_categoria"]),
+                _json_dumps(grade["resumo_etapas"]),
+                EXAM_STATUS_PENDING_MANUAL if grade["pendente_avaliacao_manual"] else EXAM_STATUS_CORRECTED,
+                1 if grade["pendente_avaliacao_manual"] else 0,
+            )
+            if exists:
+                cursor.execute(
+                    """
+                    UPDATE dbo.resultados_provas
+                    SET
+                        nota_objetiva = ?,
+                        nota_redacao = ?,
+                        nota_excel = ?,
+                        nota_tecnica = ?,
+                        nota_comunicacao = ?,
+                        nota_lgpd = ?,
+                        nota_final_prova = ?,
+                        score_por_categoria_json = ?,
+                        resumo_etapas_json = ?,
+                        status_correcao = ?,
+                        pendente_avaliacao_manual = ?,
+                        atualizado_em = GETDATE()
+                    WHERE id_prova = ?
+                    """,
+                    (*result_values, int(row.get("id_prova") or 0)),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO dbo.resultados_provas
+                    (
+                        id_prova,
+                        id_teste,
+                        nota_objetiva,
+                        nota_redacao,
+                        nota_excel,
+                        nota_tecnica,
+                        nota_comunicacao,
+                        nota_lgpd,
+                        nota_final_prova,
+                        score_por_categoria_json,
+                        resumo_etapas_json,
+                        status_correcao,
+                        pendente_avaliacao_manual,
+                        criado_em,
+                        atualizado_em
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                    """,
+                    (int(row.get("id_prova") or 0), normalize_text(row.get("id_teste")), *result_values),
+                )
+
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET
+                    status = ?,
+                    finalizada_em = GETDATE(),
+                    atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (EXAM_STATUS_FINISHED, int(row.get("id_prova") or 0)),
+            )
+            if normalize_text(row.get("id_registro")):
+                cursor.execute(
+                    """
+                    UPDATE dbo.candidatos_processos
+                    SET pontuacao_final = ?, data_prova = GETDATE()
+                    WHERE id_registro = ?
+                    """,
+                    (_score_to_old_history_scale(grade["nota_final_prova"]), int(row.get("id_registro") or 0)),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        try:
+            self._sync_generated_exam_history(int(row.get("id_prova") or 0), answers, grade)
+            score_payload = self.recalculate_score_conecta(
+                int(row.get("id_prova") or 0),
+                recalculated_by="Conecta Provas",
+                reason="Finalização da prova pelo candidato",
+            )
+        except Exception as exc:
+            self.logger.warning("Prova finalizada, mas integração complementar falhou: %s", exc)
+            score_payload = {}
+
+        return {
+            "success": True,
+            "status": EXAM_STATUS_FINISHED,
+            "pendente_avaliacao_manual": grade["pendente_avaliacao_manual"],
+            "score": score_payload,
+        }
+
+    def _sync_generated_exam_history(self, id_prova: int, answers: list[Any], grade: dict) -> None:
+        detail = self.get_generated_exam(id_prova)
+        record_id = normalize_text(detail.get("id_teste"))
+        payload = {
+            "idResultado": record_id,
+            "candidate": {
+                "name": detail.get("nome_candidato"),
+                "email": detail.get("email_acesso"),
+                "whatsapp": detail.get("telefone_acesso"),
+                "role": detail.get("vaga"),
+                "level": detail.get("nivel"),
+                "track": detail.get("trilha"),
+            },
+            "questions": detail.get("questoes") or [],
+            "answers": answers,
+            "stageSummary": grade.get("resumo_etapas") or [],
+            "totalScore": grade.get("nota_final_prova"),
+            "totalMax": 100,
+            "notaFinalPonderada": round(float(grade.get("nota_final_prova") or 0) / 10, 2),
+            "textContent": "Resultado gerado pelo Conecta Provas.",
+        }
+        self.save_history(
+            {
+                "id_teste": record_id,
+                "id_processo": detail.get("id_processo") or "",
+                "id_processo_ref": detail.get("id_processo_ref") or "",
+                "nome_candidato": detail.get("nome_candidato") or "",
+                "vaga": detail.get("vaga") or "",
+                "nivel": detail.get("nivel") or "",
+                "trilha": detail.get("trilha") or "",
+                "data_iso": datetime.now().isoformat(),
+                "data_exibicao": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                "pontuacao_final": _score_to_old_history_scale(grade.get("nota_final_prova")),
+                "pontuacao_bruta": f"{grade.get('nota_final_prova', 0)}/100",
+                "status": EXAM_STATUS_FINISHED,
+                "tempo_minutos": int(detail.get("tempo_total") or 0),
+                "arquivo_gabarito": "Resultado gerado pelo Conecta Provas.",
+                "etapas_json": _json_dumps(grade.get("resumo_etapas") or []),
+            }
+        )
+        self.save_answer_file({"recordId": record_id, "payload": _json_dumps(payload)})
+
+    def _candidate_payload_for_score(self, cursor, row: dict) -> dict:
+        id_teste = normalize_text(row.get("id_teste"))
+        cursor.execute(
+            """
+            SELECT TOP 1
+                meta.*,
+                cv.score_final AS cv_score_final,
+                cv.classificacao AS cv_classificacao
+            FROM dbo.candidatos_metadata meta
+            LEFT JOIN dbo.cv_pre_analises cv
+                ON LOWER(LTRIM(RTRIM(cv.email))) = LOWER(LTRIM(RTRIM(meta.email)))
+            WHERE meta.id_teste = ?
+            ORDER BY cv.criado_em DESC
+            """,
+            (id_teste,),
+        )
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        payload = rows[0] if rows else {}
+        payload.update(
+            {
+                "id_teste": id_teste,
+                "nome_candidato": row.get("nome_candidato"),
+                "vaga": row.get("vaga"),
+                "pontuacao_final": row.get("nota_final_prova"),
+            }
+        )
+        return payload
+
+    def _save_score_payload(self, cursor, row: dict, score: dict, *, recalculated_by: str = "", reason: str = "") -> None:
+        cursor.execute(
+            """
+            INSERT INTO dbo.scores_conecta
+            (
+                id_teste,
+                id_prova,
+                id_processo,
+                id_processo_ref,
+                score_final,
+                classificacao,
+                confiabilidade,
+                status_analise,
+                componentes_json,
+                pontos_fortes_json,
+                pontos_atencao_json,
+                alertas_criticos_json,
+                dados_ausentes_json,
+                justificativa,
+                calculado_em,
+                recalculado_por,
+                motivo_recalculo
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, ?)
+            """,
+            (
+                normalize_text(row.get("id_teste")),
+                int(row.get("id_prova") or 0),
+                normalize_text(row.get("id_processo")),
+                normalize_text(row.get("id_processo_ref")),
+                float(score.get("score_final") or 0),
+                normalize_text(score.get("classificacao")),
+                normalize_text(score.get("confiabilidade")),
+                normalize_text(score.get("status_analise")),
+                _json_dumps(score.get("componentes")),
+                _json_dumps(score.get("pontos_fortes")),
+                _json_dumps(score.get("pontos_atencao")),
+                _json_dumps(score.get("alertas_criticos")),
+                _json_dumps(score.get("dados_ausentes")),
+                normalize_text(score.get("justificativa")),
+                recalculated_by,
+                reason,
+            ),
+        )
+
+    def recalculate_score_conecta(self, id_prova: int, *, recalculated_by: str = "", reason: str = "") -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_with_result(cursor, id_prova)
+            resultado = {
+                "nota_objetiva": row.get("nota_objetiva"),
+                "nota_redacao": row.get("nota_redacao"),
+                "nota_excel": row.get("nota_excel"),
+                "nota_tecnica": row.get("nota_tecnica"),
+                "nota_comunicacao": row.get("nota_comunicacao"),
+                "nota_lgpd": row.get("nota_lgpd"),
+                "nota_final_prova": row.get("nota_final_prova"),
+                "score_por_categoria": safe_json_loads(row.get("score_por_categoria_json"), {}),
+            }
+            prova = {
+                "id_prova": row.get("id_prova"),
+                "vaga": row.get("vaga"),
+                "trilha": row.get("trilha"),
+                "nivel": row.get("nivel"),
+                "etapas": safe_json_loads(row.get("etapas_json"), []),
+                "resultado": resultado,
+            }
+            candidato = self._candidate_payload_for_score(cursor, row)
+            configuracao = safe_json_loads(row.get("configuracao_json"), {})
+            score = calcular_score_conecta(candidato, prova, {}, configuracao)
+            self._save_score_payload(
+                cursor,
+                row,
+                score,
+                recalculated_by=recalculated_by,
+                reason=reason,
+            )
+            conn.commit()
+            return score
+        finally:
+            conn.close()
+
+    def update_manual_evaluation(self, id_prova: int, data: dict, *, updated_by: str = "") -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_with_result(cursor, id_prova)
+            cursor.execute(
+                """
+                UPDATE dbo.resultados_provas
+                SET
+                    nota_redacao = COALESCE(?, nota_redacao),
+                    nota_excel = COALESCE(?, nota_excel),
+                    nota_tecnica = COALESCE(?, nota_tecnica),
+                    nota_comunicacao = COALESCE(?, nota_comunicacao),
+                    nota_lgpd = COALESCE(?, nota_lgpd),
+                    pendente_avaliacao_manual = 0,
+                    status_correcao = ?,
+                    atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (
+                    data.get("nota_redacao"),
+                    data.get("nota_excel"),
+                    data.get("nota_tecnica"),
+                    data.get("nota_comunicacao"),
+                    data.get("nota_lgpd"),
+                    EXAM_STATUS_CORRECTED,
+                    int(row.get("id_prova") or 0),
+                ),
+            )
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET status = ?, atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (EXAM_STATUS_CORRECTED, int(row.get("id_prova") or 0)),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        score = self.recalculate_score_conecta(
+            id_prova,
+            recalculated_by=updated_by,
+            reason="Avaliação manual atualizada",
+        )
+        return {"success": True, "score": score}
+
+    def reopen_generated_exam(self, id_prova: int, data: dict, *, reopened_by: str = "") -> dict:
+        reason = normalize_text(data.get("motivo"))
+        if not reason:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe o motivo da reabertura.")
+        keep_answers = bool(data.get("manter_respostas", True))
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            if not keep_answers:
+                cursor.execute("DELETE FROM dbo.respostas_provas WHERE id_prova = ?", (int(id_prova or 0),))
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET
+                    status = ?,
+                    reaberta_em = GETDATE(),
+                    reaberta_por = ?,
+                    motivo_reabertura = ?,
+                    respostas_anteriores_mantidas = ?,
+                    finalizada_em = NULL,
+                    atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (EXAM_STATUS_REOPENED, reopened_by, reason, 1 if keep_answers else 0, int(id_prova or 0)),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prova não encontrada.")
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()
+
+    def cancel_generated_exam(self, id_prova: int, data: dict, *, cancelled_by: str = "") -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET
+                    status = ?,
+                    cancelada_em = GETDATE(),
+                    cancelada_por = ?,
+                    motivo_cancelamento = ?,
+                    token_sessao_publica = NULL,
+                    token_expira_em = NULL,
+                    atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (EXAM_STATUS_CANCELLED, cancelled_by, normalize_text(data.get("motivo")), int(id_prova or 0)),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prova não encontrada.")
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()
+
+    def register_rh_decision(self, id_prova: int, data: dict, *, user_name: str = "") -> dict:
+        decision = normalize_text(data.get("decisao"))
+        if not decision:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe a decisão final.")
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_with_result(cursor, id_prova)
+            cursor.execute(
+                """
+                SELECT TOP 1 score_final, classificacao
+                FROM dbo.scores_conecta
+                WHERE id_prova = ?
+                ORDER BY calculado_em DESC, id_score DESC
+                """,
+                (int(id_prova or 0),),
+            )
+            score_row = cursor.fetchone()
+            cursor.execute(
+                """
+                INSERT INTO dbo.decisoes_rh
+                (
+                    id_teste,
+                    id_processo,
+                    id_processo_ref,
+                    decisao,
+                    justificativa,
+                    observacao,
+                    usuario_responsavel,
+                    data_decisao,
+                    score_no_momento,
+                    classificacao_no_momento,
+                    score_considerado
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, ?, ?)
+                """,
+                (
+                    normalize_text(row.get("id_teste")),
+                    normalize_text(row.get("id_processo")),
+                    normalize_text(row.get("id_processo_ref")),
+                    decision,
+                    normalize_text(data.get("justificativa")),
+                    normalize_text(data.get("observacao")),
+                    user_name,
+                    score_row[0] if score_row else None,
+                    score_row[1] if score_row else "",
+                    1 if data.get("score_considerado", True) else 0,
+                ),
+            )
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()

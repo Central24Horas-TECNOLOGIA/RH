@@ -1,0 +1,34 @@
+[APP]
+environment = development
+
+[SERVER]
+host = 127.0.0.1
+port = 8010
+reload = false
+
+[FRONTEND]
+serve = true
+dir = Front
+api_base_url =
+process_dossier_ai_endpoint =
+
+[CORS]
+# Com frontend servido pelo FastAPI, CORS normalmente pode ficar vazio.
+# Configure apenas quando outro frontend ou dominio precisar consumir a API.
+allow_origins =
+allow_origin_regex =
+
+[RH_DATABASE]
+server = SERVIDOR_SQL,1433
+database = RH_Provas
+driver = ODBC Driver 18 for SQL Server
+trusted_connection = false
+username =
+password =
+encrypt = no
+trust_server_certificate = true
+timeout_seconds = 10
+
+[PUBLIC]
+PUBLIC_FRONTEND_BASE_URL =
+PUBLIC_CANDIDATE_BASE_URL =

@@ -11,6 +11,19 @@ from ..services.process_flow import (
     canonicalize_candidate_status,
 )
 
+PROFILE_RECOMMENDATION_LABELS = {
+    "indicado": "Indicado",
+    "indicado com restricoes": "Indicado com restrições",
+    "contraindicado": "Contraindicado",
+}
+
+
+def normalize_profile_recommendation(value) -> str:
+    safe_value = normalize_text(value)
+    if not safe_value:
+        return ""
+    return PROFILE_RECOMMENDATION_LABELS.get(normalize_compare_text(safe_value), safe_value)
+
 
 class CandidateProfileRepositoryMixin:
     def update_standalone_candidate_status(self, id_teste: str, data: dict) -> dict:
@@ -131,6 +144,7 @@ class CandidateProfileRepositoryMixin:
 
             safe_skills = normalize_string_list(data.get("habilidades", []))
             safe_tags = normalize_string_list(data.get("tags", []))
+            safe_recommendation = normalize_profile_recommendation(data.get("classificacao_indicacao"))
 
             self._upsert_candidate_profile(
                 cursor,
@@ -139,6 +153,12 @@ class CandidateProfileRepositoryMixin:
                 habilidades=safe_skills or None,
                 tags=safe_tags or None,
                 observacao_rh=data.get("observacao_rh") if normalize_text(data.get("observacao_rh")) else None,
+                classificacao_indicacao=safe_recommendation if "classificacao_indicacao" in data else None,
+                justificativa_indicacao=(
+                    data.get("justificativa_indicacao")
+                    if "justificativa_indicacao" in data
+                    else None
+                ),
                 email=safe_email or None,
                 telefone=safe_phone or None,
                 whatsapp=safe_whatsapp or None,
@@ -161,6 +181,8 @@ class CandidateProfileRepositoryMixin:
                     habilidades_json,
                     tags_json,
                     observacao_rh,
+                    classificacao_indicacao,
+                    justificativa_indicacao,
                     email,
                     telefone,
                     whatsapp,
@@ -181,11 +203,13 @@ class CandidateProfileRepositoryMixin:
                         "habilidades_json": updated[1] if updated else "[]",
                         "tags_json": updated[2] if updated else "[]",
                         "observacao_rh": updated[3] if updated else data.get("observacao_rh", ""),
-                        "email": updated[4] if updated else safe_email,
-                        "telefone": updated[5] if updated else safe_phone,
-                        "whatsapp": updated[6] if updated else safe_whatsapp,
-                        "cidade": updated[7] if updated else data.get("cidade", ""),
-                        "bairro": updated[8] if updated else data.get("bairro", ""),
+                        "classificacao_indicacao": updated[4] if updated else safe_recommendation,
+                        "justificativa_indicacao": updated[5] if updated else data.get("justificativa_indicacao", ""),
+                        "email": updated[6] if updated else safe_email,
+                        "telefone": updated[7] if updated else safe_phone,
+                        "whatsapp": updated[8] if updated else safe_whatsapp,
+                        "cidade": updated[9] if updated else data.get("cidade", ""),
+                        "bairro": updated[10] if updated else data.get("bairro", ""),
                     }
                 ),
             }

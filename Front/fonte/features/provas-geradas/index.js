@@ -1,0 +1,1886 @@
+import { html, useEffect, useMemo, useState } from '../../infraestrutura-react.js';
+import {
+  OPCOES_OPERACOES,
+  OPCOES_VAGAS_PROVA,
+  SUGESTOES_NIVEL_POR_VAGA,
+  montarProvaPorBlueprint,
+  resolverBlueprintProva,
+} from '../../perguntas.js';
+import {
+  NIVEIS_PERSONALIZACAO,
+  TIPOS_ATENDIMENTO_PERSONALIZACAO,
+  gerarPersonalizacaoProva,
+  inferirPerfilAtendimentoPersonalizacao,
+  registrarHistoricoPersonalizacao,
+} from '../prova/services/personalizacao-inteligente.js';
+import {
+  cancelarProvaGerada,
+  criarProvaGerada,
+  lerProvaGerada,
+  listarProvasGeradas,
+  reabrirProvaGerada,
+  recalcularScoreProva,
+  registrarDecisaoRhProva,
+  salvarAvaliacaoManualProva,
+} from '../../servico-api.js';
+import { obterItensPaginados } from '../../utilitarios.js';
+import { copiarTexto } from '../../shared/browser-utils.js';
+import { AcaoSair } from '../../shared/components/actions.js';
+import { formatarNotaVisual } from '../../shared/helpers-visuais.js';
+import {
+  EmptyState,
+  MetricGrid,
+  ModalPadrao,
+  PageIntro,
+  PainelRh,
+  SectionCard,
+} from '../../ui/componentes-compartilhados.js';
+
+const LINK_CONECTA_PROVAS = '/conecta-provas';
+const CHAVE_ABRIR_MODAL_GERAR_PROVA = 'rh_open_generated_exam_modal_v1';
+const STATUS_APTOS_GERAR_PROVA = new Set([
+  'Agendado',
+  'Apto para prova',
+  'Em avaliação',
+  'Em avaliacao',
+  'Pendente de prova',
+  'Confirmado',
+]);
+
+const OPCOES_NIVEL = [
+  { value: '1', label: 'Nível 1' },
+  { value: '2', label: 'Nível 2' },
+  { value: '3', label: 'Nível 3' },
+  { value: '4', label: 'Nível 4' },
+  { value: '5', label: 'Nível 5' },
+  { value: 'personalizado', label: 'Personalizado' },
+];
+
+const OPCOES_OPERACOES_MODAL = Array.from(
+  new Set([
+    ...OPCOES_OPERACOES,
+    'CRF / Flamengo',
+    'Davita',
+    'Endoview',
+    'Newe Seguros',
+    'Central24Horas',
+  ].map((item) => normalizarTexto(item)).filter(Boolean)),
+);
+
+const OPCOES_AREAS_PROVA = [
+  'Atendimento',
+  'Administrativo',
+  'Operação',
+  'Comercial',
+  'Financeiro',
+  'RH',
+  'TI',
+  'Suporte Técnico',
+  'Planejamento',
+  'Estágio',
+  'Gestão',
+];
+
+const OPCOES_TOM_PROVA = [
+  'Formal',
+  'Corporativo',
+  'Humanizado',
+  'Técnico',
+  'Simples e objetivo',
+  'Atendimento ao cliente',
+  'Operacional',
+];
+
+const OPCAO_OUTRO = 'Outro';
+
+const DECISOES_RH = [
+  'Pendente',
+  'Aprovado',
+  'Aprovado com ressalvas',
+  'Reprovado',
+  'Banco de talentos',
+  'Reavaliar',
+  'Desistiu',
+];
+
+function normalizarTexto(valor) {
+  return String(valor || '').trim();
+}
+
+function normalizarBusca(valor) {
+  return normalizarTexto(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function validarEmail(valor) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizarTexto(valor));
+}
+
+function validarTelefone(valor) {
+  const digitos = normalizarTexto(valor).replace(/\D/g, '');
+  return digitos.length >= 10 && digitos.length <= 13;
+}
+
+function lerValoresMultiselect(event) {
+  return Array.from(event.target.selectedOptions || [])
+    .map((opcao) => normalizarTexto(opcao.value))
+    .filter(Boolean);
+}
+
+function montarListaComOutro(lista = [], outro = '') {
+  return [
+    ...lista.filter((item) => item !== OPCAO_OUTRO),
+    normalizarTexto(outro),
+  ].filter(Boolean);
+}
+
+function obterOpcaoVaga(vaga) {
+  const chave = normalizarBusca(vaga);
+  return OPCOES_VAGAS_PROVA.find((item) => normalizarBusca(item.label) === chave) || null;
+}
+
+function normalizarTrilha(valor) {
+  const chave = normalizarBusca(valor);
+  if (!chave) return '';
+  if (chave.includes('atendimento')) return 'operacao';
+  if (chave.includes('comercial')) return 'comercial';
+  if (chave.includes('financeiro')) return 'financeiro';
+  if (chave.includes('rh')) return 'rh';
+  if (chave.includes('ti') || chave.includes('suporte tecnico')) return 'ti';
+  if (chave.includes('adm') || chave.includes('administrativo') || chave.includes('gestao')) return 'adm';
+  if (chave.includes('operacao') || chave.includes('padrao')) return 'operacao';
+  return chave;
+}
+
+function obterAreaInicial(candidato, processo, opcaoVaga) {
+  return normalizarTexto(
+    candidato.area_prova ||
+      candidato.area ||
+      candidato.trilha ||
+      candidato.track ||
+      processo.area_prova ||
+      processo.area ||
+      processo.trilha ||
+      opcaoVaga?.track ||
+      '',
+  );
+}
+
+function resolverTrilhaBlueprint(formulario = {}) {
+  return normalizarTrilha(
+    formulario.area_prova ||
+      formulario.trilha ||
+      obterOpcaoVaga(formulario.vaga)?.track ||
+      '',
+  );
+}
+
+function inferirPerfilOperacao(formulario = {}) {
+  const base = normalizarBusca([
+    formulario.operacao,
+    formulario.area_prova,
+    formulario.vaga,
+  ].join(' '));
+  if (base.includes('davita') || base.includes('endoview') || base.includes('saude')) {
+    return 'atendimento_saude';
+  }
+  if (base.includes('suporte') || base.includes('ti') || base.includes('tecnico')) {
+    return 'suporte_ti';
+  }
+  if (base.includes('financeiro') || base.includes('administrativo') || base.includes('backoffice')) {
+    return 'backoffice';
+  }
+  if (base.includes('rh')) return 'rh_dp';
+  return 'call_center';
+}
+
+function montarFormularioInicial(contexto = {}) {
+  const candidato = contexto.candidato || {};
+  const processo = contexto.processo || {};
+  const vaga = normalizarTexto(candidato.vaga || processo.vaga || '');
+  const opcaoVaga = obterOpcaoVaga(vaga);
+  const area = obterAreaInicial(candidato, processo, opcaoVaga);
+  const trilha = normalizarTrilha(area || opcaoVaga?.track || '');
+
+  return {
+    nome_candidato: normalizarTexto(candidato.nome_candidato || candidato.nome || candidato.name || ''),
+    email: normalizarTexto(candidato.email || candidato.email_candidato || ''),
+    telefone: normalizarTexto(candidato.telefone || candidato.whatsapp || candidato.celular || ''),
+    cpf: normalizarTexto(candidato.cpf || ''),
+    id_teste: normalizarTexto(candidato.id_teste || ''),
+    id_registro: candidato.id_registro || null,
+    id_entrevista: candidato.id_entrevista || null,
+    id_processo: normalizarTexto(processo.id_processo || candidato.id_processo || ''),
+    id_processo_ref: normalizarTexto(
+      processo.id_processo_ref ||
+        candidato.id_processo_ref ||
+        candidato.id_processo ||
+        '',
+    ),
+    vaga,
+    area_prova: area,
+    operacao: normalizarTexto(
+      candidato.setor_cliente ||
+        candidato.operacao ||
+        candidato.cliente ||
+        candidato.setor ||
+        processo.setor_cliente ||
+        processo.operacao ||
+        processo.cliente ||
+        processo.setor ||
+        '',
+    ),
+    trilha,
+    nivel: normalizarTexto(
+      candidato.nivel ||
+        candidato.level ||
+        processo.nivel_prova ||
+        processo.nivel ||
+        SUGESTOES_NIVEL_POR_VAGA[vaga] ||
+        opcaoVaga?.level ||
+        '',
+    ),
+    tempo_total: Number(candidato.time || processo.tempo_prova || processo.tempo_minutos || 40),
+    quantidade_questoes: '',
+    redacao_obrigatoria: true,
+    excel_obrigatorio: false,
+    personalizacao_inteligente: false,
+    clientes_personalizacao: [],
+    cliente_outro: '',
+    tipos_atendimento: [],
+    tipo_atendimento_outro: '',
+    nivel_personalizacao: 'situacional',
+    observacoes_internas_rh: normalizarTexto(processo.observacoes_internas_rh || ''),
+    tom_prova: 'Humanizado',
+    situacao_pratica_operacao: normalizarTexto(
+      candidato.situacao_pratica_operacao ||
+        processo.situacao_pratica_operacao ||
+        processo.contexto_vaga ||
+        '',
+    ),
+    expira_em: '',
+  };
+}
+
+function montarEtapasBlueprint(blueprint) {
+  return (blueprint?.stages || []).map((stage) => ({
+    key: stage.key || '',
+    label: stage.label || stage.key || 'Etapa',
+    weight: Number(stage.weight || 0),
+    questionCount:
+      typeof stage.questions === 'function'
+        ? stage.questions().length
+        : Array.isArray(stage.questions)
+          ? stage.questions.length
+          : 0,
+  }));
+}
+
+function obterCategoriasDasQuestoes(questoes = []) {
+  return Array.from(
+    new Set(
+      questoes
+        .map((questao) => questao.stage || questao.category || questao.stageKey)
+        .filter(Boolean),
+    ),
+  );
+}
+
+function statusPermiteGerarProva(candidato = {}) {
+  const status = normalizarTexto(
+    candidato.status_fluxo ||
+      candidato.status_candidato ||
+      candidato.status_entrevista ||
+      'Agendado',
+  );
+  return STATUS_APTOS_GERAR_PROVA.has(status);
+}
+
+function formatarScore(valor) {
+  if (valor === null || valor === undefined || valor === '') return '-';
+  const numero = Number(String(valor).replace(',', '.'));
+  if (!Number.isFinite(numero)) return String(valor);
+  return `${numero.toFixed(1).replace('.', ',')}`;
+}
+
+function parseJsonSeguro(valor, fallback) {
+  if (valor === null || valor === undefined || valor === '') return fallback;
+  if (Array.isArray(valor) || (typeof valor === 'object' && valor !== null)) return valor;
+  try {
+    return JSON.parse(valor);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function obterListaJson(valor) {
+  const dados = parseJsonSeguro(valor, []);
+  return Array.isArray(dados) ? dados.filter(Boolean) : [];
+}
+
+function obterAlertas(item) {
+  if (Array.isArray(item?.alertas_criticos)) return item.alertas_criticos.filter(Boolean);
+  return obterListaJson(item?.alertas_criticos_json);
+}
+
+function obterIniciais(nome) {
+  const partes = normalizarTexto(nome).split(/\s+/).filter(Boolean);
+  if (!partes.length) return 'RH';
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return `${partes[0].slice(0, 1)}${partes[partes.length - 1].slice(0, 1)}`.toUpperCase();
+}
+
+function formatarDataSomente(valor) {
+  if (!valor) return '-';
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) {
+    const texto = String(valor);
+    return texto.includes('T') ? texto.slice(0, 10).split('-').reverse().join('/') : texto.slice(0, 10) || '-';
+  }
+  return data.toLocaleDateString('pt-BR');
+}
+
+function formatarDataHoraDetalhe(valor, fallback = '-') {
+  if (!valor) return fallback;
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return String(valor || fallback);
+  return data.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function obterNotaFinal(prova = {}) {
+  return prova.nota_final_prova ?? prova.resultado?.nota_final_prova ?? null;
+}
+
+function obterScoreFinal(prova = {}) {
+  return prova.score_final ?? prova.score?.score_final ?? null;
+}
+
+function obterClasseStatusProva(status) {
+  const valor = normalizarBusca(status);
+  if (valor.includes('final') || valor.includes('corrigid')) return 'is-finished';
+  if (valor.includes('pendente') || valor.includes('manual') || valor.includes('revis')) return 'is-pending';
+  if (valor.includes('andamento') || valor.includes('dispon') || valor.includes('gerad') || valor.includes('reabert')) {
+    return 'is-progress';
+  }
+  if (valor.includes('cancel') || valor.includes('expir')) return 'is-cancelled';
+  return 'is-neutral';
+}
+
+function obterClasseStatusEtapa(status) {
+  const valor = normalizarBusca(status);
+  if (valor.includes('resultado')) return 'is-final';
+  if (valor.includes('corrig') || valor.includes('final')) return 'is-done';
+  if (valor.includes('pend')) return 'is-pending';
+  if (valor.includes('cancel') || valor.includes('invalid')) return 'is-danger';
+  return 'is-muted';
+}
+
+function obterIconeEtapa(etapa = {}) {
+  const texto = normalizarBusca([etapa.label, etapa.key, etapa.categoria].join(' '));
+  if (texto.includes('excel') || texto.includes('tabela') || texto.includes('planilha')) return 'table';
+  if (texto.includes('word') || texto.includes('redacao') || texto.includes('document')) return 'description';
+  if (texto.includes('tecnic') || texto.includes('ti') || texto.includes('sistema')) return 'business_center';
+  if (texto.includes('comunic') || texto.includes('atendimento')) return 'forum';
+  if (texto.includes('matemat') || texto.includes('racioc')) return 'calculate';
+  if (texto.includes('geral') || texto.includes('final')) return 'bar_chart';
+  return 'fact_check';
+}
+
+function montarAlertasDetalhe(score = {}) {
+  return {
+    fortes: Array.isArray(score.pontos_fortes)
+      ? score.pontos_fortes.filter(Boolean)
+      : obterListaJson(score.pontos_fortes_json),
+    atencao: Array.isArray(score.pontos_atencao)
+      ? score.pontos_atencao.filter(Boolean)
+      : obterListaJson(score.pontos_atencao_json),
+    criticos: Array.isArray(score.alertas_criticos)
+      ? score.alertas_criticos.filter(Boolean)
+      : obterListaJson(score.alertas_criticos_json),
+  };
+}
+
+function montarEtapasResultado(detalhe = {}) {
+  const resultado = detalhe.resultado || {};
+  const resumoEtapas = obterListaJson(resultado.resumo_etapas_json || detalhe.resumo_etapas_json);
+  const etapasConfiguradas = Array.isArray(detalhe.etapas) ? detalhe.etapas : [];
+  const etapasBase = resumoEtapas.length ? resumoEtapas : etapasConfiguradas;
+
+  const etapas = etapasBase.map((etapa, indice) => {
+    const rawMax = Number(etapa.rawMax ?? etapa.max ?? 0);
+    const rawScore = Number(etapa.rawScore ?? etapa.score ?? etapa.nota ?? 0);
+    const percent = etapa.percent !== undefined && etapa.percent !== null
+      ? Number(etapa.percent)
+      : rawMax
+        ? rawScore / rawMax
+        : null;
+    const temNota = Number.isFinite(percent) && (rawMax > 0 || etapa.score !== undefined || etapa.nota !== undefined);
+    const pendencias = Number(etapa.pendings || etapa.pendencias || 0);
+    const status = temNota
+      ? pendencias > 0
+        ? 'Pendente'
+        : 'Corrigido'
+      : 'Não avaliado';
+
+    return {
+      key: etapa.key || etapa.stageKey || etapa.label || `etapa-${indice}`,
+      label: etapa.label || etapa.stage || etapa.categoria || etapa.key || `Etapa ${indice + 1}`,
+      status,
+      score: temNota ? Math.max(0, Math.min(100, percent * 100)) : null,
+      icon: obterIconeEtapa(etapa),
+    };
+  });
+
+  const notaFinal = obterNotaFinal(detalhe);
+  const scoreFinal = obterScoreFinal(detalhe);
+  const valorFinal = notaFinal ?? scoreFinal;
+  const possuiGeral = etapas.some((etapa) => normalizarBusca(etapa.label).includes('geral'));
+  if (valorFinal !== null && valorFinal !== undefined && valorFinal !== '' && !possuiGeral) {
+    etapas.push({
+      key: 'resultado-final',
+      label: 'Geral',
+      status: 'Resultado final',
+      score: Number(String(valorFinal).replace(',', '.')),
+      icon: 'bar_chart',
+    });
+  }
+
+  return etapas;
+}
+
+function descreverResposta(resposta) {
+  if (resposta === null || resposta === undefined || resposta === '') return '-';
+  if (typeof resposta === 'string' || typeof resposta === 'number' || typeof resposta === 'boolean') {
+    return String(resposta);
+  }
+  if (Array.isArray(resposta)) return resposta.join(', ') || '-';
+  if (typeof resposta === 'object') {
+    if (resposta.text) return resposta.text;
+    if (resposta.filename) return resposta.filename;
+    if (resposta.selected !== undefined && resposta.selected !== null) return `Alternativa ${Number(resposta.selected) + 1}`;
+    return JSON.stringify(resposta);
+  }
+  return String(resposta);
+}
+
+function BotaoAcaoProva({ icon, label, variant = 'neutral', onClick, disabled = false }) {
+  return html`
+    <button
+      type="button"
+      class=${`generated-action-button is-${variant}`}
+      onClick=${onClick}
+      disabled=${disabled}
+      title=${label}
+    >
+      <span class="material-symbols-outlined">${icon}</span>
+      <span>${label}</span>
+    </button>
+  `;
+}
+
+export function ModalGerarProva({
+  aberto,
+  contexto = {},
+  controlador,
+  onClose,
+  onGerada,
+}) {
+  const [formulario, setFormulario] = useState(() => montarFormularioInicial(contexto));
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+
+  useEffect(() => {
+    if (!aberto) return;
+    setFormulario(montarFormularioInicial(contexto));
+    setErro('');
+    setResultado(null);
+    setSalvando(false);
+  }, [aberto, contexto]);
+
+  useEffect(() => {
+    if (!formulario.vaga) return;
+    const opcao = obterOpcaoVaga(formulario.vaga);
+    const nivelSugerido = SUGESTOES_NIVEL_POR_VAGA[formulario.vaga] || opcao?.level || '';
+    const areaSugerida = normalizarTexto(opcao?.track || '');
+    const trilhaSugerida = normalizarTrilha(formulario.area_prova || areaSugerida);
+    setFormulario((anterior) => ({
+      ...anterior,
+      nivel: anterior.nivel || nivelSugerido,
+      area_prova: anterior.area_prova || areaSugerida,
+      trilha: anterior.trilha || trilhaSugerida,
+    }));
+  }, [formulario.vaga]);
+
+  const blueprint = useMemo(() => {
+    if (!formulario.vaga || !formulario.nivel) return null;
+    return resolverBlueprintProva(
+      formulario.vaga,
+      formulario.nivel,
+      resolverTrilhaBlueprint(formulario),
+    );
+  }, [formulario.vaga, formulario.nivel, formulario.area_prova, formulario.trilha]);
+  const questoes = useMemo(
+    () => (blueprint ? montarProvaPorBlueprint(blueprint) : []),
+    [blueprint],
+  );
+  const etapas = useMemo(() => montarEtapasBlueprint(blueprint), [blueprint]);
+  const categorias = useMemo(() => obterCategoriasDasQuestoes(questoes), [questoes]);
+
+  if (!aberto) return null;
+
+  const atualizarCampo = (campo, valor) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+      ...(campo === 'area_prova' ? { trilha: normalizarTrilha(valor) } : {}),
+    }));
+    setErro('');
+  };
+
+  const montarDadosPersonalizacao = () => {
+    const clientes = montarListaComOutro(
+      formulario.clientes_personalizacao,
+      formulario.cliente_outro,
+    );
+    const tiposAtendimento = montarListaComOutro(
+      formulario.tipos_atendimento,
+      formulario.tipo_atendimento_outro,
+    );
+
+    return {
+      enabled: Boolean(formulario.personalizacao_inteligente),
+      clientes,
+      tiposAtendimento,
+      operacao: clientes.join(', '),
+      tipo_atendimento: tiposAtendimento,
+      nivel_personalizacao: formulario.nivel_personalizacao,
+      tom_prova: normalizarTexto(formulario.tom_prova),
+      situacao_pratica: normalizarTexto(formulario.situacao_pratica_operacao),
+      situacao_pratica_operacao: normalizarTexto(formulario.situacao_pratica_operacao),
+    };
+  };
+
+  const montarConfiguracaoPersonalizacao = () => {
+    const trilhaBlueprint = resolverTrilhaBlueprint(formulario);
+    const dadosPersonalizacao = montarDadosPersonalizacao();
+    return {
+      operacao: dadosPersonalizacao.operacao,
+      cliente: dadosPersonalizacao.operacao,
+      clientesOperacoes: dadosPersonalizacao.clientes,
+      vaga: formulario.vaga,
+      area: formulario.area_prova,
+      trilha: trilhaBlueprint,
+      nivelProva: formulario.nivel,
+      perfilOperacao: inferirPerfilAtendimentoPersonalizacao({
+        clientes: dadosPersonalizacao.clientes,
+        tipos: dadosPersonalizacao.tiposAtendimento,
+        area: formulario.area_prova,
+        vaga: formulario.vaga,
+      }) || inferirPerfilOperacao(formulario),
+      tiposAtendimento: dadosPersonalizacao.tiposAtendimento,
+      nivelPersonalizacao: dadosPersonalizacao.nivel_personalizacao,
+      tomProva: formulario.tom_prova,
+      situacaoPratica: formulario.situacao_pratica_operacao,
+      usuario:
+        controlador?.estado?.nomeUsuarioAutenticado ||
+        controlador?.estado?.usuarioAutenticado ||
+        'RH',
+    };
+  };
+
+  const gerar = async () => {
+    const nome = normalizarTexto(formulario.nome_candidato);
+    const email = normalizarTexto(formulario.email);
+    const telefone = normalizarTexto(formulario.telefone);
+
+    if (!nome) {
+      setErro('Informe o nome completo do candidato.');
+      return;
+    }
+    if (!validarEmail(email)) {
+      setErro('Informe um e-mail válido para acesso do candidato.');
+      return;
+    }
+    if (!validarTelefone(telefone)) {
+      setErro('Informe um telefone válido para acesso do candidato.');
+      return;
+    }
+    if (!formulario.vaga || !formulario.area_prova || !formulario.nivel || !Number(formulario.tempo_total) || !blueprint || !questoes.length) {
+      setErro('Selecione cargo/vaga, área, nível e tempo com uma configuração de prova válida.');
+      return;
+    }
+    if (contexto.candidato && !statusPermiteGerarProva(contexto.candidato)) {
+      setErro('O status atual do candidato não está apto para gerar prova.');
+      return;
+    }
+
+    const personalizacao = montarDadosPersonalizacao();
+    const clientesPersonalizacao = personalizacao.clientes || [];
+    const tiposAtendimento = personalizacao.tiposAtendimento || [];
+
+    if (formulario.personalizacao_inteligente) {
+      if (!clientesPersonalizacao.length) {
+        setErro('Selecione ao menos um Cliente/Operação para personalizar a prova.');
+        return;
+      }
+      if (!tiposAtendimento.length) {
+        setErro('Selecione ao menos um tipo de atendimento para personalizar a prova.');
+        return;
+      }
+    }
+
+    const configuracaoPersonalizacao = formulario.personalizacao_inteligente
+      ? montarConfiguracaoPersonalizacao()
+      : null;
+    const resultadoPersonalizacao = formulario.personalizacao_inteligente
+      ? gerarPersonalizacaoProva(questoes, configuracaoPersonalizacao)
+      : null;
+    const questoesPersonalizadas = resultadoPersonalizacao?.questoes?.length
+      ? resultadoPersonalizacao.questoes
+      : questoes;
+    const trilhaBlueprint = resolverTrilhaBlueprint(formulario);
+    const operacaoPayload = formulario.personalizacao_inteligente
+      ? personalizacao.operacao
+      : normalizarTexto(formulario.operacao);
+
+    const payload = {
+      candidato_id: formulario.id_teste,
+      id_teste: formulario.id_teste,
+      id_registro: formulario.id_registro,
+      id_entrevista: formulario.id_entrevista,
+      id_processo: formulario.id_processo,
+      id_processo_ref: formulario.id_processo_ref,
+      nome_candidato: nome,
+      email,
+      telefone,
+      whatsapp: telefone,
+      cpf: formulario.cpf,
+      cargo: formulario.vaga,
+      vaga: formulario.vaga,
+      area: formulario.area_prova,
+      area_prova: formulario.area_prova,
+      operacao: operacaoPayload,
+      trilha: formulario.area_prova,
+      nivel: formulario.nivel,
+      tempo_total: Number(formulario.tempo_total || 40),
+      tempo_minutos: Number(formulario.tempo_total || 40),
+      quantidade_questoes: questoesPersonalizadas.length,
+      etapas,
+      categorias,
+      questoes_snapshot: questoesPersonalizadas,
+      personalizacao,
+      observacoes_internas_rh: formulario.observacoes_internas_rh,
+      tom_prova: formulario.tom_prova,
+      situacao_pratica_operacao: formulario.situacao_pratica_operacao,
+      expira_em: formulario.expira_em,
+      configuracao: {
+        blueprint_key: blueprint.key || '',
+        blueprint_label: blueprint.label || formulario.area_prova || '',
+        area_prova: formulario.area_prova,
+        area: formulario.area_prova,
+        trilha_blueprint: trilhaBlueprint,
+        setor_cliente: operacaoPayload,
+        operacao: operacaoPayload,
+        observacoes_internas_rh: formulario.observacoes_internas_rh,
+        personalizacao_inteligente: Boolean(formulario.personalizacao_inteligente),
+        personalizacao: formulario.personalizacao_inteligente
+          ? {
+              ...personalizacao,
+              operacao: operacaoPayload,
+              setor_cliente: operacaoPayload,
+              tom_prova: formulario.tom_prova,
+              situacao_pratica_operacao: formulario.situacao_pratica_operacao,
+              situacao_pratica: formulario.situacao_pratica_operacao,
+              tipos_atendimento: tiposAtendimento,
+              perfil_operacao: configuracaoPersonalizacao.perfilOperacao,
+              nivel_personalizacao: configuracaoPersonalizacao.nivelPersonalizacao,
+              historico: resultadoPersonalizacao.historico,
+              alertas: resultadoPersonalizacao.alertas || [],
+            }
+          : {
+              enabled: false,
+              opcional: true,
+              mensagem: 'Prova padrão gerada sem personalização por operação/cliente.',
+            },
+        entrevista_obrigatoria: false,
+      },
+    };
+
+    setSalvando(true);
+    setErro('');
+    try {
+      const resposta = await criarProvaGerada(payload);
+      if (resultadoPersonalizacao?.historico) {
+        registrarHistoricoPersonalizacao(resultadoPersonalizacao.historico);
+      }
+      setResultado(resposta);
+      onGerada?.(resposta);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível gerar a prova.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return html`
+    <${ModalPadrao}
+      aberto=${aberto}
+      titulo="Gerar prova"
+      subtitulo="Crie uma prova rastreável para execução exclusiva no Conecta Provas."
+      className="generated-exam-modal-dialog"
+      onClose=${onClose}
+    >
+      <div class="rh-details-body generated-exam-modal">
+        ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
+        ${resultado
+          ? html`
+              <div class="alert alert-success">
+                Prova gerada com sucesso. Código de acesso:
+                <strong>${resultado.codigo_acesso}</strong>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-success ms-2"
+                  onClick=${() => copiarTexto(resultado.codigo_acesso)}
+                >
+                  Copiar código
+                </button>
+              </div>
+            `
+          : null}
+
+        <${SectionCard}
+          title="Dados do candidato"
+          description="Esses dados serão usados para autenticar e confirmar o candidato."
+          className="rh-section-card--flat"
+        >
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nome completo</label>
+              <input
+                class="form-control"
+                value=${formulario.nome_candidato}
+                onInput=${(event) => atualizarCampo('nome_candidato', event.target.value)}
+              />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">E-mail</label>
+              <input
+                class="form-control"
+                value=${formulario.email}
+                onInput=${(event) => atualizarCampo('email', event.target.value)}
+              />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Telefone</label>
+              <input
+                class="form-control"
+                value=${formulario.telefone}
+                onInput=${(event) => atualizarCampo('telefone', event.target.value)}
+              />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Processo vinculado</label>
+              <input class="form-control" readonly value=${formulario.id_processo_ref || 'Prova avulsa'} />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Cargo/Vaga</label>
+              <select
+                class="form-select"
+                value=${formulario.vaga}
+                onChange=${(event) => atualizarCampo('vaga', event.target.value)}
+              >
+                <option value="">Selecione...</option>
+                ${OPCOES_VAGAS_PROVA.map(
+                  (opcao) => html`<option key=${opcao.label} value=${opcao.label}>${opcao.label}</option>`,
+                )}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Status do candidato</label>
+              <input
+                class="form-control"
+                readonly
+                value=${contexto.candidato?.status_fluxo || contexto.candidato?.status_candidato || contexto.candidato?.status_entrevista || 'Prova avulsa'}
+              />
+            </div>
+          </div>
+        </${SectionCard}>
+
+        <${SectionCard}
+          title="Configuração da prova"
+          description="A geração reutiliza o banco de questões e blueprint já existentes."
+          className="rh-section-card--flat"
+        >
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Área</label>
+              <select
+                class="form-select"
+                value=${formulario.area_prova}
+                onChange=${(event) => atualizarCampo('area_prova', event.target.value)}
+              >
+                <option value="">Selecione...</option>
+                ${OPCOES_AREAS_PROVA.map(
+                  (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+                )}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nível</label>
+              <select
+                class="form-select"
+                value=${formulario.nivel}
+                onChange=${(event) => atualizarCampo('nivel', event.target.value)}
+              >
+                <option value="">Selecione...</option>
+                ${OPCOES_NIVEL.map(
+                  (opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`,
+                )}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tempo total</label>
+              <input
+                class="form-control"
+                type="number"
+                min="1"
+                max="300"
+                value=${formulario.tempo_total}
+                onInput=${(event) => atualizarCampo('tempo_total', event.target.value)}
+              />
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Observações internas</label>
+              <textarea
+                class="form-control"
+                rows="3"
+                value=${formulario.observacoes_internas_rh}
+                onInput=${(event) => atualizarCampo('observacoes_internas_rh', event.target.value)}
+              ></textarea>
+            </div>
+          </div>
+        </${SectionCard}>
+
+        <${SectionCard}
+          title="Personalização da prova"
+          description="Opcional. A prova padrão será gerada normalmente se esta opção ficar desmarcada."
+          className="rh-section-card--flat"
+        >
+          <label class="form-check generated-personalization-toggle">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              checked=${formulario.personalizacao_inteligente}
+              onChange=${(event) => {
+                const ativa = event.target.checked;
+                setFormulario((anterior) => ({
+                  ...anterior,
+                  personalizacao_inteligente: ativa,
+                  ...(!ativa
+                    ? {
+                        clientes_personalizacao: [],
+                        cliente_outro: '',
+                        tipos_atendimento: [],
+                        tipo_atendimento_outro: '',
+                        situacao_pratica_operacao: '',
+                      }
+                    : {}),
+                }));
+                setErro('');
+              }}
+            />
+            <span class="form-check-label fw-semibold">
+              Desejo personalizar esta prova por operação/cliente
+            </span>
+          </label>
+
+          ${formulario.personalizacao_inteligente
+            ? html`
+                <div class="row g-3 mt-1">
+                  <div class="col-md-6">
+                    <label class="form-label">Cliente/Operação</label>
+                    <select
+                      class="form-select generated-multiselect"
+                      multiple
+                      value=${formulario.clientes_personalizacao}
+                      onChange=${(event) =>
+                        atualizarCampo('clientes_personalizacao', lerValoresMultiselect(event))}
+                    >
+                      ${[...OPCOES_OPERACOES_MODAL, OPCAO_OUTRO].map(
+                        (opcao) => html`
+                          <option
+                            key=${opcao}
+                            value=${opcao}
+                            selected=${formulario.clientes_personalizacao.includes(opcao)}
+                          >
+                            ${opcao}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Tipo de atendimento</label>
+                    <select
+                      class="form-select generated-multiselect"
+                      multiple
+                      value=${formulario.tipos_atendimento}
+                      onChange=${(event) =>
+                        atualizarCampo('tipos_atendimento', lerValoresMultiselect(event))}
+                    >
+                      ${TIPOS_ATENDIMENTO_PERSONALIZACAO.map(
+                        (opcao) => html`
+                          <option
+                            key=${opcao}
+                            value=${opcao}
+                            selected=${formulario.tipos_atendimento.includes(opcao)}
+                          >
+                            ${opcao}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  </div>
+                  ${formulario.clientes_personalizacao.includes(OPCAO_OUTRO)
+                    ? html`
+                        <div class="col-md-6">
+                          <label class="form-label">Outro cliente/operação</label>
+                          <input
+                            class="form-control"
+                            value=${formulario.cliente_outro}
+                            onInput=${(event) => atualizarCampo('cliente_outro', event.target.value)}
+                          />
+                        </div>
+                      `
+                    : null}
+                  ${formulario.tipos_atendimento.includes(OPCAO_OUTRO)
+                    ? html`
+                        <div class="col-md-6">
+                          <label class="form-label">Outro tipo de atendimento</label>
+                          <input
+                            class="form-control"
+                            value=${formulario.tipo_atendimento_outro}
+                            onInput=${(event) => atualizarCampo('tipo_atendimento_outro', event.target.value)}
+                          />
+                        </div>
+                      `
+                    : null}
+                  <div class="col-md-6">
+                    <label class="form-label">Nível de personalização</label>
+                    <select
+                      class="form-select"
+                      value=${formulario.nivel_personalizacao}
+                      onChange=${(event) => atualizarCampo('nivel_personalizacao', event.target.value)}
+                    >
+                      ${NIVEIS_PERSONALIZACAO.map(
+                        (nivel) => html`
+                          <option key=${nivel.id} value=${nivel.id}>
+                            ${nivel.label}: ${nivel.descricao}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Tom da prova</label>
+                    <select
+                      class="form-select"
+                      value=${formulario.tom_prova}
+                      onChange=${(event) => atualizarCampo('tom_prova', event.target.value)}
+                    >
+                      ${OPCOES_TOM_PROVA.map(
+                        (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+                      )}
+                    </select>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Situação prática da operação</label>
+                    <textarea
+                      class="form-control"
+                      rows="2"
+                      placeholder="Ex.: Paciente entra em contato com dúvida sobre agendamento e demonstra preocupação com o tratamento."
+                      value=${formulario.situacao_pratica_operacao}
+                      onInput=${(event) => atualizarCampo('situacao_pratica_operacao', event.target.value)}
+                    ></textarea>
+                    
+                  </div>
+                </div>
+              `
+            : null}
+        </${SectionCard}>
+
+        <${SectionCard}
+          title="Acesso do candidato"
+          description="O link é fixo para todos os candidatos; o código só fica visível para o RH."
+          className="rh-section-card--flat"
+        >
+          <${MetricGrid}
+            items=${[
+              { label: 'E-mail de acesso', value: formulario.email || '-' },
+              { label: 'Telefone de acesso', value: formulario.telefone || '-' },
+              { label: 'Código', value: resultado?.codigo_acesso || 'Gerado ao salvar' },
+              { label: 'Link fixo', value: LINK_CONECTA_PROVAS },
+            ]}
+          />
+        </${SectionCard}>
+
+        <${SectionCard}
+          title="Confirmação"
+          description="Revise antes de disponibilizar a prova."
+          className="rh-section-card--flat"
+        >
+          <div class="generated-exam-summary">
+            <span><strong>Candidato</strong>${formulario.nome_candidato || '-'}</span>
+            <span><strong>Cargo/Vaga</strong>${formulario.vaga || '-'}</span>
+            <span><strong>Área</strong>${formulario.area_prova || '-'}</span>
+            <span><strong>Processo</strong>${formulario.id_processo_ref || 'Avulsa'}</span>
+            <span><strong>Personalização</strong>${formulario.personalizacao_inteligente ? 'Sim' : 'Não'}</span>
+            <span><strong>Cliente/Operação</strong>${formulario.personalizacao_inteligente ? montarDadosPersonalizacao().operacao || '-' : formulario.operacao || '-'}</span>
+            <span><strong>Nível</strong>${formulario.nivel || '-'}</span>
+            <span><strong>Tempo</strong>${`${formulario.tempo_total || 0} min`}</span>
+            <span><strong>Tom</strong>${formulario.personalizacao_inteligente ? formulario.tom_prova || '-' : 'Padrão'}</span>
+            <span><strong>E-mail de acesso</strong>${formulario.email || '-'}</span>
+            <span><strong>Telefone de acesso</strong>${formulario.telefone || '-'}</span>
+            <span><strong>Etapas</strong>${etapas.map((item) => item.label).join(', ') || '-'}</span>
+          </div>
+        </${SectionCard}>
+      </div>
+      <footer class="rh-modal-footer">
+        <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${onClose}>
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" disabled=${salvando || !!resultado} onClick=${gerar}>
+          ${salvando ? 'Gerando...' : resultado ? 'Prova gerada' : 'Gerar prova'}
+        </button>
+      </footer>
+    </${ModalPadrao}>
+  `;
+}
+
+function ModalDetalheProvaGerada({
+  detalhe,
+  onClose,
+  onCopiarCodigo,
+  onRecalcular,
+  onAvaliacaoManual,
+  onReabrir,
+  onDecisao,
+}) {
+  const [mostrarResultadoCompleto, setMostrarResultadoCompleto] = useState(false);
+  if (!detalhe) return null;
+  const score = detalhe.score || {};
+  const resultado = detalhe.resultado || {};
+  const alertas = montarAlertasDetalhe(score);
+  const etapas = montarEtapasResultado(detalhe);
+  const respostas = Array.isArray(detalhe.respostas) ? detalhe.respostas : [];
+
+  return html`
+    <${ModalPadrao}
+      aberto=${!!detalhe}
+      titulo=${`Prova | ${detalhe.nome_candidato || 'Candidato'}`}
+      subtitulo="Detalhes internos do RH. Nada desta tela é exibido ao candidato."
+      className="generated-exam-detail-dialog"
+      onClose=${onClose}
+    >
+      <div class="rh-details-body generated-detail-body">
+        <div class="generated-detail-summary-grid">
+          ${[
+            { icon: 'task_alt', label: 'Status da prova', value: detalhe.status || '-' },
+            { icon: 'tag', label: 'Código', value: detalhe.codigo_acesso || '-' },
+            { icon: 'insert_chart', label: 'Nota geral', value: formatarScore(obterNotaFinal(detalhe) ?? resultado.nota_final_prova) },
+            { icon: 'trending_up', label: 'Score Conecta', value: formatarScore(obterScoreFinal(detalhe) ?? score.score_final) },
+            { icon: 'person_check', label: 'Classificação', value: score.classificacao || detalhe.classificacao || '-' },
+            { icon: 'shield', label: 'Confiabilidade', value: score.confiabilidade || detalhe.confiabilidade || '-' },
+          ].map(
+            (item) => html`
+              <article class="generated-detail-summary-card" key=${item.label}>
+                <span class="material-symbols-outlined">${item.icon}</span>
+                <div>
+                  <small>${item.label}</small>
+                  <strong>${item.value}</strong>
+                </div>
+              </article>
+            `,
+          )}
+        </div>
+
+        <div class="generated-detail-date-strip">
+          ${[
+            { icon: 'calendar_month', label: 'Data de geração', value: formatarDataHoraDetalhe(detalhe.gerada_em) },
+            { icon: 'play_arrow', label: 'Início', value: formatarDataHoraDetalhe(detalhe.iniciada_em, 'Não iniciado') },
+            { icon: 'stop', label: 'Finalização', value: formatarDataHoraDetalhe(detalhe.finalizada_em, 'Não finalizado') },
+          ].map(
+            (item) => html`
+              <div class="generated-detail-date-item" key=${item.label}>
+                <span class="material-symbols-outlined">${item.icon}</span>
+                <div>
+                  <small>${item.label}</small>
+                  <strong>${item.value}</strong>
+                </div>
+              </div>
+            `,
+          )}
+        </div>
+
+        <section class="generated-detail-section">
+          <h3>Resultado da prova por etapa</h3>
+          ${etapas.length
+            ? html`
+                <div class="generated-stage-result-grid">
+                  ${etapas.map(
+                    (etapa) => html`
+                      <article class="generated-stage-result-card" key=${etapa.key}>
+                        <div class="generated-stage-card-head">
+                          <span class="material-symbols-outlined">${etapa.icon}</span>
+                          <div>
+                            <strong>${etapa.label}</strong>
+                            <span class=${`generated-stage-status ${obterClasseStatusEtapa(etapa.status)}`}>
+                              ${etapa.status}
+                            </span>
+                          </div>
+                        </div>
+                        <small>Score</small>
+                        <strong class="generated-stage-score">
+                          ${etapa.score === null || etapa.score === undefined || Number.isNaN(Number(etapa.score))
+                            ? '-'
+                            : formatarScore(etapa.score)}
+                        </strong>
+                      </article>
+                    `,
+                  )}
+                </div>
+              `
+            : html`<${EmptyState} title="Sem etapas registradas" text="A prova ainda não possui resultado por etapa salvo." />`}
+        </section>
+
+        <section class="generated-detail-section">
+          <h3>Alertas e notificações</h3>
+          <div class="generated-alert-columns">
+            ${[
+              { key: 'fortes', icon: 'check_circle', title: 'Pontos fortes', tone: 'success', items: alertas.fortes },
+              { key: 'atencao', icon: 'warning', title: 'Pontos de atenção', tone: 'warning', items: alertas.atencao },
+              { key: 'criticos', icon: 'error', title: 'Alertas críticos', tone: 'danger', items: alertas.criticos },
+            ].map(
+              (coluna) => html`
+                <div class=${`generated-alert-column is-${coluna.tone}`} key=${coluna.key}>
+                  <div class="generated-alert-column-title">
+                    <span class="material-symbols-outlined">${coluna.icon}</span>
+                    <strong>${coluna.title}</strong>
+                  </div>
+                  ${coluna.items.length
+                    ? coluna.items.map(
+                        (item) => html`
+                          <span class="generated-alert-item" key=${item}>
+                            ${item}
+                          </span>
+                        `,
+                      )
+                    : html`<span class="generated-alert-empty">Nenhum ponto registrado.</span>`}
+                </div>
+              `,
+            )}
+          </div>
+        </section>
+
+        ${mostrarResultadoCompleto
+          ? html`
+              <section class="generated-detail-section generated-full-result">
+                <h3>Resultado completo</h3>
+                ${respostas.length
+                  ? html`
+                      <div class="generated-answer-list">
+                        ${respostas.map(
+                          (resposta) => html`
+                            <article class="generated-answer-card" key=${resposta.id_resposta}>
+                              <div>
+                                <strong>
+                                  ${Number(resposta.questao_indice ?? 0) + 1}. ${resposta.categoria || 'Questão'}
+                                </strong>
+                                <p>${resposta.texto_questao_snapshot || '-'}</p>
+                              </div>
+                              <dl>
+                                <div>
+                                  <dt>Resposta</dt>
+                                  <dd>${descreverResposta(resposta.resposta)}</dd>
+                                </div>
+                                <div>
+                                  <dt>Nota</dt>
+                                  <dd>${formatarScore(resposta.nota)}</dd>
+                                </div>
+                                <div>
+                                  <dt>Status</dt>
+                                  <dd>${resposta.correta === true || resposta.correta === 1 ? 'Correta' : resposta.correta === false || resposta.correta === 0 ? 'Incorreta' : 'Manual'}</dd>
+                                </div>
+                              </dl>
+                            </article>
+                          `,
+                        )}
+                      </div>
+                    `
+                  : html`
+                      <div class="generated-full-result-fallback">
+                        <p>As respostas completas ainda não estão salvas para esta prova.</p>
+                        <pre>${JSON.stringify({ resultado, questoes: detalhe.questoes || [] }, null, 2)}</pre>
+                      </div>
+                    `}
+              </section>
+            `
+          : null}
+      </div>
+      <footer class="rh-modal-footer generated-detail-footer">
+        <${BotaoAcaoProva} icon="close" label="Fechar" variant="neutral" onClick=${onClose} />
+        <${BotaoAcaoProva} icon="visibility" label="Código" variant="primary" onClick=${onCopiarCodigo} />
+        <${BotaoAcaoProva} icon="menu_book" label="Manual" variant="purple" onClick=${onAvaliacaoManual} />
+        <${BotaoAcaoProva} icon="history" label="Reabrir" variant="success" onClick=${onReabrir} />
+        <${BotaoAcaoProva}
+          icon="format_list_bulleted"
+          label=${mostrarResultadoCompleto ? 'Ocultar resultado' : 'Ver resultado completo'}
+          variant="soft"
+          onClick=${() => setMostrarResultadoCompleto((valor) => !valor)}
+        />
+        <${BotaoAcaoProva} icon="sync" label="Recalcular score" variant="soft" onClick=${onRecalcular} />
+        <${BotaoAcaoProva} icon="person_add" label="Decisão RH" variant="solid" onClick=${onDecisao} />
+      </footer>
+    </${ModalPadrao}>
+  `;
+}
+
+function ModalAvaliacaoManual({ prova, onClose, onSave }) {
+  const [formulario, setFormulario] = useState({
+    nota_redacao: '',
+    nota_excel: '',
+    nota_tecnica: '',
+    nota_comunicacao: '',
+    nota_lgpd: '',
+    observacao: '',
+  });
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    if (!prova) return;
+    setFormulario({
+      nota_redacao: prova.nota_redacao ?? '',
+      nota_excel: prova.nota_excel ?? '',
+      nota_tecnica: prova.nota_tecnica ?? '',
+      nota_comunicacao: prova.nota_comunicacao ?? '',
+      nota_lgpd: prova.nota_lgpd ?? '',
+      observacao: '',
+    });
+    setErro('');
+  }, [prova]);
+
+  if (!prova) return null;
+
+  const salvar = async () => {
+    setSalvando(true);
+    setErro('');
+    try {
+      await onSave({
+        ...formulario,
+        nota_redacao: formulario.nota_redacao === '' ? null : Number(formulario.nota_redacao),
+        nota_excel: formulario.nota_excel === '' ? null : Number(formulario.nota_excel),
+        nota_tecnica: formulario.nota_tecnica === '' ? null : Number(formulario.nota_tecnica),
+        nota_comunicacao: formulario.nota_comunicacao === '' ? null : Number(formulario.nota_comunicacao),
+        nota_lgpd: formulario.nota_lgpd === '' ? null : Number(formulario.nota_lgpd),
+      });
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível salvar a avaliação manual.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const campoNota = (campo, label) => html`
+    <div class="col-md-4">
+      <label class="form-label">${label}</label>
+      <input
+        class="form-control"
+        type="number"
+        min="0"
+        max="100"
+        value=${formulario[campo]}
+        onInput=${(event) => setFormulario({ ...formulario, [campo]: event.target.value })}
+      />
+    </div>
+  `;
+
+  return html`
+    <${ModalPadrao}
+      aberto=${!!prova}
+      titulo="Avaliação manual"
+      subtitulo="Notas manuais liberam o Score quando houver redação, Excel ou etapa subjetiva."
+      onClose=${onClose}
+    >
+      <div class="rh-details-body">
+        ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
+        <div class="row g-3">
+          ${campoNota('nota_redacao', 'Redação')}
+          ${campoNota('nota_excel', 'Excel')}
+          ${campoNota('nota_tecnica', 'Técnica')}
+          ${campoNota('nota_comunicacao', 'Comunicação')}
+          ${campoNota('nota_lgpd', 'LGPD')}
+          <div class="col-md-12">
+            <label class="form-label">Observação</label>
+            <textarea
+              class="form-control"
+              rows="4"
+              value=${formulario.observacao}
+              onInput=${(event) => setFormulario({ ...formulario, observacao: event.target.value })}
+            ></textarea>
+          </div>
+        </div>
+      </div>
+      <footer class="rh-modal-footer">
+        <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${onClose}>Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${salvar}>
+          ${salvando ? 'Salvando...' : 'Salvar avaliação'}
+        </button>
+      </footer>
+    </${ModalPadrao}>
+  `;
+}
+
+function ModalDecisaoRh({ prova, onClose, onSave }) {
+  const [formulario, setFormulario] = useState({
+    decisao: 'Pendente',
+    justificativa: '',
+    observacao: '',
+    score_considerado: true,
+  });
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    if (!prova) return;
+    setFormulario({
+      decisao: 'Pendente',
+      justificativa: '',
+      observacao: '',
+      score_considerado: true,
+    });
+    setErro('');
+  }, [prova]);
+
+  if (!prova) return null;
+
+  const salvar = async () => {
+    setSalvando(true);
+    setErro('');
+    try {
+      await onSave(formulario);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível registrar a decisão.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return html`
+    <${ModalPadrao}
+      aberto=${!!prova}
+      titulo="Decisão final do RH"
+      subtitulo="O Score é apoio analítico; a decisão final continua manual."
+      onClose=${onClose}
+    >
+      <div class="rh-details-body">
+        ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Decisão</label>
+            <select
+              class="form-select"
+              value=${formulario.decisao}
+              onChange=${(event) => setFormulario({ ...formulario, decisao: event.target.value })}
+            >
+              ${DECISOES_RH.map((item) => html`<option key=${item} value=${item}>${item}</option>`)}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-check mt-4">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                checked=${formulario.score_considerado}
+                onChange=${(event) => setFormulario({ ...formulario, score_considerado: event.target.checked })}
+              />
+              <span class="form-check-label">Score considerado na análise</span>
+            </label>
+          </div>
+          <div class="col-md-12">
+            <label class="form-label">Justificativa</label>
+            <textarea
+              class="form-control"
+              rows="3"
+              value=${formulario.justificativa}
+              onInput=${(event) => setFormulario({ ...formulario, justificativa: event.target.value })}
+            ></textarea>
+          </div>
+          <div class="col-md-12">
+            <label class="form-label">Observação</label>
+            <textarea
+              class="form-control"
+              rows="3"
+              value=${formulario.observacao}
+              onInput=${(event) => setFormulario({ ...formulario, observacao: event.target.value })}
+            ></textarea>
+          </div>
+        </div>
+      </div>
+      <footer class="rh-modal-footer">
+        <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${onClose}>Cancelar</button>
+        <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${salvar}>
+          ${salvando ? 'Registrando...' : 'Registrar decisão'}
+        </button>
+      </footer>
+    </${ModalPadrao}>
+  `;
+}
+
+export function TelaProvasResultados({ controlador }) {
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [provas, setProvas] = useState([]);
+  const [pagina, setPagina] = useState(1);
+  const [filtros, setFiltros] = useState({
+    candidato: '',
+    vaga: '',
+    status: '',
+    resultado: '',
+    dataGeracao: '',
+  });
+  const [modalGerarAberto, setModalGerarAberto] = useState(false);
+  const [detalhe, setDetalhe] = useState(null);
+  const [avaliacaoManual, setAvaliacaoManual] = useState(null);
+  const [decisaoRh, setDecisaoRh] = useState(null);
+
+  const carregar = async () => {
+    setCarregando(true);
+    setErro('');
+    try {
+      const lista = await listarProvasGeradas();
+      setProvas(Array.isArray(lista) ? lista : []);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível carregar as provas geradas.');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => {
+    carregar();
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(CHAVE_ABRIR_MODAL_GERAR_PROVA) !== '1') {
+        return;
+      }
+      sessionStorage.removeItem(CHAVE_ABRIR_MODAL_GERAR_PROVA);
+      setModalGerarAberto(true);
+    } catch (error) {
+      // Fluxo manual segue disponivel se sessionStorage estiver bloqueado.
+    }
+  }, []);
+
+  const provasFiltradas = useMemo(() => {
+    const candidato = normalizarBusca(filtros.candidato);
+    const vaga = normalizarBusca(filtros.vaga);
+    const status = normalizarBusca(filtros.status);
+    const resultado = normalizarBusca(filtros.resultado);
+    return provas.filter((item) => {
+      const textoCandidato = normalizarBusca([
+        item.nome_candidato,
+        item.email_acesso,
+        item.vaga,
+        item.operacao,
+        item.trilha,
+        item.telefone_acesso,
+        item.codigo_acesso,
+      ].join(' '));
+      const textoVaga = normalizarBusca(item.vaga);
+      const textoStatus = normalizarBusca(item.status);
+      const dataBase = String(item.gerada_em || '').slice(0, 10);
+      const notaFinal = obterNotaFinal(item);
+      const alertas = obterAlertas(item);
+      if (candidato && !textoCandidato.includes(candidato)) return false;
+      if (vaga && !textoVaga.includes(vaga)) return false;
+      if (status && textoStatus !== status) return false;
+      if (resultado === 'com_nota' && (notaFinal === null || notaFinal === undefined || notaFinal === '')) return false;
+      if (resultado === 'sem_nota' && !(notaFinal === null || notaFinal === undefined || notaFinal === '')) return false;
+      if (resultado === 'com_alertas' && !alertas.length) return false;
+      if (resultado === 'sem_alertas' && alertas.length) return false;
+      if (resultado === 'pendente_avaliacao' && !item.pendente_avaliacao_manual && !textoStatus.includes('pendente')) return false;
+      if (filtros.dataGeracao && dataBase !== filtros.dataGeracao) return false;
+      return true;
+    });
+  }, [provas, filtros]);
+
+  useEffect(() => {
+    setPagina(1);
+  }, [filtros]);
+
+  const provasPaginadas = useMemo(
+    () => obterItensPaginados(provasFiltradas, pagina, 10),
+    [pagina, provasFiltradas],
+  );
+
+  const resumo = useMemo(() => {
+    const finalizadas = provas.filter((item) => item.status === 'Finalizada' || item.status === 'Corrigida').length;
+    const pendentes = provas.filter((item) => item.pendente_avaliacao_manual).length;
+    const mediaScore = provas
+      .map((item) => Number(item.score_final))
+      .filter((valor) => Number.isFinite(valor));
+    return {
+      total: provas.length,
+      finalizadas,
+      pendentes,
+      mediaScore: mediaScore.length
+        ? mediaScore.reduce((soma, valor) => soma + valor, 0) / mediaScore.length
+        : null,
+    };
+  }, [provas]);
+
+  const abrirDetalhe = async (idProva) => {
+    try {
+      setErro('');
+      const dados = await lerProvaGerada(idProva);
+      setDetalhe(dados);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível abrir os detalhes da prova.');
+    }
+  };
+
+  const copiarCodigo = async (prova = detalhe) => {
+    await copiarTexto(prova?.codigo_acesso || '');
+    setMensagem('Código copiado.');
+  };
+
+  const executarRecalculo = async (prova = detalhe) => {
+    if (!prova?.id_prova) return;
+    try {
+      await recalcularScoreProva(prova.id_prova);
+      setMensagem('Score recalculado.');
+      await carregar();
+      const atualizado = await lerProvaGerada(prova.id_prova);
+      setDetalhe(atualizado);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível recalcular o Score.');
+    }
+  };
+
+  const executarCancelamento = async (prova) => {
+    const motivo = window.prompt('Motivo do cancelamento da prova:');
+    if (motivo === null) return;
+    try {
+      await cancelarProvaGerada(prova.id_prova, { motivo });
+      setMensagem('Prova cancelada.');
+      await carregar();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível cancelar a prova.');
+    }
+  };
+
+  const executarReabertura = async (prova) => {
+    const motivo = window.prompt('Motivo da reabertura da prova:');
+    if (!motivo) return;
+    try {
+      await reabrirProvaGerada(prova.id_prova, {
+        motivo,
+        manter_respostas: true,
+      });
+      setMensagem('Prova reaberta.');
+      await carregar();
+      if (detalhe?.id_prova === prova.id_prova) {
+        setDetalhe(await lerProvaGerada(prova.id_prova));
+      }
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível reabrir a prova.');
+    }
+  };
+
+  const salvarManual = async (payload) => {
+    await salvarAvaliacaoManualProva(avaliacaoManual.id_prova, payload);
+    setAvaliacaoManual(null);
+    setMensagem('Avaliação manual salva.');
+    await carregar();
+    if (detalhe?.id_prova === avaliacaoManual.id_prova) {
+      setDetalhe(await lerProvaGerada(avaliacaoManual.id_prova));
+    }
+  };
+
+  const salvarDecisao = async (payload) => {
+    await registrarDecisaoRhProva(decisaoRh.id_prova, payload);
+    setDecisaoRh(null);
+    setMensagem('Decisão final registrada.');
+    await carregar();
+  };
+
+  const statusDisponiveis = Array.from(new Set(provas.map((item) => item.status).filter(Boolean)));
+  const vagasDisponiveis = Array.from(new Set(provas.map((item) => item.vaga).filter(Boolean)));
+  const atualizarFiltro = (campo, valor) =>
+    setFiltros((anteriores) => ({
+      ...anteriores,
+      [campo]: valor,
+    }));
+  const limparFiltros = () =>
+    setFiltros({
+      candidato: '',
+      vaga: '',
+      status: '',
+      resultado: '',
+      dataGeracao: '',
+    });
+
+  return html`
+    <${PainelRh}
+      screenId="screen-generated-exams"
+      navAtiva="screen-generated-exams"
+      subtituloMarca="Provas e Resultados"
+      placeholderBusca="Buscar provas, candidatos e códigos"
+      controlador=${controlador}
+      acaoPrimaria=${{
+        label: 'Gerar prova',
+        icon: 'assignment_add',
+        permissoes: ['provas.criar', 'provas.enviar'],
+        onClick: () => setModalGerarAberto(true),
+      }}
+      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
+    >
+      <${PageIntro}
+        kicker="CONECTA PROVAS > SCORE CONECTA"
+        title="Provas e resultados"
+        description="Acompanhe o andamento, correções e resultados das provas."
+      />
+
+      ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
+      ${mensagem ? html`<div class="alert alert-success">${mensagem}</div>` : null}
+
+      <${MetricGrid}
+        items=${[
+          { label: 'Provas geradas', value: resumo.total, icon: 'assignment' },
+          { label: 'Finalizadas', value: resumo.finalizadas, icon: 'task_alt' },
+          { label: 'Pendências manuais', value: resumo.pendentes, icon: 'rate_review' },
+          { label: 'Score médio', value: resumo.mediaScore === null ? '-' : formatarNotaVisual(resumo.mediaScore, 1), icon: 'trending_up' },
+        ]}
+      />
+
+      <${SectionCard}
+        title="Lista de provas"
+        description=""
+        className="generated-exams-list-card"
+      >
+        <div class="generated-exams-filters generated-exams-filters-wide">
+          <label class="generated-filter-field generated-filter-search">
+            <span class="material-symbols-outlined">person_search</span>
+            <input
+              class="form-control"
+              placeholder="Candidato, e-mail ou código"
+              value=${filtros.candidato}
+              onInput=${(event) => atualizarFiltro('candidato', event.target.value)}
+            />
+          </label>
+          <select
+            class="form-select"
+            value=${filtros.vaga}
+            onChange=${(event) => atualizarFiltro('vaga', event.target.value)}
+          >
+            <option value="">Todas as vagas</option>
+            ${vagasDisponiveis.map((vaga) => html`<option key=${vaga} value=${vaga}>${vaga}</option>`)}
+          </select>
+          <select
+            class="form-select"
+            value=${filtros.status}
+            onChange=${(event) => atualizarFiltro('status', event.target.value)}
+          >
+            <option value="">Todos os status</option>
+            ${statusDisponiveis.map((status) => html`<option key=${status} value=${status}>${status}</option>`)}
+          </select>
+          <select
+            class="form-select"
+            value=${filtros.resultado}
+            onChange=${(event) => atualizarFiltro('resultado', event.target.value)}
+          >
+            <option value="">Todos os resultados</option>
+            <option value="com_nota">Com nota final</option>
+            <option value="sem_nota">Sem nota final</option>
+            <option value="pendente_avaliacao">Pendente de avaliação</option>
+            <option value="com_alertas">Com alertas</option>
+            <option value="sem_alertas">Sem alertas</option>
+          </select>
+          <label class="generated-filter-field generated-filter-date">
+            <span class="material-symbols-outlined">calendar_month</span>
+            <input
+              class="form-control"
+              type="date"
+              value=${filtros.dataGeracao}
+              onInput=${(event) => atualizarFiltro('dataGeracao', event.target.value)}
+            />
+          </label>
+          <button type="button" class="btn btn-outline-secondary generated-clear-filters" onClick=${limparFiltros}>
+            <span class="material-symbols-outlined">filter_alt_off</span>
+            Limpar filtros
+          </button>
+        </div>
+        ${carregando
+          ? html`<div class="alert alert-secondary mb-0">Carregando provas...</div>`
+          : provasFiltradas.length
+            ? html`
+                <div class="table-responsive generated-exams-table">
+                  <table class="table align-middle">
+                    <thead>
+                      <tr>
+                        <th>Candidato</th>
+                        <th>Vaga</th>
+                        <th>Status</th>
+                        <th>Data geração</th>
+                        <th>Nota final</th>
+                        <th>Alertas</th>
+                        <th class="text-end">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                  ${provasPaginadas.itens.map((prova) => {
+                    const alertas = obterAlertas(prova);
+                    return html`
+                      <tr key=${prova.id_prova}>
+                        <td>
+                          <div class="generated-candidate-cell">
+                            <span class="generated-candidate-avatar">${obterIniciais(prova.nome_candidato)}</span>
+                            <div>
+                              <strong>${prova.nome_candidato || '-'}</strong>
+                              <small>${prova.email_acesso || '-'}</small>
+                              <small>Código ${prova.codigo_acesso || '-'}</small>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <div class="generated-job-cell">
+                            <strong>${prova.vaga || '-'}</strong>
+                            <small>${prova.operacao || '-'}</small>
+                            <small>${prova.trilha || prova.area_prova || prova.id_processo_ref || 'Avulsa'}</small>
+                          </div>
+                        </td>
+                        <td>
+                          <span class=${`generated-status-badge ${obterClasseStatusProva(prova.status)}`}>
+                            ${prova.status || '-'}
+                          </span>
+                        </td>
+                        <td class="generated-date-cell">${formatarDataSomente(prova.gerada_em)}</td>
+                        <td class="generated-score-cell">${formatarScore(obterNotaFinal(prova))}</td>
+                        <td>
+                          <button
+                            type="button"
+                            class=${`generated-alert-badge ${alertas.length ? 'is-warning' : 'is-empty'}`}
+                            onClick=${() => abrirDetalhe(prova.id_prova)}
+                          >
+                            <span class="material-symbols-outlined">
+                              ${alertas.length ? 'warning' : 'check_circle'}
+                            </span>
+                            ${alertas.length ? `${alertas.length} alerta${alertas.length > 1 ? 's' : ''}` : 'Sem alertas'}
+                          </button>
+                        </td>
+                        <td class="text-end">
+                          <div class="generated-exams-actions">
+                            <${BotaoAcaoProva}
+                              icon="visibility"
+                              label="Detalhes"
+                              variant="primary"
+                              onClick=${() => abrirDetalhe(prova.id_prova)}
+                            />
+                            <${BotaoAcaoProva}
+                              icon="bar_chart"
+                              label="Score"
+                              variant="purple"
+                              onClick=${() => executarRecalculo(prova)}
+                            />
+                            <${BotaoAcaoProva}
+                              icon="delete"
+                              label="Cancelar"
+                              variant="danger"
+                              onClick=${() => executarCancelamento(prova)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  })}
+                    </tbody>
+                  </table>
+                </div>
+                <div class="generated-pagination-row">
+                  <small>
+                    Exibindo ${provasPaginadas.itens.length} de ${provasFiltradas.length} prova(s).
+                  </small>
+                  <div class="generated-pagination">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      disabled=${provasPaginadas.paginaAtual <= 1}
+                      onClick=${() => setPagina(provasPaginadas.paginaAtual - 1)}
+                      aria-label="Página anterior"
+                    >
+                      <span class="material-symbols-outlined">chevron_left</span>
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" disabled>
+                      ${provasPaginadas.paginaAtual}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      disabled=${provasPaginadas.paginaAtual >= provasPaginadas.totalPaginas}
+                      onClick=${() => setPagina(provasPaginadas.paginaAtual + 1)}
+                      aria-label="Próxima página"
+                    >
+                      <span class="material-symbols-outlined">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+              `
+            : html`<${EmptyState} title="Nenhuma prova encontrada" text="Gere uma prova vinculada ao processo ou uma prova avulsa." />`}
+      </${SectionCard}>
+
+      <${ModalGerarProva}
+        aberto=${modalGerarAberto}
+        contexto=${{}}
+        controlador=${controlador}
+        onClose=${() => setModalGerarAberto(false)}
+        onGerada=${async () => {
+          await carregar();
+        }}
+      />
+
+      <${ModalDetalheProvaGerada}
+        detalhe=${detalhe}
+        onClose=${() => setDetalhe(null)}
+        onCopiarCodigo=${() => copiarCodigo(detalhe)}
+        onRecalcular=${() => executarRecalculo(detalhe)}
+        onAvaliacaoManual=${() => setAvaliacaoManual(detalhe)}
+        onReabrir=${() => executarReabertura(detalhe)}
+        onDecisao=${() => setDecisaoRh(detalhe)}
+      />
+
+      <${ModalAvaliacaoManual}
+        prova=${avaliacaoManual}
+        onClose=${() => setAvaliacaoManual(null)}
+        onSave=${salvarManual}
+      />
+
+      <${ModalDecisaoRh}
+        prova=${decisaoRh}
+        onClose=${() => setDecisaoRh(null)}
+        onSave=${salvarDecisao}
+      />
+    </${PainelRh}>
+  `;
+}

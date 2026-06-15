@@ -5,6 +5,11 @@
   useState,
 } from '../../infraestrutura-react.js';
 import {
+  OPCOES_OPERACOES,
+  OPCOES_TRILHAS_PROCESSO,
+  OPCOES_VAGAS_PROCESSO,
+} from '../../perguntas.js';
+import {
   TAMANHO_ANALISE,
   TAMANHO_HISTORICO,
   TAMANHO_RECENTES,
@@ -392,10 +397,10 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
   return html`
     <${SectionCard}
       className=${`mailbox-card ${compacto ? 'mailbox-card-compact' : 'mailbox-card-full'}`}
-      title=${compacto ? 'Caixa de Currículos' : 'Caixa de E-mail'}
+      title=${compacto ? 'Caixa de E-mail' : ''}
       description=${compacto
-      ? 'Resumo dos currículos recebidos na caixa configurada.'
-      : 'Consulta completa dos e-mails recebidos com currículos.'}
+      ? ''
+      : ''}
       actions=${html`
         <div class=${`mailbox-toolbar rh-email-panel-actions ${compacto ? 'mailbox-toolbar-compact' : 'mailbox-toolbar-full'}`}>
           ${!compacto
@@ -449,7 +454,6 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
             <option value="3">3</option>
             <option value="5">5</option>
             <option value="10">10</option>
-            <option value="15">15</option>
           </select>
 
           <button
@@ -484,8 +488,12 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
       ? html`
             ${payloadEmail && !payloadEmail.configured
           ? html`
-                  <div class="alert alert-warning">
-                    ${payloadEmail?.message || MENSAGEM_EMAIL_NAO_CONFIGURADO}
+                  <div class="alert alert-warning mailbox-config-alert">
+                    <span class="material-symbols-outlined">error</span>
+                    <div>
+                      <strong>Caixa de e-mail corporativa ainda não configurada.</strong>
+                      <span>Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor.</span>
+                    </div>
                   </div>
                 `
           : payloadEmail?.message
@@ -670,11 +678,14 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                         `,
           )
           : html`
-                        <tr>
+                        <tr class="email-empty-row">
                           <td class="text-center text-muted py-4" colSpan=${compacto ? 6 : 9}>
-                            ${carregando
-              ? 'Carregando currículos recebidos.'
-              : 'Nenhum currículo recebido por e-mail para listar.'}
+                            <span class="material-symbols-outlined">inbox</span>
+                            <span>
+                              ${carregando
+                                ? 'Carregando currículos recebidos.'
+                                : 'Nenhum currículo recebido por e-mail para listar.'}
+                            </span>
                           </td>
                         </tr>
                       `}
@@ -1082,7 +1093,7 @@ export function TelaInicio({ controlador }) {
         label: 'Contratações',
         value: contratacoesResumo.length,
         helper: 'Aprovados',
-        variant: 'is-home is-purple',
+        variant: 'is-home is-blue',
       },
     ],
     [
@@ -1099,39 +1110,41 @@ export function TelaInicio({ controlador }) {
       ? candidatosProcessos
       : []
     ).find((candidato) => getCandidateVisibleStatus(candidato) === 'Aprovado');
+    const notificacoes = [];
 
-    return [
-      {
+    if (candidatoAprovado) {
+      notificacoes.push({
         icon: 'check_circle',
         variant: 'is-success',
-        text: candidatoAprovado
-          ? `Candidato aprovado para ${candidatoAprovado.vaga || 'vaga aberta'}`
-          : 'Candidato aprovado para Jovem Aprendiz',
-        time: 'ha 5 min',
-      },
-      {
+        text: `Candidato aprovado para ${candidatoAprovado.vaga || 'vaga aberta'}`,
+      });
+    }
+
+    if (processoRecente) {
+      notificacoes.push({
         icon: 'folder_open',
         variant: 'is-info',
-        text: processoRecente
-          ? `Novo processo seletivo aberto para ${processoRecente.vaga || processoRecente.id_processo || 'vaga'}`
-          : 'Novo processo seletivo aberto para Operador',
-        time: 'ha 20 min',
-      },
-      {
+        text: `Processo seletivo aberto para ${processoRecente.vaga || processoRecente.id_processo || 'vaga'}`,
+      });
+    }
+
+    if (alertasOperacionais.length) {
+      notificacoes.push({
         icon: 'cancel',
         variant: 'is-danger',
-        text: alertasOperacionais.length
-          ? 'Candidato cancelou presenca na entrevista'
-          : 'Candidato cancelou presenca na entrevista',
-        time: 'ha 35 min',
-      },
-      {
+        text: `${alertasOperacionais.length} alerta(s) de entrevista`,
+      });
+    }
+
+    if (entrevistasHoje.length) {
+      notificacoes.push({
         icon: 'groups',
         variant: 'is-purple',
-        text: `${entrevistasHoje.length || 3} candidatos agendados para hoje`,
-        time: 'ha 1 h',
-      },
-    ];
+        text: `${entrevistasHoje.length} candidatos agendados para hoje`,
+      });
+    }
+
+    return notificacoes;
   }, [alertasOperacionais.length, candidatosProcessos, entrevistasHoje.length, processosAtivos]);
 
   return html`
@@ -1142,16 +1155,23 @@ export function TelaInicio({ controlador }) {
       placeholderBusca="Buscar candidatos, processos, vagas ou provas..."
       controlador=${controlador}
       acaoPrimaria=${{
-      label: 'Iniciar teste',
-      icon: 'add',
+      label: 'Gerar prova',
+      icon: 'assignment_add',
       permissao: 'provas.enviar',
-      onClick: () => controlador.iniciarNovoFluxo(),
+      onClick: () => {
+        try {
+          sessionStorage.setItem('rh_open_generated_exam_modal_v1', '1');
+        } catch (error) {
+          // Navegacao ainda funciona se o navegador bloquear sessionStorage.
+        }
+        controlador.irParaTelaProtegida('screen-generated-exams');
+      },
     }}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         title="Olá, RH!"
-        description="Aqui está o panorama geral do seu recrutamento hoje."
+        description="Panorama geral do recrutamento hoje."
         actions=${html`
           <button
             type="button"
@@ -1164,11 +1184,8 @@ export function TelaInicio({ controlador }) {
         `}
       />
 
-      <${MetricGrid} items=${indicadoresPainel} />
-
       <${SectionCard}
         title="Acessos rápidos"
-        description="Inicie ações e consulte informações com agilidade."
         className="home-quick-card"
         tourId="home-shortcuts"
       >
@@ -1228,152 +1245,138 @@ export function TelaInicio({ controlador }) {
         </div>
       </${SectionCard}>
 
-      <div class="home-dashboard-grid home-dashboard-grid--day">
-        <${SectionCard}
-          title="Resumo do dia"
-          description="Acompanhe o que mais importa hoje."
-          className="day-summary-card compact-dashboard-card"
-        >
-          <div class="day-summary-layout">
-            <div class="day-notifications-panel">
-              <div class="day-summary-subtitle">
-                <span>Notificações</span>
-                <button type="button" class="btn btn-link btn-sm p-0">
-                  Ver todas
-                </button>
-              </div>
-              <div class="day-notification-list">
-                ${notificacoesDia.map(
-                  (item) => html`
-                    <article class="c24-notification-item" key=${item.text}>
-                      <span class=${`c24-notification-icon ${item.variant}`}>
-                        <span class="material-symbols-outlined">${item.icon}</span>
-                      </span>
-                      <p>${item.text}</p>
-                      <small>${item.time}</small>
-                    </article>
-                  `,
-                )}
-              </div>
-            </div>
-            <div class="day-summary-stats">
-              ${[
-                {
-                  icon: 'calendar_month',
-                  label: 'Entrevistas hoje',
-                  value: entrevistasHoje.length,
-                  helper: '+2 vs ontem',
-                  variant: 'is-blue',
-                },
-                {
-                  icon: 'folder_open',
-                  label: 'Processos ativos',
-                  value: processosAtivos.length,
-                  helper: '+1 vs ontem',
-                  variant: 'is-green',
-                },
-                {
-                  icon: 'person',
-                  label: 'Aprovações pendentes',
-                  value: candidatosEmAnalise.length,
-                  helper: '+1 vs ontem',
-                  variant: 'is-yellow',
-                },
-                {
-                  icon: 'warning',
-                  label: 'Alertas',
-                  value: alertasOperacionais.length,
-                  helper: 'Requer atenção',
-                  variant: 'is-red',
-                },
-              ].map(
-                (item) => html`
-                  <article class=${`day-stat-card ${item.variant}`} key=${item.label}>
-                    <span class="material-symbols-outlined">${item.icon}</span>
-                    <div>
-                      <strong>${item.value}</strong>
-                      <span>${item.label}</span>
-                      <small>${item.helper}</small>
-                    </div>
-                  </article>
-                `,
-              )}
-            </div>
-          </div>
-        </${SectionCard}>
-
-        <${SectionCard}
-          title="Registros recentes"
-          description="Clique em um registro para abrir o detalhamento salvo."
-          className="recent-records-card compact-dashboard-card"
-          tourId="home-recent"
-          actions=${html`
-            <button
-              type="button"
-              class="btn btn-outline-secondary btn-sm"
-              onClick=${() => controlador.irParaTelaProtegida('screen-history')}
-            >
-              Ver todos
-            </button>
-          `}
-        >
-          ${carregando
-        ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
-        : recentes.length
-          ? html`
-                  <div class="rh-recent-grid">
-                    ${recentesPaginados.itens.map(
-            (item) => html`
-                        <button
-                          key=${item.id_teste}
-                          type="button"
-                          class="rh-recent-card"
-                          onClick=${async () =>
-                setDetalheAberto(
-                  await carregarDetalhesProva(item.id_teste),
-                )}
-                        >
-                          <div class="rh-recent-avatar-wrap">
-                            <span class="rh-recent-avatar">
-                              ${String(item.nome_candidato || 'T')
-                .trim()
-                .slice(0, 1)
-                .toUpperCase()}
-                            </span>
-                          </div>
-                          <div class="rh-recent-card-body">
-                            <strong>${item.nome_candidato || '-'}</strong>
-                            <span>${item.vaga || '-'}</span>
-                            <span>${item.data_exibicao || '-'}</span>
-                          </div>
-                          <span class="material-symbols-outlined">arrow_forward</span>
-                        </button>
-                      `,
-          )}
+      <${SectionCard}
+        title="Resumo do dia"
+        className="day-summary-card compact-dashboard-card"
+      >
+        <div class="day-summary-layout">
+          <div class="day-summary-stats">
+            ${[
+              ...indicadoresPainel,
+              {
+                icon: 'notifications',
+                label: 'Notificações do dia',
+                value: notificacoesDia.length,
+                variant: 'is-blue',
+              },
+            ].map(
+              (item) => html`
+                <article class=${`day-stat-card ${item.variant || ''}`} key=${item.label}>
+                  <span class="material-symbols-outlined">${item.icon}</span>
+                  <div>
+                    <strong>${item.value}</strong>
+                    <span>${item.label}</span>
                   </div>
-                  <${PaginacaoCompacta}
-                    paginacao=${{ ...recentesPaginados, tamanhoPagina: 3 }}
-                    onChange=${setPaginaRecentes}
-                    label=${`Mostrando ${obterIntervaloPaginacao({
-                      ...recentesPaginados,
-                      tamanhoPagina: 3,
-                    })} de ${recentesPaginados.totalItens}`}
-                    onVerTodos=${() => controlador.irParaTelaProtegida('screen-history')}
-                  />
+                </article>
+              `,
+            )}
+          </div>
+        </div>
+      </${SectionCard}>
+
+      <div class="home-dashboard-grid home-dashboard-main-grid">
+        <div class="home-dashboard-stack home-dashboard-stack--left">
+          <${SectionCard}
+            title="Entrevistas agendadas"
+            className="processes-today-card compact-dashboard-card"
+          >
+            ${entrevistasHoje.length
+              ? html`
+                  <div class="processes-today-list">
+                    ${entrevistasHoje.slice(0, 5).map(
+                      (item) => html`
+                        <article class="processes-today-item" key=${`${item.id_entrevista || item.id_slot || item.nome_candidato}-${item.data_entrevista}`}>
+                          <span class="material-symbols-outlined">event_available</span>
+                          <div>
+                            <strong>${item.nome_candidato || 'Entrevista'}</strong>
+                            <small>${item.vaga || item.id_processo || 'Processo'} • ${formatarDataHora(item.data_entrevista)}</small>
+                          </div>
+                          <span class=${`rh-status-pill ${obterClasseStatusEntrevista(item.status_entrevista)}`}>
+                            ${item.status_entrevista || 'Agendada'}
+                          </span>
+                        </article>
+                      `,
+                    )}
+                  </div>
                 `
-          : html`
-                  <${EmptyState}
-                    title="Nenhum registro salvo"
-                    text="Assim que uma prova for concluída e salva, ela aparecerá aqui."
-                  />
+              : html`
+                  <div class="home-empty-state">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                    <h3>Nenhuma entrevista hoje</h3>
+                    <p>As entrevistas agendadas para hoje aparecerão aqui.</p>
+                  </div>
                 `}
-        </${SectionCard}>
-      </div>
+          </${SectionCard}>
 
-      <div class="home-dashboard-grid home-dashboard-grid--secondary">
-        <${SecaoCurriculosRecebidosEmail} modo="resumo" controlador=${controlador} />
+          <${SecaoCurriculosRecebidosEmail} modo="resumo" controlador=${controlador} />
+        </div>
 
-        <div class="home-side-stack">
+        <div class="home-dashboard-stack home-dashboard-stack--right">
+          <${SectionCard}
+            title="Provas recentes"
+            className="recent-records-card compact-dashboard-card"
+            tourId="home-recent"
+            actions=${html`
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                onClick=${() => controlador.irParaTelaProtegida('screen-history')}
+              >
+                Ver todos
+              </button>
+            `}
+          >
+            ${carregando
+              ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
+              : recentes.length
+                ? html`
+                    <div class="rh-recent-grid">
+                      ${recentesPaginados.itens.map(
+                        (item) => html`
+                          <button
+                            key=${item.id_teste}
+                            type="button"
+                            class="rh-recent-card"
+                            onClick=${async () =>
+                              setDetalheAberto(
+                                await carregarDetalhesProva(item.id_teste),
+                              )}
+                          >
+                            <div class="rh-recent-avatar-wrap">
+                              <span class="rh-recent-avatar">
+                                ${String(item.nome_candidato || 'T')
+                                  .trim()
+                                  .slice(0, 1)
+                                  .toUpperCase()}
+                              </span>
+                            </div>
+                            <div class="rh-recent-card-body">
+                              <strong>${item.nome_candidato || '-'}</strong>
+                              <span>${item.vaga || '-'}</span>
+                              <span>${item.data_exibicao || '-'}</span>
+                            </div>
+                            <span class="material-symbols-outlined">arrow_forward</span>
+                          </button>
+                        `,
+                      )}
+                    </div>
+                    <${PaginacaoCompacta}
+                      paginacao=${{ ...recentesPaginados, tamanhoPagina: 3 }}
+                      onChange=${setPaginaRecentes}
+                      label=${`Mostrando ${obterIntervaloPaginacao({
+                        ...recentesPaginados,
+                        tamanhoPagina: 3,
+                      })} de ${recentesPaginados.totalItens}`}
+                    />
+                  `
+                : html`
+                    <${EmptyState}
+                      title="Nenhum registro salvo"
+                      text="Assim que uma prova for concluída e salva, ela aparecerá aqui."
+                    />
+                  `}
+          </${SectionCard}>
+
           <${SectionCard}
             title="Processos em andamento"
             className="process-progress-card compact-dashboard-card"
@@ -1415,41 +1418,6 @@ export function TelaInicio({ controlador }) {
                   />
                 `}
           </${SectionCard}>
-
-          <${SectionCard}
-            title="Resumo rápido"
-            description="Visão imediata do volume mais recente salvo no sistema."
-            className="quick-summary-card compact-dashboard-card"
-          >
-            <div class="quick-summary-grid">
-              <article class="quick-summary-item">
-                <span class="material-symbols-outlined quick-summary-icon">
-                  history
-                </span>
-                <div>
-                  <span class="quick-summary-label">Registros recentes</span>
-                  <strong class="quick-summary-value">${recentes.length}</strong>
-                  <span class="quick-summary-helper">
-                    Últimos itens visíveis no painel
-                  </span>
-                </div>
-              </article>
-              <article class="quick-summary-item">
-                <span class="material-symbols-outlined quick-summary-icon">
-                  sync
-                </span>
-                <div>
-                  <span class="quick-summary-label">Status de carregamento</span>
-                  <strong class="quick-summary-value">
-                    ${carregando ? 'Atualizando' : 'Pronto'}
-                  </strong>
-                  <span class="quick-summary-helper">
-                    Consulta do histórico consolidado
-                  </span>
-                </div>
-              </article>
-            </div>
-          </${SectionCard}>
         </div>
       </div>
 
@@ -1479,7 +1447,7 @@ export function TelaCaixaEmail({ controlador }) {
       <${PageIntro}
         kicker="Currículos recebidos"
         title="Caixa de E-mail"
-        description="Tela dedicada para consultar, filtrar, analisar, vincular, enviar ao Banco de Talentos, ignorar ou excluir e-mails recebidos."
+        description=""
       />
 
       <${SecaoCurriculosRecebidosEmail}
@@ -1781,15 +1749,13 @@ export function TelaCriarProcesso({ controlador }) {
       setFormulario({ ...formulario, vaga: event.target.value })}
             >
               <option value="">Selecione...</option>
-              <option>Jovem Aprendiz</option>
-              <option>Operador</option>
-              <option>Estagiário</option>
-              <option>Supervisor</option>
-              <option>Control Desk</option>
-              <option>Planejamento</option>
-              <option>TI</option>
-              <option>Analista</option>
-              <option>Outros</option>
+              ${OPCOES_VAGAS_PROCESSO.map(
+                (opcao) => html`
+                  <option key=${opcao.label} value=${opcao.label}>
+                    ${opcao.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
@@ -1820,7 +1786,7 @@ export function TelaCriarProcesso({ controlador }) {
           </div>
 
           <div class="col-md-6">
-            <label class="form-label">Operação</label>
+            <label class="form-label">Operação / Cliente</label>
             <select
               class="form-select rh-flow-input"
               value=${formulario.operacao}
@@ -1828,16 +1794,18 @@ export function TelaCriarProcesso({ controlador }) {
       setFormulario({ ...formulario, operacao: event.target.value })}
             >
               <option value="">Selecione...</option>
-              <option>CRF</option>
-              <option>DAVITA</option>
-              <option>NEWE</option>
-              <option>BRAVA</option>
-              <option>ENDOVIEW</option>
+              ${OPCOES_OPERACOES.map(
+                (operacao) => html`
+                  <option key=${operacao} value=${operacao}>
+                    ${operacao}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
           <div class="col-md-6">
-            <label class="form-label">Trilha</label>
+            <label class="form-label">Área/Trilha</label>
             <select
               class="form-select rh-flow-input"
               disabled=${!!regras.trilhaFixa}
@@ -1846,8 +1814,13 @@ export function TelaCriarProcesso({ controlador }) {
       setFormulario({ ...formulario, trilha: event.target.value })}
             >
               <option value="">Selecione...</option>
-              <option value="RH">RH</option>
-              <option value="TI">TI</option>
+              ${OPCOES_TRILHAS_PROCESSO.map(
+                (opcao) => html`
+                  <option key=${opcao.value} value=${opcao.value}>
+                    ${opcao.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
@@ -2089,15 +2062,15 @@ export function TelaBancoTalentos({ controlador }) {
     >
       <${PageIntro}
         kicker="Console • Banco de talentos"
-        title="Candidatos reaproveitáveis"
-        description="Acompanhe candidatos guardados para oportunidades futuras, filtre por habilidade e registre tags e observações do RH."
+        title="Banco de talentos"
+        description=""
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
 
       <${SectionCard}
         title="Filtros"
-        description="Busque candidatos por nome, habilidade e tags cadastradas."
+        description=""
         tourId="talent-filters"
       >
         <div class="rh-filter-grid rh-filter-grid--wide">
@@ -2765,6 +2738,9 @@ export function TelaAnaliseCandidatos({ controlador }) {
                       <th>Movimentações</th>
                       <th>Nota</th>
                       <th>Status</th>
+                      <th>Classificação RH</th>
+                      <th>Justificativa RH</th>
+                      <th>CV</th>
                       <th>Última movimentação</th>
                       <th>Aprovação</th>
                       <th>Eliminação/Reprovação</th>
@@ -2790,6 +2766,12 @@ export function TelaAnaliseCandidatos({ controlador }) {
                                   ${linha.status_atual || linha.status || '-'}
                                 </span>
                               </td>
+                              <td>${linha.classificacao_rh || '-'}</td>
+                              <td>${linha.justificativa_observacoes_rh || linha.observacao_rh || '-'}</td>
+                              <td>
+                                <div>${linha.cv_disponivel || '-'}</div>
+                                <div class="small text-muted">${linha.cv_arquivo || linha.cv_classificacao || '-'}</div>
+                              </td>
                               <td>${formatarDataHora(linha.data_movimentacao)}</td>
                               <td>${formatarDataHora(linha.data_aprovacao)}</td>
                               <td>${formatarDataHora(linha.data_eliminacao_reprovacao)}</td>
@@ -2803,7 +2785,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                             </tr>
                           `,
           )
-          : html`<${TabelaVazia} colunas=${14} texto="Nenhum candidato no período." />`}
+          : html`<${TabelaVazia} colunas=${17} texto="Nenhum candidato no período." />`}
                   </tbody>
                 </table>
               </div>

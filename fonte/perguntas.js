@@ -235,7 +235,7 @@ function wordBasicPool() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
+      'Recado simples para a equipe',
       'Durante a troca de turno das 14h, o supervisor percebeu que alguns operadores estavam retornando com atraso das pausas, o que acabou impactando a organização da equipe e o fluxo de atendimento. Para reforçar essa orientação de forma clara e objetiva, foi solicitado um comunicado interno simples para toda a operação. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto orientando que os operadores devem retornar das pausas no horário correto, a fim de evitar impactos no atendimento e na rotina da operação.',
       {
         titleText: 'COMUNICADO INTERNO',
@@ -247,7 +247,7 @@ function wordBasicPool() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Durante o período de atendimento da manhã, por volta das 10h20, foi identificada uma instabilidade no sistema utilizado pela operação, o que causou impacto momentâneo no fluxo de atendimento por aproximadamente 10 minutos. Após a atuação da equipe responsável, o acesso foi restabelecido e a operação voltou ao funcionamento normal. Considerando esse cenário, redija um e-mail curto e profissional para o supervisor, explicando o ocorrido de forma clara e informando que o sistema já foi normalizado.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -266,7 +266,7 @@ function wordBasicLevel3Pool() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Redação de comunicado interno',
+      'Aviso simples para a equipe',
       'A equipe do turno da manhã precisará seguir, de forma temporária, uma pequena alteração no script de atendimento utilizado pela operação. Para que todos recebam a informação de maneira rápida e clara, será necessário elaborar um aviso interno com orientação objetiva. Com base nesse cenário, escreva o título "AVISO DE EQUIPE" em negrito e centralizado. Em seguida, redija um comunicado com pelo menos 2 frases, utilizando linguagem clara, direta e de fácil entendimento.',
       {
         titleText: 'AVISO DE EQUIPE',
@@ -330,7 +330,7 @@ function generalBasicPool() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Interpretação de situação de trabalho',
+      'Postura em situação prática',
       'Durante um período de pico de chamadas, a operação apresenta maior volume de atendimentos do que o habitual, o que pode gerar aumento no tempo de espera e maior insatisfação por parte dos clientes. Em uma dessas situações, um cliente inicia o contato irritado, reclamando da demora para ser atendido. Considerando a necessidade de manter a qualidade no atendimento mesmo em momentos de pressão, qual deve ser a sua postura inicial diante desse cenário?',
       [
         ' Transferir a ligação sem apresentar explicações',
@@ -343,7 +343,7 @@ function generalBasicPool() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Lógica básica',
+      'Soma simples de atendimentos',
       `Durante o acompanhamento da operação no período da manhã, foi solicitado o levantamento do volume de atendimentos recebidos por uma fila em horários diferentes. Os dados apurados foram os seguintes:
 
 9h: 18 atendimentos
@@ -1085,7 +1085,7 @@ function wordBasicPoolJovemAprendiz() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
+      'Recado simples para a equipe',
       'Durante a rotina do setor, foi percebido que alguns recados importantes estavam sendo passados apenas verbalmente, o que gerou dúvidas entre os colaboradores. Para evitar desencontro de informações, foi solicitado um comunicado simples para reforçar uma orientação à equipe. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto informando que todos devem conferir os avisos do setor no início do expediente.',
       {
         titleText: 'COMUNICADO INTERNO',
@@ -1097,14 +1097,14 @@ function wordBasicPoolJovemAprendiz() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Você teve um atraso pontual na chegada ao trabalho por causa de um problema no transporte e precisa avisar o supervisor de forma educada e profissional. Redija um e-mail curto informando o ocorrido e dizendo que já está se dirigindo ao local de trabalho.',
       { minTextLength: 55, minSentences: 2 },
     ),
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Lista de materiais para o primeiro dia',
+      'Lista curta de organização',
       'Um novo colaborador iniciará as atividades no setor e precisa receber uma orientação simples sobre o que deve levar no primeiro dia. Escreva o título "MATERIAIS PARA O PRIMEIRO DIA" e crie uma lista com pelo menos 3 itens contendo materiais ou documentos importantes.',
       {
         titleText: 'MATERIAIS PARA O PRIMEIRO DIA',
@@ -1120,7 +1120,7 @@ function wordBasicPoolOperador() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
+      'Recado simples para a equipe',
       'Durante a troca de turno, foi percebido que alguns registros de atendimento estavam sendo finalizados sem as observações necessárias, o que dificultou o acompanhamento dos casos. Para reforçar essa orientação, foi solicitado um comunicado interno simples para a equipe. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto orientando que os atendimentos devem ser finalizados com registro claro das informações principais.',
       {
         titleText: 'COMUNICADO INTERNO',
@@ -1132,7 +1132,7 @@ function wordBasicPoolOperador() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Durante o atendimento, você identificou um caso que precisa de acompanhamento do supervisor, pois o cliente informou uma divergência que não pode ser resolvida no primeiro contato. Redija um e-mail curto e profissional para o supervisor, resumindo a situação e solicitando orientação sobre a tratativa.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -1151,7 +1151,7 @@ function wordBasicPoolEstagiarioTI() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
+      'Recado simples para a equipe',
       'A equipe de TI realizará uma atualização simples em uma ferramenta interna no fim do expediente, e os colaboradores precisam ser avisados com antecedência. Escreva o título "COMUNICADO TECNICO" em negrito e centralizado. Em seguida, redija um pequeno texto informando que poderá haver instabilidade temporária durante a atualização e que a equipe será avisada após a normalização.',
       {
         titleText: 'COMUNICADO TECNICO',
@@ -1163,7 +1163,7 @@ function wordBasicPoolEstagiarioTI() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Um usuário informou que não consegue acessar uma ferramenta interna e você precisa registrar o caso para acompanhamento do responsável. Redija um e-mail curto e profissional resumindo o problema e informando que a situação está em análise.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -1186,7 +1186,7 @@ function generalBasicPoolEstagiarioTI() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Interpretação de situação de trabalho',
+      'Postura em situação prática',
       'Um usuário entra em contato informando que não consegue acessar um sistema utilizado pela empresa e demonstra impaciência porque precisa concluir uma atividade com urgência. Considerando uma postura profissional no atendimento inicial de suporte, qual deve ser sua atitude?',
       [
         ' Pedir para o usuário aguardar sem registrar nenhuma informação',
@@ -1199,7 +1199,7 @@ function generalBasicPoolEstagiarioTI() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Lógica básica',
+      'Soma simples de atendimentos',
       `Durante um período de suporte, foram registrados os seguintes chamados resolvidos:
 9h: 4 chamados
 10h: 6 chamados
@@ -1276,7 +1276,7 @@ function wordBasicPoolEstagiarioRH() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
+      'Recado simples para a equipe',
       'O RH precisa reforçar para os colaboradores a importância de confirmar presença nas entrevistas internas agendadas com antecedência. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto orientando que a confirmação seja feita dentro do prazo informado para evitar desencontros de agenda.',
       {
         titleText: 'COMUNICADO INTERNO',
@@ -1288,7 +1288,7 @@ function wordBasicPoolEstagiarioRH() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Um candidato enviou o currículo para uma vaga e você precisa responder confirmando o recebimento, informando que o material será analisado pelo RH. Redija um e-mail curto, cordial e profissional.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -1311,7 +1311,7 @@ function generalBasicPoolEstagiarioRH() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Interpretação de situação de trabalho',
+      'Postura em situação prática',
       'Um candidato entrou em contato demonstrando ansiedade para saber se seguirá no processo seletivo. Considerando a postura esperada do RH, qual deve ser a atitude inicial mais adequada?',
       [
         ' Ignorar a mensagem até que todas as etapas sejam finalizadas',
@@ -1324,7 +1324,7 @@ function generalBasicPoolEstagiarioRH() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Lógica básica',
+      'Soma simples de atendimentos',
       `Em um processo seletivo, o RH agendou 5 entrevistas pela manhã, 4 à tarde e 3 no fim do dia.
 
 Considerando as informações apresentadas, quantas entrevistas foram agendadas no total? Caso necessário, você pode utilizar a calculadora do Windows para apoiar o cálculo.`,
@@ -1378,7 +1378,7 @@ function wordPoolHelpDesk() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Um sistema interno ficou indisponível por alguns minutos, impactando o trabalho de parte da equipe. Após a normalização, você precisa registrar o ocorrido para o supervisor. Redija um e-mail curto e profissional informando o problema, o impacto percebido e que o acesso já foi restabelecido.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -1410,7 +1410,7 @@ function wordBasicLevel3PoolPlanejamento() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Redação de comunicado interno',
+      'Aviso simples para a equipe',
       'Foi identificado um ajuste temporário na distribuição das pausas da equipe para melhor equilíbrio da operação em um horário de maior demanda. Para comunicar essa alteração com clareza, escreva o título "AJUSTE OPERACIONAL" em negrito e centralizado. Em seguida, redija um comunicado com pelo menos 2 frases, utilizando linguagem clara, direta e de fácil entendimento.',
       {
         titleText: 'AJUSTE OPERACIONAL',
@@ -1468,7 +1468,7 @@ function techAdmBasicPoolPlanejamento() {
     mcqQ(
       'tech_adm_basic',
       STAGE_LABELS.tech_adm_basic,
-      'Interpretação de situação de trabalho',
+      'Postura em situação prática',
       'Ao acompanhar a operação, você identificou aumento repentino no volume de chamadas e queda do SLA em uma faixa horária específica. Considerando uma análise inicial de planejamento, qual deve ser a primeira leitura mais adequada?',
       [
         ' Verificar se houve aumento de demanda, redução de capacidade ou desvio de escala naquele período',

@@ -1,0 +1,5550 @@
+{
+  "versao": 1,
+  "ultima_atualizacao": "2026-06-15",
+  "descricao": "Banco central neutro do Conecta Provas. Excel fica fora deste arquivo. Questões revisadas por vaga, nível, etapa e contexto.",
+  "clientes_personalizacao": [
+    {
+      "id": "davita",
+      "nome": "Davita",
+      "areas": [
+        "Atendimento ao paciente",
+        "Agendamento",
+        "Recepção",
+        "Backoffice de saúde"
+      ],
+      "ativo": true
+    },
+    {
+      "id": "crf",
+      "nome": "CRF",
+      "areas": [
+        "Atendimento ao torcedor",
+        "Relacionamento",
+        "Comercial",
+        "Backoffice de clube"
+      ],
+      "ativo": true
+    },
+    {
+      "id": "endoview",
+      "nome": "Endoview",
+      "areas": [
+        "Recepção clínica",
+        "Consultas e exames",
+        "Agendamento",
+        "Suporte administrativo"
+      ],
+      "ativo": true
+    },
+    {
+      "id": "newe",
+      "nome": "Newe",
+      "areas": [
+        "Seguros",
+        "Sinistro",
+        "Financeiro",
+        "Atendimento comercial"
+      ],
+      "ativo": true
+    },
+    {
+      "id": "brava",
+      "nome": "Brava",
+      "areas": [
+        "Operação crítica",
+        "Suporte operacional",
+        "Planejamento",
+        "Atendimento emergencial"
+      ],
+      "ativo": true
+    }
+  ],
+  "questoes_personalizadas": [
+    {
+      "id": "pers_davita_word_jovem_aprendiz_basico_001",
+      "base_neutra_id": "word_jovem_aprendiz_basico_001",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "areas_personalizadas": [
+        "Atendimento ao paciente",
+        "Agendamento",
+        "Recepção"
+      ],
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "resposta_texto",
+      "vaga": "Jovem Aprendiz",
+      "area": "Atendimento em saude",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Aviso simples sobre chegada para atendimento",
+      "contexto": "Em uma rotina de atendimento em saúde, uma pessoa chegou antes do horário marcado e está aguardando na recepção.",
+      "enunciado": "Escreva uma mensagem curta avisando a equipe de agendamento que a pessoa chegou para atendimento e está aguardando.",
+      "instrucoes": "Use linguagem simples, educada e clara. A mensagem pode ter uma ou duas frases, sem termos técnicos.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "O candidato deve informar que o paciente chegou para consulta e aguarda na recepção, com linguagem respeitosa e objetiva.",
+        "criterios": [
+          {
+            "nome": "Clareza",
+            "peso": 40,
+            "descricao": "A mensagem informa de forma fácil que o paciente chegou e aguarda atendimento."
+          },
+          {
+            "nome": "Educacao",
+            "peso": 25,
+            "descricao": "Usa linguagem respeitosa com paciente e equipe."
+          },
+          {
+            "nome": "Organização",
+            "peso": 20,
+            "descricao": "Apresenta a informação em ordem simples."
+          },
+          {
+            "nome": "Objetividade",
+            "peso": 15,
+            "descricao": "Vai direto ao ponto, sem texto longo."
+          }
+        ]
+      },
+      "tags": [
+        "davita",
+        "jovem-aprendiz",
+        "atendimento-paciente",
+        "recado-simples"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_davita_geral_jovem_aprendiz_basico_001",
+      "base_neutra_id": "geral_jovem_aprendiz_basico_001",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "areas_personalizadas": [
+        "Atendimento ao paciente",
+        "Agendamento",
+        "Recepção"
+      ],
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Jovem Aprendiz",
+      "area": "Atendimento em saude",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Dúvida simples no agendamento",
+      "contexto": "Durante uma atividade de apoio, você não entendeu qual horário deve ser informado a uma pessoa atendida.",
+      "enunciado": "Qual atitude demonstra cuidado e vontade de aprender no primeiro emprego?",
+      "instrucoes": "Marque a alternativa mais adequada.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Informar qualquer horário para encerrar rápido."
+        },
+        {
+          "id": "B",
+          "texto": "Ficar em silencio e esperar alguém perceber."
+        },
+        {
+          "id": "C",
+          "texto": "Pedir orientação com educacao antes de continuar."
+        },
+        {
+          "id": "D",
+          "texto": "Ignorar a dúvida e seguir outra tarefa."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "C",
+        "justificativa": "Pedir orientação evita erro e demonstra responsabilidade."
+      },
+      "tags": [
+        "davita",
+        "jovem-aprendiz",
+        "duvida",
+        "agendamento"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_davita_redacao_jovem_aprendiz_basico_001",
+      "base_neutra_id": "redacao_jovem_aprendiz_basico_001",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "areas_personalizadas": [
+        "Atendimento ao paciente",
+        "Agendamento",
+        "Recepção"
+      ],
+      "ativo": true,
+      "etapa": "redacao",
+      "tipo": "redacao",
+      "vaga": "Jovem Aprendiz",
+      "area": "Atendimento em saude",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Primeiro emprego em atendimento de saúde",
+      "tema": "Primeiro emprego, cuidado e vontade de aprender",
+      "texto_base": "Em uma rotina de atendimento em saúde, cada contato precisa ser conduzido com respeito, atenção e responsabilidade. Quem está começando no mercado de trabalho não precisa saber todos os procedimentos, mas precisa demonstrar disposição para aprender, seguir orientações, perguntar quando tiver dúvida e tratar pessoas com cuidado. Em ambientes sensíveis, uma comunicação simples e acolhedora ajuda a transmitir segurança.",
+      "contexto": "Você participa de uma seleção para Jovem Aprendiz em uma rotina de apoio administrativo e atendimento em saúde.",
+      "enunciado": "Escreva um texto explicando por que você deseja conquistar seu primeiro emprego e como pretende aprender a atender pessoas com respeito, cuidado e responsabilidade.",
+      "instrucoes": "Escreva entre 8 e 15 linhas, com linguagem simples, organizada e respeitosa.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "criterios": [
+          {
+            "nome": "Adequação ao tema",
+            "peso": 30,
+            "descricao": "O texto relaciona primeiro emprego, aprendizado e atendimento respeitoso."
+          },
+          {
+            "nome": "Organização das ideias",
+            "peso": 25,
+            "descricao": "O texto tem começo, desenvolvimento e conclusão."
+          },
+          {
+            "nome": "Clareza",
+            "peso": 25,
+            "descricao": "As ideias são compreensíveis."
+          },
+          {
+            "nome": "Linguagem",
+            "peso": 20,
+            "descricao": "Usa linguagem adequada e respeitosa."
+          }
+        ]
+      },
+      "tags": [
+        "davita",
+        "redacao",
+        "jovem-aprendiz",
+        "primeiro-emprego"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "texto_base",
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "tema",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_davita_operacional_basico_001",
+      "base_neutra_id": "operacional_basico_001",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "areas_personalizadas": [
+        "Atendimento ao paciente",
+        "Agendamento",
+        "Backoffice de saude"
+      ],
+      "ativo": true,
+      "etapa": "operacional",
+      "tipo": "situacional",
+      "vaga": "Operador de Atendimento",
+      "area": "Atendimento em saude",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Encaminhamento de dúvida em atendimento de saúde",
+      "contexto": "Uma pessoa atendida faz uma pergunta sobre retorno de atendimento que você não consegue confirmar sozinho no primeiro contato.",
+      "enunciado": "Como você deve agir nesse atendimento?",
+      "instrucoes": "Escolha a alternativa que mantém respeito, registro e continuidade do atendimento.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Registrar a dúvida, orientar que será verificada e encaminhar conforme procedimento."
+        },
+        {
+          "id": "B",
+          "texto": "Responder qualquer coisa para encerrar rápido."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar a dúvida."
+        },
+        {
+          "id": "D",
+          "texto": "Encerrar sem registro."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "A atitude correta registra, orienta e encaminha."
+      },
+      "tags": [
+        "davita",
+        "operacional",
+        "atendimento-paciente"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_crf_tecnico_comercial_basico_001",
+      "base_neutra_id": "tecnico_comercial_basico_001",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "areas_personalizadas": [
+        "Atendimento ao torcedor",
+        "Relacionamento",
+        "Comercial"
+      ],
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Comercial",
+      "area": "Comercial",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Atualização de contato do torcedor do Flamengo",
+      "contexto": "Uma base de relacionamento do Flamengo recebeu uma nova informação de contato de um torcedor.",
+      "enunciado": "Qual cuidado evita erro no relacionamento com o torcedor?",
+      "instrucoes": "Escolha a alternativa mais adequada.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Conferir nome, telefone e origem antes de atualizar a base."
+        },
+        {
+          "id": "B",
+          "texto": "Sobrescrever contatos sem conferir."
+        },
+        {
+          "id": "C",
+          "texto": "Apagar histórico de contato."
+        },
+        {
+          "id": "D",
+          "texto": "Registrar o telefone em qualquer coluna."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Conferir dados preserva qualidade da base."
+      },
+      "tags": [
+        "crf",
+        "torcedor",
+        "comercial",
+        "base"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_crf_redacao_intermediario_001",
+      "base_neutra_id": "redacao_geral_intermediario_001",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "areas_personalizadas": [
+        "Atendimento ao torcedor",
+        "Relacionamento",
+        "Planejamento"
+      ],
+      "ativo": true,
+      "etapa": "redacao",
+      "tipo": "redacao",
+      "vaga": "Geral",
+      "area": "Atendimento ao torcedor",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Relacionamento com torcedores do Flamengo",
+      "tema": "Atendimento, identificação com o Flamengo e responsabilidade no relacionamento com torcedores",
+      "texto_base": "Em uma rotina ligada ao Flamengo, o atendimento ao torcedor exige respeito, energia e identificação com o clube. A pessoa que atende precisa compreender que o torcedor não procura apenas uma informação: muitas vezes ele traz emoção, expectativa e cobrança. Gostar do Flamengo, conhecer minimamente a importância do clube e manter postura profissional ajuda a criar uma comunicação mais verdadeira e cuidadosa.",
+      "contexto": "Você está em uma avaliação para atuar em uma rotina de relacionamento ligada ao Flamengo.",
+      "enunciado": "Escreva um texto explicando sua relação com o Flamengo, por que essa identificação pode ajudar no atendimento ao torcedor e como manteria respeito e profissionalismo mesmo em situações de cobrança.",
+      "instrucoes": "Escreva entre 10 e 18 linhas, com introducao, desenvolvimento e conclusão.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "criterios": [
+          {
+            "nome": "Adequação ao tema",
+            "peso": 30,
+            "descricao": "Discute comunicação, registro e acompanhamento."
+          },
+          {
+            "nome": "Argumentacao",
+            "peso": 25,
+            "descricao": "Explica por que essas atitudes importam."
+          },
+          {
+            "nome": "Coesão",
+            "peso": 25,
+            "descricao": "Conecta as ideias de forma organizada."
+          },
+          {
+            "nome": "Norma e clareza",
+            "peso": 20,
+            "descricao": "Mantém texto compreensivel e adequado."
+          }
+        ]
+      },
+      "tags": [
+        "crf",
+        "redacao",
+        "torcedor",
+        "relacionamento"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "texto_base",
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "tema",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_endoview_tecnico_basico_001",
+      "base_neutra_id": "tecnico_basico_002",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "areas_personalizadas": [
+        "Recepção clinica",
+        "Consultas e exames",
+        "Agendamento"
+      ],
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Atendimento em saude",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Registro de agendamento de exame",
+      "contexto": "Uma solicitação de exame foi recebida e precisa ficar registrada para acompanhamento posterior.",
+      "enunciado": "Qual informação não deve faltar no registro do agendamento?",
+      "instrucoes": "Considere uma rotina simples de controle.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Descrição resumida da solicitação e próximo passo."
+        },
+        {
+          "id": "B",
+          "texto": "Somente a cor preferida da pessoa."
+        },
+        {
+          "id": "C",
+          "texto": "Um comentario sem relação com a demanda."
+        },
+        {
+          "id": "D",
+          "texto": "Nenhuma informação, para registrar mais rápido."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Registro útil precisa descrever a solicitação e o acompanhamento."
+      },
+      "tags": [
+        "endoview",
+        "agendamento",
+        "registro",
+        "exames"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_endoview_redacao_intermediario_001",
+      "base_neutra_id": "redacao_geral_intermediario_001",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "areas_personalizadas": [
+        "Recepção clinica",
+        "Consultas e exames",
+        "Suporte administrativo"
+      ],
+      "ativo": true,
+      "etapa": "redacao",
+      "tipo": "redacao",
+      "vaga": "Geral",
+      "area": "Atendimento em saude",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Comunicação e acompanhamento em rotina de exames",
+      "tema": "Clareza, registro e acompanhamento em rotinas de exames",
+      "texto_base": "Em uma rotina de consultas e exames, a comunicação precisa ser clara e cuidadosa. Informações incompletas podem gerar atrasos, dúvidas e retrabalho. Registrar corretamente a solicitação, acompanhar pendências e orientar a pessoa atendida com calma são atitudes importantes para manter a organização e reduzir falhas.",
+      "contexto": "Você está em uma avaliação para atuar em uma rotina administrativa de clínica de exames.",
+      "enunciado": "Escreva um texto explicando a importância de comunicar status, registrar pendências e acompanhar próximos passos em uma rotina de exames.",
+      "instrucoes": "Escreva entre 10 e 18 linhas, com introducao, desenvolvimento e conclusão.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "criterios": [
+          {
+            "nome": "Adequação ao tema",
+            "peso": 30,
+            "descricao": "Discute comunicação, registro e acompanhamento."
+          },
+          {
+            "nome": "Argumentacao",
+            "peso": 25,
+            "descricao": "Explica por que essas atitudes importam."
+          },
+          {
+            "nome": "Coesão",
+            "peso": 25,
+            "descricao": "Conecta as ideias de forma organizada."
+          },
+          {
+            "nome": "Norma e clareza",
+            "peso": 20,
+            "descricao": "Mantém texto compreensivel e adequado."
+          }
+        ]
+      },
+      "tags": [
+        "endoview",
+        "redacao",
+        "exames",
+        "registro"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "texto_base",
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "tema",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_newe_tecnico_financeiro_basico_001",
+      "base_neutra_id": "tecnico_financeiro_basico_001",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "areas_personalizadas": [
+        "Seguros",
+        "Sinistro",
+        "Financeiro"
+      ],
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Financeiro",
+      "area": "Financeiro",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Conferência de valor em seguro",
+      "contexto": "Um comprovante apresenta valor diferente do lançamento em uma planilha de controle de seguro.",
+      "enunciado": "Qual atitude deve ser tomada antes de corrigir o controle?",
+      "instrucoes": "Considere cuidado com dados financeiros.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Comparar comprovante, data, responsável e origem do lançamento."
+        },
+        {
+          "id": "B",
+          "texto": "Alterar para qualquer valor aproximado."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar a divergência."
+        },
+        {
+          "id": "D",
+          "texto": "Excluir o comprovante."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Valores divergentes precisam de conferencia antes da correcao."
+      },
+      "tags": [
+        "newe",
+        "financeiro",
+        "seguro",
+        "conferencia"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_newe_geral_basico_001",
+      "base_neutra_id": "geral_basico_002",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "areas_personalizadas": [
+        "Seguros",
+        "Sinistro",
+        "Atendimento comercial"
+      ],
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "verdadeiro_falso",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Dados de apólice",
+      "contexto": "Durante uma rotina de seguros, você encontrou dados pessoais ligados a uma apólice.",
+      "enunciado": "É correto compartilhar esses dados em grupo de conversa sem necessidade de trabalho?",
+      "instrucoes": "Escolha verdadeiro ou falso.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Verdadeiro"
+        },
+        {
+          "id": "B",
+          "texto": "Falso"
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "Dados pessoais devem ser tratados com cuidado e apenas quando houver necessidade."
+      },
+      "tags": [
+        "newe",
+        "lgpd",
+        "dados-pessoais",
+        "seguros"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_brava_tecnico_operacional_basico_001",
+      "base_neutra_id": "tecnico_operacional_basico_001",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "areas_personalizadas": [
+        "Operação crítica",
+        "Suporte operacional",
+        "Atendimento emergencial"
+      ],
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Técnico/Operacional",
+      "area": "Técnico/Operacional",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Registro de falha em rotina emergencial",
+      "contexto": "Durante uma rotina operacional crítica, ocorreu uma falha no acionamento de uma equipe de apoio e o caso precisa ser registrado para acompanhamento.",
+      "enunciado": "Qual informação é essencial no registro inicial?",
+      "instrucoes": "Escolha a alternativa mais adequada.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Descrever o que ocorreu, horário, impacto e ação inicial."
+        },
+        {
+          "id": "B",
+          "texto": "Registrar apenas 'problema'."
+        },
+        {
+          "id": "C",
+          "texto": "Não registrar para não gerar pendência."
+        },
+        {
+          "id": "D",
+          "texto": "Registrar dados sem relação com a falha."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Registro útil precisa indicar fato, horário, impacto e encaminhamento."
+      },
+      "tags": [
+        "brava",
+        "operacional",
+        "registro",
+        "falha"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "pers_brava_redacao_avancado_001",
+      "base_neutra_id": "redacao_geral_avancado_001",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "areas_personalizadas": [
+        "Operação crítica",
+        "Planejamento",
+        "Suporte operacional"
+      ],
+      "ativo": true,
+      "etapa": "redacao",
+      "tipo": "redacao",
+      "vaga": "Geral",
+      "area": "Técnico/Operacional",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Análise de risco em rotina operacional crítica",
+      "tema": "Tomada de decisão com base em evidências em rotinas críticas",
+      "texto_base": "Em uma operação de atendimento emergencial, decisões precipitadas podem ampliar riscos e prejudicar a continuidade da rotina. Uma boa análise considera evidências, impacto, causa provável, alternativas temporárias e comunicação objetiva. Em cenários críticos, registrar o que ocorreu e orientar o próximo passo com clareza pode evitar agravamento do problema.",
+      "contexto": "Você está em uma avaliação para uma função com maior responsabilidade em rotina operacional crítica.",
+      "enunciado": "Escreva um texto explicando como evidências, análise de impacto e recomendação clara ajudam na tomada de decisão operacional.",
+      "instrucoes": "Escreva entre 12 e 20 linhas. Estruture o texto com tese, desenvolvimento e fechamento.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "criterios": [
+          {
+            "nome": "Análise",
+            "peso": 30,
+            "descricao": "Relaciona evidências, impacto e decisão."
+          },
+          {
+            "nome": "Argumentacao",
+            "peso": 25,
+            "descricao": "Defende a ideia com consistência."
+          },
+          {
+            "nome": "Organização",
+            "peso": 25,
+            "descricao": "Apresenta progressão lógica."
+          },
+          {
+            "nome": "Linguagem",
+            "peso": 20,
+            "descricao": "Usa linguagem profissional e clara."
+          }
+        ]
+      },
+      "tags": [
+        "brava",
+        "redacao",
+        "operacao-critica",
+        "evidencias"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "área",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "texto_base",
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "tema",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    }
+  ],
+  "questoes": [
+    {
+      "id": "word_jovem_aprendiz_basico_001",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "resposta_texto",
+      "vaga": "Jovem Aprendiz",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Aviso simples para a equipe",
+      "contexto": "Durante o trabalho, você pode precisar passar uma informação simples para outra pessoa da equipe.",
+      "enunciado": "Imagine que uma pessoa chegou para fazer entrevista e está esperando na recepção. Escreva uma mensagem curta avisando alguém da equipe sobre isso.",
+      "instrucoes": "Escreva de forma simples, educada e clara. A mensagem pode ter apenas uma ou duas frases.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "O candidato deve escrever uma mensagem simples informando que a pessoa chegou para entrevista e está aguardando na recepção.",
+        "criterios": [
+          {
+            "nome": "Clareza",
+            "peso": 40,
+            "descricao": "A mensagem informa de forma fácil de entender que a pessoa chegou para entrevista."
+          },
+          {
+            "nome": "Educacao",
+            "peso": 25,
+            "descricao": "O texto usa uma linguagem respeitosa, como por favor, bom dia ou obrigado, quando adequado."
+          },
+          {
+            "nome": "Organização",
+            "peso": 20,
+            "descricao": "A mensagem tem uma sequência simples e compreensivel."
+          },
+          {
+            "nome": "Objetividade",
+            "peso": 15,
+            "descricao": "A mensagem é curta e vai direto ao ponto."
+          }
+        ]
+      },
+      "tags": [
+        "jovem-aprendiz",
+        "comunicacao-basica",
+        "recado-simples"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_jovem_aprendiz_basico_002",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "resposta_texto",
+      "vaga": "Jovem Aprendiz",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Aviso educado sobre atraso",
+      "contexto": "Você percebeu que chegara alguns minutos atrasado por causa de um imprevisto no transporte.",
+      "enunciado": "Escreva uma mensagem curta avisando a pessoa responsável que você está a caminho e chegara com atraso.",
+      "instrucoes": "Informe o ocorrido com respeito, sem justificativas longas. Use até 4 linhas.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "A resposta deve avisar o atraso, manter educacao e demonstrar responsabilidade.",
+        "criterios": [
+          {
+            "nome": "Informação essencial",
+            "peso": 35,
+            "descricao": "Avisa que havera atraso e que está a caminho."
+          },
+          {
+            "nome": "Tom respeitoso",
+            "peso": 25,
+            "descricao": "Usa linguagem educada."
+          },
+          {
+            "nome": "Responsabilidade",
+            "peso": 25,
+            "descricao": "Demonstra cuidado em avisar antes."
+          },
+          {
+            "nome": "Objetividade",
+            "peso": 15,
+            "descricao": "Evita texto longo ou confuso."
+          }
+        ]
+      },
+      "tags": [
+        "jovem-aprendiz",
+        "responsabilidade",
+        "pontualidade"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_jovem_aprendiz_basico_003",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "word",
+      "vaga": "Jovem Aprendiz",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Organizar tarefas simples do dia",
+      "contexto": "No início do dia, você recebeu algumas orientações simples e precisa organizar o que deve fazer primeiro.",
+      "enunciado": "Leia os itens abaixo e organize em uma ordem que faca sentido para começar a rotina do dia:\n\n- Conferir as orientações recebidas\n- Separar os materiais que vai usar\n- Verificar se há alguma dúvida\n- Pedir ajuda para alguém da equipe, se precisar\n- Começar a primeira tarefa combinada",
+      "instrucoes": "Coloque os itens em ordem, usando números de 1 a 5. A ordem deve mostrar uma preparacao simples antes de iniciar as tarefas.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "O candidato deve organizar os itens em uma sequência lógica, demonstrando que entende a importância de conferir orientações, separar materiais, tirar dúvidas e depois iniciar a tarefa.",
+        "ordem_sugerida": [
+          "Conferir as orientações recebidas",
+          "Verificar se há alguma dúvida",
+          "Pedir ajuda para alguém da equipe, se precisar",
+          "Separar os materiais que vai usar",
+          "Começar a primeira tarefa combinada"
+        ],
+        "criterios": [
+          {
+            "nome": "Ordem lógica",
+            "peso": 40,
+            "descricao": "Organiza os itens em uma sequência que faca sentido para iniciar o dia."
+          },
+          {
+            "nome": "Compreensão da rotina",
+            "peso": 25,
+            "descricao": "Demonstra que entende a importância de conferir orientações antes de começar."
+          },
+          {
+            "nome": "Cuidado com dúvidas",
+            "peso": 20,
+            "descricao": "Valoriza perguntar ou pedir ajuda antes de executar algo com dúvida."
+          },
+          {
+            "nome": "Organização visual",
+            "peso": 15,
+            "descricao": "Apresenta a resposta numerada ou claramente separada em ordem."
+          }
+        ]
+      },
+      "tags": [
+        "jovem-aprendiz",
+        "organizacao",
+        "prioridade",
+        "rotina-basica"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_geral_basico_001",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "resposta_texto",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Mensagem de confirmação",
+      "contexto": "Uma pessoa da equipe pediu que você confirme se uma informação foi recebida corretamente.",
+      "enunciado": "Escreva uma resposta curta confirmando o recebimento e dizendo que você irá verificar a orientação antes de continuar.",
+      "instrucoes": "Use linguagem simples, objetiva e educada. Escreva entre 2 e 4 linhas.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "A resposta confirma recebimento, informa verificacao e mantém tom educado.",
+        "criterios": [
+          {
+            "nome": "Confirmação",
+            "peso": 30,
+            "descricao": "Confirma que recebeu a informação."
+          },
+          {
+            "nome": "Cuidado",
+            "peso": 30,
+            "descricao": "Indica que irá conferir antes de agir."
+          },
+          {
+            "nome": "Clareza",
+            "peso": 25,
+            "descricao": "A mensagem é fácil de entender."
+          },
+          {
+            "nome": "Educacao",
+            "peso": 15,
+            "descricao": "Mantém respeito."
+          }
+        ]
+      },
+      "tags": [
+        "comunicacao",
+        "confirmacao",
+        "basico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_geral_basico_002",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "word",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Organizar checklist de início de rotina",
+      "contexto": "Antes de iniciar uma atividade de trabalho, e importante conferir informações, materiais e dúvidas para evitar erros simples.",
+      "enunciado": "Leia os itens abaixo e organize em uma ordem que faca sentido antes de iniciar uma tarefa de trabalho:\n\n- Ler a orientação da tarefa\n- Conferir se todos os materiais ou acessos necessários estão disponíveis\n- Verificar se existe alguma dúvida\n- Pedir ajuda ou confirmar a informação com alguém da equipe, se necessário\n- Iniciar a tarefa com atenção\n- Avisar quando a tarefa for concluída, se for solicitado",
+      "instrucoes": "Coloque os itens em ordem, usando números de 1 a 6. A ordem deve mostrar uma preparacao simples antes de começar a tarefa. Não inclua atividades complexas ou de liderança.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "A resposta deve organizar os itens em uma sequência lógica, demonstrando que o candidato entende a importância de ler a orientação, conferir recursos, tirar dúvidas, executar a tarefa com atenção e comunicar a conclusão quando necessário.",
+        "ordem_sugerida": [
+          "Ler a orientação da tarefa",
+          "Conferir se todos os materiais ou acessos necessários estão disponíveis",
+          "Verificar se existe alguma dúvida",
+          "Pedir ajuda ou confirmar a informação com alguém da equipe, se necessário",
+          "Iniciar a tarefa com atenção",
+          "Avisar quando a tarefa for concluída, se for solicitado"
+        ],
+        "criterios": [
+          {
+            "nome": "Ordem lógica",
+            "peso": 35,
+            "descricao": "Organiza os itens em uma sequência que faca sentido antes, durante e depois da tarefa."
+          },
+          {
+            "nome": "Compreensão da rotina",
+            "peso": 30,
+            "descricao": "Demonstra entendimento sobre cuidados basicos antes de iniciar uma atividade."
+          },
+          {
+            "nome": "Clareza",
+            "peso": 20,
+            "descricao": "A resposta é fácil de entender e segue os itens apresentados."
+          },
+          {
+            "nome": "Organização visual",
+            "peso": 15,
+            "descricao": "Apresenta a resposta numerada ou claramente separada em ordem."
+          }
+        ]
+      },
+      "tags": [
+        "organizacao",
+        "checklist",
+        "basico",
+        "rotina"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_geral_basico_003",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "resposta_texto",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Resposta cordial a uma dúvida",
+      "contexto": "Uma pessoa perguntou algo simples sobre uma atividade, mas você ainda precisa confirmar a resposta correta.",
+      "enunciado": "Escreva uma resposta dizendo que vai verificar a informação e retornara assim que tiver confirmação.",
+      "instrucoes": "A resposta deve ser cordial, curta e sem prometer algo que você ainda não confirmou.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "A resposta deve demonstrar cordialidade, cuidado em conferir e compromisso de retorno.",
+        "criterios": [
+          {
+            "nome": "Cordialidade",
+            "peso": 25,
+            "descricao": "Usa linguagem respeitosa."
+          },
+          {
+            "nome": "Conferencia",
+            "peso": 35,
+            "descricao": "Indica que a informação será verificada."
+          },
+          {
+            "nome": "Responsabilidade",
+            "peso": 25,
+            "descricao": "Evita promessa sem confirmação."
+          },
+          {
+            "nome": "Objetividade",
+            "peso": 15,
+            "descricao": "Mantém mensagem curta."
+          }
+        ]
+      },
+      "tags": [
+        "comunicacao",
+        "duvida",
+        "basico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_geral_intermediario_001",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "resposta_texto",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Resumo de ocorrência operacional",
+      "contexto": "Uma atividade prevista para ser concluída no período da manhã atrasou porque os dados recebidos estavam incompletos. A planilha enviada não continha o número de protocolo de alguns atendimentos, e essa informação era necessária para validar o andamento da tarefa.",
+      "enunciado": "Redija um resumo objetivo explicando o motivo do atraso, qual informação estava faltando, o impacto na atividade e qual próximo passo deve ser acompanhado.",
+      "instrucoes": "Escreva entre 5 e 8 linhas, com linguagem profissional, clara e objetiva. Evite culpar pessoas. Foque no fato ocorrido, na pendência identificada e na ação necessária para continuidade.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "O resumo deve informar que a atividade atrasou devido ao recebimento de dados incompletos, especialmente a ausência do número de protocolo em alguns registros. Deve explicar que a falta dessa informação impediu a validação completa da tarefa, indicar o impacto no prazo e apontar como próximo passo a confirmação ou regularização dos dados para continuidade da atividade.",
+        "criterios": [
+          {
+            "nome": "Contexto",
+            "peso": 25,
+            "descricao": "Explica de forma clara que a atividade atrasou por causa do recebimento de dados incompletos."
+          },
+          {
+            "nome": "Pendência identificada",
+            "peso": 25,
+            "descricao": "Indica que a informação faltante era o número de protocolo de alguns atendimentos."
+          },
+          {
+            "nome": "Impacto",
+            "peso": 20,
+            "descricao": "Mostra que a ausência da informação impactou a validação da tarefa e o cumprimento do prazo."
+          },
+          {
+            "nome": "Próximo passo",
+            "peso": 20,
+            "descricao": "Aponta a necessidade de confirmar ou regularizar os dados para dar continuidade a atividade."
+          },
+          {
+            "nome": "Tom profissional",
+            "peso": 10,
+            "descricao": "Usa linguagem corporativa, objetiva e sem acusacoes pessoais."
+          }
+        ]
+      },
+      "tags": [
+        "registro",
+        "ocorrencia",
+        "intermediario",
+        "comunicacao-profissional"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_geral_intermediario_002",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "resposta_texto",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "E-mail de acompanhamento de pendência",
+      "contexto": "Você precisa atualizar uma pessoa responsável sobre uma solicitação que ainda está em análise. A pendência está relacionada a um cadastro enviado com dados incompletos: o número do documento foi informado corretamente, mas o comprovante necessário para validar a solicitação ainda não foi anexado. A equipe responsável está aguardando esse comprovante para concluir a análise.",
+      "enunciado": "Escreva um e-mail curto informando o status atual da solicitação, qual documento ainda falta para validação e quando uma nova atualização será enviada.",
+      "instrucoes": "Use saudacao, corpo objetivo e fechamento simples. Informe que a solicitação continua em análise, explique que falta o envio do comprovante necessário e indique um próximo retorno realista. Não invente prazos impossiveis e não culpe pessoas.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "O e-mail deve informar que a solicitação permanece em análise porque ainda falta o envio do comprovante necessário para validação. Deve explicar que os demais dados foram recebidos, mas que a conclusão depende da regularização dessa pendência. Também deve indicar que uma nova atualização será enviada após o recebimento ou validação do comprovante, mantendo tom profissional e objetivo.",
+        "criterios": [
+          {
+            "nome": "Status",
+            "peso": 25,
+            "descricao": "Apresenta a situação atual da solicitação, informando que ela ainda está em análise."
+          },
+          {
+            "nome": "Pendência identificada",
+            "peso": 25,
+            "descricao": "Informa claramente que falta o envio do comprovante necessário para validação."
+          },
+          {
+            "nome": "Próximo retorno",
+            "peso": 20,
+            "descricao": "Indica quando ou em qual condicao uma nova atualização será enviada, sem prometer prazo inviavel."
+          },
+          {
+            "nome": "Tom profissional",
+            "peso": 15,
+            "descricao": "Usa linguagem educada, objetiva e sem acusacoes pessoais."
+          },
+          {
+            "nome": "Estrutura de e-mail",
+            "peso": 15,
+            "descricao": "Apresenta saudacao, corpo do texto e fechamento simples."
+          }
+        ]
+      },
+      "tags": [
+        "email",
+        "acompanhamento",
+        "intermediario",
+        "pendencia",
+        "comunicacao-profissional"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_geral_intermediario_003",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "word",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Plano curto de ação para demanda com prazo",
+      "contexto": "Uma demanda precisa ser concluída até o fim do dia, mas depende de três pontos: confirmar os dados recebidos, executar a atividade principal e avisar a equipe quando houver alguma pendência.",
+      "enunciado": "Crie uma lista com três ações para organizar essa demanda. Para cada ação, informe o objetivo e o cuidado principal.",
+      "instrucoes": "Use formato de lista. As ações devem ser práticas, em ordem lógica e adequadas a uma rotina profissional intermediária.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "A resposta deve organizar ações como validar dados, executar a atividade com controle e comunicar pendências ou conclusão, indicando objetivo e cuidado em cada etapa.",
+        "criterios": [
+          {
+            "nome": "Ações",
+            "peso": 30,
+            "descricao": "Apresenta três ações."
+          },
+          {
+            "nome": "Objetivo",
+            "peso": 25,
+            "descricao": "Cada ação tem finalidade clara."
+          },
+          {
+            "nome": "Cuidado",
+            "peso": 25,
+            "descricao": "Inclui atenção ou risco a observar."
+          },
+          {
+            "nome": "Organização",
+            "peso": 20,
+            "descricao": "A lista é fácil de acompanhar."
+          }
+        ]
+      },
+      "tags": [
+        "plano-de-acao",
+        "organizacao",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_geral_avancado_001",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "resposta_texto",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Relato técnico de falha de processo",
+      "contexto": "Durante a rotina, foi identificada uma falha na atualização de uma base compartilhada entre áreas. Uma equipe alterou registros, mas a nova versão não foi comunicada aos demais envolvidos. Outra área utilizou dados desatualizados para seguir com a atividade, gerando divergência, retrabalho e atraso.",
+      "enunciado": "Redija um relato técnico resumido explicando a situação, a falha identificada, o impacto na rotina, a ação imediata e uma recomendação de prevenção.",
+      "instrucoes": "Use linguagem profissional, objetiva e organizada em até 10 linhas. Evite culpar pessoas; foque no processo, na evidência e na prevenção.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "O relato deve explicar a falha de atualização/comunicação da base, indicar o uso de dados desatualizados, apontar impactos como retrabalho, divergência e atraso, propor validação da versão correta e recomendar controle de versão, comunicação formal e responsável definido.",
+        "criterios": [
+          {
+            "nome": "Diagnóstico da situação",
+            "peso": 25,
+            "descricao": "Descreve claramente a falha na atualização e comunicação da base compartilhada."
+          },
+          {
+            "nome": "Impacto",
+            "peso": 25,
+            "descricao": "Relaciona efeitos concretos na rotina, como divergência, retrabalho e atraso."
+          },
+          {
+            "nome": "Ação imediata",
+            "peso": 25,
+            "descricao": "Propõe validar a versão correta, alinhar as áreas e corrigir registros impactados."
+          },
+          {
+            "nome": "Prevenção",
+            "peso": 25,
+            "descricao": "Inclui recomendação coerente, como controle de versão, comunicação formal e responsável definido."
+          }
+        ]
+      },
+      "tags": [
+        "relato-tecnico",
+        "avancado",
+        "analise"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_geral_avancado_002",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "word",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Procedimento de contingência para indisponibilidade",
+      "contexto": "O sistema usado para registrar uma rotina ficou indisponível temporariamente. A atividade não pode parar, mas qualquer registro feito fora do fluxo principal precisa ser controlado para posterior conferência.",
+      "enunciado": "Monte um procedimento com quatro passos para manter a atividade em andamento enquanto a causa da indisponibilidade é analisada.",
+      "instrucoes": "Inclua registro temporário, comunicação aos envolvidos, alternativa segura de continuidade e validação final quando o fluxo principal voltar.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "O procedimento deve orientar registro temporário padronizado, comunicação do status, execução controlada por fluxo alternativo e validação/reconciliação dos registros quando o sistema voltar.",
+        "criterios": [
+          {
+            "nome": "Sequência",
+            "peso": 25,
+            "descricao": "Os passos seguem ordem lógica para resposta a contingência."
+          },
+          {
+            "nome": "Continuidade segura",
+            "peso": 25,
+            "descricao": "Traz alternativa temporária sem perder controle da informação."
+          },
+          {
+            "nome": "Registro e comunicação",
+            "peso": 25,
+            "descricao": "Inclui documentação do ocorrido e aviso aos envolvidos."
+          },
+          {
+            "nome": "Validação final",
+            "peso": 25,
+            "descricao": "Prevê conferência e regularização após retorno do fluxo principal."
+          }
+        ]
+      },
+      "tags": [
+        "procedimento",
+        "contingencia",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "word_geral_avancado_003",
+      "ativo": true,
+      "etapa": "word",
+      "tipo": "resposta_texto",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Síntese executiva sobre divergência de dados",
+      "contexto": "Uma liderança precisa receber uma explicação breve sobre uma divergência encontrada em dados de acompanhamento. O relatório mostra 128 demandas concluídas, mas a base operacional indica 119 registros finalizados no mesmo período.",
+      "enunciado": "Escreva uma síntese com o problema identificado, a evidência principal, o possível impacto e a recomendação de próximo passo.",
+      "instrucoes": "Seja direto e mantenha tom profissional. Não inclua nomes de clientes ou pessoas reais. Escreva até 8 linhas.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "resposta_esperada": "A síntese deve apontar a divergência entre relatório e base operacional, citar a diferença de 9 registros como evidência, indicar risco de decisão com dado incorreto e recomendar conferência de filtros, período, origem dos dados e regra de contagem.",
+        "criterios": [
+          {
+            "nome": "Problema",
+            "peso": 25,
+            "descricao": "Mostra a divergência entre relatório e base operacional."
+          },
+          {
+            "nome": "Evidência",
+            "peso": 25,
+            "descricao": "Cita o dado comparativo apresentado no contexto."
+          },
+          {
+            "nome": "Impacto",
+            "peso": 20,
+            "descricao": "Indica risco para acompanhamento, decisão ou priorização."
+          },
+          {
+            "nome": "Recomendação",
+            "peso": 20,
+            "descricao": "Propõe próximo passo objetivo para validar a informação."
+          },
+          {
+            "nome": "Objetividade",
+            "peso": 10,
+            "descricao": "Mantém texto conciso e profissional."
+          }
+        ]
+      },
+      "tags": [
+        "sintese",
+        "dados",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_jovem_aprendiz_basico_001",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Jovem Aprendiz",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Postura ao pedir ajuda",
+      "contexto": "Você está comecando em uma empresa e recebeu uma tarefa, mas ficou com dúvida sobre como fazer.",
+      "enunciado": "Qual é a melhor atitude nessa situação?",
+      "instrucoes": "Marque a alternativa mais adequada.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Fazer de qualquer jeito para terminar mais rápido."
+        },
+        {
+          "id": "B",
+          "texto": "Parar tudo e não avisar ninguem."
+        },
+        {
+          "id": "C",
+          "texto": "Pedir orientação com educacao antes de continuar."
+        },
+        {
+          "id": "D",
+          "texto": "Esperar alguém perceber que você está com dúvida."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "C",
+        "justificativa": "Pedir orientação evita erro e ajuda no aprendizado."
+      },
+      "tags": [
+        "jovem-aprendiz",
+        "postura",
+        "aprendizado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_jovem_aprendiz_basico_002",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "situacional",
+      "vaga": "Jovem Aprendiz",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Prioridade simples",
+      "contexto": "Você recebeu três orientações: entregar um documento que será usado agora, guardar materiais sem urgência e ler um aviso geral.",
+      "enunciado": "O que deve ser feito primeiro?",
+      "instrucoes": "Escolha a ação que evita atraso na rotina imediata.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Ler o aviso geral, mesmo sem urgência."
+        },
+        {
+          "id": "B",
+          "texto": "Entregar o documento que será usado agora."
+        },
+        {
+          "id": "C",
+          "texto": "Guardar os materiais antes de qualquer outra coisa."
+        },
+        {
+          "id": "D",
+          "texto": "Esperar alguém pedir novamente."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "A tarefa com impacto imediato deve ser priorizada."
+      },
+      "tags": [
+        "jovem-aprendiz",
+        "prioridade",
+        "responsabilidade"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_jovem_aprendiz_basico_003",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Jovem Aprendiz",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Pontualidade no compromisso",
+      "contexto": "Você tem horário marcado para iniciar uma atividade e percebe que pode se atrasar alguns minutos.",
+      "enunciado": "Qual atitude demonstra mais responsabilidade?",
+      "instrucoes": "Considere uma situação simples de início de rotina.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Avisar com antecedencia e explicar de forma educada."
+        },
+        {
+          "id": "B",
+          "texto": "Chegar atrasado sem comentar nada."
+        },
+        {
+          "id": "C",
+          "texto": "Pedir para outra pessoa inventar uma justificativa."
+        },
+        {
+          "id": "D",
+          "texto": "Ignorar o horário porque o atraso será pequeno."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Avisar antes demonstra respeito e responsabilidade."
+      },
+      "tags": [
+        "jovem-aprendiz",
+        "pontualidade"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_jovem_aprendiz_basico_004",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "interpretacao",
+      "vaga": "Jovem Aprendiz",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Orientação incompleta",
+      "contexto": "Uma orientação diz: 'Separe os documentos e entregue para a pessoa responsável', mas não informa quem e essa pessoa.",
+      "enunciado": "Qual é a melhor forma de continuar?",
+      "instrucoes": "Escolha a alternativa que evita erro simples.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Entregar para qualquer pessoa que estiver perto."
+        },
+        {
+          "id": "B",
+          "texto": "Deixar os documentos em uma mesa sem avisar."
+        },
+        {
+          "id": "C",
+          "texto": "Confirmar quem deve receber antes de entregar."
+        },
+        {
+          "id": "D",
+          "texto": "Guardar os documentos e esquecer a tarefa."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "C",
+        "justificativa": "Confirmar a informação reduz risco de erro."
+      },
+      "tags": [
+        "jovem-aprendiz",
+        "interpretacao",
+        "instrucao"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_jovem_aprendiz_basico_005",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Jovem Aprendiz",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Soma simples de atendimentos",
+      "contexto": "Em uma manhã, foram registrados 8 atendimentos na primeira hora, 6 na segunda e 5 na terceira.",
+      "enunciado": "Quantos atendimentos foram registrados ao todo?",
+      "instrucoes": "Some os três valores apresentados.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "17"
+        },
+        {
+          "id": "B",
+          "texto": "18"
+        },
+        {
+          "id": "C",
+          "texto": "19"
+        },
+        {
+          "id": "D",
+          "texto": "20"
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "C",
+        "justificativa": "8 + 6 + 5 = 19."
+      },
+      "tags": [
+        "jovem-aprendiz",
+        "raciocinio",
+        "soma"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_basico_001",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Conferencia antes de seguir",
+      "contexto": "Você recebeu uma lista curta de tarefas e notou que uma delas está sem horário definido.",
+      "enunciado": "Qual atitude reduz a chance de erro?",
+      "instrucoes": "Marque a opção mais adequada para uma rotina básica.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Executar a tarefa sem horário e torcer para estar correto."
+        },
+        {
+          "id": "B",
+          "texto": "Confirmar o horário com a pessoa responsável."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar a tarefa sem avisar."
+        },
+        {
+          "id": "D",
+          "texto": "Alterar a lista por conta própria."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "Conferir a informação evita erro e retrabalho."
+      },
+      "tags": [
+        "geral",
+        "conferencia",
+        "basico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_basico_002",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "verdadeiro_falso",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Dados pessoais",
+      "contexto": "Durante uma rotina de trabalho, você encontrou uma ficha com telefone e endereço de uma pessoa.",
+      "enunciado": "É correto compartilhar essa ficha em grupo de conversa sem necessidade de trabalho?",
+      "instrucoes": "Escolha verdadeiro ou falso.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Verdadeiro"
+        },
+        {
+          "id": "B",
+          "texto": "Falso"
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "Dados pessoais devem ser tratados com cuidado e apenas quando houver necessidade."
+      },
+      "tags": [
+        "lgpd",
+        "dados-pessoais",
+        "basico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_basico_003",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Organização de pequenas tarefas",
+      "contexto": "Você precisa separar documentos, responder uma mensagem simples e entregar um item que será usado imediatamente.",
+      "enunciado": "Qual tarefa deve ter prioridade?",
+      "instrucoes": "Considere o impacto mais imediato na rotina.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Entregar o item que será usado imediatamente."
+        },
+        {
+          "id": "B",
+          "texto": "Responder à mensagem sem urgência."
+        },
+        {
+          "id": "C",
+          "texto": "Separar documentos que podem esperar."
+        },
+        {
+          "id": "D",
+          "texto": "Fazer tudo ao mesmo tempo sem ordem."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "A prioridade é a tarefa com necessidade imediata."
+      },
+      "tags": [
+        "prioridade",
+        "organizacao",
+        "basico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_basico_004",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Trabalho em equipe",
+      "contexto": "Uma pessoa nova na equipe pediu ajuda para localizar uma orientação simples.",
+      "enunciado": "Qual resposta demonstra colaboração?",
+      "instrucoes": "Escolha a atitude mais respeitosa e útil.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Ignorar para não interromper sua rotina."
+        },
+        {
+          "id": "B",
+          "texto": "Orientar onde encontrar a informação e sugerir confirmar se ainda houver dúvida."
+        },
+        {
+          "id": "C",
+          "texto": "Dizer que ela deveria saber sozinha."
+        },
+        {
+          "id": "D",
+          "texto": "Responder com ironia para encerrar a conversa."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "A colaboração ajuda a pessoa e mantém respeito no ambiente."
+      },
+      "tags": [
+        "equipe",
+        "colaboracao",
+        "basico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_basico_005",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Cálculo simples de total",
+      "contexto": "Uma planilha de apoio mostra 12 registros pela manhã e 9 registros à tarde.",
+      "enunciado": "Qual é o total de registros do dia?",
+      "instrucoes": "Some os dois valores apresentados.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "19"
+        },
+        {
+          "id": "B",
+          "texto": "20"
+        },
+        {
+          "id": "C",
+          "texto": "21"
+        },
+        {
+          "id": "D",
+          "texto": "22"
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "C",
+        "justificativa": "12 + 9 = 21."
+      },
+      "tags": [
+        "raciocinio",
+        "calculo",
+        "basico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_intermediario_001",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Análise inicial de desvio",
+      "contexto": "Uma rotina teve aumento de demandas e atraso em parte das entregas no mesmo período.",
+      "enunciado": "Qual leitura inicial e mais adequada antes de definir uma ação?",
+      "instrucoes": "Marque a alternativa que considera dados e contexto.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Culpar a equipe imediatamente."
+        },
+        {
+          "id": "B",
+          "texto": "Verificar volume, capacidade e pontos de atraso."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar o desvio por ser temporário."
+        },
+        {
+          "id": "D",
+          "texto": "Alterar tudo sem analisar evidências."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "A decisão deve partir de dados e contexto."
+      },
+      "tags": [
+        "analise",
+        "prioridade",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_intermediario_002",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Comunicação de pendência",
+      "contexto": "Uma entrega depende de validação de outra pessoa e ainda não pode ser concluída.",
+      "enunciado": "Qual comunicação e mais adequada?",
+      "instrucoes": "Escolha a mensagem que informa status sem criar falsa expectativa.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Dizer que está pronto sem validação."
+        },
+        {
+          "id": "B",
+          "texto": "Informar que a entrega está aguardando validação e indicar o próximo acompanhamento."
+        },
+        {
+          "id": "C",
+          "texto": "Não responder até resolver tudo."
+        },
+        {
+          "id": "D",
+          "texto": "Enviar mensagem confusa para ganhar tempo."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "A comunicação deve mostrar status real e próximo passo."
+      },
+      "tags": [
+        "comunicacao",
+        "pendencia",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_intermediario_003",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Priorização com impacto",
+      "contexto": "Você recebeu uma tarefa com impacto no atendimento atual, um relatório semanal e uma dúvida simples de baixa urgência.",
+      "enunciado": "O que deve ser tratado primeiro?",
+      "instrucoes": "Considere impacto imediato e continuidade da rotina.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "A tarefa com impacto no atendimento atual."
+        },
+        {
+          "id": "B",
+          "texto": "O relatório semanal, mesmo sem urgência."
+        },
+        {
+          "id": "C",
+          "texto": "A dúvida simples de baixa urgência."
+        },
+        {
+          "id": "D",
+          "texto": "Nenhuma, pois todas podem esperar."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Impactos imediatos devem ser priorizados."
+      },
+      "tags": [
+        "priorizacao",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_intermediario_004",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Registro para continuidade",
+      "contexto": "Uma demanda não foi concluída no seu horário e outra pessoa precisara continuar a tratativa.",
+      "enunciado": "Qual registro ajuda mais na continuidade?",
+      "instrucoes": "Escolha a opção com informações suficientes.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Apenas escrever 'pendente'."
+        },
+        {
+          "id": "B",
+          "texto": "Registrar o que foi feito, o que falta e quem deve acompanhar."
+        },
+        {
+          "id": "C",
+          "texto": "Guardar a informação apenas na memória."
+        },
+        {
+          "id": "D",
+          "texto": "Apagar o histórico para evitar dúvidas."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "Registro completo permite continuidade segura."
+      },
+      "tags": [
+        "registro",
+        "continuidade",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_intermediario_005",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Média simples de produtividade",
+      "contexto": "Três períodos registraram 20, 30 e 40 atividades concluídas.",
+      "enunciado": "Qual é a média de atividades concluídas por período?",
+      "instrucoes": "Some os valores e divida por três.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "25"
+        },
+        {
+          "id": "B",
+          "texto": "30"
+        },
+        {
+          "id": "C",
+          "texto": "35"
+        },
+        {
+          "id": "D",
+          "texto": "40"
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "(20 + 30 + 40) / 3 = 30."
+      },
+      "tags": [
+        "media",
+        "raciocinio",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_intermediario_006",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Condução de conflito simples",
+      "contexto": "Duas pessoas da equipe discordam sobre quem deveria concluir uma pendência compartilhada.",
+      "enunciado": "Qual atitude ajuda a resolver a situação com equilíbrio?",
+      "instrucoes": "Escolha a alternativa que favorece dialogo e clareza.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Ouvir os envolvidos, consultar o combinado e definir o próximo passo com registro."
+        },
+        {
+          "id": "B",
+          "texto": "Escolher um lado sem entender o contexto."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar até o conflito aumentar."
+        },
+        {
+          "id": "D",
+          "texto": "Expor a situação para pessoas sem relação."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Dialogo, critério e registro ajudam a resolver conflito simples."
+      },
+      "tags": [
+        "conflito",
+        "equipe",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_intermediario_007",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Distribuição de demandas",
+      "contexto": "A equipe recebeu mais demandas do que o esperado e precisa reorganizar a fila sem perder o controle.",
+      "enunciado": "Qual critério deve orientar a redistribuição?",
+      "instrucoes": "Considere impacto, prazo e capacidade.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Priorizar impacto e prazo, considerando capacidade disponível e registrando ajustes."
+        },
+        {
+          "id": "B",
+          "texto": "Distribuir aleatoriamente para encerrar mais rápido."
+        },
+        {
+          "id": "C",
+          "texto": "Deixar todas paradas até o fim do dia."
+        },
+        {
+          "id": "D",
+          "texto": "Apagar demandas antigas da fila."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Redistribuição responsável considera impacto, prazo e capacidade."
+      },
+      "tags": [
+        "demandas",
+        "priorizacao",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_intermediario_008",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Acompanhamento de indicador",
+      "contexto": "Um indicador piorou por dois dias seguidos e pode afetar a qualidade da entrega.",
+      "enunciado": "Qual atitude inicial e mais adequada?",
+      "instrucoes": "Escolha a alternativa com análise e ação proporcional.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Verificar causa provável, comparar períodos e definir acompanhamento."
+        },
+        {
+          "id": "B",
+          "texto": "Ignorar porque dois dias não importam."
+        },
+        {
+          "id": "C",
+          "texto": "Cobrar todos sem entender os dados."
+        },
+        {
+          "id": "D",
+          "texto": "Trocar a meta sem justificativa."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Indicadores precisam de leitura comparativa e acompanhamento."
+      },
+      "tags": [
+        "indicador",
+        "analise",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_intermediario_009",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Orientação para a equipe",
+      "contexto": "Uma mudança simples de procedimento precisa ser repassada para evitar execuções diferentes.",
+      "enunciado": "Qual forma de orientação e mais adequada?",
+      "instrucoes": "Escolha a alternativa que facilita entendimento e padrão.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Explicar a mudança, motivo, passo esperado e canal para dúvidas."
+        },
+        {
+          "id": "B",
+          "texto": "Mandar apenas 'mudou' sem detalhes."
+        },
+        {
+          "id": "C",
+          "texto": "Comunicar somente a uma pessoa e esperar que todos descubram."
+        },
+        {
+          "id": "D",
+          "texto": "Mudar o procedimento sem avisar."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Orientação clara reduz execuções divergentes."
+      },
+      "tags": [
+        "orientacao",
+        "procedimento",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_avancado_001",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Leitura de indicador crítico",
+      "contexto": "Um painel mostra aumento de volume, redução de capacidade e atraso em uma fila operacional.",
+      "enunciado": "Qual decisão inicial e mais responsável?",
+      "instrucoes": "Considere análise com evidência antes de ação definitiva.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Definir hipótese, validar dados, priorizar impacto e comunicar risco."
+        },
+        {
+          "id": "B",
+          "texto": "Ignorar até o fim do dia."
+        },
+        {
+          "id": "C",
+          "texto": "Mudar o processo inteiro sem diagnóstico."
+        },
+        {
+          "id": "D",
+          "texto": "Enviar alerta sem explicar impacto."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Ações avancadas devem partir de evidências, impacto e comunicação clara."
+      },
+      "tags": [
+        "indicadores",
+        "analise",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_avancado_002",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Comunicação para decisão",
+      "contexto": "Uma liderança precisa decidir sobre uma contingência e recebe informações de áreas diferentes.",
+      "enunciado": "Qual formato de reporte apoia melhor a decisão?",
+      "instrucoes": "Escolha a alternativa mais completa.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Opinião geral sem dados."
+        },
+        {
+          "id": "B",
+          "texto": "Contexto, impacto, evidências, opções e recomendação."
+        },
+        {
+          "id": "C",
+          "texto": "Apenas a lista de pessoas envolvidas."
+        },
+        {
+          "id": "D",
+          "texto": "Mensagem informal sem próximo passo."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "Decisoes precisam de contexto, evidência e recomendação."
+      },
+      "tags": [
+        "reporte",
+        "decisão",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_avancado_003",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Investigacao de causa",
+      "contexto": "Um problema se repete em dias diferentes, mas nem sempre no mesmo horário.",
+      "enunciado": "Qual abordagem aumenta a chance de identificar a causa?",
+      "instrucoes": "Considere coleta de evidências e comparacao.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Coletar horarios, condições, registros e comparar ocorrências."
+        },
+        {
+          "id": "B",
+          "texto": "Assumir que e erro de uma pessoa sem verificar."
+        },
+        {
+          "id": "C",
+          "texto": "Descartar a análise por não ocorrer sempre."
+        },
+        {
+          "id": "D",
+          "texto": "Trocar prioridades sem registro."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Problemas intermitentes pedem coleta e comparacao de evidências."
+      },
+      "tags": [
+        "causa-raiz",
+        "evidencias",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_avancado_004",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Gestão de risco operacional",
+      "contexto": "Uma mudança de rotina pode melhorar produtividade, mas também pode afetar qualidade se for aplicada sem teste.",
+      "enunciado": "Qual caminho reduz risco?",
+      "instrucoes": "Marque a alternativa com controle e acompanhamento.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Aplicar para todos imediatamente sem medição."
+        },
+        {
+          "id": "B",
+          "texto": "Testar em escala controlada, medir resultado e ajustar antes de ampliar."
+        },
+        {
+          "id": "C",
+          "texto": "Cancelar qualquer melhoria por medo de erro."
+        },
+        {
+          "id": "D",
+          "texto": "Mudar apenas o nome do processo."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "Teste controlado reduz risco e permite ajuste."
+      },
+      "tags": [
+        "risco",
+        "mudanca",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "geral_avancado_005",
+      "ativo": true,
+      "etapa": "geral",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Coerencia entre dados",
+      "contexto": "Dois relatórios mostram números diferentes para o mesmo período e serão usados em uma apresentação.",
+      "enunciado": "O que deve ser feito antes de apresentar?",
+      "instrucoes": "Escolha a atitude mais segura para a qualidade da informação.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Escolher o número maior sem verificar."
+        },
+        {
+          "id": "B",
+          "texto": "Validar origem, período, critério de cálculo e corrigir divergências."
+        },
+        {
+          "id": "C",
+          "texto": "Apresentar os dois sem explicar nada."
+        },
+        {
+          "id": "D",
+          "texto": "Apagar um relatório."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "Dados divergentes precisam ser validados antes de uso."
+      },
+      "tags": [
+        "dados",
+        "validacao",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_basico_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Uso correto de planilha simples",
+      "contexto": "Uma tabela possui colunas de data, nome e status de acompanhamento.",
+      "enunciado": "Qual cuidado ajuda a manter a tabela organizada?",
+      "instrucoes": "Marque a alternativa correta.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Misturar observacoes longas no campo de data."
+        },
+        {
+          "id": "B",
+          "texto": "Preencher cada informação na coluna correta."
+        },
+        {
+          "id": "C",
+          "texto": "Apagar cabecalhos para ganhar espaco."
+        },
+        {
+          "id": "D",
+          "texto": "Usar abreviacoes sem padrão."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "B",
+        "justificativa": "A organização depende de cada dado em sua coluna."
+      },
+      "tags": [
+        "tecnico",
+        "planilha",
+        "basico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_basico_002",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Registro de atendimento",
+      "contexto": "Uma solicitação foi recebida e precisa ficar registrada para acompanhamento posterior.",
+      "enunciado": "Qual informação não deve faltar no registro?",
+      "instrucoes": "Considere uma rotina simples de controle.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Descrição resumida da solicitação e próximo passo."
+        },
+        {
+          "id": "B",
+          "texto": "Somente a cor preferida da pessoa."
+        },
+        {
+          "id": "C",
+          "texto": "Um comentario sem relação com a demanda."
+        },
+        {
+          "id": "D",
+          "texto": "Nenhuma informação, para registrar mais rápido."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Registro útil precisa descrever a solicitação e o acompanhamento."
+      },
+      "tags": [
+        "registro",
+        "atendimento",
+        "tecnico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_basico_003",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Conferencia de documento",
+      "contexto": "Um documento será anexado a uma pasta de acompanhamento.",
+      "enunciado": "Qual ação deve ser feita antes de anexar?",
+      "instrucoes": "Escolha o cuidado básico mais adequado.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Conferir se o documento pertence ao caso correto."
+        },
+        {
+          "id": "B",
+          "texto": "Anexar qualquer arquivo disponível."
+        },
+        {
+          "id": "C",
+          "texto": "Renomear sem conferir o conteudo."
+        },
+        {
+          "id": "D",
+          "texto": "Enviar para varias pessoas sem necessidade."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Conferir evita erro de vinculacao."
+      },
+      "tags": [
+        "documento",
+        "conferencia",
+        "tecnico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_basico_004",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Organização de fila",
+      "contexto": "Uma lista possui itens aguardando tratativa em ordem de chegada.",
+      "enunciado": "Qual pratica preserva a ordem de atendimento?",
+      "instrucoes": "Escolha a opção que evita perda de controle.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Marcar status atualizado e manter a sequência registrada."
+        },
+        {
+          "id": "B",
+          "texto": "Apagar itens antigos sem finalizar."
+        },
+        {
+          "id": "C",
+          "texto": "Mudar a ordem sem motivo."
+        },
+        {
+          "id": "D",
+          "texto": "Registrar tudo em uma única celula."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Status e sequência ajudam a controlar a fila."
+      },
+      "tags": [
+        "fila",
+        "organizacao",
+        "tecnico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_basico_005",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Atualização de status",
+      "contexto": "Uma atividade foi concluída e outra pessoa precisa saber que pode seguir para a proxima etapa.",
+      "enunciado": "Qual registro e mais adequado?",
+      "instrucoes": "Escolha a alternativa objetiva e rastreavel.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Registrar status concluído, data e observacao curta."
+        },
+        {
+          "id": "B",
+          "texto": "Não atualizar nada."
+        },
+        {
+          "id": "C",
+          "texto": "Trocar o status para qualquer palavra sem padrão."
+        },
+        {
+          "id": "D",
+          "texto": "Apagar a atividade concluída."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Status, data e observacao permitem rastreabilidade."
+      },
+      "tags": [
+        "status",
+        "controle",
+        "tecnico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_intermediario_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Triagem de solicitação",
+      "contexto": "Uma solicitação chegou com descrição incompleta, mas pode afetar o prazo de uma rotina.",
+      "enunciado": "Qual primeira ação ajuda na triagem?",
+      "instrucoes": "Marque a alternativa que organiza a análise.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Coletar informações faltantes, impacto e prazo esperado."
+        },
+        {
+          "id": "B",
+          "texto": "Encerrar como resolvida sem contato."
+        },
+        {
+          "id": "C",
+          "texto": "Repassar sem ler."
+        },
+        {
+          "id": "D",
+          "texto": "Aguardar sem registrar."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Triagem depende de contexto, impacto e prazo."
+      },
+      "tags": [
+        "triagem",
+        "intermediario",
+        "tecnico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_intermediario_002",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Validação de dados",
+      "contexto": "Uma planilha apresenta total diferente do resumo usado pela equipe.",
+      "enunciado": "Qual caminho ajuda a encontrar a divergência?",
+      "instrucoes": "Escolha a alternativa com conferencia estruturada.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Comparar origem, filtros aplicados e período dos dados."
+        },
+        {
+          "id": "B",
+          "texto": "Usar o primeiro total que apareceu."
+        },
+        {
+          "id": "C",
+          "texto": "Excluir linhas sem critério."
+        },
+        {
+          "id": "D",
+          "texto": "Ignorar a diferença."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Divergência exige conferir origem, filtro e período."
+      },
+      "tags": [
+        "dados",
+        "validacao",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_intermediario_003",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Acompanhamento de pendência técnica",
+      "contexto": "Uma atividade depende de retorno de outra área e precisa ficar visivel para acompanhamento.",
+      "enunciado": "Qual pratica e mais adequada?",
+      "instrucoes": "Considere rastreabilidade e clareza.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Registrar responsável, prazo previsto e última atualização."
+        },
+        {
+          "id": "B",
+          "texto": "Guardar a informação apenas em conversa informal."
+        },
+        {
+          "id": "C",
+          "texto": "Excluir a pendência da lista."
+        },
+        {
+          "id": "D",
+          "texto": "Registrar somente 'ver depois'."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Responsável, prazo e atualização permitem acompanhamento."
+      },
+      "tags": [
+        "pendencia",
+        "rastreamento",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_intermediario_004",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Controle de qualidade",
+      "contexto": "Uma amostra de registros será revisada para identificar falhas repetidas.",
+      "enunciado": "Qual critério torna a revisão mais útil?",
+      "instrucoes": "Escolha a alternativa com padrão de análise.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Usar checklist com itens observaveis e registrar exemplos."
+        },
+        {
+          "id": "B",
+          "texto": "Avaliar apenas por impressão pessoal."
+        },
+        {
+          "id": "C",
+          "texto": "Revisar sem anotar nada."
+        },
+        {
+          "id": "D",
+          "texto": "Alterar o critério a cada registro."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Checklist e exemplos tornam a revisão consistente."
+      },
+      "tags": [
+        "qualidade",
+        "checklist",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_intermediario_005",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Uso de formula de apoio",
+      "contexto": "Uma planilha precisa somar valores de uma coluna para conferir um total.",
+      "enunciado": "Qual recurso ajuda a calcular o total automaticamente?",
+      "instrucoes": "Considere uma função básica de planilha.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "SOMA"
+        },
+        {
+          "id": "B",
+          "texto": "Alterar cor da fonte"
+        },
+        {
+          "id": "C",
+          "texto": "Inserir imagem"
+        },
+        {
+          "id": "D",
+          "texto": "Ocultar a coluna sem calcular"
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "A função SOMA calcula totais em planilhas."
+      },
+      "tags": [
+        "formula",
+        "planilha",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_intermediario_006",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Análise de causa simples",
+      "contexto": "Uma pendência voltou a acontecer depois de ter sido tratada no dia anterior.",
+      "enunciado": "Qual ação ajuda a entender a causa?",
+      "instrucoes": "Escolha a alternativa que usa registro e comparacao.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Comparar os dois registros, identificar semelhanças e confirmar o ponto de falha."
+        },
+        {
+          "id": "B",
+          "texto": "Tratar como caso isolado sem verificar."
+        },
+        {
+          "id": "C",
+          "texto": "Apagar o registro anterior."
+        },
+        {
+          "id": "D",
+          "texto": "Responder sem analisar o histórico."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Comparar histórico ajuda a encontrar causa recorrente."
+      },
+      "tags": [
+        "causa",
+        "historico",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_intermediario_007",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Checklist de validação",
+      "contexto": "Uma entrega será liberada para outra área e precisa de uma conferencia final.",
+      "enunciado": "Qual item deve fazer parte do checklist?",
+      "instrucoes": "Considere controle de qualidade antes do repasse.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Confirmar dados obrigatorios, pendências abertas e responsável pelo recebimento."
+        },
+        {
+          "id": "B",
+          "texto": "Enviar sem verificar campos obrigatorios."
+        },
+        {
+          "id": "C",
+          "texto": "Conferir apenas a aparencia do arquivo."
+        },
+        {
+          "id": "D",
+          "texto": "Excluir observacoes de acompanhamento."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Checklist útil valida dados, pendências e responsável."
+      },
+      "tags": [
+        "checklist",
+        "validacao",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_intermediario_008",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Organização de evidência",
+      "contexto": "Uma divergência foi encontrada e precisara ser analisada por outra pessoa.",
+      "enunciado": "Qual evidência ajuda mais no encaminhamento?",
+      "instrucoes": "Escolha a alternativa que facilita a análise posterior.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Registro do erro, dado esperado, dado encontrado e onde a divergência aparece."
+        },
+        {
+          "id": "B",
+          "texto": "Apenas uma mensagem dizendo que está errado."
+        },
+        {
+          "id": "C",
+          "texto": "Nenhum detalhe, para economizar tempo."
+        },
+        {
+          "id": "D",
+          "texto": "Uma opinião sem exemplo."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Evidência objetiva ajuda a continuidade da análise."
+      },
+      "tags": [
+        "evidencia",
+        "divergencia",
+        "intermediario"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_avancado_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Plano de investigacao",
+      "contexto": "Um problema com impacto relevante apresenta sinais diferentes em grupos distintos de usuários.",
+      "enunciado": "Qual abordagem inicial e mais adequada?",
+      "instrucoes": "Considere escopo, evidências e comunicação.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Definir escopo, coletar evidências por grupo e registrar hipoteses."
+        },
+        {
+          "id": "B",
+          "texto": "Assumir uma causa sem validar."
+        },
+        {
+          "id": "C",
+          "texto": "Parar toda a rotina sem avisar."
+        },
+        {
+          "id": "D",
+          "texto": "Aguardar reclamacoes acumularem."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Incidentes complexos exigem escopo e evidências."
+      },
+      "tags": [
+        "investigacao",
+        "avancado",
+        "tecnico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_avancado_002",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Escalonamento com critério",
+      "contexto": "Uma pendência passou do prazo e depende de conhecimento especializado.",
+      "enunciado": "O que deve acompanhar o escalonamento?",
+      "instrucoes": "Escolha a alternativa que ajuda a área de apoio a atuar.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Histórico, impacto, evidências, tentativas realizadas e urgência."
+        },
+        {
+          "id": "B",
+          "texto": "Apenas a frase 'resolver urgente'."
+        },
+        {
+          "id": "C",
+          "texto": "Nenhum registro para acelerar."
+        },
+        {
+          "id": "D",
+          "texto": "Informações desconectadas do problema."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Escalonamento efetivo precisa de contexto e evidências."
+      },
+      "tags": [
+        "escalonamento",
+        "avancado",
+        "tecnico"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_avancado_003",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Padronização de processo",
+      "contexto": "Equipes diferentes executam a mesma rotina com passos variados, gerando resultados inconsistentes.",
+      "enunciado": "Qual ação melhora a padronização?",
+      "instrucoes": "Considere clareza operacional e medição.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Mapear fluxo atual, definir padrão, treinar e medir aderência."
+        },
+        {
+          "id": "B",
+          "texto": "Permitir que cada pessoa siga qualquer critério."
+        },
+        {
+          "id": "C",
+          "texto": "Eliminar registros para simplificar."
+        },
+        {
+          "id": "D",
+          "texto": "Trocar o nome da rotina sem orientar."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Padronização exige fluxo definido, orientação e acompanhamento."
+      },
+      "tags": [
+        "processo",
+        "padronizacao",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_avancado_004",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Análise de base inconsistente",
+      "contexto": "Uma base possui duplicidades, campos vazios e valores fora do padrão esperado.",
+      "enunciado": "Qual sequência e mais adequada antes de gerar conclusoes?",
+      "instrucoes": "Escolha a alternativa com tratamento de dados.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Mapear inconsistências, limpar criteriosamente e documentar regras usadas."
+        },
+        {
+          "id": "B",
+          "texto": "Gerar conclusoes sem ajuste."
+        },
+        {
+          "id": "C",
+          "texto": "Excluir metade da base sem critério."
+        },
+        {
+          "id": "D",
+          "texto": "Alterar valores para combinar com a expectativa."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Análise confiavel exige limpeza e regras documentadas."
+      },
+      "tags": [
+        "dados",
+        "qualidade",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_avancado_005",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Prevenção de recorrência",
+      "contexto": "Uma falha foi corrigida, mas pode voltar se a causa não for registrada e acompanhada.",
+      "enunciado": "Qual ação reduz recorrência?",
+      "instrucoes": "Considere aprendizado e acompanhamento.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Registrar causa provável, ação aplicada, validação e recomendação preventiva."
+        },
+        {
+          "id": "B",
+          "texto": "Encerrar sem documentar porque voltou a funcionar."
+        },
+        {
+          "id": "C",
+          "texto": "Apagar evidências para evitar perguntas."
+        },
+        {
+          "id": "D",
+          "texto": "Aguardar a falha voltar."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Prevenir recorrência exige registro e recomendação."
+      },
+      "tags": [
+        "prevencao",
+        "recorrencia",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_avancado_006",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Priorização em incidente",
+      "contexto": "Duas falhas acontecem ao mesmo tempo: uma afeta muitos usuários e outra afeta um processo interno sem prazo imediato.",
+      "enunciado": "Qual critério deve orientar a primeira frente de trabalho?",
+      "instrucoes": "Considere impacto, urgência e continuidade da operação.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Priorizar a falha de maior impacto, mantendo registro e comunicação das demais pendências."
+        },
+        {
+          "id": "B",
+          "texto": "Tratar primeiro a falha mais fácil, mesmo sem impacto relevante."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar ambas até surgir nova reclamação."
+        },
+        {
+          "id": "D",
+          "texto": "Escolher sem registrar critério."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Priorização avancada considera impacto, urgência e rastreabilidade."
+      },
+      "tags": [
+        "incidente",
+        "priorizacao",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_avancado_007",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Validação de solucao",
+      "contexto": "Uma correcao foi aplicada e a equipe precisa confirmar se o problema realmente foi resolvido.",
+      "enunciado": "Qual validação e mais consistente?",
+      "instrucoes": "Escolha a alternativa com evidência antes do encerramento.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Repetir o fluxo afetado, comparar resultado esperado e registrar evidência de normalizacao."
+        },
+        {
+          "id": "B",
+          "texto": "Encerrar apenas porque ninguem reclamou nos últimos minutos."
+        },
+        {
+          "id": "C",
+          "texto": "Apagar o histórico da falha."
+        },
+        {
+          "id": "D",
+          "texto": "Comunicar normalizacao antes de testar."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Validação consistente exige teste e evidência."
+      },
+      "tags": [
+        "validacao",
+        "solucao",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_avancado_008",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Comunicação de risco",
+      "contexto": "Uma mudança planejada pode afetar a rotina se algum requisito não for confirmado antes da execucao.",
+      "enunciado": "Qual comunicação e mais adequada para reduzir risco?",
+      "instrucoes": "Escolha a alternativa com decisão informada.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Informar requisito pendente, impacto possível, prazo de confirmação e recomendação."
+        },
+        {
+          "id": "B",
+          "texto": "Comunicar apenas que está tudo certo sem confirmar."
+        },
+        {
+          "id": "C",
+          "texto": "Omitir risco para evitar perguntas."
+        },
+        {
+          "id": "D",
+          "texto": "Enviar aviso sem indicar próximo passo."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Risco deve ser comunicado com impacto, pendência e recomendação."
+      },
+      "tags": [
+        "risco",
+        "comunicacao",
+        "avancado"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_ti_suporte_intermediario_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "TI/Suporte",
+      "area": "TI/Suporte",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Atendimento de suporte",
+      "contexto": "Um usuário informa lentidao e dificuldade de acesso a uma ferramenta de trabalho.",
+      "enunciado": "Qual informação deve ser coletada primeiro?",
+      "instrucoes": "Considere triagem técnica inicial.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Horário do problema, mensagem apresentada, impacto e equipamento utilizado."
+        },
+        {
+          "id": "B",
+          "texto": "Apenas a opinião do usuário sobre a causa."
+        },
+        {
+          "id": "C",
+          "texto": "Nenhuma, pois o chamado deve ser encerrado."
+        },
+        {
+          "id": "D",
+          "texto": "Dados pessoais sem relação com o suporte."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Triagem técnica precisa de evidências básicas."
+      },
+      "tags": [
+        "ti",
+        "suporte",
+        "triagem"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_rh_basico_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "RH",
+      "area": "RH",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Organização de documentos de seleção",
+      "contexto": "Um candidato enviou documentos para uma etapa do processo seletivo.",
+      "enunciado": "Qual cuidado ajuda o RH a manter o processo organizado?",
+      "instrucoes": "Marque a alternativa correta.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Conferir se os documentos pertencem ao candidato correto e registrar pendências."
+        },
+        {
+          "id": "B",
+          "texto": "Misturar documentos de pessoas diferentes."
+        },
+        {
+          "id": "C",
+          "texto": "Salvar sem nome identificavel."
+        },
+        {
+          "id": "D",
+          "texto": "Compartilhar fora do processo."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Conferencia e registro preservam organização e cuidado com dados."
+      },
+      "tags": [
+        "rh",
+        "documentos",
+        "selecao"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_dp_basico_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "DP",
+      "area": "DP",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Conferencia de ponto",
+      "contexto": "Um colaborador informou divergência simples no registro de ponto.",
+      "enunciado": "Qual primeira ação e mais adequada?",
+      "instrucoes": "Considere uma rotina básica de departamento pessoal.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Conferir data, horário informado e registro existente antes de responder."
+        },
+        {
+          "id": "B",
+          "texto": "Alterar o ponto sem verificar."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar o pedido."
+        },
+        {
+          "id": "D",
+          "texto": "Divulgar o caso para pessoas sem relação."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Conferir dados evita correcao indevida."
+      },
+      "tags": [
+        "dp",
+        "ponto",
+        "conferencia"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_comercial_basico_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Comercial",
+      "area": "Comercial",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Atualização de contato",
+      "contexto": "Uma base comercial recebeu uma nova informação de contato.",
+      "enunciado": "Qual cuidado evita erro no acompanhamento?",
+      "instrucoes": "Escolha a alternativa mais adequada.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Conferir nome, telefone e origem antes de atualizar a base."
+        },
+        {
+          "id": "B",
+          "texto": "Sobrescrever contatos sem conferir."
+        },
+        {
+          "id": "C",
+          "texto": "Apagar histórico de contato."
+        },
+        {
+          "id": "D",
+          "texto": "Registrar o telefone em qualquer coluna."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Conferir dados preserva qualidade da base."
+      },
+      "tags": [
+        "comercial",
+        "base",
+        "contato"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_financeiro_basico_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Financeiro",
+      "area": "Financeiro",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Conferencia de valor",
+      "contexto": "Um comprovante apresenta valor diferente do lançamento em uma planilha de controle.",
+      "enunciado": "Qual atitude deve ser tomada antes de corrigir?",
+      "instrucoes": "Considere cuidado com dados financeiros.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Comparar comprovante, data, responsável e origem do lançamento."
+        },
+        {
+          "id": "B",
+          "texto": "Alterar para qualquer valor aproximado."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar a divergência."
+        },
+        {
+          "id": "D",
+          "texto": "Excluir o comprovante."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Valores divergentes precisam de conferencia antes da correcao."
+      },
+      "tags": [
+        "financeiro",
+        "valor",
+        "conferencia"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_operacional_basico_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Técnico/Operacional",
+      "area": "Técnico/Operacional",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Registro de ocorrência operacional",
+      "contexto": "Uma atividade apresentou falha simples durante a rotina e precisara de acompanhamento.",
+      "enunciado": "Qual registro ajuda na tratativa?",
+      "instrucoes": "Escolha a opção com informações praticas.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Descrever o que ocorreu, horário, impacto e ação inicial."
+        },
+        {
+          "id": "B",
+          "texto": "Registrar apenas 'problema'."
+        },
+        {
+          "id": "C",
+          "texto": "Não registrar para não gerar pendência."
+        },
+        {
+          "id": "D",
+          "texto": "Registrar dados sem relação com a falha."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Ocorrências precisam de contexto e ação inicial."
+      },
+      "tags": [
+        "operacional",
+        "ocorrencia",
+        "registro"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "tecnico_administrativo_basico_001",
+      "ativo": true,
+      "etapa": "tecnico",
+      "tipo": "multipla_escolha",
+      "vaga": "Administrativo",
+      "area": "Administrativo",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Controle de protocolo",
+      "contexto": "Um documento recebido precisa ser registrado para que a equipe saiba onde ele está.",
+      "enunciado": "Qual informação deve constar no controle?",
+      "instrucoes": "Escolha a opção com rastreabilidade.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Data de recebimento, identificação do documento e responsável pelo próximo passo."
+        },
+        {
+          "id": "B",
+          "texto": "Apenas uma anotacao sem nome."
+        },
+        {
+          "id": "C",
+          "texto": "Nenhum registro, para economizar tempo."
+        },
+        {
+          "id": "D",
+          "texto": "Informações aleatorias sem relação."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Rastreabilidade exige data, identificação e responsável."
+      },
+      "tags": [
+        "administrativo",
+        "protocolo",
+        "controle"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "operacional_basico_001",
+      "ativo": true,
+      "etapa": "operacional",
+      "tipo": "situacional",
+      "vaga": "Operador de Atendimento",
+      "area": "Técnico/Operacional",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Encaminhamento de atendimento",
+      "contexto": "Uma pessoa relata uma dúvida que você não consegue resolver sozinho no primeiro contato.",
+      "enunciado": "Qual atitude e mais adequada?",
+      "instrucoes": "Escolha a alternativa que mantém respeito e continuidade.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Registrar a dúvida, orientar que será verificada e encaminhar conforme procedimento."
+        },
+        {
+          "id": "B",
+          "texto": "Responder qualquer coisa para encerrar rápido."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar a dúvida."
+        },
+        {
+          "id": "D",
+          "texto": "Encerrar sem registro."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "A atitude correta registra, orienta e encaminha."
+      },
+      "tags": [
+        "operacional",
+        "atendimento",
+        "situacional"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "comportamental_basico_001",
+      "ativo": true,
+      "etapa": "comportamental",
+      "tipo": "situacional",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Feedback simples",
+      "contexto": "Você recebeu uma orientação para melhorar a forma de organizar suas tarefas.",
+      "enunciado": "Qual postura demonstra abertura para aprender?",
+      "instrucoes": "Escolha a alternativa mais adequada.",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Ouvir, tirar dúvidas e tentar aplicar a orientação."
+        },
+        {
+          "id": "B",
+          "texto": "Interromper e rejeitar qualquer comentario."
+        },
+        {
+          "id": "C",
+          "texto": "Ignorar a orientação recebida."
+        },
+        {
+          "id": "D",
+          "texto": "Responder de forma grosseira."
+        }
+      ],
+      "gabarito": {
+        "tipo": "alternativa",
+        "resposta_correta": "A",
+        "justificativa": "Abertura para aprender envolve ouvir, perguntar e aplicar."
+      },
+      "tags": [
+        "comportamental",
+        "aprendizado",
+        "feedback"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "objetivo",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "redacao_jovem_aprendiz_basico_001",
+      "ativo": true,
+      "etapa": "redacao",
+      "tipo": "redacao",
+      "vaga": "Jovem Aprendiz",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Minha primeira oportunidade profissional",
+      "tema": "Primeiro emprego e vontade de aprender",
+      "texto_base": "Muitas pessoas iniciam a vida profissional sem experiência anterior. Nessa fase, atitudes simples fazem diferença: chegar no horário, ouvir orientações, perguntar quando houver dúvida, respeitar colegas e cuidar das tarefas recebidas. O primeiro emprego também é um momento de aprender sobre responsabilidade, rotina e convivência no ambiente de trabalho.",
+      "contexto": "Você está participando de um processo seletivo para uma oportunidade de Jovem Aprendiz.",
+      "enunciado": "Escreva um texto explicando por que você deseja conquistar sua primeira oportunidade profissional e quais atitudes pretende ter para aprender, colaborar e cumprir suas tarefas com responsabilidade.",
+      "instrucoes": "Escreva entre 8 e 15 linhas. Use linguagem simples, organizada e respeitosa. Não é necessário usar palavras difíceis.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "criterios": [
+          {
+            "nome": "Adequação ao tema",
+            "peso": 30,
+            "descricao": "O texto responde ao tema proposto."
+          },
+          {
+            "nome": "Organização das ideias",
+            "peso": 25,
+            "descricao": "O texto tem começo, desenvolvimento e conclusão."
+          },
+          {
+            "nome": "Clareza",
+            "peso": 25,
+            "descricao": "As ideias são compreensíveis."
+          },
+          {
+            "nome": "Linguagem",
+            "peso": 20,
+            "descricao": "Usa linguagem adequada e respeitosa."
+          }
+        ]
+      },
+      "tags": [
+        "redacao",
+        "jovem-aprendiz",
+        "primeiro-emprego"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "texto_base",
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "tema",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "redacao_geral_basico_001",
+      "ativo": true,
+      "etapa": "redacao",
+      "tipo": "redacao",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "basico",
+      "dificuldade": "facil",
+      "titulo": "Responsabilidade em tarefas simples",
+      "tema": "Organização e responsabilidade no início de uma rotina",
+      "texto_base": "Mesmo tarefas simples exigem atenção. Conferir uma orientação, organizar materiais, avisar quando concluir uma atividade e pedir ajuda diante de dúvida são atitudes que evitam erro e retrabalho. Em uma rotina profissional, responsabilidade aparece nos pequenos cuidados do dia a dia.",
+      "contexto": "Você está em uma avaliacao para uma vaga de entrada ou apoio.",
+      "enunciado": "Escreva um texto explicando como organização e responsabilidade ajudam uma pessoa a cumprir tarefas simples no trabalho.",
+      "instrucoes": "Escreva entre 8 e 15 linhas. Use exemplos práticos e linguagem clara.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "criterios": [
+          {
+            "nome": "Tema",
+            "peso": 30,
+            "descricao": "Responde ao tema proposto."
+          },
+          {
+            "nome": "Exemplos",
+            "peso": 25,
+            "descricao": "Traz exemplos simples e pertinentes."
+          },
+          {
+            "nome": "Organização",
+            "peso": 25,
+            "descricao": "Apresenta ideias em ordem compreensivel."
+          },
+          {
+            "nome": "Linguagem",
+            "peso": 20,
+            "descricao": "Usa linguagem adequada."
+          }
+        ]
+      },
+      "tags": [
+        "redacao",
+        "basico",
+        "responsabilidade"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "texto_base",
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "tema",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "redacao_geral_intermediario_001",
+      "ativo": true,
+      "etapa": "redacao",
+      "tipo": "redacao",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "intermediario",
+      "dificuldade": "media",
+      "titulo": "Comunicação e acompanhamento de demandas",
+      "tema": "Clareza, registro e acompanhamento no trabalho",
+      "texto_base": "Demandas profissionais raramente dependem de uma única pessoa. Quando uma pendência fica sem registro, o prazo pode ser perdido, a equipe pode repetir trabalho e a liderança pode tomar decisão com informação incompleta. Comunicar status, registrar o que falta e acompanhar o próximo passo ajuda a manter a rotina previsível e organizada.",
+      "contexto": "Você está em uma avaliacao para uma função que exige organização e comunicação profissional.",
+      "enunciado": "Escreva um texto explicando a importância de comunicar status, registrar pendências e acompanhar próximos passos em uma rotina de trabalho.",
+      "instrucoes": "Escreva entre 10 e 18 linhas, com introdução, desenvolvimento e conclusão. Use linguagem profissional.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "criterios": [
+          {
+            "nome": "Adequação ao tema",
+            "peso": 30,
+            "descricao": "Discute comunicação, registro e acompanhamento."
+          },
+          {
+            "nome": "Argumentacao",
+            "peso": 25,
+            "descricao": "Explica por que essas atitudes importam."
+          },
+          {
+            "nome": "Coesão",
+            "peso": 25,
+            "descricao": "Conecta as ideias de forma organizada."
+          },
+          {
+            "nome": "Norma e clareza",
+            "peso": 20,
+            "descricao": "Mantém texto compreensivel e adequado."
+          }
+        ]
+      },
+      "tags": [
+        "redacao",
+        "intermediario",
+        "comunicacao"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "texto_base",
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "tema",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    },
+    {
+      "id": "redacao_geral_avancado_001",
+      "ativo": true,
+      "etapa": "redacao",
+      "tipo": "redacao",
+      "vaga": "Geral",
+      "area": "Geral",
+      "nivel": "avancado",
+      "dificuldade": "dificil",
+      "titulo": "Análise de problema e recomendação",
+      "tema": "Tomada de decisão com base em evidências",
+      "texto_base": "Em situações complexas, decisões rápidas demais podem aumentar riscos, gerar retrabalho e ocultar a causa real do problema. Uma análise consistente compara evidências, mede impacto, identifica hipóteses, avalia alternativas e recomenda um encaminhamento claro. Quanto maior a responsabilidade da função, mais importante é transformar dados em decisão objetiva.",
+      "contexto": "Você está em uma avaliacao para uma função com maior responsabilidade analitica.",
+      "enunciado": "Escreva um texto explicando como evidências, análise de impacto e recomendação clara ajudam na tomada de decisão profissional.",
+      "instrucoes": "Escreva entre 12 e 20 linhas. Estruture o texto com tese, desenvolvimento e fechamento. Use linguagem analítica e profissional.",
+      "alternativas": [],
+      "gabarito": {
+        "tipo": "rubrica",
+        "criterios": [
+          {
+            "nome": "Análise",
+            "peso": 30,
+            "descricao": "Relaciona evidências, impacto e decisão."
+          },
+          {
+            "nome": "Argumentacao",
+            "peso": 25,
+            "descricao": "Defende a ideia com consistência."
+          },
+          {
+            "nome": "Organização",
+            "peso": 25,
+            "descricao": "Apresenta progressão lógica."
+          },
+          {
+            "nome": "Linguagem",
+            "peso": 20,
+            "descricao": "Usa linguagem profissional e clara."
+          }
+        ]
+      },
+      "tags": [
+        "redacao",
+        "avancado",
+        "evidencias"
+      ],
+      "personalizacao": {
+        "permitida": true,
+        "campos_usaveis": [
+          "cliente",
+          "tipo_atendimento",
+          "nivel_personalizacao"
+        ],
+        "partes_adaptaveis": [
+          "texto_base",
+          "contexto",
+          "enunciado",
+          "exemplo_pratico"
+        ],
+        "preservar": [
+          "tema",
+          "nivel",
+          "dificuldade",
+          "gabarito",
+          "critérios",
+          "etapa",
+          "tipo"
+        ]
+      }
+    }
+  ]
+}

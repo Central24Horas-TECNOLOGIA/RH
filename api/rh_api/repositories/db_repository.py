@@ -11,6 +11,7 @@ from .bootstrap import (
 from .cv_analysis import CvAnalysisRepositoryMixin
 from .email_inbox import EmailInboxRepositoryMixin
 from .communications import CommunicationRepositoryMixin
+from .generated_exams import GeneratedExamRepositoryMixin
 from .history import HistoryRepositoryMixin
 from .interviews import InterviewRepositoryMixin
 from .pipeline import PipelineRepositoryMixin
@@ -31,6 +32,7 @@ class DatabaseRepository(
     CvAnalysisRepositoryMixin,
     EmailInboxRepositoryMixin,
     CommunicationRepositoryMixin,
+    GeneratedExamRepositoryMixin,
     AnalyticsRepositoryMixin,
     PipelineRepositoryMixin,
     InterviewRepositoryMixin,

@@ -30,15 +30,23 @@ export function obterClasseEtapaResultado(percentual) {
   return 'bad';
 }
 
+function normalizarComparacaoVisual(valor) {
+  return String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 export function obterClasseStatusProcesso(status) {
   const valor = canonicalizeCandidateStatus(status);
   if (valor === 'Aprovado') return 'is-approved';
   if (valor === 'Qualificado') return 'is-highlight';
-  if (valor === 'Pendente de confirmação' || valor === 'Não respondeu') return 'is-analysis';
+  if (valor === 'Pendente' || valor === 'Não respondeu') return 'is-analysis';
   if (valor === 'Agendado' || valor === 'Confirmado' || valor === 'Reagendado') return 'is-scheduled';
   if (valor.startsWith('Eliminado') || valor === 'Reprovado' || valor === 'Desistente' || valor === 'Cancelado') return 'is-eliminated';
   if (valor === 'Banco de Talentos') return 'is-talent';
-  if (valor === 'Nao qualificado' || valor === 'NÃ£o qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
+  if (normalizarComparacaoVisual(valor) === 'nao qualificado') return 'is-not-qualified';
   return 'is-analysis';
 }
 
@@ -47,11 +55,11 @@ export function obterClasseStatusEntrevista(status) {
   if (valor === 'Aprovado') return 'is-approved';
   if (valor === 'Banco de Talentos') return 'is-talent';
   if (valor === 'Compareceu') return 'is-approved';
-  if (valor === 'Pendente de confirmação' || valor === 'Não respondeu') return 'is-analysis';
+  if (valor === 'Pendente' || valor === 'Não respondeu') return 'is-analysis';
   if (valor === 'Faltou' || valor === 'Eliminado' || valor === 'Desistente' || valor === 'Cancelado') return 'is-eliminated';
   if (valor === 'Agendado' || valor === 'Confirmado' || valor === 'Reagendado') return 'is-scheduled';
   if (valor === 'Qualificado') return 'is-highlight';
-  if (valor === 'Nao qualificado' || valor === 'NÃ£o qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
+  if (normalizarComparacaoVisual(valor) === 'nao qualificado') return 'is-not-qualified';
   return 'is-analysis';
 }
 

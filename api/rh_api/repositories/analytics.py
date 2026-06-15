@@ -420,6 +420,12 @@ class AnalyticsRepositoryMixin:
                         "data_banco_talentos": data_evento if status_candidato == CANDIDATE_STATUS_TALENT_BANK else "",
                         "email": item.get("email") or "",
                         "telefone": item.get("whatsapp") or item.get("telefone") or "",
+                        "classificacao_rh": item.get("classificacao_indicacao") or "",
+                        "justificativa_observacoes_rh": item.get("justificativa_indicacao") or "",
+                        "observacao_rh": item.get("observacao_rh") or "",
+                        "cv_disponivel": "Sim" if item.get("cv_disponivel") else "Não",
+                        "cv_arquivo": item.get("cv_nome_arquivo") or "",
+                        "cv_classificacao": item.get("cv_classificacao") or item.get("classificacao_exibicao") or "",
                     }
                 )
 
@@ -440,7 +446,7 @@ class AnalyticsRepositoryMixin:
             )
             candidatos_banco = self._attach_process_context(
                 cursor,
-                rows_to_dicts(cursor, cursor.fetchall()),
+                self._enrich_candidate_records(cursor, rows_to_dicts(cursor, cursor.fetchall())),
                 timestamp_fields=["data_movimentacao"],
             )
             for item in candidatos_banco:
@@ -482,6 +488,12 @@ class AnalyticsRepositoryMixin:
                         "data_banco_talentos": item.get("data_movimentacao") or "",
                         "email": profile.get("email") or "",
                         "telefone": profile.get("whatsapp") or profile.get("telefone") or "",
+                        "classificacao_rh": profile.get("classificacao_indicacao") or "",
+                        "justificativa_observacoes_rh": profile.get("justificativa_indicacao") or "",
+                        "observacao_rh": profile.get("observacao_rh") or "",
+                        "cv_disponivel": "Sim" if item.get("cv_disponivel") else "Não",
+                        "cv_arquivo": item.get("cv_nome_arquivo") or "",
+                        "cv_classificacao": item.get("cv_classificacao") or "",
                     }
                 )
 
@@ -499,7 +511,7 @@ class AnalyticsRepositoryMixin:
                 FROM historico_provas
                 """
             )
-            for item in rows_to_dicts(cursor, cursor.fetchall()):
+            for item in self._enrich_candidate_records(cursor, rows_to_dicts(cursor, cursor.fetchall())):
                 id_teste = normalize_text(item.get("id_teste"))
                 if id_teste in used_history_ids:
                     continue
@@ -555,6 +567,12 @@ class AnalyticsRepositoryMixin:
                         "data_banco_talentos": "",
                         "email": profile.get("email") or "",
                         "telefone": profile.get("whatsapp") or profile.get("telefone") or "",
+                        "classificacao_rh": profile.get("classificacao_indicacao") or "",
+                        "justificativa_observacoes_rh": profile.get("justificativa_indicacao") or "",
+                        "observacao_rh": profile.get("observacao_rh") or "",
+                        "cv_disponivel": "Sim" if item.get("cv_disponivel") else "Não",
+                        "cv_arquivo": item.get("cv_nome_arquivo") or "",
+                        "cv_classificacao": item.get("cv_classificacao") or item.get("classificacao_exibicao") or "",
                     }
                 )
 
@@ -605,5 +623,11 @@ class AnalyticsRepositoryMixin:
             ("Processo de destino", "processo_destino"),
             ("E-mail", "email"),
             ("Telefone", "telefone"),
+            ("Classificação do RH", "classificacao_rh"),
+            ("Justificativa/observações do RH", "justificativa_observacoes_rh"),
+            ("Observação interna do RH", "observacao_rh"),
+            ("CV disponível", "cv_disponivel"),
+            ("Arquivo do CV", "cv_arquivo"),
+            ("Classificação do CV", "cv_classificacao"),
         ]
         return _report_filename("relatorio_candidatos", start_date, end_date), _csv_bytes(rows, columns)

@@ -134,7 +134,7 @@ CV_WEIGHTS_BY_ROLE = {
         },
         "min_keywords": 3,
     },
-    "Estagiario": {
+    "Estagiário": {
         "keywords": {
             "excel": 1.5,
             "python": 2.0,
@@ -144,6 +144,99 @@ CV_WEIGHTS_BY_ROLE = {
             "react": 1.5,
         },
         "min_keywords": 2,
+    },
+    "Estagiário RH": {
+        "keywords": {
+            "rh": 2.0,
+            "recrutamento": 1.8,
+            "seleção": 1.8,
+            "documentos": 1.5,
+            "ponto": 1.5,
+            "atendimento": 1.2,
+            "excel": 1.2,
+        },
+        "min_keywords": 2,
+    },
+    "Estagiário TI": {
+        "keywords": {
+            "suporte": 2.0,
+            "hardware": 1.8,
+            "software": 1.8,
+            "windows": 1.8,
+            "office": 1.5,
+            "chamados": 1.5,
+            "redes": 1.2,
+        },
+        "min_keywords": 2,
+    },
+    "Estagiário Comercial": {
+        "keywords": {
+            "excel": 2.0,
+            "power bi": 2.0,
+            "indicadores": 1.8,
+            "comercial": 1.8,
+            "dados": 1.5,
+            "planilhas": 1.5,
+        },
+        "min_keywords": 2,
+    },
+    "Estagiário Operação": {
+        "keywords": {
+            "atendimento": 2.0,
+            "cliente": 1.8,
+            "operação": 1.8,
+            "registro": 1.5,
+            "ocorrência": 1.5,
+            "excel": 1.0,
+        },
+        "min_keywords": 2,
+    },
+    "Estagiário Financeiro": {
+        "keywords": {
+            "financeiro": 2.0,
+            "excel": 1.8,
+            "planilhas": 1.5,
+            "documentos": 1.5,
+            "conferência": 1.5,
+            "controles": 1.2,
+        },
+        "min_keywords": 2,
+    },
+    "Suporte Técnico Júnior": {
+        "keywords": {
+            "suporte": 2.0,
+            "hardware": 1.8,
+            "software": 1.8,
+            "windows": 1.8,
+            "office": 1.5,
+            "chamados": 1.5,
+        },
+        "min_keywords": 2,
+    },
+    "Suporte Técnico Pleno": {
+        "keywords": {
+            "suporte": 2.0,
+            "hardware": 1.8,
+            "software": 1.8,
+            "windows": 1.8,
+            "redes": 1.8,
+            "troubleshooting": 1.6,
+            "chamados": 1.5,
+        },
+        "min_keywords": 3,
+    },
+    "Suporte Técnico Sênior": {
+        "keywords": {
+            "suporte": 2.0,
+            "n1": 1.5,
+            "n2": 1.7,
+            "n3": 2.0,
+            "redes": 2.0,
+            "windows": 1.8,
+            "incidentes": 1.8,
+            "troubleshooting": 1.8,
+        },
+        "min_keywords": 3,
     },
     "Analista": {
         "keywords": {
@@ -170,6 +263,7 @@ CV_WEIGHTS_BY_ROLE = {
         "min_keywords": 3,
     },
 }
+CV_WEIGHTS_BY_ROLE["Estagiario"] = CV_WEIGHTS_BY_ROLE["Estagiário"]
 
 EMAIL_REGEX = re.compile(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", re.IGNORECASE)
 PHONE_REGEX = re.compile(r"(?:(?:\+?55)\s*)?(?:\(?\d{2}\)?\s*)?(?:9?\d{4})[-\s.]?\d{4}")
@@ -503,8 +597,21 @@ def score_cv_for_role(
     experiences=None,
 ):
     normalized_role = normalize_text(role)
-    if normalize_compare_text(normalized_role) == "estagiario":
-        normalized_role = "Estagiario"
+    role_aliases = {
+        "estagiario": "Estagiário",
+        "estagiario rh": "Estagiário RH",
+        "estagiario ti": "Estagiário TI",
+        "estagiario comercial": "Estagiário Comercial",
+        "estagiario operacao": "Estagiário Operação",
+        "estagiario financeiro": "Estagiário Financeiro",
+        "suporte tecnico junior": "Suporte Técnico Júnior",
+        "suporte tecnico pleno": "Suporte Técnico Pleno",
+        "suporte tecnico senior": "Suporte Técnico Sênior",
+    }
+    normalized_role = role_aliases.get(
+        normalize_compare_text(normalized_role),
+        normalized_role,
+    )
 
     role_cfg = CV_WEIGHTS_BY_ROLE.get(
         normalized_role,

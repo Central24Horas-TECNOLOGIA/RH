@@ -21,11 +21,14 @@ import { AcaoSair } from '../../shared/components/actions.js';
 import { PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
 
 const ABAS = [
-  { id: 'usuarios', label: 'Usuários', permissao: 'usuarios.visualizar', icon: 'group' },
-  { id: 'perfis', label: 'Perfis e permissões', permissao: 'configuracoes.visualizar', icon: 'admin_panel_settings' },
-  { id: 'catalogos', label: 'Regras reutilizáveis', permissao: 'configuracoes.visualizar', icon: 'rebase_edit' },
-  { id: 'logs', label: 'Logs', permissao: 'logs.visualizar', icon: 'history_edu' },
+  { id: 'usuarios', tela: 'screen-settings-users', label: 'Usuário', permissao: 'usuarios.visualizar', icon: 'person' },
+  { id: 'perfis', tela: 'screen-settings-profiles', label: 'Perfis e permissões', permissao: 'configuracoes.visualizar', icon: 'admin_panel_settings' },
+  { id: 'catalogos', tela: 'screen-settings-rules', label: 'Regras reutilizáveis', permissao: 'configuracoes.visualizar', icon: 'rebase_edit' },
+  { id: 'logs', tela: 'screen-settings-logs', label: 'Logs', permissao: 'logs.visualizar', icon: 'history_edu' },
 ];
+const ABA_POR_TELA = ABAS.reduce((mapa, aba) => ({ ...mapa, [aba.tela]: aba.id }), {
+  'screen-settings': 'usuarios',
+});
 
 const FORM_USUARIO_INICIAL = {
   id_usuario: '',
@@ -293,9 +296,11 @@ function BotaoAba({ aba, ativa, onClick }) {
   `;
 }
 
-export function TelaConfiguracoesSistema({ controlador }) {
+export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-settings-users' }) {
   const abasPermitidas = ABAS.filter((aba) => controlador.possuiPermissao(aba.permissao));
-  const [abaAtiva, setAbaAtiva] = useState(abasPermitidas[0]?.id || 'usuarios');
+  const [abaAtiva, setAbaAtiva] = useState(
+    ABA_POR_TELA[telaAtual] || abasPermitidas[0]?.id || 'usuarios',
+  );
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -353,6 +358,13 @@ export function TelaConfiguracoesSistema({ controlador }) {
   const abaRenderizada = abasPermitidas.some((aba) => aba.id === abaAtiva)
     ? abaAtiva
     : abasPermitidas[0]?.id || '';
+
+  useEffect(() => {
+    const abaDaRota = ABA_POR_TELA[telaAtual];
+    if (abaDaRota && abaDaRota !== abaAtiva) {
+      setAbaAtiva(abaDaRota);
+    }
+  }, [telaAtual, abaAtiva]);
 
   useEffect(() => {
     if (!abasPermitidas.some((aba) => aba.id === abaAtiva)) {
@@ -2047,7 +2059,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
   return html`
     <${PainelRh}
       screenId="screen-settings"
-      navAtiva="screen-settings"
+      navAtiva=${telaAtual}
       subtituloMarca="Configurações"
       placeholderBusca="Configurações, usuários, permissões e logs"
       controlador=${controlador}
@@ -2056,8 +2068,8 @@ export function TelaConfiguracoesSistema({ controlador }) {
     >
       <${PageIntro}
         kicker="Console - Administração"
-        title="Configurações"
-        description="Centralize usuários, perfis, permissões, logs e regras reutilizáveis sem retirar as ações do fluxo operacional."
+        title=${abasPermitidas.find((aba) => aba.id === abaRenderizada)?.label || 'Configurações'}
+        description="Gerencie esta área administrativa em uma tela própria."
         actions=${html`
           <div class="c24-tabs">
             ${abasPermitidas.map(
@@ -2066,7 +2078,7 @@ export function TelaConfiguracoesSistema({ controlador }) {
                   key=${aba.id}
                   aba=${aba}
                   ativa=${abaRenderizada === aba.id}
-                  onClick=${() => setAbaAtiva(aba.id)}
+                  onClick=${() => controlador.irParaTelaProtegida(aba.tela)}
                 />
               `,
             )}

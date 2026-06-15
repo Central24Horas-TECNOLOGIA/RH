@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..config import get_settings
+from ..config import Settings, get_settings
 from ..dependencies import get_current_user, get_repository, require_permissions
 from ..repositories import DatabaseRepository
 
@@ -10,16 +10,25 @@ from ..repositories import DatabaseRepository
 router = APIRouter(tags=["system"])
 
 
-@router.get("/")
-def root():
-    settings = get_settings()
+def build_system_status(settings: Settings | None = None) -> dict:
+    active_settings = settings or get_settings()
     return {
         "status": "ok",
         "message": "API RH Provas online",
-        "server": settings.sql_server,
-        "database": settings.sql_database,
-        "environment": settings.app_env,
+        "server": active_settings.sql_server,
+        "database": active_settings.sql_database,
+        "environment": active_settings.app_env,
     }
+
+
+@router.get("/api/status")
+def api_status():
+    return build_system_status()
+
+
+@router.get("/health")
+def health():
+    return build_system_status()
 
 
 @router.get("/debug/gabaritos-columns", dependencies=[Depends(require_permissions("logs.visualizar"))])

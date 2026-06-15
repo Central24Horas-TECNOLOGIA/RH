@@ -63,28 +63,47 @@ RH/
 
 ## Como rodar
 
-### Backend
+### Comando unico recomendado
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
-```
-
-### Frontend
-
-Sirva a raiz do projeto com um servidor estatico local:
-
-```powershell
-python -m http.server 5500
+python run.py
 ```
 
 Abra:
 
 ```text
-http://127.0.0.1:5500/Front/index.html#/login
+http://127.0.0.1:8010
 ```
+
+O FastAPI serve a API e o frontend da pasta `Front/` no mesmo processo. O fluxo antigo com `python -m http.server` nao e mais necessario.
+
+### Desenvolvimento com reload
+
+```powershell
+python run.py --reload
+```
+
+### Servidor interno
+
+Configure o ambiente e rode sem `--reload`:
+
+```powershell
+$env:RH_SERVER_HOST="0.0.0.0"
+$env:RH_SERVER_PORT="8010"
+$env:RH_APP_ENV="server"
+python run.py --no-reload
+```
+
+No Windows, tambem e possivel iniciar com:
+
+```powershell
+.\start_conecta.ps1
+```
+
+Mais detalhes: [docs/DEPLOY_CONECTA.md](docs/DEPLOY_CONECTA.md).
 
 ## Testes
 

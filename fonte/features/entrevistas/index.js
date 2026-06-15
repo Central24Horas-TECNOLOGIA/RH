@@ -525,7 +525,7 @@ export function TelaEntrevistas({ controlador }) {
 
       <${SectionCard}
         title="Filtros"
-        description="Refine a agenda por dia, processo, status ou busca textual."
+        description=""
         tourId="interview-filters"
       >
         <div class="rh-filter-grid rh-filter-grid--wide">
@@ -669,7 +669,7 @@ export function TelaEntrevistas({ controlador }) {
               `}
       </${SectionCard}>
 
-      <${SectionCard}
+       <${SectionCard}
         title="Agenda operacional"
         description="Atualize status, copie a mensagem base e reagende usando slots disponiveis."
         tourId="interview-agenda"

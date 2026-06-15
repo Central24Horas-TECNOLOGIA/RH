@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import pyodbc
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .logging_config import configure_logging
@@ -20,17 +22,20 @@ from .repositories import (
 from .routers.analytics import router as analytics_router
 from .routers.auth import router as auth_router
 from .routers.email_inbox import router as email_inbox_router
+from .routers.generated_exams import public_router as generated_exams_public_router
+from .routers.generated_exams import router as generated_exams_router
 from .routers.history import router as history_router
 from .routers.interviews import router as interviews_router
 from .routers.pipeline import router as pipeline_router
 from .routers.processes import router as processes_router
 from .routers.public_candidacy import router as public_candidacy_router
 from .routers.settings import router as settings_router
-from .routers.system import router as system_router
+from .routers.system import build_system_status, router as system_router
 
 
 configure_logging()
 logger = logging.getLogger(__name__)
+FRONTEND_ASSET_DIRS = ("estilos", "fonte", "Exames")
 
 
 def _serialize_validation_value(value):
@@ -65,6 +70,123 @@ def _get_validation_message(error: dict) -> str:
     if isinstance(ctx, dict) and ctx.get("error"):
         return str(ctx["error"])
     return error.get("msg") or "Dados inválidos."
+
+
+def _client_prefers_html(request: Request) -> bool:
+    accept = request.headers.get("accept", "").lower()
+    return "text/html" in accept
+
+
+def _resolve_frontend_root(frontend_dir: str) -> Path:
+    return Path(frontend_dir).expanduser().resolve()
+
+
+def _is_frontend_available(frontend_root: Path) -> bool:
+    return frontend_root.is_dir() and (frontend_root / "index.html").is_file()
+
+
+def _resolve_frontend_file(frontend_root: Path, requested_path: str) -> Path | None:
+    try:
+        target = (frontend_root / requested_path).resolve()
+        target.relative_to(frontend_root)
+    except (OSError, ValueError):
+        return None
+
+    if target.is_file():
+        return target
+    return None
+
+
+def _runtime_config_response(settings) -> Response:
+    runtime_config = {
+        "API_BASE_URL": settings.frontend_api_base_url,
+        "PUBLIC_CANDIDATE_BASE_URL": settings.public_candidate_base_url,
+        "PROCESS_DOSSIER_AI_ENDPOINT": settings.process_dossier_ai_endpoint,
+    }
+    runtime_json = json.dumps(runtime_config, ensure_ascii=False, sort_keys=True)
+    content = (
+        f"window.RUNTIME_CONFIG = {{...(window.RUNTIME_CONFIG || {{}}), ...{runtime_json}}};\n"
+        "window.__RH_API_BASE__ = window.RUNTIME_CONFIG.API_BASE_URL || '';\n"
+        "window.__RH_PUBLIC_CANDIDATE_BASE_URL__ = "
+        "window.RUNTIME_CONFIG.PUBLIC_CANDIDATE_BASE_URL || '';\n"
+        "window.__RH_PROCESS_DOSSIER_AI_ENDPOINT__ = "
+        "window.RUNTIME_CONFIG.PROCESS_DOSSIER_AI_ENDPOINT || '';\n"
+    )
+    return Response(
+        content=content,
+        media_type="application/javascript; charset=utf-8",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+def _register_frontend_routes(app: FastAPI, settings) -> None:
+    if not settings.serve_frontend:
+        logger.info("Servico do frontend desativado por configuracao.")
+
+        @app.get("/", include_in_schema=False)
+        def root_status():
+            return build_system_status(settings)
+
+        return
+
+    frontend_root = _resolve_frontend_root(settings.frontend_dir)
+    if not _is_frontend_available(frontend_root):
+        logger.warning(
+            "Interface web não localizada em '%s'. A raiz continuará respondendo status da API.",
+            frontend_root,
+        )
+
+        @app.get("/", include_in_schema=False)
+        def root_status_without_frontend():
+            return build_system_status(settings)
+
+        return
+
+    index_file = frontend_root / "index.html"
+
+    for asset_dir in FRONTEND_ASSET_DIRS:
+        directory = frontend_root / asset_dir
+        if directory.is_dir():
+            app.mount(
+                f"/{asset_dir}",
+                StaticFiles(directory=str(directory)),
+                name=f"frontend_{asset_dir.lower()}",
+            )
+
+    @app.get("/", include_in_schema=False)
+    def root_entrypoint(request: Request):
+        if _client_prefers_html(request):
+            return FileResponse(index_file)
+        return JSONResponse(build_system_status(settings))
+
+    @app.get("/index.html", include_in_schema=False)
+    def frontend_index():
+        return FileResponse(index_file)
+
+    @app.get("/runtime-config.js", include_in_schema=False)
+    def runtime_config():
+        return _runtime_config_response(settings)
+
+    @app.get("/Front/runtime-config.js", include_in_schema=False)
+    def legacy_runtime_config():
+        return _runtime_config_response(settings)
+
+    app.mount(
+        "/Front",
+        StaticFiles(directory=str(frontend_root), html=True),
+        name="frontend_legacy_front",
+    )
+
+    @app.get("/{frontend_path:path}", include_in_schema=False)
+    def frontend_fallback(frontend_path: str, request: Request):
+        static_file = _resolve_frontend_file(frontend_root, frontend_path)
+        if static_file:
+            return FileResponse(static_file)
+
+        if _client_prefers_html(request) and not Path(frontend_path).suffix:
+            return FileResponse(index_file)
+
+        raise HTTPException(status_code=404, detail="Tela não encontrada.")
 
 
 def create_app() -> FastAPI:
@@ -161,12 +283,15 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(history_router)
     app.include_router(email_inbox_router)
+    app.include_router(generated_exams_router)
+    app.include_router(generated_exams_public_router)
     app.include_router(processes_router)
     app.include_router(public_candidacy_router)
     app.include_router(interviews_router)
     app.include_router(analytics_router)
     app.include_router(pipeline_router)
     app.include_router(settings_router)
+    _register_frontend_routes(app, settings)
 
     logger.info(
         "Aplicação inicializada no ambiente '%s' com banco '%s/%s'.",

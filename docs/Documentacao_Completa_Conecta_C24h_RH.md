@@ -240,25 +240,25 @@ SQL Server + armazenamento local de arquivos
 
 ## Como rodar
 
-### Backend
+### Sistema completo
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
+python run.py
 ```
 
-### Frontend
+### Desenvolvimento com reload
 
 ```powershell
-python -m http.server 5500
+python run.py --reload
 ```
 
 Acesso:
 
 ```text
-http://127.0.0.1:5500/Front/index.html#/login
+http://127.0.0.1:8010
 ```
 
 ## Implantação recomendada

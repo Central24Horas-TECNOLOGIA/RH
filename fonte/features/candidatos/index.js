@@ -2001,7 +2001,7 @@ export function TelaCandidatos({ controlador }) {
                   class="btn btn-outline-primary"
                   onClick=${() => abrirFichaImpressao(detalhe, dossieDetalhe)}
                 >
-                  Baixar ficha do candidato
+                  Baixar dossiê
                 </button>
                 <button
                   type="button"

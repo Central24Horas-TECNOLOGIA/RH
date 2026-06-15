@@ -1,5 +1,8 @@
 ﻿import { html, useEffect, useMemo, useState } from '../infraestrutura-react.js';
 import {
+  OPCOES_OPERACOES,
+  OPCOES_TRILHAS_PROVA,
+  OPCOES_VAGAS_PROVA,
   SUGESTOES_NIVEL_POR_VAGA,
   montarProvaPorBlueprint,
   resolverBlueprintProva,
@@ -39,14 +42,66 @@ import {
   NIVEIS_PERSONALIZACAO,
   PERFIS_OPERACAO,
   STATUS_PERSONALIZACAO,
+  TIPOS_ATENDIMENTO_PERSONALIZACAO,
   gerarPersonalizacaoProva,
+  inferirPerfilAtendimentoPersonalizacao,
   registrarHistoricoPersonalizacao,
 } from './services/personalizacao-inteligente.js';
 
 const STATUS_CANDIDATOS_AGENDADOS = new Set(['Agendado', 'Confirmado']);
+const OPCAO_OUTRO = 'Outro';
 
 function normalizarTexto(valor) {
   return String(valor || '').trim();
+}
+
+function validarEmailContato(valor) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizarTexto(valor));
+}
+
+function validarTelefoneContato(valor) {
+  const digitos = normalizarTexto(valor).replace(/\D/g, '');
+  return digitos.length >= 10 && digitos.length <= 13;
+}
+
+function lerValoresMultiselect(event) {
+  return Array.from(event.target.selectedOptions || [])
+    .map((opcao) => normalizarTexto(opcao.value))
+    .filter(Boolean);
+}
+
+function montarListaComOutro(lista = [], outro = '') {
+  return [
+    ...lista.filter((item) => item !== OPCAO_OUTRO),
+    normalizarTexto(outro),
+  ].filter(Boolean);
+}
+
+function normalizarBusca(valor) {
+  return normalizarTexto(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function normalizarValorTrilhaProva(valor) {
+  const chave = normalizarBusca(valor);
+  if (!chave) return '';
+  if (chave.includes('comercial')) return 'comercial';
+  if (chave.includes('financeiro')) return 'financeiro';
+  if (chave.includes('rh')) return 'rh';
+  if (chave.includes('ti')) return 'ti';
+  if (chave.includes('adm') || chave.includes('gestao')) return 'adm';
+  if (chave.includes('operacao') || chave.includes('padrao')) return 'operacao';
+  return chave;
+}
+
+function obterOpcaoVaga(label) {
+  const chave = normalizarBusca(label);
+  return (
+    OPCOES_VAGAS_PROVA.find((opcao) => normalizarBusca(opcao.label) === chave) ||
+    null
+  );
 }
 
 function montarIdentificadorCandidatoAgendado(candidato) {
@@ -198,12 +253,21 @@ export function TelaConfiguracao({ controlador }) {
       controlador.estado.candidato.track !== 'automatico'
         ? controlador.estado.candidato.track
         : '',
+    operacao: '',
     tempo: controlador.estado.candidato.time || 40,
+    candidatoNome: controlador.estado.candidato.name || '',
+    candidatoEmail: controlador.estado.candidato.email || '',
+    candidatoTelefone: controlador.estado.candidato.whatsapp || '',
   }));
   const [personalizacao, setPersonalizacao] = useState(() => ({
     ativada: false,
     operacao: '',
-    perfilOperacao: PERFIS_OPERACAO[0].id,
+    clientesOperacoes: [],
+    clienteOutro: '',
+    tiposAtendimento: [],
+    tipoAtendimentoOutro: '',
+    situacaoPratica: '',
+    perfilOperacao: PERFIS_OPERACAO.find((perfil) => perfil.id === 'call_center')?.id || PERFIS_OPERACAO[0].id,
     nivelPersonalizacao: NIVEIS_PERSONALIZACAO[1].id,
     status: STATUS_PERSONALIZACAO.NAO_PERSONALIZADA,
     questoes: [],
@@ -242,10 +306,21 @@ export function TelaConfiguracao({ controlador }) {
 
   useEffect(() => {
     const nivelSugerido = SUGESTOES_NIVEL_POR_VAGA[formulario.vaga];
-    if (nivelSugerido && !formulario.nivel) {
-      setFormulario((anterior) => ({ ...anterior, nivel: nivelSugerido }));
+    const trilhaSugerida = normalizarValorTrilhaProva(
+      obterOpcaoVaga(formulario.vaga)?.track || '',
+    );
+
+    if (
+      (nivelSugerido && formulario.nivel !== nivelSugerido) ||
+      (trilhaSugerida && formulario.trilha !== trilhaSugerida)
+    ) {
+      setFormulario((anterior) => ({
+        ...anterior,
+        ...(nivelSugerido ? { nivel: nivelSugerido } : {}),
+        ...(trilhaSugerida ? { trilha: trilhaSugerida } : {}),
+      }));
     }
-  }, [formulario.vaga, formulario.nivel]);
+  }, [formulario.vaga, formulario.nivel, formulario.trilha]);
 
   const processoSelecionado = useMemo(() => {
     if (!formulario.processo || formulario.processo === 'PROCESSO_UNICO') {
@@ -276,6 +351,10 @@ export function TelaConfiguracao({ controlador }) {
 
     const referenciaProcesso = obterReferenciaProcesso(processoSelecionado);
     const vagaProcesso = normalizarTexto(processoSelecionado.vaga);
+    const trilhaProcesso =
+      normalizarValorTrilhaProva(processoSelecionado.trilha) ||
+      normalizarValorTrilhaProva(obterOpcaoVaga(vagaProcesso)?.track || '');
+    const nivelProcesso = SUGESTOES_NIVEL_POR_VAGA[vagaProcesso] || '';
 
     setFormulario((anterior) => {
       const proximoFormulario = { ...anterior };
@@ -294,16 +373,29 @@ export function TelaConfiguracao({ controlador }) {
         mudou = true;
       }
 
+      if (nivelProcesso && normalizarTexto(anterior.nivel) !== nivelProcesso) {
+        proximoFormulario.nivel = nivelProcesso;
+        mudou = true;
+      }
+
+      if (trilhaProcesso && normalizarTexto(anterior.trilha) !== trilhaProcesso) {
+        proximoFormulario.trilha = trilhaProcesso;
+        mudou = true;
+      }
+
+      if (
+        processoSelecionado.operacao &&
+        normalizarTexto(anterior.operacao) !== normalizarTexto(processoSelecionado.operacao)
+      ) {
+        proximoFormulario.operacao = processoSelecionado.operacao;
+        mudou = true;
+      }
+
       return mudou ? proximoFormulario : anterior;
     });
     setPersonalizacao((anterior) => ({
       ...anterior,
-      operacao:
-        anterior.operacao ||
-        processoSelecionado.operacao ||
-        processoSelecionado.trilha ||
-        processoSelecionado.vaga ||
-        '',
+      operacao: anterior.operacao,
       questoes: [],
       alertas: [],
       historico: null,
@@ -383,26 +475,49 @@ export function TelaConfiguracao({ controlador }) {
     );
   }, [formulario]);
 
-  const montarConfiguracaoPersonalizacao = () => ({
-    operacao:
-      personalizacao.operacao ||
-      processoSelecionado?.operacao ||
+  const montarConfiguracaoPersonalizacao = () => {
+    const clientes = montarListaComOutro(
+      personalizacao.clientesOperacoes,
+      personalizacao.clienteOutro,
+    );
+    const tiposAtendimento = montarListaComOutro(
+      personalizacao.tiposAtendimento,
+      personalizacao.tipoAtendimentoOutro,
+    );
+    const trilha =
+      formulario.trilha ||
       processoSelecionado?.trilha ||
-      processoSelecionado?.vaga ||
-      '',
-    cliente: processoSelecionado?.cliente || processoSelecionado?.operacao || '',
-    perfilOperacao: personalizacao.perfilOperacao,
-    nivelPersonalizacao: personalizacao.nivelPersonalizacao,
-    usuario:
-      controlador.estado.nomeUsuarioAutenticado ||
-      controlador.estado.usuarioAutenticado ||
-      'RH',
-  });
+      obterOpcaoVaga(formulario.vaga)?.track ||
+      '';
+
+    return {
+      operacao: clientes.join(', '),
+      cliente: clientes.join(', '),
+      clientesOperacoes: clientes,
+      vaga: formulario.vaga,
+      trilha,
+      nivelProva: formulario.nivel || blueprint?.level || '',
+      blueprintLabel: blueprint?.label || '',
+      perfilOperacao: inferirPerfilAtendimentoPersonalizacao({
+        clientes,
+        tipos: tiposAtendimento,
+        area: trilha,
+        vaga: formulario.vaga,
+      }) || personalizacao.perfilOperacao,
+      tiposAtendimento,
+      nivelPersonalizacao: personalizacao.nivelPersonalizacao,
+      situacaoPratica: personalizacao.situacaoPratica,
+      usuario:
+        controlador.estado.nomeUsuarioAutenticado ||
+        controlador.estado.usuarioAutenticado ||
+        'RH',
+    };
+  };
 
   const camposPersonalizacaoPreenchidos = (configuracao) =>
     Boolean(
       normalizarTexto(configuracao.operacao) &&
-        normalizarTexto(configuracao.perfilOperacao) &&
+        (configuracao.tiposAtendimento || []).length &&
         normalizarTexto(configuracao.nivelPersonalizacao),
     );
 
@@ -415,6 +530,10 @@ export function TelaConfiguracao({ controlador }) {
     acao: 'fallback_personalizacao_automatica',
     operacao: configuracao.operacao,
     cliente: configuracao.cliente,
+    vaga: configuracao.vaga,
+    trilha: configuracao.trilha,
+    nivel_prova: configuracao.nivelProva,
+    blueprint_label: configuracao.blueprintLabel,
     perfil_atendimento:
       PERFIS_OPERACAO.find((perfil) => perfil.id === configuracao.perfilOperacao)
         ?.label || configuracao.perfilOperacao,
@@ -497,6 +616,30 @@ export function TelaConfiguracao({ controlador }) {
       return;
     }
 
+    if (!formulario.trilha) {
+      setErro('Selecione a Área/Trilha para prosseguir.');
+      return;
+    }
+
+    const processoUnico = formulario.processo === 'PROCESSO_UNICO';
+    if (processoUnico) {
+      const nome = normalizarTexto(formulario.candidatoNome);
+      const email = normalizarTexto(formulario.candidatoEmail);
+      const telefone = normalizarTexto(formulario.candidatoTelefone);
+      if (!nome || !email || !telefone) {
+        setErro('Processo único exige nome completo, e-mail e telefone do candidato.');
+        return;
+      }
+      if (!validarEmailContato(email)) {
+        setErro('Informe um e-mail válido para o candidato do Processo único.');
+        return;
+      }
+      if (!validarTelefoneContato(telefone)) {
+        setErro('Informe um telefone válido para o candidato do Processo único.');
+        return;
+      }
+    }
+
     let personalizacaoProva = null;
     if (personalizacao.ativada) {
       if (!blueprint) {
@@ -516,13 +659,24 @@ export function TelaConfiguracao({ controlador }) {
     }
 
     setErro('');
+    const candidatoProcessoUnico =
+      formulario.processo === 'PROCESSO_UNICO'
+        ? {
+            nome_candidato: normalizarTexto(formulario.candidatoNome),
+            email: normalizarTexto(formulario.candidatoEmail),
+            telefone: normalizarTexto(formulario.candidatoTelefone),
+            whatsapp: normalizarTexto(formulario.candidatoTelefone),
+            status_entrevista: 'Apto para prova',
+          }
+        : candidatoAgendadoSelecionado;
+
     controlador.configurarFluxo({
       role: formulario.vaga,
       level: formulario.nivel,
       track: formulario.trilha || '',
       time: Number(formulario.tempo),
       processId: formulario.processo,
-      scheduledCandidate: candidatoAgendadoSelecionado,
+      scheduledCandidate: candidatoProcessoUnico,
       personalizacaoProva,
     });
   };
@@ -676,6 +830,49 @@ export function TelaConfiguracao({ controlador }) {
             </div>
           </div>
 
+          ${formulario.processo === 'PROCESSO_UNICO'
+            ? html`
+                <div class="col-md-6">
+                  <label class="form-label">Nome completo do candidato</label>
+                  <input
+                    class="form-control rh-flow-input"
+                    value=${formulario.candidatoNome}
+                    onInput=${(event) =>
+                      setFormulario({
+                        ...formulario,
+                        candidatoNome: event.target.value,
+                      })}
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">E-mail do candidato</label>
+                  <input
+                    class="form-control rh-flow-input"
+                    type="email"
+                    value=${formulario.candidatoEmail}
+                    onInput=${(event) =>
+                      setFormulario({
+                        ...formulario,
+                        candidatoEmail: event.target.value,
+                      })}
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Telefone do candidato</label>
+                  <input
+                    class="form-control rh-flow-input"
+                    inputmode="tel"
+                    value=${formulario.candidatoTelefone}
+                    onInput=${(event) =>
+                      setFormulario({
+                        ...formulario,
+                        candidatoTelefone: event.target.value,
+                      })}
+                  />
+                </div>
+              `
+            : null}
+
           <div class="col-md-6">
             <label class="form-label">Perfil da vaga</label>
             <select
@@ -685,15 +882,13 @@ export function TelaConfiguracao({ controlador }) {
                 setFormulario({ ...formulario, vaga: event.target.value })}
             >
               <option value="">Selecione...</option>
-              <option>Jovem Aprendiz</option>
-              <option>Operador</option>
-              <option>Estagiário</option>
-              <option>Supervisor</option>
-              <option>Control Desk</option>
-              <option>Planejamento</option>
-              <option>TI</option>
-              <option>Analista</option>
-              <option>Outros</option>
+              ${OPCOES_VAGAS_PROVA.map(
+                (opcao) => html`
+                  <option key=${opcao.label} value=${opcao.label}>
+                    ${opcao.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
@@ -707,11 +902,11 @@ export function TelaConfiguracao({ controlador }) {
             >
               <option value="">Selecione...</option>
               <option value="1">Nível 1 - Jovem Aprendiz</option>
-              <option value="2">Nível 2 - Operador / Estagiário</option>
+              <option value="2">Nível 2 - Operador / Estagiário / Suporte Técnico Júnior</option>
               <option value="3">
-                Nível 3 - Supervisor / Control Desk / Planejamento
+                Nível 3 - Supervisor / Control Desk / Suporte Técnico Pleno
               </option>
-              <option value="4">Nível 4 - TI / Analista / Outros</option>
+              <option value="4">Nível 4 - Planejamento / Suporte Técnico Sênior / TI</option>
             </select>
           </div>
 
@@ -723,11 +918,14 @@ export function TelaConfiguracao({ controlador }) {
               onChange=${(event) =>
                 setFormulario({ ...formulario, trilha: event.target.value })}
             >
-              <option value="">Automático</option>
-              <option value="operacao">Operação</option>
-              <option value="ti">TI</option>
-              <option value="rh">RH</option>
-              <option value="adm">ADM / Gestão</option>
+              <option value="">Selecione...</option>
+              ${OPCOES_TRILHAS_PROVA.map(
+                (opcao) => html`
+                  <option key=${opcao.value} value=${opcao.value}>
+                    ${opcao.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
@@ -757,7 +955,7 @@ export function TelaConfiguracao({ controlador }) {
           </div>
         </div>
 
-        <div class="border rounded-2 p-3 mt-4">
+        <div class="border rounded-2 p-3 mt-4 generated-personalization-box">
           <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
             <label class="form-check m-0">
               <input
@@ -771,69 +969,136 @@ export function TelaConfiguracao({ controlador }) {
                     status: event.target.checked
                       ? STATUS_PERSONALIZACAO.PENDENTE
                       : STATUS_PERSONALIZACAO.NAO_PERSONALIZADA,
+                    ...(!event.target.checked
+                      ? {
+                          operacao: '',
+                          clientesOperacoes: [],
+                          clienteOutro: '',
+                          tiposAtendimento: [],
+                          tipoAtendimentoOutro: '',
+                          situacaoPratica: '',
+                        }
+                      : {}),
                     questoes: [],
                     alertas: [],
                     historico: null,
                   })}
               />
               <span class="form-check-label fw-semibold">
-                Personalização Inteligente
+                Desejo personalizar esta prova por operação/cliente
               </span>
             </label>
             <span class="badge bg-secondary">${personalizacao.status}</span>
+          </div>
+          <div class="form-text mt-2">
+            Opcional. Desmarcado, o sistema gera uma prova padrão com base em vaga, área, nível, etapas e regras existentes.
           </div>
 
           ${personalizacao.ativada
             ? html`
                 <div class="row g-3 mt-1">
                   <div class="col-md-6">
-                    <label class="form-label">Operação / Cliente</label>
-                    <input
-                      class="form-control"
-                      required
-                      value=${personalizacao.operacao}
-                      placeholder="Ex.: Clínica, SAC, Backoffice..."
-                      onInput=${(event) =>
-                        setPersonalizacao({
-                          ...personalizacao,
-                          operacao: event.target.value,
-                          status: STATUS_PERSONALIZACAO.PENDENTE,
-                          questoes: [],
-                          alertas: [],
-                          historico: null,
-                        })}
-                    />
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Perfil de atendimento</label>
+                    <label class="form-label">Cliente/Operação</label>
                     <select
-                      class="form-select"
-                      required
-                      value=${personalizacao.perfilOperacao}
+                      class="form-select generated-multiselect"
+                      multiple
+                      value=${personalizacao.clientesOperacoes}
                       onChange=${(event) =>
                         setPersonalizacao({
                           ...personalizacao,
-                          perfilOperacao: event.target.value,
+                          clientesOperacoes: lerValoresMultiselect(event),
                           status: STATUS_PERSONALIZACAO.PENDENTE,
                           questoes: [],
                           alertas: [],
                           historico: null,
                         })}
                     >
-                      ${PERFIS_OPERACAO.map(
-                        (perfil) => html`
-                          <option key=${perfil.id} value=${perfil.id}>
-                            ${perfil.label}
+                      ${[...OPCOES_OPERACOES, OPCAO_OUTRO].map(
+                        (operacao) => html`
+                          <option
+                            key=${operacao}
+                            value=${operacao}
+                            selected=${personalizacao.clientesOperacoes.includes(operacao)}
+                          >
+                            ${operacao}
                           </option>
                         `,
                       )}
                     </select>
                   </div>
                   <div class="col-md-6">
+                    <label class="form-label">Tipo de atendimento</label>
+                    <select
+                      class="form-select generated-multiselect"
+                      multiple
+                      value=${personalizacao.tiposAtendimento}
+                      onChange=${(event) =>
+                        setPersonalizacao({
+                          ...personalizacao,
+                          tiposAtendimento: lerValoresMultiselect(event),
+                          status: STATUS_PERSONALIZACAO.PENDENTE,
+                          questoes: [],
+                          alertas: [],
+                          historico: null,
+                        })}
+                    >
+                      ${TIPOS_ATENDIMENTO_PERSONALIZACAO.map(
+                        (tipo) => html`
+                          <option
+                            key=${tipo}
+                            value=${tipo}
+                            selected=${personalizacao.tiposAtendimento.includes(tipo)}
+                          >
+                            ${tipo}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  </div>
+                  ${personalizacao.clientesOperacoes.includes(OPCAO_OUTRO)
+                    ? html`
+                        <div class="col-md-6">
+                          <label class="form-label">Outro cliente/operação</label>
+                          <input
+                            class="form-control"
+                            value=${personalizacao.clienteOutro}
+                            onInput=${(event) =>
+                              setPersonalizacao({
+                                ...personalizacao,
+                                clienteOutro: event.target.value,
+                                status: STATUS_PERSONALIZACAO.PENDENTE,
+                                questoes: [],
+                                alertas: [],
+                                historico: null,
+                              })}
+                          />
+                        </div>
+                      `
+                    : null}
+                  ${personalizacao.tiposAtendimento.includes(OPCAO_OUTRO)
+                    ? html`
+                        <div class="col-md-6">
+                          <label class="form-label">Outro tipo de atendimento</label>
+                          <input
+                            class="form-control"
+                            value=${personalizacao.tipoAtendimentoOutro}
+                            onInput=${(event) =>
+                              setPersonalizacao({
+                                ...personalizacao,
+                                tipoAtendimentoOutro: event.target.value,
+                                status: STATUS_PERSONALIZACAO.PENDENTE,
+                                questoes: [],
+                                alertas: [],
+                                historico: null,
+                              })}
+                          />
+                        </div>
+                      `
+                    : null}
+                  <div class="col-md-6">
                     <label class="form-label">Nível de personalização</label>
                     <select
                       class="form-select"
-                      required
                       value=${personalizacao.nivelPersonalizacao}
                       onChange=${(event) =>
                         setPersonalizacao({
@@ -848,11 +1113,32 @@ export function TelaConfiguracao({ controlador }) {
                       ${NIVEIS_PERSONALIZACAO.map(
                         (nivel) => html`
                           <option key=${nivel.id} value=${nivel.id}>
-                            ${nivel.label}
+                            ${nivel.label}: ${nivel.descricao}
                           </option>
                         `,
                       )}
                     </select>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Situação prática da operação</label>
+                    <textarea
+                      class="form-control"
+                      rows="2"
+                      placeholder="Ex.: Paciente entra em contato com dúvida sobre agendamento e demonstra preocupação com o tratamento."
+                      value=${personalizacao.situacaoPratica}
+                      onInput=${(event) =>
+                        setPersonalizacao({
+                          ...personalizacao,
+                          situacaoPratica: event.target.value,
+                          status: STATUS_PERSONALIZACAO.PENDENTE,
+                          questoes: [],
+                          alertas: [],
+                          historico: null,
+                        })}
+                    ></textarea>
+                    <div class="form-text">
+                      Opcional, mas recomendado. Ajuda a criar situações realistas sem transformar a prova em treinamento interno.
+                    </div>
                   </div>
                 </div>
 
@@ -1364,7 +1650,7 @@ export function TelaProva({ controlador }) {
         <div class="exam-screen-content">
           <div class="exam-question-card">
             <span class="exam-question-kicker">
-              ${`Questao ${indiceAtual + 1} de ${controlador.estado.questoes.length}`}
+              ${`Questão ${indiceAtual + 1} de ${controlador.estado.questoes.length}`}
             </span>
             <h3 class="exam-question-title">${questaoAtual.title}</h3>
             <p class="exam-question-description">${questaoAtual.description}</p>
@@ -1780,7 +2066,7 @@ export function TelaResultado({ controlador }) {
                             ${etapa.pendings
                               ? html`
                                   <div class="small text-muted mt-2">
-                                    ${`Pendencias de revisao: ${etapa.pendings}`}
+                                    ${`Pendências de revisão: ${etapa.pendings}`}
                                   </div>
                                 `
                               : null}
@@ -1806,7 +2092,7 @@ export function TelaResultado({ controlador }) {
                     </${SectionCard}>
 
                     <${SectionCard}
-                      title="Pendencias"
+                      title="Pendências"
                       className="rh-section-card--flat"
                     >
                       ${
@@ -1867,7 +2153,7 @@ export function TelaResultado({ controlador }) {
                             `
                           : html`
                               <${EmptyState}
-                                title="Sem pendencias"
+                                title="Sem pendências"
                                 text="Não há pendências de revisão registradas para esta prova."
                               />
                             `
@@ -1938,7 +2224,7 @@ export function TelaResultado({ controlador }) {
                   )}
                 </div>
                 <div class="print-sheet-divider print-gap-top"></div>
-                <h2 class="print-sheet-section-title">Pendencias para revisao do RH</h2>
+                <h2 class="print-sheet-section-title">Pendências para revisão do RH</h2>
                 <div class="print-manual-box">
                   ${
                     (estado.pendenciasManuais || []).length

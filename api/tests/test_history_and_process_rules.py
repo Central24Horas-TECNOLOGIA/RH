@@ -174,8 +174,8 @@ class HistoryAndProcessRulesTests(unittest.TestCase):
         self.assertEqual(payload.status_entrevista, "Reagendado")
 
     def test_interview_update_schema_accepts_pending_confirmation_status(self):
-        payload = InterviewUpdateRequest(status_entrevista="Pendente de confirmação")
-        self.assertEqual(payload.status_entrevista, "Pendente de confirmação")
+        payload = InterviewUpdateRequest(status_entrevista="Pendente")
+        self.assertEqual(payload.status_entrevista, "Pendente")
 
     def test_interview_slot_schema_validates_minimum_duration(self):
         payload = InterviewSlotCreateRequest(

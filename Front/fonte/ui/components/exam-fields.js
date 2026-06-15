@@ -6,6 +6,7 @@
 } from '../../infraestrutura-react.js';
 import {
   baixarModeloExcel,
+  converterArrayBufferParaBase64,
   formatarDocumentoRichText,
   obterCapacidadesDaTarefa,
   validarArquivoExcel,
@@ -40,8 +41,46 @@ function limparHtmlVazio(valor) {
   return conteudo;
 }
 
-export function EditorTextoRich({ valor, onChange }) {
+function obterTextoPlanoRichText(valor) {
+  const conteudo = String(valor || '');
+  if (typeof document === 'undefined') {
+    return conteudo.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  const elemento = document.createElement('div');
+  elemento.innerHTML = conteudo;
+  return elemento.textContent || elemento.innerText || '';
+}
+
+function limitarConteudoRichText(valor, limiteCaracteres = 0) {
+  const limite = Number(limiteCaracteres || 0);
+  const texto = obterTextoPlanoRichText(valor);
+  if (!limite || texto.length <= limite) {
+    return {
+      content: valor,
+      text: texto,
+      truncated: false,
+    };
+  }
+
+  const text = texto.slice(0, limite);
+  return {
+    content: escaparHtml(text).replace(/\n/g, '<br>'),
+    text,
+    truncated: true,
+  };
+}
+
+export function EditorTextoRich({
+  valor,
+  onChange,
+  limiteCaracteres = 0,
+  textoAjuda = '',
+  mostrarContador = true,
+}) {
   const editorRef = useRef(null);
+  const limite = Number(limiteCaracteres || 0);
+  const caracteresUsados = obterTextoPlanoRichText(valor).length;
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -51,17 +90,22 @@ export function EditorTextoRich({ valor, onChange }) {
     }
   }, [valor]);
 
-  const aplicarComando = (comando) => (event) => {
+  const aplicarComando = (comando, valor = null) => (event) => {
     event.preventDefault();
     if (!editorRef.current) return;
     editorRef.current.focus();
-    formatarDocumentoRichText(comando);
-    onChange(limparHtmlVazio(editorRef.current.innerHTML));
+    formatarDocumentoRichText(comando, valor);
+    sincronizarConteudo();
   };
 
   const sincronizarConteudo = () => {
     if (!editorRef.current) return;
-    onChange(limparHtmlVazio(editorRef.current.innerHTML));
+    const conteudo = limparHtmlVazio(editorRef.current.innerHTML);
+    const limitado = limitarConteudoRichText(conteudo, limite);
+    if (limitado.truncated) {
+      editorRef.current.innerHTML = limitado.content;
+    }
+    onChange(limitado.content);
   };
 
   return html`
@@ -69,6 +113,16 @@ export function EditorTextoRich({ valor, onChange }) {
       <label class="form-label fw-semibold" for="word-answer-textarea">
         Digite sua resposta
       </label>
+      ${textoAjuda || limite
+        ? html`
+            <div class="rh-editor-helper">
+              <span>${textoAjuda}</span>
+              ${limite && mostrarContador
+                ? html`<strong>${Math.min(caracteresUsados, limite)}/${limite}</strong>`
+                : null}
+            </div>
+          `
+        : null}
       <div class="rh-editor-toolbar">
         <button
           type="button"
@@ -87,6 +141,15 @@ export function EditorTextoRich({ valor, onChange }) {
           onMouseDown=${aplicarComando('italic')}
         >
           <em>I</em>
+        </button>
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
+          title="Sublinhado"
+          aria-label="Aplicar sublinhado"
+          onMouseDown=${aplicarComando('underline')}
+        >
+          <u>U</u>
         </button>
         <button
           type="button"
@@ -145,9 +208,6 @@ export function EditorTextoRich({ valor, onChange }) {
         onInput=${sincronizarConteudo}
         onBlur=${sincronizarConteudo}
       ></div>
-      <div class="form-text mt-2">
-        Campo de resposta em texto livre. O sistema considera o conteúdo digitado para a avaliação.
-      </div>
     </div>
   `;
 }
@@ -208,7 +268,12 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
         arquivo,
         questao.points,
       );
-      onChange(respostaValidada);
+      onChange({
+        ...respostaValidada,
+        contentBase64: converterArrayBufferParaBase64(
+          respostaValidada.uploadedArrayBuffer,
+        ),
+      });
     } catch (error) {
       onChange({
         type: 'excel_external',
@@ -230,17 +295,7 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
       <div class="row g-4">
         <div class="col-lg-7">
           <div class="excel-step">
-            <h4>Como funciona esta etapa</h4>
-            <ol class="mb-0">
-              <li>Baixe a planilha da etapa.</li>
-              <li>Execute a atividade no Excel ou LibreOffice Calc.</li>
-              <li>Salve o arquivo corretamente.</li>
-              <li>Envie o arquivo respondido para validação.</li>
-            </ol>
-          </div>
-
-          <div class="excel-step">
-            <h4>O que sera avaliado</h4>
+            <h4>O que será avaliado</h4>
             <ul class="muted-list">
               ${obterCapacidadesDaTarefa(questao.taskId).map(
                 (item, indice) => html`<li key=${indice}>${item}</li>`,
@@ -266,7 +321,7 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
               ref=${inputRef}
               class="upload-hidden-input"
               type="file"
-              accept=".xlsx,.xlsm"
+              accept=".xlsx,.xls,.xlsm"
               onChange=${processarUpload}
             />
             <div class="d-grid gap-2">
@@ -297,7 +352,7 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
                 `
               : null}
             <div class="small text-muted mt-2">
-              Formatos aceitos: .xlsx e .xlsm
+              Formatos aceitos: .xlsx, .xls e .xlsm
             </div>
           </div>
         </div>

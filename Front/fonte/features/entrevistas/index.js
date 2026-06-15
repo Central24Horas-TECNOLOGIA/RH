@@ -44,8 +44,9 @@ import { obterItensPaginados } from '../../utilitarios.js';
 
 const STATUS_SLOT_DISPONIVEL = 'Disponivel';
 const STATUS_SLOT_BLOQUEADO = 'Bloqueado';
-const TAMANHO_PAGINA_SLOTS_ENTREVISTAS = 5;
-const TAMANHO_PAGINA_AGENDA_ENTREVISTAS = 5;
+const TAMANHO_PAGINA_SLOTS_ENTREVISTAS = 4;
+const TAMANHO_PAGINA_AGENDA_ENTREVISTAS = 4;
+const TAMANHO_RESUMO_DIA_ENTREVISTAS = 4;
 
 function hojeIsoLocal() {
   const agora = new Date();
@@ -86,6 +87,22 @@ function formatarDataLonga(valor) {
     month: 'long',
     year: 'numeric',
   });
+}
+
+function formatarDataCurtaLocal(valor) {
+  return criarDataLocal(valor).toLocaleDateString('pt-BR');
+}
+
+function obterResponsavelEntrevista(item) {
+  return String(
+    item?.responsavel ||
+      item?.responsavel_rh ||
+      item?.entrevistador ||
+      item?.usuario_responsavel ||
+      item?.criado_por ||
+      item?.observacoes_rh ||
+      '',
+  ).trim();
 }
 
 function gerarDiasResumo(valor) {
@@ -142,7 +159,7 @@ function PaginacaoCompacta({
   onChange,
 }) {
   const total = Number(totalItens || 0);
-  if (!total) return null;
+  if (!total || total <= Math.max(1, Number(tamanhoPagina || 1))) return null;
 
   const totalPaginasSeguro = Math.max(1, Number(totalPaginas || 1));
   const paginaSegura = Math.min(Math.max(1, Number(paginaAtual || 1)), totalPaginasSeguro);
@@ -165,7 +182,7 @@ function PaginacaoCompacta({
               >
                 Anterior
               </button>
-              <span class="c24-pagination-current">${paginaSegura}/${totalPaginasSeguro}</span>
+              <span class="c24-pagination-current">${paginaSegura} de ${totalPaginasSeguro}</span>
               <button
                 type="button"
                 class="btn btn-outline-secondary btn-sm"
@@ -218,6 +235,7 @@ export function TelaEntrevistas({ controlador }) {
   });
   const [paginaSlots, setPaginaSlots] = useState(1);
   const [paginaAgenda, setPaginaAgenda] = useState(1);
+  const [modalResumoDiaAberto, setModalResumoDiaAberto] = useState(false);
 
   const carregar = async () => {
     setCarregando(true);
@@ -263,44 +281,58 @@ export function TelaEntrevistas({ controlador }) {
     () => processos.filter((processo) => !isProcessClosed(processo.status)),
     [processos],
   );
+  const entrevistasOperacionais = useMemo(
+    () => {
+      const statusFiltro = canonicalizeCandidateStatus(filtros.status);
+      if (statusFiltro === 'Cancelado') return entrevistas;
+      return entrevistas.filter(
+        (item) => canonicalizeCandidateStatus(item.status_entrevista) !== 'Cancelado',
+      );
+    },
+    [entrevistas, filtros.status],
+  );
 
   const resumo = useMemo(
     () => ({
-      total: entrevistas.length,
+      total: entrevistasOperacionais.length,
       disponiveis: slotsDisponiveis.length,
       ocupados: slots.filter((slot) => normalizarTexto(slot.status_slot) === 'ocupado').length,
       parcialmenteOcupados: slots.filter((slot) => normalizarTexto(slot.status_calculado || slot.status_slot) === 'parcialmente ocupado').length,
       lotados: slots.filter((slot) => normalizarTexto(slot.status_calculado || slot.status_slot) === 'lotado').length,
-      pendentes: entrevistas.filter(
+      pendentes: entrevistasOperacionais.filter(
         (item) => canonicalizeCandidateStatus(item.status_entrevista) === CANDIDATE_STATUS_PENDING_CONFIRMATION,
       ).length,
-      agendadas: entrevistas.filter(
+      agendadas: entrevistasOperacionais.filter(
         (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Agendado',
       ).length,
-      confirmadas: entrevistas.filter(
+      confirmadas: entrevistasOperacionais.filter(
         (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Confirmado',
       ).length,
-      reagendadas: entrevistas.filter(
+      reagendadas: entrevistasOperacionais.filter(
         (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Reagendado',
       ).length,
-      compareceram: entrevistas.filter(
+      compareceram: entrevistasOperacionais.filter(
         (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Compareceu',
       ).length,
-      faltas: entrevistas.filter(
+      faltas: entrevistasOperacionais.filter(
         (item) => canonicalizeCandidateStatus(item.status_entrevista) === 'Faltou',
       ).length,
     }),
-    [entrevistas, slots, slotsDisponiveis.length],
+    [entrevistasOperacionais, slots, slotsDisponiveis.length],
   );
   const diasResumo = useMemo(() => gerarDiasResumo(filtros.data), [filtros.data]);
   const entrevistasDoDia = useMemo(
     () =>
-      (Array.isArray(entrevistas) ? entrevistas : []).filter(
+      (Array.isArray(entrevistasOperacionais) ? entrevistasOperacionais : []).filter(
         (item) =>
           item.data_entrevista &&
           formatarIsoLocal(criarDataLocal(item.data_entrevista)) === filtros.data,
       ),
-    [entrevistas, filtros.data],
+    [entrevistasOperacionais, filtros.data],
+  );
+  const entrevistasResumoDia = useMemo(
+    () => entrevistasDoDia.slice(0, TAMANHO_RESUMO_DIA_ENTREVISTAS),
+    [entrevistasDoDia],
   );
   const slotsPaginados = useMemo(
     () => obterItensPaginados(slots, paginaSlots, TAMANHO_PAGINA_SLOTS_ENTREVISTAS),
@@ -309,11 +341,11 @@ export function TelaEntrevistas({ controlador }) {
   const entrevistasPaginadas = useMemo(
     () =>
       obterItensPaginados(
-        entrevistas,
+        entrevistasOperacionais,
         paginaAgenda,
         TAMANHO_PAGINA_AGENDA_ENTREVISTAS,
       ),
-    [entrevistas, paginaAgenda],
+    [entrevistasOperacionais, paginaAgenda],
   );
 
   useEffect(() => {
@@ -322,7 +354,11 @@ export function TelaEntrevistas({ controlador }) {
 
   useEffect(() => {
     setPaginaAgenda(1);
-  }, [entrevistas.length, filtros.data, filtros.processo, filtros.status, filtros.busca]);
+  }, [entrevistasOperacionais.length, filtros.data, filtros.processo, filtros.status, filtros.busca]);
+
+  useEffect(() => {
+    setModalResumoDiaAberto(false);
+  }, [filtros.data]);
 
   const selecionarData = (data) => setFiltros({ ...filtros, data });
   const limparFiltros = () =>
@@ -418,15 +454,48 @@ export function TelaEntrevistas({ controlador }) {
       return;
     }
 
-    if (!window.confirm('Deseja excluir este slot de entrevista?')) return;
+    if (!window.confirm('Tem certeza que deseja excluir este slot?')) return;
 
     setSalvando(true);
     setErro('');
     try {
       await excluirSlotEntrevista(slot.id_slot);
+      setSlots((atuais) =>
+        atuais.filter((item) => Number(item.id_slot || 0) !== Number(slot.id_slot || 0)),
+      );
       await carregar();
     } catch (error) {
       setErro(error?.message || 'Não foi possível excluir o slot.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const apagarEntrevistaAgendada = async (entrevista) => {
+    if (!entrevista?.id_entrevista) return;
+    if (isProcessClosed(entrevista?.status_processo)) {
+      setErro('Processo encerrado. Nao e possivel apagar esta entrevista.');
+      return;
+    }
+
+    if (!window.confirm('Tem certeza que deseja apagar esta entrevista agendada?')) return;
+
+    setSalvando(true);
+    setErro('');
+    try {
+      await atualizarEntrevista(entrevista.id_entrevista, {
+        status_entrevista: 'Cancelado',
+        observacoes_rh: entrevista.observacoes_rh || '',
+        mensagem_personalizada: entrevista.mensagem_personalizada || '',
+      });
+      setEntrevistas((atuais) =>
+        atuais.filter(
+          (item) => Number(item.id_entrevista || 0) !== Number(entrevista.id_entrevista || 0),
+        ),
+      );
+      await carregar();
+    } catch (error) {
+      setErro(error?.message || 'Nao foi possivel apagar a entrevista agendada.');
     } finally {
       setSalvando(false);
     }
@@ -513,27 +582,22 @@ export function TelaEntrevistas({ controlador }) {
     >
       <${PageIntro}
         kicker="Console | Entrevistas"
-        title="Calendário interno de entrevistas"
-        description="Crie horários internos, acompanhe slots ocupados e controle status sem depender de Booking."
+        title="Calendário de entrevistas"
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
 
       <div class="interview-dashboard-grid">
         <${SectionCard}
-          title="Visão executiva"
-          description="Panorama rápido da agenda interna."
+          title="Visão Executiva"
           className="interview-executive-card compact-dashboard-card"
         >
           <div class="interview-stat-grid">
             ${[
               { icon: 'groups', label: 'Entrevistas', value: resumo.total || 0, variant: 'is-blue' },
               { icon: 'event_available', label: 'Slots livres', value: resumo.disponiveis || 0, variant: 'is-blue' },
-              { icon: 'pie_chart', label: 'Parciais', value: resumo.parcialmenteOcupados || 0, variant: 'is-purple' },
-              { icon: 'group', label: 'Lotados', value: resumo.lotados || 0, variant: 'is-red' },
               { icon: 'hourglass_top', label: 'Pendentes', value: resumo.pendentes || 0, variant: 'is-purple' },
               { icon: 'schedule', label: 'Agendado', value: resumo.agendadas || 0, variant: 'is-blue' },
-              { icon: 'check_circle', label: 'Confirmado', value: resumo.confirmadas || 0, variant: 'is-green' },
               { icon: 'sync', label: 'Reagendado', value: resumo.reagendadas || 0, variant: 'is-purple' },
               { icon: 'person_check', label: 'Compareceu', value: resumo.compareceram || 0, variant: 'is-green' },
               { icon: 'person_cancel', label: 'Faltou', value: resumo.faltas || 0, variant: 'is-red' },
@@ -595,13 +659,13 @@ export function TelaEntrevistas({ controlador }) {
           ${entrevistasDoDia.length
             ? html`
                 <div class="interview-day-list">
-                  ${entrevistasDoDia.slice(0, 3).map(
+                  ${entrevistasResumoDia.map(
                     (item) => html`
                       <article class="interview-day-row" key=${item.id_entrevista}>
                         <span class="material-symbols-outlined">event_available</span>
                         <div>
                           <strong>${item.nome_candidato || '-'}</strong>
-                          <small>${formatarDataHora(item.data_entrevista)}</small>
+                          <small> ${formatarDataHora(item.data_entrevista)}</small>
                         </div>
                         <span class=${`rh-status-pill ${obterClasseStatusEntrevista(item.status_entrevista)}`}>
                           ${item.status_entrevista || '-'}
@@ -610,6 +674,17 @@ export function TelaEntrevistas({ controlador }) {
                     `,
                   )}
                 </div>
+                ${entrevistasDoDia.length > TAMANHO_RESUMO_DIA_ENTREVISTAS
+                  ? html`
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary interview-day-more-btn"
+                        onClick=${() => setModalResumoDiaAberto(true)}
+                      >
+                        Ver mais
+                      </button>
+                    `
+                  : null}
               `
             : html`
                 <div class="c24-empty-state c24-empty-state-horizontal">
@@ -725,21 +800,6 @@ export function TelaEntrevistas({ controlador }) {
                 })}
             />
           </div>
-          <div class="rh-filter-field availability-notes-field">
-            <label>Observações</label>
-            <textarea
-              class="form-control"
-              rows="3"
-              placeholder="Adicione observações..."
-              value=${formularioSlots.observacoes_rh}
-              disabled=${salvando}
-              onInput=${(event) =>
-                setFormularioSlots({
-                  ...formularioSlots,
-                  observacoes_rh: event.target.value,
-                })}
-            ></textarea>
-          </div>
           <div class="availability-submit">
             <button
               type="button"
@@ -757,7 +817,7 @@ export function TelaEntrevistas({ controlador }) {
 
       <${SectionCard}
         title="Filtros"
-        description="Refine a agenda por dia, processo, status ou busca textual."
+        description=""
         className="interview-filter-card"
         tourId="interview-filters"
       >
@@ -819,11 +879,21 @@ export function TelaEntrevistas({ controlador }) {
             />
           </div>
           <div class="interview-filter-actions">
-            <button type="button" class="btn btn-primary rh-action-btn" onClick=${carregar}>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm rh-action-btn interview-compact-action"
+              title="Aplicar filtros"
+              onClick=${carregar}
+            >
               <span class="material-symbols-outlined">filter_alt</span>
-              Aplicar filtros
+              Aplicar
             </button>
-            <button type="button" class="btn btn-outline-secondary rh-action-btn" onClick=${limparFiltros}>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm rh-action-btn interview-compact-action"
+              title="Limpar filtros"
+              onClick=${limparFiltros}
+            >
               <span class="material-symbols-outlined">refresh</span>
               Limpar
             </button>
@@ -831,7 +901,7 @@ export function TelaEntrevistas({ controlador }) {
         </div>
       </${SectionCard}>
 
-      <div class="interview-bottom-grid">
+      <div class="interview-bottom">
         <${SectionCard}
           title="Slots do dia"
           description="Visão por horário com disponibilidade, candidato e status."
@@ -869,18 +939,22 @@ export function TelaEntrevistas({ controlador }) {
                           <div class="interview-row-actions">
                             <button
                               type="button"
-                              class="btn btn-sm btn-outline-primary"
+                              class="c24-icon-btn interview-icon-btn"
+                              title="Editar slot"
+                              aria-label="Editar slot"
                               onClick=${() => abrirEdicaoSlot(slot)}
                             >
-                              Editar slot
+                              <span class="material-symbols-outlined">edit</span>
                             </button>
                             <button
                               type="button"
-                              class="btn btn-sm btn-outline-danger"
+                              class="c24-icon-btn is-danger interview-icon-btn"
+                              title="Excluir slot"
+                              aria-label="Excluir slot"
                               disabled=${salvando}
                               onClick=${() => excluirSlot(slot)}
                             >
-                              Excluir
+                              <span class="material-symbols-outlined">delete</span>
                             </button>
                           </div>
                         </article>
@@ -952,7 +1026,9 @@ export function TelaEntrevistas({ controlador }) {
                           <div class="interview-row-actions">
                             <button
                               type="button"
-                              class="btn btn-sm btn-outline-secondary"
+                              class="c24-icon-btn interview-icon-btn"
+                              title="Copiar mensagem"
+                              aria-label="Copiar mensagem"
                               onClick=${() =>
                                 copiarTexto(item.mensagem_base || '')
                                   .then(() =>
@@ -962,17 +1038,35 @@ export function TelaEntrevistas({ controlador }) {
                                     window.alert('Não foi possível copiar a mensagem automaticamente.'),
                                   )}
                             >
-                              Copiar mensagem
+                              <span class="material-symbols-outlined">content_copy</span>
                             </button>
                             <button
                               type="button"
-                              class="btn btn-sm btn-outline-primary"
+                              class="c24-icon-btn interview-icon-btn"
+                              title=${isProcessClosed(item.status_processo)
+                                ? 'Processo encerrado'
+                                : 'Editar entrevista'}
+                              aria-label=${isProcessClosed(item.status_processo)
+                                ? 'Processo encerrado'
+                                : 'Editar entrevista'}
                               disabled=${isProcessClosed(item.status_processo)}
                               onClick=${() => abrirEdicao(item)}
                             >
-                              ${isProcessClosed(item.status_processo)
+                              <span class="material-symbols-outlined">edit_calendar</span>
+                            </button>
+                            <button
+                              type="button"
+                              class="c24-icon-btn is-danger interview-icon-btn"
+                              title=${isProcessClosed(item.status_processo)
                                 ? 'Processo encerrado'
-                                : 'Atualizar'}
+                                : 'Apagar entrevista agendada'}
+                              aria-label=${isProcessClosed(item.status_processo)
+                                ? 'Processo encerrado'
+                                : 'Apagar entrevista agendada'}
+                              disabled=${salvando || isProcessClosed(item.status_processo)}
+                              onClick=${() => apagarEntrevistaAgendada(item)}
+                            >
+                              <span class="material-symbols-outlined">delete</span>
                             </button>
                           </div>
                         </article>
@@ -1010,6 +1104,52 @@ export function TelaEntrevistas({ controlador }) {
         onChange=${setFormularioEdicao}
         onSave=${salvar}
       />
+
+      <${ModalPadrao}
+        aberto=${modalResumoDiaAberto}
+        titulo=${`Agendamentos de ${formatarDataCurtaLocal(filtros.data)}`}
+        subtitulo="Todos os agendamentos registrados para o dia selecionado."
+        className="interview-day-modal-dialog"
+        onClose=${() => setModalResumoDiaAberto(false)}
+      >
+        <div class="interview-day-modal-list">
+          ${entrevistasDoDia.map(
+            (item) => html`
+              <article class="interview-day-modal-row" key=${item.id_entrevista}>
+                <div>
+                  <span>Horário</span>
+                  <strong>${formatarDataHora(item.data_entrevista)}</strong>
+                </div>
+                <div>
+                  <span>Candidato</span>
+                  <strong>${item.nome_candidato || '-'}</strong>
+                </div>
+                <div>
+                  <span>Processo/vaga</span>
+                  <strong>${item.vaga || item.id_processo || '-'}</strong>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <strong>${item.status_entrevista || '-'}</strong>
+                </div>
+                <div>
+                  <span>Responsável/observação</span>
+                  <strong>${obterResponsavelEntrevista(item) || '-'}</strong>
+                </div>
+              </article>
+            `,
+          )}
+        </div>
+        <footer class="rh-modal-footer">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            onClick=${() => setModalResumoDiaAberto(false)}
+          >
+            Fechar
+          </button>
+        </footer>
+      </${ModalPadrao}>
 
       <${ModalPadrao}
         aberto=${!!slotEdicao}

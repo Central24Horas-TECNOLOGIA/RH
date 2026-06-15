@@ -40,7 +40,18 @@ export function MetricGrid({ items = [] }) {
         (item, indice) => html`
           <article
             key=${item.label || indice}
-            class=${`rh-metric-card ${item.variant || ''}`.trim()}
+            class=${`rh-metric-card ${item.variant || ''} ${item.onClick ? 'is-clickable' : ''}`.trim()}
+            role=${item.onClick ? 'button' : null}
+            tabIndex=${item.onClick ? 0 : null}
+            onClick=${item.onClick || null}
+            onKeyDown=${item.onClick
+              ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    item.onClick();
+                  }
+                }
+              : null}
           >
             ${item.icon
               ? html`

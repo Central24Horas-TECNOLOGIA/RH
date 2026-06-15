@@ -111,6 +111,35 @@ function limitarNumero(valor, minimo = 0, maximo = 1) {
 
 function normalizarTextoBusca(valor) {
   return String(valor ?? '')
+    .replace(/[ÃÀÁÂÃÄÅ][\u0080-\u00bf]*/g, (trecho) => {
+      const mapa = {
+        'Ã¡': 'a',
+        'Ã ': 'a',
+        'Ã¢': 'a',
+        'Ã£': 'a',
+        'Ã¤': 'a',
+        'Ã©': 'e',
+        'Ãª': 'e',
+        'Ã¨': 'e',
+        'Ã«': 'e',
+        'Ã­': 'i',
+        'Ã®': 'i',
+        'Ã¬': 'i',
+        'Ã¯': 'i',
+        'Ã³': 'o',
+        'Ã´': 'o',
+        'Ãµ': 'o',
+        'Ã²': 'o',
+        'Ã¶': 'o',
+        'Ãº': 'u',
+        'Ã»': 'u',
+        'Ã¹': 'u',
+        'Ã¼': 'u',
+        'Ã§': 'c',
+        'Ã‡': 'c',
+      };
+      return mapa[trecho] || trecho;
+    })
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9%$.,=:+\-*/\s]/g, ' ')
@@ -273,6 +302,233 @@ function criarIndiceWorkbook(workbook) {
   });
 
   return { sheetNames, cells, bySheet, lookup };
+}
+
+function normalizarEstiloCelula(celula) {
+  const estilo = celula?.s || {};
+  return {
+    z: celula?.z || estilo.numFmt || '',
+    fill: estilo.fill || null,
+    font: estilo.font || null,
+    alignment: estilo.alignment || null,
+    border: estilo.border || null,
+    numFmt: estilo.numFmt || '',
+  };
+}
+
+function normalizarCelulaComparacao(celula) {
+  if (!celula) return null;
+  return {
+    t: celula.t || '',
+    v: celula.v ?? '',
+    f: celula.f || '',
+    z: celula.z || '',
+    s: normalizarEstiloCelula(celula),
+  };
+}
+
+function serializarComparacao(valor) {
+  return JSON.stringify(valor ?? null);
+}
+
+function celulasIguaisParaCorrecao(celulaModelo, celulaCandidato) {
+  return (
+    serializarComparacao(normalizarCelulaComparacao(celulaModelo)) ===
+    serializarComparacao(normalizarCelulaComparacao(celulaCandidato))
+  );
+}
+
+function obterEnderecosPlanilha(planilha) {
+  return Object.keys(planilha || {}).filter((chave) => decodificarEndereco(chave));
+}
+
+function normalizarPlanilhaComparacao(planilha) {
+  const cells = {};
+  obterEnderecosPlanilha(planilha)
+    .sort()
+    .forEach((endereco) => {
+      cells[normalizarEndereco(endereco)] = normalizarCelulaComparacao(planilha[endereco]);
+    });
+
+  return {
+    ref: planilha?.['!ref'] || '',
+    autofilter: planilha?.['!autofilter'] || null,
+    merges: planilha?.['!merges'] || null,
+    cols: planilha?.['!cols'] || null,
+    rows: planilha?.['!rows'] || null,
+    cells,
+  };
+}
+
+function normalizarWorkbookComparacao(workbook) {
+  const sheetNames = Array.isArray(workbook?.SheetNames)
+    ? workbook.SheetNames
+    : Object.keys(workbook?.Sheets || {});
+  const sheets = {};
+  sheetNames
+    .slice()
+    .sort((a, b) => String(a).localeCompare(String(b)))
+    .forEach((sheetName) => {
+      sheets[sheetName] = normalizarPlanilhaComparacao(workbook?.Sheets?.[sheetName]);
+    });
+
+  return {
+    sheetNames: sheetNames.slice().sort((a, b) => String(a).localeCompare(String(b))),
+    sheets,
+  };
+}
+
+export function isArquivoExcelInalterado(modelo, candidato) {
+  return (
+    serializarComparacao(normalizarWorkbookComparacao(modelo)) ===
+    serializarComparacao(normalizarWorkbookComparacao(candidato))
+  );
+}
+
+function obterCelulaPorEndereco(workbook, sheetName, address) {
+  const endereco = normalizarEndereco(address);
+  return workbook?.Sheets?.[sheetName]?.[endereco] || null;
+}
+
+function celulaCandidatoDiferenteDoModelo(modelo, candidato, sheetName, address) {
+  if (!sheetName || !address) return false;
+  const celulaModelo = obterCelulaPorEndereco(modelo, sheetName, address);
+  const celulaCandidato = obterCelulaPorEndereco(candidato, sheetName, address);
+  return !celulasIguaisParaCorrecao(celulaModelo, celulaCandidato);
+}
+
+function planilhaCandidatoDiferenteDoModelo(modelo, candidato, sheetName) {
+  if (!sheetName) return false;
+  return (
+    serializarComparacao(normalizarPlanilhaComparacao(modelo?.Sheets?.[sheetName])) !==
+    serializarComparacao(normalizarPlanilhaComparacao(candidato?.Sheets?.[sheetName]))
+  );
+}
+
+function detalhePossuiDiferencaDoModelo(detalhe, modelo, candidato) {
+  const locais = [];
+  if (detalhe?.sheetName || detalhe?.address) {
+    locais.push({ sheetName: detalhe.sheetName, address: detalhe.address });
+  }
+  (Array.isArray(detalhe?.candidates) ? detalhe.candidates : []).forEach((item) => {
+    locais.push({ sheetName: item.sheetName, address: item.address });
+  });
+
+  if (
+    locais.some((local) =>
+      celulaCandidatoDiferenteDoModelo(modelo, candidato, local.sheetName, local.address),
+    )
+  ) {
+    return true;
+  }
+
+  const planilhas = [...new Set(locais.map((local) => local.sheetName).filter(Boolean))];
+  return planilhas.some((sheetName) =>
+    planilhaCandidatoDiferenteDoModelo(modelo, candidato, sheetName),
+  );
+}
+
+function celulasAnalisadasDoDetalhe(detalhe) {
+  const locais = [];
+  if (detalhe?.sheetName || detalhe?.address) {
+    locais.push(
+      [detalhe.sheetName, detalhe.address].filter(Boolean).join('!') ||
+        'local nao determinado',
+    );
+  }
+  (Array.isArray(detalhe?.candidates) ? detalhe.candidates : []).forEach((item) => {
+    const local = [item.sheetName, item.address].filter(Boolean).join('!');
+    if (local) locais.push(local);
+  });
+  return [...new Set(locais)];
+}
+
+function criarDetalheNaoDetectadoPorModelo(detalhe, motivo) {
+  const normalizado = normalizarDetalheTarefa(detalhe);
+  return {
+    ...normalizado,
+    tarefa: normalizado.label,
+    detectada: false,
+    done: false,
+    confidence: 0,
+    confidenceLabel: 'nao encontrado',
+    description: motivo,
+    motivo,
+    diferenca_encontrada: false,
+    celulas_analisadas: celulasAnalisadasDoDetalhe(normalizado),
+  };
+}
+
+function normalizarDetalheComEvidenciaModelo(detalhe, diferencaEncontrada) {
+  const normalizado = normalizarDetalheTarefa(detalhe);
+  const motivo = normalizado.done
+    ? normalizado.description
+    : normalizado.description ||
+      'Nenhuma resposta com evidência suficiente foi encontrada para esta tarefa.';
+  return {
+    ...normalizado,
+    tarefa: normalizado.label,
+    detectada: !!normalizado.done,
+    motivo,
+    diferenca_encontrada: !!diferencaEncontrada,
+    celulas_analisadas: celulasAnalisadasDoDetalhe(normalizado),
+  };
+}
+
+function criarResultadoExcelNaoRespondido(resultado, pontos) {
+  const detalhesBase = Array.isArray(resultado?.taskDetails)
+    ? resultado.taskDetails
+    : [];
+  const detalhes = detalhesBase.map((detalhe) =>
+    criarDetalheNaoDetectadoPorModelo(
+      detalhe,
+      'Nenhuma diferenca relevante foi encontrada em relacao ao modelo original.',
+    ),
+  );
+  const mensagem =
+    'Arquivo analisado, mas nenhuma resposta foi detectada. Verifique se voce enviou o arquivo correto apos realizar as atividades.';
+
+  return {
+    score: 0,
+    max: pontos,
+    notes: [mensagem],
+    pendingManual: true,
+    completedTasks: detalhes.map(formatarDetalheTarefa),
+    taskDetails: detalhes,
+    status: 'nao_respondido',
+    mensagem,
+    unanswered: true,
+  };
+}
+
+function aplicarComparacaoComModelo(resultado, modelo, candidato, pontos) {
+  if (!modelo || !candidato) return resultado;
+
+  if (isArquivoExcelInalterado(modelo, candidato)) {
+    return criarResultadoExcelNaoRespondido(resultado, pontos);
+  }
+
+  const detalhes = (Array.isArray(resultado?.taskDetails) ? resultado.taskDetails : []).map(
+    (detalhe) => {
+      const diferencaEncontrada = detalhePossuiDiferencaDoModelo(detalhe, modelo, candidato);
+      if (detalhe?.done && !diferencaEncontrada) {
+        return criarDetalheNaoDetectadoPorModelo(
+          detalhe,
+          'A evidencia encontrada ja existia no modelo original ou nao teve alteracao valida feita pelo candidato.',
+        );
+      }
+      return normalizarDetalheComEvidenciaModelo(detalhe, diferencaEncontrada);
+    },
+  );
+  const concluidas = detalhes.filter((detalhe) => detalhe.done).length;
+
+  return {
+    ...resultado,
+    score: detalhes.length ? Math.round((concluidas / detalhes.length) * pontos) : 0,
+    max: pontos,
+    completedTasks: detalhes.map(formatarDetalheTarefa),
+    taskDetails: detalhes,
+  };
 }
 
 function obterCelulaIndexada(indice, sheetName, row, col) {
@@ -793,36 +1049,48 @@ function avaliarFiltroOrdenacao(indice, label, opcoes = {}) {
 
   indice.sheetNames.forEach((sheetName) => {
     if (planilhaEhBase(sheetName)) return;
+
     const planilha = indice.bySheet[sheetName]?.[0]?.sheet;
     if (!planilhaTemAutofiltro(planilha)) return;
 
     let score = 0.56 + pontuarPlanilha({ sheetName }, opcoes.sheetNames || []);
     let reason = 'filtro/autofiltro encontrado na planilha';
 
-    const numericCells = (indice.bySheet[sheetName] || [])
-      .filter((celula) => converterNumeroSeguro(celula.rawValue ?? celula.text) !== null)
-      .slice(0, 80);
-    const porColuna = {};
-    numericCells.forEach((celula) => {
-      porColuna[celula.col] = porColuna[celula.col] || [];
-      porColuna[celula.col].push(converterNumeroSeguro(celula.rawValue ?? celula.text));
-    });
-    const colunaOrdenada = Object.values(porColuna).some((valores) =>
-      valores.length >= 3
-        ? valores.every((valor, indiceValor) => indiceValor === 0 || valores[indiceValor - 1] >= valor)
-        : false,
-    );
+    const celulasDaPlanilha = indice.bySheet[sheetName] || [];
 
-    if (colunaOrdenada) {
+    // Avalia SOMENTE a coluna C, da linha 3 até a linha 9.
+    // Isso evita considerar a linha de Total na validação da ordenação.
+    const valoresC3AteC9 = celulasDaPlanilha
+      .filter((celula) => {
+        const coluna = String(celula.col || '').toUpperCase();
+        const linha = Number(celula.row);
+
+        return coluna === 'C' && linha >= 3 && linha <= 9;
+      })
+      .sort((a, b) => Number(a.row) - Number(b.row))
+      .map((celula) => converterNumeroSeguro(celula.rawValue ?? celula.text))
+      .filter((valor) => valor !== null);
+
+    const colunaCOrdenadaDecrescente =
+      valoresC3AteC9.length >= 3 &&
+      valoresC3AteC9.every((valor, indiceValor) => {
+        return indiceValor === 0 || valoresC3AteC9[indiceValor - 1] >= valor;
+      });
+
+    if (colunaCOrdenadaDecrescente) {
       score += 0.18;
-      reason = 'filtro encontrado e há coluna numérica em ordem decrescente';
+      reason = 'filtro encontrado e coluna C3:C9 está em ordem decrescente';
     }
 
     evidencias.push(
       criarEvidencia({
         score,
         reason,
-        extra: { sheetName },
+        extra: {
+          sheetName,
+          intervaloAvaliado: 'C3:C9',
+          valoresAvaliados: valoresC3AteC9,
+        },
       }),
     );
   });
@@ -2181,7 +2449,7 @@ function validarExameQualidade(workbook, pontos) {
   });
   const naoEncontradosFlex = avaliarTextosEsperados(
     indice,
-    'Operadores não encontrados listados a partir de BC255',
+    'Operadores nao encontrados listados a partir de BC255',
     {
       texts: ['Tania Santana', 'Nancy Vanderley', 'Luzia Mendonca', 'Eloisa Gouvea'],
       sheetNames: ['PROCV'],
@@ -2240,7 +2508,7 @@ function validarExameQualidade(workbook, pontos) {
       ].filter(Boolean),
     ),
     criarTarefaComEvidencias(
-      'Coluna F com título Valor Total',
+      'Coluna F com titulo Valor Total',
       [
         cabecalhoValorTotal
           ? criarEvidencia({
@@ -2279,7 +2547,7 @@ function validarExameQualidade(workbook, pontos) {
       ].filter(Boolean),
     ),
     criarTarefaComEvidencias(
-      'Operadores não encontrados listados a partir de BC255',
+      'Operadores nao encontrados listados a partir de BC255',
       [
         listaNaoEncontrados
           ? criarEvidencia({
@@ -2667,13 +2935,20 @@ function validarExameAvancado(workbook, pontos) {
   return criarResultadoChecklist(tarefas, pontos, notas);
 }
 
-export function validarWorkbookPorTarefa(taskId, workbook, pontos) {
-  if (taskId === 'basic_exam') return validarExameBasico(workbook, pontos);
-  if (taskId === 'qualid_exam') return validarExameQualidade(workbook, pontos);
-  if (taskId === 'planning_exam') return validarExamePlanejamento(workbook, pontos);
-  if (taskId === 'advanced_exam') return validarExameAvancado(workbook, pontos);
+export function validarWorkbookPorTarefa(taskId, workbook, pontos, opcoes = {}) {
+  let resultado;
+  if (taskId === 'basic_exam') resultado = validarExameBasico(workbook, pontos);
+  else if (taskId === 'qualid_exam') resultado = validarExameQualidade(workbook, pontos);
+  else if (taskId === 'planning_exam') resultado = validarExamePlanejamento(workbook, pontos);
+  else if (taskId === 'advanced_exam') resultado = validarExameAvancado(workbook, pontos);
+  else return criarResultadoPontuacao(0, pontos, ['Validação não implementada.'], true);
 
-  return criarResultadoPontuacao(0, pontos, ['Validação não implementada.'], true);
+  return aplicarComparacaoComModelo(
+    resultado,
+    opcoes.modeloWorkbook,
+    workbook,
+    pontos,
+  );
 }
 
 export async function validarArquivoExcel(taskId, arquivo, pontos) {
@@ -2687,12 +2962,30 @@ export async function validarArquivoExcel(taskId, arquivo, pontos) {
     cellNF: true,
     cellHTML: false,
   });
-  const validation = validarWorkbookPorTarefa(taskId, workbook, pontos);
+  let modeloWorkbook = null;
+  try {
+    const modelo = await carregarModeloExcel(taskId);
+    modeloWorkbook = XLSX.read(new Uint8Array(modelo.arrayBuffer), {
+      type: 'array',
+      cellFormula: true,
+      cellStyles: true,
+      cellNF: true,
+      cellHTML: false,
+    });
+  } catch (error) {
+    console.warn('Nao foi possivel carregar o modelo Excel para comparacao.', error);
+  }
+
+  const validation = validarWorkbookPorTarefa(taskId, workbook, pontos, {
+    modeloWorkbook,
+  });
   const resumoChecklist = resumirConclusaoChecklist(validation.completedTasks);
   const validacaoImplementada = possuiValidacaoExcelImplementada(validation);
-  const statusText = validacaoImplementada
-    ? `Arquivo analisado com sucesso. ${resumoChecklist.concluidas}/${resumoChecklist.total} tarefa(s) detectada(s).`
-    : 'Arquivo recebido, mas esta etapa ainda não possui validação automática completa.';
+  const statusText = validation.unanswered
+    ? `Arquivo analisado, mas nenhuma tarefa respondida foi detectada. 0/${resumoChecklist.total} tarefa(s) detectada(s).`
+    : validacaoImplementada
+      ? `Arquivo analisado com sucesso. ${resumoChecklist.concluidas}/${resumoChecklist.total} tarefa(s) detectada(s).`
+      : 'Arquivo recebido, mas esta etapa ainda não possui validação automática completa.';
 
   return {
     type: 'excel_external',
@@ -2700,7 +2993,10 @@ export async function validarArquivoExcel(taskId, arquivo, pontos) {
     filename: arquivo.name,
     validation,
     statusText,
-    statusClass: validacaoImplementada ? 'excel-status-ok' : 'excel-status-warn',
+    statusClass:
+      validacaoImplementada && !validation.unanswered
+        ? 'excel-status-ok'
+        : 'excel-status-warn',
     uploadedArrayBuffer: arrayBuffer,
   };
 }
@@ -2736,8 +3032,8 @@ export function validarEntregaObrigatoriaDaProva({ questoes, respostas }) {
   return { ok: true };
 }
 
-export function formatarDocumentoRichText(comando) {
-  document.execCommand(comando, false, null);
+export function formatarDocumentoRichText(comando, valor = null) {
+  document.execCommand(comando, false, valor);
 }
 
 export function obterDescricaoMacroEtapa(stageKey, candidato = {}) {
@@ -2777,7 +3073,13 @@ export function obterDescricaoMacroEtapa(stageKey, candidato = {}) {
       'Será avaliado organização, interpretação de informações, raciocínio administrativo, controles operacionais e análise de dados.',
     rh:
       'Será avaliado interpretação de cenário, organização de informações, escrita profissional, raciocínio analítico e conhecimentos aplicados à rotina de RH.',
+    professional_essay:
+      'Será avaliada redação profissional em estudo de caso, considerando clareza, coesão, coerência, organização das ideias, argumentação, interpretação do cenário e adequação ao contexto da vaga.',
   };
+
+  if (stageKey === 'professional_essay') {
+    return mapaBase.professional_essay;
+  }
 
   if (
     roleUpper.includes('JOVEM APRENDIZ') ||
@@ -2877,6 +3179,14 @@ export function obterTextoGabaritoQuestao(questao) {
   }
 
   if (questao.type === 'word') {
+    if (questao.gabarito?.tipo === 'rubrica' && Array.isArray(questao.gabarito.criterios)) {
+      return questao.gabarito.criterios
+        .map((criterio) =>
+          `${criterio.nome || 'Critério'} (${Number(criterio.peso || 0)}%): ${criterio.descricao || ''}`.trim(),
+        )
+        .join(' | ');
+    }
+
     const criterios = [];
     if (questao.expected?.titleText)
       criterios.push(`Título esperado: ${questao.expected.titleText}`);
@@ -2892,6 +3202,11 @@ export function obterTextoGabaritoQuestao(questao) {
     if (questao.expected?.minListItems)
       criterios.push(`Lista com ao menos ${questao.expected.minListItems} itens`);
     if (questao.expected?.anyBold) criterios.push('Uso de negrito no conteúdo');
+    if (questao.expected?.essay) {
+      criterios.push(
+        'Redação em texto corrido com clareza, coesão, coerência, argumentação e postura profissional',
+      );
+    }
 
     return criterios.length
       ? criterios.join(' | ')
@@ -3034,20 +3349,32 @@ export function finalizarProva({ questoes, respostas, blueprint }) {
   const resumoEtapas = Object.values(agrupado).map((etapa) => {
     const percent = etapa.rawMax ? etapa.rawScore / etapa.rawMax : 0;
     const weightedScore = percent * 10;
+    const weightedContribution = weightedScore * (Number(etapa.weight || 0) / 100);
 
     return {
       ...etapa,
       percent,
       weightedScore,
+      weightedContribution,
     };
   });
 
+  const totalPesosEtapas = resumoEtapas.reduce(
+    (soma, etapa) => soma + Number(etapa.weight || 0),
+    0,
+  );
   const notaFinalPonderada =
     resumoEtapas.length > 0
-      ? resumoEtapas.reduce((soma, etapa) => {
-          const scoreEtapa = etapa.rawMax ? (etapa.rawScore / etapa.rawMax) * 10 : 0;
-          return soma + scoreEtapa;
-        }, 0) / resumoEtapas.length
+      ? totalPesosEtapas > 0
+        ? resumoEtapas.reduce(
+            (soma, etapa) =>
+              soma + Number(etapa.weight || 0) * Number(etapa.weightedScore || 0),
+            0,
+          ) / totalPesosEtapas
+        : resumoEtapas.reduce((soma, etapa) => {
+            const scoreEtapa = etapa.rawMax ? (etapa.rawScore / etapa.rawMax) * 10 : 0;
+            return soma + scoreEtapa;
+          }, 0) / resumoEtapas.length
       : 0;
 
   const pendenciasManuais = questoes

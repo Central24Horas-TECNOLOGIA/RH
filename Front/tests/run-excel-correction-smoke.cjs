@@ -59,12 +59,13 @@ function loadCorrectionModule() {
 
   const factory = new Function(
     'sandbox',
-    `with (sandbox) { ${source}; return { validarWorkbookPorTarefa, montarTextoCompletoDoGabarito }; }`,
+    `with (sandbox) { ${source}; return { validarWorkbookPorTarefa, montarTextoCompletoDoGabarito, isArquivoExcelInalterado }; }`,
   );
   return factory(sandbox);
 }
 
 const {
+  isArquivoExcelInalterado,
   montarTextoCompletoDoGabarito,
   validarWorkbookPorTarefa,
 } = loadCorrectionModule();
@@ -290,6 +291,112 @@ test('prova basica com 6 tarefas respondidas', () => {
     },
   }), 50);
   assert(doneCount(result) === 6, `Esperava 6 tarefas; recebeu ${doneCount(result)}.`);
+});
+
+test('modelo reenviado sem alteracao retorna zero tarefas', () => {
+  const modelo = workbook({
+    'Teste de Excel': {
+      '!ref': 'A7:D20',
+      B7: cell('Teste de conhecimentos de Excel'),
+      A9: cell('Produto'),
+      B9: cell('Quantidade'),
+      C9: cell('Valor (R$)'),
+      D9: cell('Sub Total'),
+      A10: cell('Processador'),
+      B10: cell(2),
+      C10: cell(170),
+      A11: cell('Indira'),
+      B11: cell(4),
+      C11: cell(120),
+      A12: cell('Placa mae'),
+      B12: cell(7),
+      C12: cell(250),
+      A13: cell('TOTAL'),
+      A17: cell('1) Insira linhas de grade na planilha acima.'),
+    },
+  });
+  const result = validarWorkbookPorTarefa('basic_exam', modelo, 50, { modeloWorkbook: modelo });
+  assert(isArquivoExcelInalterado(modelo, modelo), 'Modelo deve ser reconhecido como inalterado.');
+  assert(doneCount(result) === 0, `Modelo sem resposta deve retornar 0 tarefas; recebeu ${doneCount(result)}.`);
+  assert(result.status === 'nao_respondido', 'Resultado deve indicar status nao_respondido.');
+});
+
+test('presenca original no modelo nao conta como resposta do candidato', () => {
+  const modelo = workbook({
+    'Teste de Excel': {
+      '!ref': 'A9:D13',
+      A9: cell('Produto'),
+      B9: cell('Quantidade'),
+      C9: cell('Valor (R$)'),
+      D9: cell('Sub Total'),
+      A10: cell('Processador'),
+      B10: cell(2),
+      C10: cell(170),
+      A13: cell('TOTAL'),
+    },
+  });
+  const candidato = workbook({
+    'Teste de Excel': {
+      '!ref': 'A9:D13',
+      A9: cell('Produto'),
+      B9: cell('Quantidade'),
+      C9: cell('Valor (R$)'),
+      D9: cell('Sub Total'),
+      A10: cell('Processador'),
+      B10: cell(2),
+      C10: cell(170),
+      A13: cell('TOTAL'),
+    },
+  });
+  const result = validarWorkbookPorTarefa('basic_exam', candidato, 50, { modeloWorkbook: modelo });
+  assert(doneCount(result) === 0, 'Cabecalho/total ja existentes no modelo nao devem contar.');
+});
+
+test('resposta parcial conta somente alteracoes reais', () => {
+  const modelo = workbook({
+    'Teste de Excel': {
+      '!ref': 'A9:D13',
+      A9: cell('Produto'),
+      B9: cell('Quantidade'),
+      C9: cell('Valor (R$)'),
+      D9: cell('Sub Total'),
+      A10: cell('Processador'),
+      B10: cell(2),
+      C10: cell(170),
+      A11: cell('Indira'),
+      B11: cell(4),
+      C11: cell(120),
+      A12: cell('Placa mae'),
+      B12: cell(7),
+      C12: cell(250),
+      A13: cell('TOTAL'),
+    },
+  });
+  const candidato = workbook({
+    'Teste de Excel': {
+      '!ref': 'A9:D13',
+      A9: cell('Produto'),
+      B9: cell('Quantidade'),
+      C9: cell('Valor (R$)'),
+      D9: cell('Sub Total'),
+      A10: cell('Processador'),
+      B10: cell(2),
+      C10: cell(170),
+      D10: cell(340, '=B10*C10'),
+      A11: cell('Indira'),
+      B11: cell(4),
+      C11: cell(120),
+      D11: cell(480, '=B11*C11'),
+      A12: cell('Placa mae'),
+      B12: cell(7),
+      C12: cell(250),
+      D12: cell(1750, '=B12*C12'),
+      A13: cell('TOTAL'),
+    },
+  });
+  const result = validarWorkbookPorTarefa('basic_exam', candidato, 50, { modeloWorkbook: modelo });
+  assert(doneCount(result) > 0, 'Alteracoes reais devem ser detectadas.');
+  assert(doneCount(result) < 6, 'Resposta parcial nao deve contar tarefas sem diferenca real.');
 });
 
 test('descricao da correcao entra no gabarito', () => {

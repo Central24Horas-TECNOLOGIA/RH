@@ -22,8 +22,8 @@ export function validarFormularioProcesso(formulario, regras) {
     return 'Preencha vaga, quantidade de vagas e data de encerramento.';
   }
 
-  if (regras.exigeOperacao && !normalizarTexto(formulario.operacao)) {
-    return 'Para essa vaga, informe a operação.';
+  if (!normalizarTexto(formulario.operacao)) {
+    return 'Selecione a Operação / Cliente.';
   }
 
   if (regras.exigeTrilha && !normalizarTexto(formulario.trilha)) {

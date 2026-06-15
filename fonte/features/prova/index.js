@@ -1447,7 +1447,7 @@ export function TelaResultado({ controlador }) {
                             ${etapa.pendings
                               ? html`
                                   <div class="small text-muted mt-2">
-                                    ${`Pendencias de revisao: ${etapa.pendings}`}
+                                    ${`Pendências de revisão: ${etapa.pendings}`}
                                   </div>
                                 `
                               : null}
@@ -1473,7 +1473,7 @@ export function TelaResultado({ controlador }) {
                     </${SectionCard}>
 
                     <${SectionCard}
-                      title="Pendencias"
+                      title="Pendências"
                       className="rh-section-card--flat"
                     >
                       ${
@@ -1534,8 +1534,8 @@ export function TelaResultado({ controlador }) {
                             `
                           : html`
                               <${EmptyState}
-                                title="Sem pendencias"
-                                text="Nao ha pendencias de revisao registradas para esta prova."
+                                title="Sem pendências"
+                                text="Não há pendências de revisão registradas para esta prova."
                               />
                             `
                       }
@@ -1605,7 +1605,7 @@ export function TelaResultado({ controlador }) {
                   )}
                 </div>
                 <div class="print-sheet-divider print-gap-top"></div>
-                <h2 class="print-sheet-section-title">Pendencias para revisao do RH</h2>
+                <h2 class="print-sheet-section-title">Pendências para revisão do RH</h2>
                 <div class="print-manual-box">
                   ${
                     (estado.pendenciasManuais || []).length

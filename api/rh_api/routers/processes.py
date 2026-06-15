@@ -297,7 +297,7 @@ def update_candidate_profile(
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    result = repository.upsert_candidate_profile(id_teste, payload.model_dump())
+    result = repository.upsert_candidate_profile(id_teste, payload.model_dump(exclude_unset=True))
     audit_action(
         repository,
         user,
@@ -305,7 +305,7 @@ def update_candidate_profile(
         acao="editar_candidato",
         entidade="candidato",
         entidade_id=id_teste,
-        valor_novo=payload.model_dump(),
+        valor_novo=payload.model_dump(exclude_unset=True),
     )
     return result
 

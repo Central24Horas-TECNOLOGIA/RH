@@ -15,7 +15,7 @@ const TOUR_TEXTOS = {
       },
       {
         tourId: 'home-recent',
-        title: 'Registros recentes',
+        title: 'Provas recentes',
         text:
           'Abra um item recente para revisar detalhes da prova salva ou baixar o pacote consolidado.',
       },

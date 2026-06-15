@@ -999,6 +999,344 @@ def ensure_process_dossier_notes_table(cursor) -> None:
     )
 
 
+def ensure_conecta_exams_tables(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.provas_geradas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.provas_geradas (
+                id_prova INT IDENTITY(1,1) PRIMARY KEY,
+                id_teste NVARCHAR(120) NOT NULL,
+                id_registro INT NULL,
+                id_entrevista INT NULL,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                nome_candidato NVARCHAR(255) NULL,
+                email_acesso NVARCHAR(255) NULL,
+                telefone_acesso NVARCHAR(50) NULL,
+                cpf NVARCHAR(30) NULL,
+                vaga NVARCHAR(255) NULL,
+                operacao NVARCHAR(255) NULL,
+                trilha NVARCHAR(120) NULL,
+                nivel NVARCHAR(80) NULL,
+                tempo_total INT NULL,
+                quantidade_questoes INT NULL,
+                etapas_json NVARCHAR(MAX) NULL,
+                categorias_json NVARCHAR(MAX) NULL,
+                configuracao_json NVARCHAR(MAX) NULL,
+                questoes_json NVARCHAR(MAX) NULL,
+                instrucoes_operacao NVARCHAR(MAX) NULL,
+                status NVARCHAR(80) NOT NULL DEFAULT 'Gerada',
+                codigo_acesso NVARCHAR(4) NOT NULL,
+                token_sessao_publica NVARCHAR(160) NULL,
+                token_expira_em DATETIME NULL,
+                metodo_acesso NVARCHAR(40) NULL,
+                tentativas_acesso INT NULL,
+                gerada_por NVARCHAR(180) NULL,
+                gerada_em DATETIME NOT NULL DEFAULT GETDATE(),
+                iniciada_em DATETIME NULL,
+                revisada_em DATETIME NULL,
+                finalizada_em DATETIME NULL,
+                expira_em DATETIME NULL,
+                reaberta_em DATETIME NULL,
+                reaberta_por NVARCHAR(180) NULL,
+                motivo_reabertura NVARCHAR(MAX) NULL,
+                respostas_anteriores_mantidas BIT NULL,
+                cancelada_em DATETIME NULL,
+                cancelada_por NVARCHAR(180) NULL,
+                motivo_cancelamento NVARCHAR(MAX) NULL,
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("id_teste", "NVARCHAR(120)"),
+        ("id_registro", "INT"),
+        ("id_entrevista", "INT"),
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("nome_candidato", "NVARCHAR(255)"),
+        ("email_acesso", "NVARCHAR(255)"),
+        ("telefone_acesso", "NVARCHAR(50)"),
+        ("cpf", "NVARCHAR(30)"),
+        ("vaga", "NVARCHAR(255)"),
+        ("operacao", "NVARCHAR(255)"),
+        ("trilha", "NVARCHAR(120)"),
+        ("nivel", "NVARCHAR(80)"),
+        ("tempo_total", "INT"),
+        ("quantidade_questoes", "INT"),
+        ("etapas_json", "NVARCHAR(MAX)"),
+        ("categorias_json", "NVARCHAR(MAX)"),
+        ("configuracao_json", "NVARCHAR(MAX)"),
+        ("questoes_json", "NVARCHAR(MAX)"),
+        ("instrucoes_operacao", "NVARCHAR(MAX)"),
+        ("status", "NVARCHAR(80)"),
+        ("codigo_acesso", "NVARCHAR(4)"),
+        ("token_sessao_publica", "NVARCHAR(160)"),
+        ("token_expira_em", "DATETIME"),
+        ("metodo_acesso", "NVARCHAR(40)"),
+        ("tentativas_acesso", "INT"),
+        ("gerada_por", "NVARCHAR(180)"),
+        ("gerada_em", "DATETIME"),
+        ("iniciada_em", "DATETIME"),
+        ("revisada_em", "DATETIME"),
+        ("finalizada_em", "DATETIME"),
+        ("expira_em", "DATETIME"),
+        ("reaberta_em", "DATETIME"),
+        ("reaberta_por", "NVARCHAR(180)"),
+        ("motivo_reabertura", "NVARCHAR(MAX)"),
+        ("respostas_anteriores_mantidas", "BIT"),
+        ("cancelada_em", "DATETIME"),
+        ("cancelada_por", "NVARCHAR(180)"),
+        ("motivo_cancelamento", "NVARCHAR(MAX)"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.provas_geradas', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.provas_geradas
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'UX_provas_geradas_codigo_acesso'
+              AND object_id = OBJECT_ID('dbo.provas_geradas')
+        )
+        BEGIN
+            CREATE UNIQUE INDEX UX_provas_geradas_codigo_acesso
+            ON dbo.provas_geradas(codigo_acesso)
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'IX_provas_geradas_email_status'
+              AND object_id = OBJECT_ID('dbo.provas_geradas')
+        )
+        BEGIN
+            CREATE INDEX IX_provas_geradas_email_status
+            ON dbo.provas_geradas(email_acesso, status)
+        END
+        """
+    )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.respostas_provas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.respostas_provas (
+                id_resposta INT IDENTITY(1,1) PRIMARY KEY,
+                id_prova INT NOT NULL,
+                id_teste NVARCHAR(120) NOT NULL,
+                questao_indice INT NOT NULL,
+                questao_id NVARCHAR(120) NULL,
+                texto_questao_snapshot NVARCHAR(MAX) NULL,
+                alternativas_snapshot NVARCHAR(MAX) NULL,
+                resposta_json NVARCHAR(MAX) NULL,
+                resposta_correta NVARCHAR(MAX) NULL,
+                categoria NVARCHAR(120) NULL,
+                peso DECIMAL(8,2) NULL,
+                correta BIT NULL,
+                nota DECIMAL(8,2) NULL,
+                tempo_resposta_segundos INT NULL,
+                respondida_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_prova", "INT"),
+        ("id_teste", "NVARCHAR(120)"),
+        ("questao_indice", "INT"),
+        ("questao_id", "NVARCHAR(120)"),
+        ("texto_questao_snapshot", "NVARCHAR(MAX)"),
+        ("alternativas_snapshot", "NVARCHAR(MAX)"),
+        ("resposta_json", "NVARCHAR(MAX)"),
+        ("resposta_correta", "NVARCHAR(MAX)"),
+        ("categoria", "NVARCHAR(120)"),
+        ("peso", "DECIMAL(8,2)"),
+        ("correta", "BIT"),
+        ("nota", "DECIMAL(8,2)"),
+        ("tempo_resposta_segundos", "INT"),
+        ("respondida_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.respostas_provas', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.respostas_provas
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.resultados_provas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.resultados_provas (
+                id_resultado INT IDENTITY(1,1) PRIMARY KEY,
+                id_prova INT NOT NULL,
+                id_teste NVARCHAR(120) NOT NULL,
+                nota_objetiva DECIMAL(8,2) NULL,
+                nota_redacao DECIMAL(8,2) NULL,
+                nota_excel DECIMAL(8,2) NULL,
+                nota_tecnica DECIMAL(8,2) NULL,
+                nota_comunicacao DECIMAL(8,2) NULL,
+                nota_lgpd DECIMAL(8,2) NULL,
+                nota_final_prova DECIMAL(8,2) NULL,
+                score_por_categoria_json NVARCHAR(MAX) NULL,
+                resumo_etapas_json NVARCHAR(MAX) NULL,
+                status_correcao NVARCHAR(80) NULL,
+                pendente_avaliacao_manual BIT NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_prova", "INT"),
+        ("id_teste", "NVARCHAR(120)"),
+        ("nota_objetiva", "DECIMAL(8,2)"),
+        ("nota_redacao", "DECIMAL(8,2)"),
+        ("nota_excel", "DECIMAL(8,2)"),
+        ("nota_tecnica", "DECIMAL(8,2)"),
+        ("nota_comunicacao", "DECIMAL(8,2)"),
+        ("nota_lgpd", "DECIMAL(8,2)"),
+        ("nota_final_prova", "DECIMAL(8,2)"),
+        ("score_por_categoria_json", "NVARCHAR(MAX)"),
+        ("resumo_etapas_json", "NVARCHAR(MAX)"),
+        ("status_correcao", "NVARCHAR(80)"),
+        ("pendente_avaliacao_manual", "BIT"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.resultados_provas', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.resultados_provas
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.scores_conecta', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.scores_conecta (
+                id_score INT IDENTITY(1,1) PRIMARY KEY,
+                id_teste NVARCHAR(120) NOT NULL,
+                id_prova INT NULL,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                score_final DECIMAL(8,2) NULL,
+                classificacao NVARCHAR(80) NULL,
+                confiabilidade NVARCHAR(40) NULL,
+                status_analise NVARCHAR(80) NULL,
+                componentes_json NVARCHAR(MAX) NULL,
+                pontos_fortes_json NVARCHAR(MAX) NULL,
+                pontos_atencao_json NVARCHAR(MAX) NULL,
+                alertas_criticos_json NVARCHAR(MAX) NULL,
+                dados_ausentes_json NVARCHAR(MAX) NULL,
+                justificativa NVARCHAR(MAX) NULL,
+                calculado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                recalculado_por NVARCHAR(180) NULL,
+                motivo_recalculo NVARCHAR(MAX) NULL
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_teste", "NVARCHAR(120)"),
+        ("id_prova", "INT"),
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("score_final", "DECIMAL(8,2)"),
+        ("classificacao", "NVARCHAR(80)"),
+        ("confiabilidade", "NVARCHAR(40)"),
+        ("status_analise", "NVARCHAR(80)"),
+        ("componentes_json", "NVARCHAR(MAX)"),
+        ("pontos_fortes_json", "NVARCHAR(MAX)"),
+        ("pontos_atencao_json", "NVARCHAR(MAX)"),
+        ("alertas_criticos_json", "NVARCHAR(MAX)"),
+        ("dados_ausentes_json", "NVARCHAR(MAX)"),
+        ("justificativa", "NVARCHAR(MAX)"),
+        ("calculado_em", "DATETIME"),
+        ("recalculado_por", "NVARCHAR(180)"),
+        ("motivo_recalculo", "NVARCHAR(MAX)"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.scores_conecta', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.scores_conecta
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.decisoes_rh', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.decisoes_rh (
+                id_decisao INT IDENTITY(1,1) PRIMARY KEY,
+                id_teste NVARCHAR(120) NOT NULL,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                decisao NVARCHAR(80) NOT NULL,
+                justificativa NVARCHAR(MAX) NULL,
+                observacao NVARCHAR(MAX) NULL,
+                usuario_responsavel NVARCHAR(180) NULL,
+                data_decisao DATETIME NOT NULL DEFAULT GETDATE(),
+                score_no_momento DECIMAL(8,2) NULL,
+                classificacao_no_momento NVARCHAR(80) NULL,
+                score_considerado BIT NULL
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_teste", "NVARCHAR(120)"),
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("decisao", "NVARCHAR(80)"),
+        ("justificativa", "NVARCHAR(MAX)"),
+        ("observacao", "NVARCHAR(MAX)"),
+        ("usuario_responsavel", "NVARCHAR(180)"),
+        ("data_decisao", "DATETIME"),
+        ("score_no_momento", "DECIMAL(8,2)"),
+        ("classificacao_no_momento", "NVARCHAR(80)"),
+        ("score_considerado", "BIT"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.decisoes_rh', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.decisoes_rh
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+
 def ensure_interviews_table(cursor) -> None:
     cursor.execute(
         """
@@ -1285,6 +1623,7 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_interview_slots_table(cursor)
             ensure_candidate_movements_table(cursor)
             ensure_process_dossier_notes_table(cursor)
+            ensure_conecta_exams_tables(cursor)
             ensure_process_reference_columns(cursor)
             ensure_decimal_process_columns(cursor)
         finally:

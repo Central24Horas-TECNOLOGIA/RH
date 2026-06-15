@@ -232,15 +232,14 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
           <div class="excel-step">
             <h4>Como funciona esta etapa</h4>
             <ol class="mb-0">
-              <li>Baixe a planilha da etapa.</li>
-              <li>Execute a atividade no Excel ou LibreOffice Calc.</li>
+              
               <li>Salve o arquivo corretamente.</li>
               <li>Envie o arquivo respondido para validacao.</li>
             </ol>
           </div>
 
           <div class="excel-step">
-            <h4>O que sera avaliado</h4>
+            <h4>O que será avaliado</h4>
             <ul class="muted-list">
               ${obterCapacidadesDaTarefa(questao.taskId).map(
                 (item, indice) => html`<li key=${indice}>${item}</li>`,

@@ -4,7 +4,7 @@ import { isProcessClosed } from '../process-flow.js';
 import { ModalPadrao } from '../../ui/componentes-compartilhados.js';
 
 export const STATUS_ENTREVISTA = [
-  'Pendente de confirmação',
+  'Pendente',
   'Agendado',
   'Confirmado',
   'Reagendado',

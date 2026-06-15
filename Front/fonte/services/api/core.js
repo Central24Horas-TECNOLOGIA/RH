@@ -1,8 +1,24 @@
 import { criarLogger } from '../../logger.js';
 
 const CONFIG_RUNTIME = window.RUNTIME_CONFIG || {};
+
+function detectarApiLocalPadrao() {
+  const local = window.location || {};
+  const host = local.hostname || '';
+  const porta = local.port || '';
+  const ehHostLocal = ['localhost', '127.0.0.1', '::1'].includes(host);
+
+  if (local.protocol === 'file:') {
+    return 'http://127.0.0.1:8000';
+  }
+if (ehHostLocal) {
+  return `${local.protocol || 'http:'}//${host}:8081`;
+}
+  return '';
+}
+
 const URL_API_BASE =
-  CONFIG_RUNTIME.API_BASE_URL || window.__RH_API_BASE__ || 'http://127.0.0.1:8010';
+  CONFIG_RUNTIME.API_BASE_URL || window.__RH_API_BASE__ || detectarApiLocalPadrao();
 export const URL_PUBLICA_BASE_CANDIDATURA =
   CONFIG_RUNTIME.PUBLIC_CANDIDATE_BASE_URL ||
   window.__RH_PUBLIC_CANDIDATE_BASE_URL__ ||
