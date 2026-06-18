@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from pydantic import Field, field_validator, model_validator
 
 from .common import BaseSchema
+
+
+def _normalize_compare_value(value: str) -> str:
+    normalized = unicodedata.normalize("NFD", str(value or "").strip())
+    normalized = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+    return normalized.lower()
 
 
 class ProcessCreateRequest(BaseSchema):
@@ -53,6 +60,7 @@ class ProcessCreateRequest(BaseSchema):
 
 
 class ProcessUpdateRequest(BaseSchema):
+    vaga: str | None = None
     quantidade_vagas: int = 0
     data_encerramento: str = ""
     operacao: str = ""
@@ -71,6 +79,16 @@ class ProcessUpdateRequest(BaseSchema):
         safe_value = str(value or "").strip()
         if not safe_value:
             raise ValueError("Informe a data de encerramento do processo.")
+        return safe_value
+
+    @field_validator("vaga")
+    @classmethod
+    def validate_optional_vacancy(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            raise ValueError("Informe o cargo/vaga do processo.")
         return safe_value
 
     @field_validator("quantidade_vagas")
@@ -116,6 +134,44 @@ class ProcessUpdateRequest(BaseSchema):
         return self
 
 
+class ProcessDossierNoteCreateRequest(BaseSchema):
+    id_teste: str = ""
+    nome_candidato: str = ""
+    texto: str = ""
+
+    @field_validator("texto")
+    @classmethod
+    def validate_note_text(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            raise ValueError("Informe a anotação do dossiê.")
+        if len(safe_value) > 3000:
+            raise ValueError("A anotação do dossiê deve ter no máximo 3000 caracteres.")
+        return safe_value
+
+    @field_validator("id_teste", "nome_candidato")
+    @classmethod
+    def validate_note_reference(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 255:
+            raise ValueError("A referência da anotação é muito longa.")
+        return safe_value
+
+
+class ProcessDossierNoteUpdateRequest(BaseSchema):
+    texto: str = ""
+
+    @field_validator("texto")
+    @classmethod
+    def validate_note_text(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            raise ValueError("Informe a anotação do dossiê.")
+        if len(safe_value) > 3000:
+            raise ValueError("A anotação do dossiê deve ter no máximo 3000 caracteres.")
+        return safe_value
+
+
 class ProcessCandidateCreateRequest(BaseSchema):
     id_registro: int | None = None
     id_entrevista: int | None = None
@@ -129,6 +185,8 @@ class ProcessCandidateCreateRequest(BaseSchema):
     data_prova: str = ""
     origem: str = "Prova"
     etapa_pipeline: str | None = None
+    eh_indicacao: bool = False
+    tipo_indicacao: str = ""
 
     @field_validator("nome_candidato")
     @classmethod
@@ -137,6 +195,28 @@ class ProcessCandidateCreateRequest(BaseSchema):
         if not safe_value:
             raise ValueError("Informe o nome do candidato.")
         return safe_value
+
+    @field_validator("tipo_indicacao")
+    @classmethod
+    def validate_candidate_indication_type(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        valid_values = {
+            "indicado",
+            "indicado com restricao",
+            "indicado com restricoes",
+            "contraindicado",
+        }
+        if _normalize_compare_value(safe_value) not in valid_values:
+            raise ValueError("Tipo de indicação inválido.")
+        return safe_value
+
+    @model_validator(mode="after")
+    def validate_candidate_indication(self):
+        if self.eh_indicacao and not str(self.tipo_indicacao or "").strip():
+            raise ValueError("Selecione o tipo de indicação.")
+        return self
 
 
 class ProcessCandidateStatusUpdateRequest(BaseSchema):
@@ -202,7 +282,7 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
     def validate_elimination_text(cls, value: str) -> str:
         safe_value = str(value or "").strip()
         if len(safe_value) > 120:
-            raise ValueError("Os dados da eliminacao devem ter no maximo 120 caracteres.")
+            raise ValueError("Os dados da eliminação devem ter no máximo 120 caracteres.")
         return safe_value
 
 
@@ -221,9 +301,42 @@ class StandaloneCandidateStatusUpdateRequest(BaseSchema):
     data_eliminacao: str | None = None
 
 
+class WhatsAppManualContactRequest(BaseSchema):
+    tipo_contato: str = "contato_enviado"
+    observacao: str = ""
+    mensagem: str = ""
+
+    @field_validator("tipo_contato")
+    @classmethod
+    def validate_contact_type(cls, value: str) -> str:
+        safe_value = str(value or "").strip() or "contato_enviado"
+        allowed = {
+            "contato_enviado",
+            "respondeu",
+            "confirmou_entrevista",
+            "cancelou_entrevista",
+            "solicitou_reagendamento",
+            "observacao_livre",
+        }
+        if safe_value not in allowed:
+            raise ValueError("Tipo de contato WhatsApp inválido.")
+        return safe_value
+
+    @field_validator("observacao", "mensagem")
+    @classmethod
+    def validate_contact_text(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 2000:
+            raise ValueError("O texto do registro de WhatsApp deve ter no máximo 2000 caracteres.")
+        return safe_value
+
+
 class TalentBankUseRequest(BaseSchema):
     id_processo: str = ""
     id_processo_ref: str = ""
+    origem: str = ""
+    eh_indicacao: bool = False
+    tipo_indicacao: str = ""
 
     @field_validator("id_processo")
     @classmethod
@@ -232,6 +345,28 @@ class TalentBankUseRequest(BaseSchema):
         if not safe_value:
             raise ValueError("Selecione um processo para utilizar o candidato.")
         return safe_value
+
+    @field_validator("tipo_indicacao")
+    @classmethod
+    def validate_talent_bank_indication_type(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        valid_values = {
+            "indicado",
+            "indicado com restricao",
+            "indicado com restricoes",
+            "contraindicado",
+        }
+        if _normalize_compare_value(safe_value) not in valid_values:
+            raise ValueError("Tipo de indicação inválido.")
+        return safe_value
+
+    @model_validator(mode="after")
+    def validate_talent_bank_indication(self):
+        if self.eh_indicacao and not str(self.tipo_indicacao or "").strip():
+            raise ValueError("Selecione o tipo de indicação.")
+        return self
 
 
 class TalentBankCreateRequest(BaseSchema):
@@ -248,6 +383,11 @@ class TalentBankCreateRequest(BaseSchema):
     whatsapp: str = ""
     cidade: str = ""
     bairro: str = ""
+    codigo_acesso: str = ""
+    codigo_cp: str = ""
+    codigo_prova: str = ""
+    eh_indicacao: bool = False
+    tipo_indicacao: str = ""
 
     @field_validator("id_teste")
     @classmethod
@@ -256,6 +396,28 @@ class TalentBankCreateRequest(BaseSchema):
         if not safe_value:
             raise ValueError("Informe o ID da prova do candidato.")
         return safe_value
+
+    @field_validator("tipo_indicacao")
+    @classmethod
+    def validate_create_indication_type(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        valid_values = {
+            "indicado",
+            "indicado com restricao",
+            "indicado com restricoes",
+            "contraindicado",
+        }
+        if _normalize_compare_value(safe_value) not in valid_values:
+            raise ValueError("Tipo de indicação inválido.")
+        return safe_value
+
+    @model_validator(mode="after")
+    def validate_create_indication(self):
+        if self.eh_indicacao and not str(self.tipo_indicacao or "").strip():
+            raise ValueError("Selecione o tipo de indicação.")
+        return self
 
     @field_validator("nome_candidato")
     @classmethod
@@ -303,6 +465,8 @@ class CandidateProfileUpdateRequest(BaseSchema):
     habilidades: list[str] = []
     tags: list[str] = []
     observacao_rh: str = ""
+    classificacao_indicacao: str = ""
+    justificativa_indicacao: str = ""
     email: str = ""
     telefone: str = ""
     whatsapp: str = ""
@@ -317,12 +481,27 @@ class CandidateProfileUpdateRequest(BaseSchema):
             raise ValueError("Limite de 30 itens por campo.")
         return safe_items
 
-    @field_validator("observacao_rh")
+    @field_validator("observacao_rh", "justificativa_indicacao")
     @classmethod
     def validate_observation(cls, value: str) -> str:
         safe_value = str(value or "").strip()
         if len(safe_value) > 3000:
             raise ValueError("A observação RH deve ter no máximo 3000 caracteres.")
+        return safe_value
+
+    @field_validator("classificacao_indicacao")
+    @classmethod
+    def validate_profile_recommendation(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        valid_values = {
+            "indicado",
+            "indicado com restricoes",
+            "contraindicado",
+        }
+        if _normalize_compare_value(safe_value) not in valid_values:
+            raise ValueError("Classificação da ficha do candidato inválida.")
         return safe_value
 
     @field_validator("email")
@@ -348,4 +527,86 @@ class CandidateProfileUpdateRequest(BaseSchema):
         safe_value = str(value or "").strip()
         if len(safe_value) > 120:
             raise ValueError("Cidade e bairro devem ter no máximo 120 caracteres.")
+        return safe_value
+
+
+class CandidateSheetUpdateRequest(BaseSchema):
+    nome_candidato: str | None = None
+    email: str | None = None
+    telefone: str | None = None
+    whatsapp: str | None = None
+    cidade: str | None = None
+    bairro: str | None = None
+    observacao_rh: str | None = None
+    classificacao: str | None = None
+    classificacao_indicacao: str | None = None
+    justificativa: str | None = None
+    justificativa_indicacao: str | None = None
+
+    @field_validator("nome_candidato")
+    @classmethod
+    def validate_optional_candidate_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 255:
+            raise ValueError("O nome do candidato deve ter no máximo 255 caracteres.")
+        return safe_value
+
+    @field_validator("email")
+    @classmethod
+    def validate_sheet_email(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if safe_value and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", safe_value):
+            raise ValueError("Informe um e-mail válido.")
+        return safe_value
+
+    @field_validator("telefone", "whatsapp")
+    @classmethod
+    def validate_sheet_phone(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        digits = re.sub(r"\D", "", safe_value)
+        if safe_value and len(digits) not in (10, 11, 12, 13):
+            raise ValueError("Informe um telefone ou WhatsApp válido.")
+        return safe_value
+
+    @field_validator("cidade", "bairro")
+    @classmethod
+    def validate_sheet_location(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 120:
+            raise ValueError("Cidade e bairro devem ter no máximo 120 caracteres.")
+        return safe_value
+
+    @field_validator("observacao_rh", "justificativa", "justificativa_indicacao")
+    @classmethod
+    def validate_sheet_long_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 3000:
+            raise ValueError("Os textos da ficha devem ter no máximo 3000 caracteres.")
+        return safe_value
+
+    @field_validator("classificacao", "classificacao_indicacao")
+    @classmethod
+    def validate_sheet_recommendation(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        valid_values = {
+            "indicado",
+            "indicado com restricoes",
+            "contraindicado",
+        }
+        if _normalize_compare_value(safe_value) not in valid_values:
+            raise ValueError("Classificação da ficha do candidato inválida.")
         return safe_value

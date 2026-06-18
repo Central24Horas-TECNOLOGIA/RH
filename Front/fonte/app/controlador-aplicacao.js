@@ -13,6 +13,8 @@ import {
   analisarCvEmailRecebido,
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
+  atualizarAnotacaoDossieProcesso,
+  atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
@@ -23,10 +25,12 @@ import {
   baixarAnexoEmailRecebido,
   baixarCvCandidato,
   criarCandidatoNoProcesso,
+  criarAnotacaoDossieProcesso,
   criarCardPipeline,
   criarSlotsEntrevista,
   criarProcesso,
   desativarLinkPublicoCandidatura,
+  dispensarPreAnaliseCv,
   encerrarSessaoApi,
   encerrarProcesso,
   excluirCardPipeline,
@@ -42,6 +46,7 @@ import {
   baixarRelatorioProcessos,
   ignorarEmailRecebido,
   lerAnalisesCandidatos,
+  lerAnotacoesDossieProcesso,
   lerArquivosResposta,
   lerBancoTalentos,
   lerCandidatosProcessos,
@@ -51,10 +56,13 @@ import {
   lerEmailsRecebidos,
   lerEmailsRecebidosProcesso,
   lerEntrevistas,
+  lerFichaCandidato,
   lerHistorico,
   lerHistoricoPaginado,
+  listarProvasGeradas,
   lerPipelineCandidatos,
   lerSessaoAutenticacao,
+  limparSessaoAutenticacao,
   lerPreAnalisesCv,
   lerRelatorioCandidatos,
   lerRelatorioProcessos,
@@ -63,14 +71,32 @@ import {
   limparListaPreAnalisesCv,
   moverCardPipeline,
   registrarWhatsappAprovacao,
+  registrarWhatsappContatoManual,
   vincularEmailRecebidoProcesso,
   possuiSessaoAutenticada,
   removerBancoTalentos,
   salvarArquivoResposta,
   salvarHistorico,
+  uploadCvCandidato,
   usarCandidatoDoBancoTalentos,
   excluirEmailRecebido,
   verificarSessaoApi,
+  alterarStatusUsuario,
+  atualizarItemConfiguracao,
+  atualizarPermissoesPerfil,
+  atualizarUsuario,
+  baixarLogsAuditoria,
+  criarItemConfiguracao,
+  criarUsuario,
+  desativarItemConfiguracao,
+  excluirUsuario,
+  listarCatalogoConfiguracoes,
+  listarLogsAuditoria,
+  listarPerfis,
+  listarPermissoes,
+  listarUsuarios,
+  redefinirSenhaUsuario,
+  registrarSolicitacaoLgpd,
 } from '../servico-api.js';
 import { criarLogger } from '../logger.js';
 import {
@@ -97,11 +123,72 @@ import {
 import { encontrarProcessoPorReferencia } from '../shared/process-reference.js';
 
 const CHAVE_ESTADO = 'rh_react_state_v1';
+const CHAVE_BARRA_LATERAL = 'rh_sidebar_collapsed_v1';
+const CHAVE_DETALHE_CANDIDATO_RH = 'rh_candidate_detail';
 export const TAMANHO_RECENTES = 6;
 export const TAMANHO_HISTORICO = 10;
 export const TAMANHO_ANALISE = 5;
 export const TAMANHO_DETALHE_PROCESSO = 5;
+export const MENSAGEM_ACESSO_NEGADO =
+  'Você não possui permissão para acessar esta área ou executar esta ação.';
+export const PERMISSOES_TELAS = {
+  'screen-menu': 'inicio.visualizar',
+  'screen-email-inbox': 'candidatos.criar',
+  'screen-history': 'candidatos.consultar_historico',
+  'screen-process-create': 'vagas.criar',
+  'screen-processes': 'vagas.visualizar',
+  'screen-processes-open': 'vagas.visualizar',
+  'screen-processes-closed': 'vagas.visualizar',
+  'screen-process-decisions': 'vagas.visualizar',
+  'screen-candidates': 'candidatos.visualizar',
+  'screen-candidate-details': 'candidatos.visualizar',
+  'screen-candidate-pipeline': 'candidatos.mover_etapa',
+  'screen-process-details': 'processos.visualizar',
+  'screen-interviews': 'entrevistas.visualizar',
+  'screen-analysis-candidates': 'relatorios.visualizar',
+  'screen-talent-bank': 'candidatos.visualizar',
+  'screen-settings': 'configuracoes.visualizar',
+  'screen-settings-users': 'usuarios.visualizar',
+  'screen-settings-profiles': 'configuracoes.visualizar',
+  'screen-settings-rules': 'configuracoes.visualizar',
+  'screen-settings-logs': 'logs.visualizar',
+  'screen-generated-exams': 'provas.visualizar',
+  'screen-config': 'provas.enviar',
+  'screen-candidate': 'provas.enviar',
+  'screen-exam': 'provas.enviar',
+  'screen-result': 'provas.visualizar',
+  'screen-thanks': 'provas.enviar',
+};
 const logger = criarLogger('controlador-aplicacao');
+
+function lerPreferenciaBarraLateral(valorPadrao = false) {
+  try {
+    const valor = window.localStorage.getItem(CHAVE_BARRA_LATERAL);
+    if (valor === '1') return true;
+    if (valor === '0') return false;
+  } catch (error) {
+    logger.debug?.('Não foi possível ler a preferência da barra lateral.', error);
+  }
+
+  return Boolean(valorPadrao);
+}
+
+function salvarPreferenciaBarraLateral(recolhida) {
+  try {
+    window.localStorage.setItem(CHAVE_BARRA_LATERAL, recolhida ? '1' : '0');
+  } catch (error) {
+    logger.debug?.('Não foi possível salvar a preferência da barra lateral.', error);
+  }
+}
+
+function validarEmailContatoCandidato(email) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email || '').trim());
+}
+
+function validarWhatsappContatoCandidato(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  return digitos.length >= 10 && digitos.length <= 13;
+}
 
 /**
  * @typedef {import('../types/models').ApplicationState} ApplicationState
@@ -115,7 +202,14 @@ export function criarEstadoInicial() {
     autenticado,
     validandoSessao: autenticado,
     usuarioAutenticado: sessao.usuario || '',
-    barraLateralRecolhida: false,
+    nomeUsuarioAutenticado: sessao.nome || sessao.usuario || '',
+    emailUsuarioAutenticado: sessao.email || '',
+    perfilUsuario: sessao.perfil || '',
+    perfilUsuarioNome: sessao.perfil_nome || '',
+    nivelPerfilUsuario: sessao.nivel || '',
+    permissoesUsuario: Array.isArray(sessao.permissoes) ? sessao.permissoes : [],
+    avisoAcessoNegado: '',
+    barraLateralRecolhida: lerPreferenciaBarraLateral(false),
     candidato: {
       id_processo: '',
       id_processo_ref: '',
@@ -127,8 +221,17 @@ export function criarEstadoInicial() {
       track: '',
       time: 40,
       name: '',
+      email: '',
+      whatsapp: '',
+      contatoConfirmado: false,
     },
     processoSelecionado: '',
+    personalizacaoProva: {
+      enabled: false,
+      status: 'Não personalizada',
+      questoes: [],
+      historico: null,
+    },
     questoes: [],
     indiceAtual: 0,
     respostas: [],
@@ -167,9 +270,14 @@ export function hidratarEstado() {
         ...criarEstadoInicial().candidato,
         ...(salvo?.candidato || {}),
       },
+      personalizacaoProva: {
+        ...criarEstadoInicial().personalizacaoProva,
+        ...(salvo?.personalizacaoProva || {}),
+      },
       autenticado: criarEstadoInicial().autenticado,
       validandoSessao: criarEstadoInicial().validandoSessao,
       usuarioAutenticado: criarEstadoInicial().usuarioAutenticado,
+      barraLateralRecolhida: lerPreferenciaBarraLateral(salvo?.barraLateralRecolhida),
       salvandoResultado: false,
     };
 
@@ -182,7 +290,7 @@ export function hidratarEstado() {
 
     return estado;
   } catch (error) {
-    logger.warn('Nao foi possivel restaurar o estado salvo.', error);
+    logger.warn('Não foi possível restaurar o estado salvo.', error);
     return criarEstadoInicial();
   }
 }
@@ -193,6 +301,13 @@ export function persistirEstado(estado) {
       autenticado: _autenticado,
       validandoSessao: _validandoSessao,
       usuarioAutenticado: _usuarioAutenticado,
+      nomeUsuarioAutenticado: _nomeUsuarioAutenticado,
+      emailUsuarioAutenticado: _emailUsuarioAutenticado,
+      perfilUsuario: _perfilUsuario,
+      perfilUsuarioNome: _perfilUsuarioNome,
+      nivelPerfilUsuario: _nivelPerfilUsuario,
+      permissoesUsuario: _permissoesUsuario,
+      avisoAcessoNegado: _avisoAcessoNegado,
       ...estadoPersistivel
     } = estado;
 
@@ -204,7 +319,7 @@ export function persistirEstado(estado) {
       }),
     );
   } catch (error) {
-    logger.warn('Nao foi possivel persistir o estado da aplicacao.', error);
+    logger.warn('Não foi possível persistir o estado da aplicação.', error);
   }
 }
 
@@ -212,12 +327,24 @@ export function limparEstadoPersistido() {
   try {
     sessionStorage.removeItem(CHAVE_ESTADO);
   } catch (error) {
-    logger.warn('Nao foi possivel limpar o estado persistido.', error);
+    logger.warn('Não foi possível limpar o estado persistido.', error);
   }
 }
 
-export function navegarParaTela(tela) {
-  window.location.hash = montarHashDaTela(tela);
+export function navegarParaTela(tela, opcoes = {}) {
+  const hash = montarHashDaTela(tela);
+  if (opcoes?.replace) {
+    const url = `${window.location.pathname}${window.location.search}${hash}`;
+    window.history.replaceState(null, '', url);
+    const evento =
+      typeof HashChangeEvent === 'function'
+        ? new HashChangeEvent('hashchange')
+        : new Event('hashchange');
+    window.dispatchEvent(evento);
+    return;
+  }
+
+  window.location.hash = hash;
 }
 
 export function usarTelaAtual(autenticado) {
@@ -226,7 +353,8 @@ export function usarTelaAtual(autenticado) {
   );
 
   useEffect(() => {
-    if (!window.location.hash) {
+    const caminhoAtual = String(window.location.pathname || '').replace(/\/+$/, '');
+    if (!window.location.hash && caminhoAtual !== '/conecta-provas') {
       navegarParaTela(autenticado ? 'screen-menu' : 'screen-login');
     }
   }, [autenticado]);
@@ -243,25 +371,37 @@ export function usarTelaAtual(autenticado) {
 
 export function obterRegrasFormularioProcesso(vaga) {
   const vagaSegura = String(vaga || '').trim();
+  const vagaNormalizada = vagaSegura
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
-  if (vagaSegura === 'Operador' || vagaSegura === 'Supervisor') {
-    return { exigeOperacao: true, exigeTrilha: false, trilhaFixa: '' };
+  if (vagaNormalizada === 'operador' || vagaNormalizada === 'jovem aprendiz') {
+    return { exigeOperacao: true, exigeTrilha: false, trilhaFixa: 'Operação' };
   }
 
-  if (vagaSegura === 'Control Desk') {
-    return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: '' };
+  if (vagaNormalizada === 'supervisor') {
+    return { exigeOperacao: true, exigeTrilha: false, trilhaFixa: 'Operação / Gestão' };
   }
 
-  if (vagaSegura === 'Estagiario' || vagaSegura === 'Estagiário') {
-    return { exigeOperacao: false, exigeTrilha: true, trilhaFixa: '' };
-  }
-
-  if (vagaSegura === 'Analista' || vagaSegura === 'TI') {
+  if (vagaNormalizada === 'control desk') {
     return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: 'TI' };
   }
 
-  if (vagaSegura === 'Jovem Aprendiz') {
-    return { exigeOperacao: true, exigeTrilha: false, trilhaFixa: '' };
+  if (vagaNormalizada === 'estagiario') {
+    return { exigeOperacao: false, exigeTrilha: true, trilhaFixa: '' };
+  }
+
+  if (vagaNormalizada.startsWith('suporte tecnico') || vagaNormalizada === 'ti') {
+    return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: 'TI' };
+  }
+
+  if (vagaNormalizada === 'planejamento') {
+    return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: 'Operação / Gestão' };
+  }
+
+  if (vagaNormalizada === 'analista' || vagaNormalizada === 'outros') {
+    return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: 'ADM / Gestão' };
   }
 
   return { exigeOperacao: false, exigeTrilha: false, trilhaFixa: '' };
@@ -275,6 +415,9 @@ function obterAbreviacaoVaga(vaga) {
     Analista: 'ANL',
     Estagiario: 'ESTG',
     Estagiário: 'ESTG',
+    'Suporte Técnico Júnior': 'SUP.TI.JR',
+    'Suporte Técnico Pleno': 'SUP.TI.PL',
+    'Suporte Técnico Sênior': 'SUP.TI.SR',
     Outros: 'OUT',
     'Control Desk': 'CTRL',
     Planejamento: 'PLAN',
@@ -396,7 +539,7 @@ export async function carregarDetalhesProva(idTeste, idProcessoRef = '') {
     : linhasMesmoId[0];
 
   if (!linha) {
-    throw new Error('Prova nao encontrada.');
+    throw new Error('Prova não encontrada.');
   }
 
   const arquivoSalvo = arquivos[idTeste];
@@ -419,19 +562,233 @@ export async function carregarDetalhesProva(idTeste, idProcessoRef = '') {
   };
 }
 
+function normalizarComparacao(valor) {
+  return String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function normalizarDigitos(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  if (digitos.startsWith('55') && [12, 13].includes(digitos.length)) {
+    return digitos.slice(2);
+  }
+  return digitos;
+}
+
+function valoresNormalizados(...valores) {
+  return valores.map((valor) => String(valor || '').trim()).filter(Boolean);
+}
+
+function datasMesmoDia(a, b) {
+  const dataA = String(a || '').slice(0, 10);
+  const dataB = String(b || '').slice(0, 10);
+  return Boolean(dataA && dataB && dataA === dataB);
+}
+
+function montarReferenciasCandidatoProva(detalhe) {
+  const linha = detalhe?.linha || detalhe || {};
+  const payload = detalhe?.payload || {};
+  const candidato = payload?.candidate || payload?.candidato || {};
+
+  return {
+    idsCandidato: valoresNormalizados(
+      linha.id_candidato,
+      linha.candidato_id,
+      candidato.id_candidato,
+      candidato.candidato_id,
+      candidato.id,
+      linha.id_teste,
+      payload.id_teste,
+    ),
+    emails: valoresNormalizados(
+      linha.email,
+      linha.email_acesso,
+      candidato.email,
+      candidato.email_acesso,
+    ).map(normalizarComparacao),
+    telefones: valoresNormalizados(
+      linha.telefone,
+      linha.telefone_acesso,
+      linha.whatsapp,
+      candidato.phone,
+      candidato.telefone,
+      candidato.telefone_acesso,
+      candidato.whatsapp,
+    ).map(normalizarDigitos).filter(Boolean),
+    codigos: valoresNormalizados(
+      linha.codigo_acesso,
+      linha.codigo_cp,
+      linha.codigo_prova,
+      payload.codigo_acesso,
+      payload.codigo_cp,
+      candidato.codigo_acesso,
+    ).map((valor) => valor.toUpperCase()),
+    idsProva: valoresNormalizados(
+      linha.id_prova,
+      linha.id_resultado,
+      linha.id_historico,
+      payload.id_prova,
+      payload.id_resultado,
+      payload.id_historico,
+    ),
+    nome: normalizarComparacao(
+      linha.nome_candidato || candidato.name || candidato.nome_candidato,
+    ),
+    data: linha.data_iso || linha.data_exibicao || linha.data || payload.finishedAt || payload.createdAt,
+  };
+}
+
+function itemCorrespondePorTelefone(item, telefones) {
+  if (!telefones.length) return false;
+  const telefonesItem = [
+    item.telefone,
+    item.telefone_acesso,
+    item.whatsapp,
+    item.celular,
+  ]
+    .map(normalizarDigitos)
+    .filter(Boolean);
+  return telefonesItem.some((telefone) => telefones.includes(telefone));
+}
+
+function itemCorrespondePorNomeData(item, referencias) {
+  const nomeItem = normalizarComparacao(
+    item.nome_candidato || item.nome || item.candidato || '',
+  );
+  const dataItem =
+    item.data_iso ||
+    item.data_exibicao ||
+    item.data_prova ||
+    item.data_movimentacao ||
+    item.data_entrevista ||
+    item.gerada_em ||
+    item.atualizado_em;
+  return Boolean(
+    referencias.nome &&
+      nomeItem === referencias.nome &&
+      datasMesmoDia(dataItem, referencias.data),
+  );
+}
+
+function montarCandidatoFichaPorFonte(item) {
+  return {
+    ...item,
+    nome_candidato: item.nome_candidato || item.nome || item.candidato || '',
+    email: item.email || item.email_acesso || '',
+    telefone: item.telefone || item.telefone_acesso || '',
+    whatsapp: item.whatsapp || '',
+    id_teste: item.id_teste || item.candidato_id || '',
+    data_exibicao:
+      item.data_exibicao ||
+      item.data_iso ||
+      item.data_prova ||
+      item.gerada_em ||
+      item.data_movimentacao ||
+      '',
+  };
+}
+
+export async function localizarFichaCandidatoPorProva(detalhe) {
+  const referencias = montarReferenciasCandidatoProva(detalhe);
+  const [historico, candidatosProcessos, bancoTalentos, entrevistas, provasGeradas] =
+    await Promise.all([
+      lerHistorico().catch(() => []),
+      lerCandidatosProcessos(true).catch(() => []),
+      lerBancoTalentos({ forcar: true }).catch(() => []),
+      lerEntrevistas().catch(() => []),
+      listarProvasGeradas().catch(() => []),
+    ]);
+
+  const fontes = [
+    ...(Array.isArray(candidatosProcessos) ? candidatosProcessos : []),
+    ...(Array.isArray(bancoTalentos) ? bancoTalentos : []),
+    ...(Array.isArray(entrevistas) ? entrevistas : []),
+    ...(Array.isArray(provasGeradas) ? provasGeradas : []),
+    ...(Array.isArray(historico) ? historico : []),
+  ];
+
+  const porIdCandidato = fontes.find((item) =>
+    referencias.idsCandidato.some((id) =>
+      [
+        item.id_candidato,
+        item.candidato_id,
+        item.id_teste,
+        item.id_registro,
+      ].some((valor) => String(valor || '').trim() === id),
+    ),
+  );
+  if (porIdCandidato) return montarCandidatoFichaPorFonte(porIdCandidato);
+
+  const porEmail = fontes.find((item) =>
+    referencias.emails.includes(
+      normalizarComparacao(item.email || item.email_acesso),
+    ),
+  );
+  if (porEmail) return montarCandidatoFichaPorFonte(porEmail);
+
+  const porTelefone = fontes.find((item) =>
+    itemCorrespondePorTelefone(item, referencias.telefones),
+  );
+  if (porTelefone) return montarCandidatoFichaPorFonte(porTelefone);
+
+  const porCodigo = fontes.find((item) =>
+    referencias.codigos.some((codigo) =>
+      [
+        item.codigo_acesso,
+        item.codigo_cp,
+        item.codigo_prova,
+        item.id_teste,
+      ].some((valor) => String(valor || '').trim().toUpperCase() === codigo),
+    ),
+  );
+  if (porCodigo) return montarCandidatoFichaPorFonte(porCodigo);
+
+  const porIdProva = fontes.find((item) =>
+    referencias.idsProva.some((id) =>
+      [
+        item.id_prova,
+        item.id_resultado,
+        item.id_historico,
+        item.id_teste,
+      ].some((valor) => String(valor || '').trim() === id),
+    ),
+  );
+  if (porIdProva) return montarCandidatoFichaPorFonte(porIdProva);
+
+  const porNomeData = fontes.find((item) =>
+    itemCorrespondePorNomeData(item, referencias),
+  );
+  if (porNomeData) return montarCandidatoFichaPorFonte(porNomeData);
+
+  throw new Error('Não foi possível localizar a ficha deste candidato.');
+}
+
+export async function abrirFichaCandidatoDaProva(detalhe) {
+  const candidato = await localizarFichaCandidatoPorProva(detalhe);
+  sessionStorage.setItem(
+    CHAVE_DETALHE_CANDIDATO_RH,
+    JSON.stringify(candidato || {}),
+  );
+  navegarParaTela('screen-candidate-details');
+  return candidato;
+}
+
 export async function baixarPacoteHistorico(
   idTeste,
   nomeCandidato = 'candidato',
 ) {
   if (!window.JSZip) {
-    throw new Error('A biblioteca JSZip nao foi carregada.');
+    throw new Error('A biblioteca JSZip não foi carregada.');
   }
 
   const arquivos = await lerArquivosResposta();
   const salvo = arquivos[idTeste];
 
   if (!salvo?.content) {
-    throw new Error('Prova nao encontrada para este registro.');
+    throw new Error('Prova não encontrada para este registro.');
   }
 
   const payload = lerJsonSeguro(salvo.content, null);
@@ -483,6 +840,13 @@ export function useControladorAplicacao() {
           autenticado: false,
           validandoSessao: false,
           usuarioAutenticado: '',
+          nomeUsuarioAutenticado: '',
+          emailUsuarioAutenticado: '',
+          perfilUsuario: '',
+          perfilUsuarioNome: '',
+          nivelPerfilUsuario: '',
+          permissoesUsuario: [],
+          avisoAcessoNegado: '',
         }));
         return;
       }
@@ -497,13 +861,25 @@ export function useControladorAplicacao() {
           validandoSessao: false,
           usuarioAutenticado:
             sessao?.usuario || lerSessaoAutenticacao().usuario,
+          nomeUsuarioAutenticado:
+            sessao?.nome || lerSessaoAutenticacao().nome || sessao?.usuario || '',
+          emailUsuarioAutenticado:
+            sessao?.email || lerSessaoAutenticacao().email || '',
+          perfilUsuario: sessao?.perfil || lerSessaoAutenticacao().perfil || '',
+          perfilUsuarioNome:
+            sessao?.perfil_nome || lerSessaoAutenticacao().perfil_nome || '',
+          nivelPerfilUsuario: sessao?.nivel || lerSessaoAutenticacao().nivel || '',
+          permissoesUsuario: Array.isArray(sessao?.permissoes)
+            ? sessao.permissoes
+            : lerSessaoAutenticacao().permissoes || [],
+          avisoAcessoNegado: '',
         }));
       } catch (error) {
         if (!ativo) return;
 
         limparEstadoPersistido();
         setEstado(criarEstadoInicial());
-        navegarParaTela('screen-login');
+        navegarParaTela('screen-login', { replace: true });
       }
     };
 
@@ -512,7 +888,7 @@ export function useControladorAplicacao() {
     const aoExpirarSessao = () => {
       limparEstadoPersistido();
       setEstado(criarEstadoInicial());
-      navegarParaTela('screen-login');
+      navegarParaTela('screen-login', { replace: true });
     };
 
     window.addEventListener(EVENTO_AUTENTICACAO_EXPIRADA, aoExpirarSessao);
@@ -600,12 +976,47 @@ export function useControladorAplicacao() {
     );
   };
 
+  const possuiPermissao = (permissao) => {
+    if (!permissao) return true;
+    return (estado.permissoesUsuario || []).includes(permissao);
+  };
+
+  const possuiAlgumaPermissao = (...permissoes) =>
+    permissoes.some((permissao) => possuiPermissao(permissao));
+
+  const podeAcessarTela = (tela) => {
+    const permissao = PERMISSOES_TELAS[tela];
+    return !permissao || possuiPermissao(permissao);
+  };
+
+  const registrarAcessoNegado = (mensagem = MENSAGEM_ACESSO_NEGADO) => {
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      avisoAcessoNegado: mensagem,
+    }));
+  };
+
+  const limparAcessoNegado = () => {
+    if (!estado.avisoAcessoNegado) return;
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      avisoAcessoNegado: '',
+    }));
+  };
+
   const irParaTelaProtegida = (tela) => {
     if (!estado.autenticado && tela !== 'screen-login') {
       navegarParaTela('screen-login');
       return;
     }
 
+    if (!podeAcessarTela(tela)) {
+      registrarAcessoNegado();
+      navegarParaTela('screen-forbidden');
+      return;
+    }
+
+    limparAcessoNegado();
     navegarParaTela(tela);
   };
 
@@ -619,10 +1030,14 @@ export function useControladorAplicacao() {
   };
 
   const alternarBarraLateral = () => {
-    atualizarEstado((anterior) => ({
-      ...anterior,
-      barraLateralRecolhida: !anterior.barraLateralRecolhida,
-    }));
+    atualizarEstado((anterior) => {
+      const recolhida = !anterior.barraLateralRecolhida;
+      salvarPreferenciaBarraLateral(recolhida);
+      return {
+        ...anterior,
+        barraLateralRecolhida: recolhida,
+      };
+    });
   };
 
   const fazerLogin = async (usuario, senha) => {
@@ -633,13 +1048,22 @@ export function useControladorAplicacao() {
         autenticado: true,
         validandoSessao: false,
         usuarioAutenticado: sessao?.usuario || usuario,
+        nomeUsuarioAutenticado: sessao?.nome || sessao?.usuario || usuario,
+        emailUsuarioAutenticado: sessao?.email || '',
+        perfilUsuario: sessao?.perfil || '',
+        perfilUsuarioNome: sessao?.perfil_nome || '',
+        nivelPerfilUsuario: sessao?.nivel || '',
+        permissoesUsuario: Array.isArray(sessao?.permissoes)
+          ? sessao.permissoes
+          : [],
+        avisoAcessoNegado: '',
       }));
       navegarParaTela('screen-menu');
       return { ok: true };
     } catch (error) {
       return {
         ok: false,
-        mensagem: error?.message || 'Usuario ou senha invalidos.',
+        mensagem: error?.message || 'Usuário ou senha inválidos.',
       };
     }
   };
@@ -652,6 +1076,15 @@ export function useControladorAplicacao() {
         autenticado: true,
         validandoSessao: false,
         usuarioAutenticado: sessao?.usuario || usuario,
+        nomeUsuarioAutenticado: sessao?.nome || sessao?.usuario || usuario,
+        emailUsuarioAutenticado: sessao?.email || '',
+        perfilUsuario: sessao?.perfil || '',
+        perfilUsuarioNome: sessao?.perfil_nome || '',
+        nivelPerfilUsuario: sessao?.nivel || '',
+        permissoesUsuario: Array.isArray(sessao?.permissoes)
+          ? sessao.permissoes
+          : [],
+        avisoAcessoNegado: '',
         acessoRhLiberadoAposProva: true,
       }));
       return { ok: true };
@@ -665,12 +1098,10 @@ export function useControladorAplicacao() {
 
   const sair = () => {
     encerrarSessaoApi().catch(() => null);
+    limparSessaoAutenticacao();
     limparEstadoPersistido();
-    setEstado((anterior) => ({
-      ...criarEstadoInicial(),
-      candidato: { ...criarEstadoInicial().candidato },
-    }));
-    navegarParaTela('screen-login');
+    setEstado(criarEstadoInicial());
+    navegarParaTela('screen-login', { replace: true });
   };
 
   const exigirNovoLogin = () => {
@@ -678,6 +1109,12 @@ export function useControladorAplicacao() {
   };
 
   const iniciarNovoFluxo = () => {
+    if (!possuiPermissao('provas.enviar')) {
+      registrarAcessoNegado();
+      navegarParaTela('screen-forbidden');
+      return;
+    }
+
     atualizarEstado((anterior) => ({
       ...anterior,
       candidato: {
@@ -692,8 +1129,17 @@ export function useControladorAplicacao() {
         track: '',
         time: 40,
         name: '',
+        email: '',
+        whatsapp: '',
+        contatoConfirmado: false,
       },
       processoSelecionado: '',
+      personalizacaoProva: {
+        enabled: false,
+        status: 'Não personalizada',
+        questoes: [],
+        historico: null,
+      },
       questoes: [],
       indiceAtual: 0,
       respostas: [],
@@ -726,6 +1172,7 @@ export function useControladorAplicacao() {
     time,
     processId,
     scheduledCandidate = null,
+    personalizacaoProva = null,
   }) => {
     const resolvedProcessRef = processId === 'PROCESSO_UNICO' ? '' : processId;
     const resolvedProcessId = resolvedProcessRef
@@ -747,8 +1194,21 @@ export function useControladorAplicacao() {
         track: track || 'automatico',
         name:
           scheduledCandidate?.nome_candidato || anterior.candidato.name || '',
+        email: scheduledCandidate?.email || anterior.candidato.email || '',
+        whatsapp:
+          scheduledCandidate?.whatsapp ||
+          scheduledCandidate?.telefone ||
+          anterior.candidato.whatsapp ||
+          '',
+        contatoConfirmado: false,
       },
       processoSelecionado: resolvedProcessRef,
+      personalizacaoProva: personalizacaoProva || {
+        enabled: false,
+        status: 'Não personalizada',
+        questoes: [],
+        historico: null,
+      },
     }));
 
     navegarParaTela('screen-candidate');
@@ -760,20 +1220,136 @@ export function useControladorAplicacao() {
       candidato: {
         ...anterior.candidato,
         name,
+        contatoConfirmado: false,
       },
     }));
   };
 
-  const iniciarProva = (nomeCandidato) => {
+  const atualizarDadosContatoCandidato = (dadosContato = {}) => {
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      candidato: {
+        ...anterior.candidato,
+        name:
+          dadosContato.name !== undefined
+            ? dadosContato.name
+            : anterior.candidato.name,
+        email:
+          dadosContato.email !== undefined
+            ? dadosContato.email
+            : anterior.candidato.email,
+        whatsapp:
+          dadosContato.whatsapp !== undefined
+            ? dadosContato.whatsapp
+            : anterior.candidato.whatsapp,
+        contatoConfirmado: false,
+      },
+    }));
+  };
+
+  const confirmarDadosContatoCandidato = async (dadosContato = {}) => {
+    const nome = String(
+      dadosContato.name !== undefined
+        ? dadosContato.name
+        : estado.candidato.name || '',
+    ).trim();
+    const email = String(
+      dadosContato.email !== undefined
+        ? dadosContato.email
+        : estado.candidato.email || '',
+    ).trim();
+    const whatsapp = String(
+      dadosContato.whatsapp !== undefined
+        ? dadosContato.whatsapp
+        : estado.candidato.whatsapp || '',
+    ).trim();
+
+    if (!nome) {
+      return {
+        ok: false,
+        mensagem: 'Informe o nome do candidato para iniciar a prova.',
+      };
+    }
+    if (!validarEmailContatoCandidato(email)) {
+      return {
+        ok: false,
+        mensagem: 'Informe um e-mail válido antes de iniciar a prova.',
+      };
+    }
+    if (!validarWhatsappContatoCandidato(whatsapp)) {
+      return {
+        ok: false,
+        mensagem: 'Informe um WhatsApp válido antes de iniciar a prova.',
+      };
+    }
+
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      candidato: {
+        ...anterior.candidato,
+        name: nome,
+        email,
+        whatsapp,
+        contatoConfirmado: true,
+      },
+    }));
+
+    if (estado.candidato.id_teste) {
+      await atualizarFichaCandidato(estado.candidato.id_teste, {
+        nome_candidato: nome,
+        email,
+        whatsapp,
+        telefone: whatsapp,
+      });
+    }
+
+    return { ok: true, dados: { name: nome, email, whatsapp } };
+  };
+
+  const iniciarProva = (nomeCandidato, dadosContatoConfirmados = null) => {
     const nome = String(nomeCandidato || '').trim();
+    const email = String(
+      dadosContatoConfirmados?.email ?? estado.candidato.email ?? '',
+    ).trim();
+    const whatsapp = String(
+      dadosContatoConfirmados?.whatsapp ?? estado.candidato.whatsapp ?? '',
+    ).trim();
+    const contatoConfirmado =
+      Boolean(dadosContatoConfirmados) ||
+      Boolean(estado.candidato.contatoConfirmado);
+
     if (!nome || !blueprint) {
       return {
         ok: false,
         mensagem: 'Informe o nome do candidato para iniciar a prova.',
       };
     }
+    if (!contatoConfirmado) {
+      return {
+        ok: false,
+        mensagem: 'Confirme nome, e-mail e WhatsApp antes de iniciar a prova.',
+      };
+    }
+    if (!validarEmailContatoCandidato(email)) {
+      return {
+        ok: false,
+        mensagem: 'Informe um e-mail válido antes de iniciar a prova.',
+      };
+    }
+    if (!validarWhatsappContatoCandidato(whatsapp)) {
+      return {
+        ok: false,
+        mensagem: 'Informe um WhatsApp válido antes de iniciar a prova.',
+      };
+    }
 
-    const questoes = montarProvaPorBlueprint(blueprint);
+    const questoesPersonalizadas = estado.personalizacaoProva?.enabled
+      ? estado.personalizacaoProva.questoes
+      : null;
+    const questoes = Array.isArray(questoesPersonalizadas) &&
+      questoesPersonalizadas.length
+      ? questoesPersonalizadas
+      : montarProvaPorBlueprint(blueprint);
     const tempoMinutos = Number(estado.candidato.time || 40);
     const timestampTermino = Date.now() + tempoMinutos * 60 * 1000;
 
@@ -782,6 +1358,9 @@ export function useControladorAplicacao() {
       candidato: {
         ...anterior.candidato,
         name: nome,
+        email,
+        whatsapp,
+        contatoConfirmado: true,
       },
       questoes,
       respostas: new Array(questoes.length).fill(null),
@@ -970,6 +1549,7 @@ export function useControladorAplicacao() {
         questoes: estado.questoes,
         respostas: estado.respostas,
         resultados: estado.resultados,
+        personalizacaoProva: estado.personalizacaoProva,
       });
 
       const linhaHistorico = {
@@ -1019,6 +1599,22 @@ export function useControladorAplicacao() {
         });
       }
 
+      if (estado.candidato.email || estado.candidato.whatsapp) {
+        try {
+          await atualizarFichaCandidato(idResultado, {
+            nome_candidato: estado.candidato.name,
+            email: estado.candidato.email,
+            whatsapp: estado.candidato.whatsapp,
+            telefone: estado.candidato.whatsapp,
+          });
+        } catch (contactError) {
+          logger.warn(
+            'A prova foi salva, mas os dados de contato não foram sincronizados com a ficha.',
+            contactError,
+          );
+        }
+      }
+
       atualizarEstado((anterior) => ({
         ...anterior,
         idResultadoAtual: idResultado,
@@ -1046,7 +1642,7 @@ export function useControladorAplicacao() {
         ok: false,
         mensagem:
           error?.message ||
-          'Nao foi possivel salvar a prova no servidor. Verifique a API e tente novamente.',
+          'Não foi possível salvar a prova no servidor. Verifique a API e tente novamente.',
       };
     }
   };
@@ -1070,11 +1666,17 @@ export function useControladorAplicacao() {
     sair,
     exigirNovoLogin,
     alternarBarraLateral,
+    possuiPermissao,
+    possuiAlgumaPermissao,
+    podeAcessarTela,
+    registrarAcessoNegado,
     irParaMenu,
     irParaTelaProtegida,
     iniciarNovoFluxo,
     configurarFluxo,
     atualizarNomeCandidato,
+    atualizarDadosContatoCandidato,
+    confirmarDadosContatoCandidato,
     iniciarProva,
     atualizarResposta,
     definirIndiceAtual,
@@ -1092,6 +1694,8 @@ export {
   analisarCvEmailRecebido,
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
+  atualizarAnotacaoDossieProcesso,
+  atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
@@ -1103,9 +1707,11 @@ export {
   baixarRelatorioCandidatos,
   baixarRelatorioProcessos,
   criarCardPipeline,
+  criarAnotacaoDossieProcesso,
   criarSlotsEntrevista,
   criarProcesso,
   desativarLinkPublicoCandidatura,
+  dispensarPreAnaliseCv,
   encerrarProcesso,
   excluirCardPipeline,
   excluirPreAnaliseCv,
@@ -1116,6 +1722,7 @@ export {
   gerarLinkPublicoCandidatura,
   ignorarEmailRecebido,
   lerAnalisesCandidatos,
+  lerAnotacoesDossieProcesso,
   lerBancoTalentos,
   lerCandidatosProcessos,
   lerDetalheAnaliseCandidato,
@@ -1124,6 +1731,7 @@ export {
   lerEmailsRecebidos,
   lerEmailsRecebidosProcesso,
   lerEntrevistas,
+  lerFichaCandidato,
   lerHistorico,
   lerHistoricoPaginado,
   lerPipelineCandidatos,
@@ -1135,8 +1743,26 @@ export {
   limparListaPreAnalisesCv,
   moverCardPipeline,
   registrarWhatsappAprovacao,
+  registrarWhatsappContatoManual,
   removerBancoTalentos,
   excluirEmailRecebido,
+  uploadCvCandidato,
   usarCandidatoDoBancoTalentos,
   vincularEmailRecebidoProcesso,
+  alterarStatusUsuario,
+  atualizarItemConfiguracao,
+  atualizarPermissoesPerfil,
+  atualizarUsuario,
+  baixarLogsAuditoria,
+  criarItemConfiguracao,
+  criarUsuario,
+  desativarItemConfiguracao,
+  excluirUsuario,
+  listarCatalogoConfiguracoes,
+  listarLogsAuditoria,
+  listarPerfis,
+  listarPermissoes,
+  listarUsuarios,
+  redefinirSenhaUsuario,
+  registrarSolicitacaoLgpd,
 };

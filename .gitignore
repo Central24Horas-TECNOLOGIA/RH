@@ -8,16 +8,10 @@ pytest-cache-files-*/
 .pytest-email-tmp-*/
 .coverage
 
-#Pastas de Testes
-.edge-headless
-.edge-headless-codex-login
-.edge-headless-debug
-.edge-headless-login-check
-.edge-headless-login-final
-
 # Ambientes e segredos
 .env
 api/.env
+config.ini
 *.local
 .venv/
 venv/
@@ -35,6 +29,7 @@ env/
 .edge-headless/
 .edge-*.png
 data/email-inbox-test-runtime/
+data/private/
 Thumbs.db
 .DS_Store
 
@@ -51,6 +46,3 @@ build/
 
 # Frontend local
 Front/src/
-
-#Pasta de testes e mocks
-RH

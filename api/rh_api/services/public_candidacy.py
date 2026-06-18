@@ -98,13 +98,16 @@ def resolve_public_frontend_base_url(
 ) -> str:
     candidate = normalize_text(configured_base_url) or normalize_text(referrer_url) or normalize_text(origin_url)
     if not candidate:
-        return "http://127.0.0.1:5500/Front/index.html"
+        return "/"
 
     parts = urlsplit(candidate)
     path = parts.path or ""
 
     if not path or path == "/":
-        path = "/Front/index.html"
+        path = "/"
+
+    if not parts.scheme and not parts.netloc:
+        return urlunsplit(("", "", path, parts.query, ""))
 
     return urlunsplit((parts.scheme or "http", parts.netloc, path, parts.query, ""))
 
@@ -116,6 +119,9 @@ def normalize_public_application_base_url(base_url: str = "") -> str:
 
     parts = urlsplit(candidate)
     path = parts.path or "/"
+    if not parts.scheme and not parts.netloc:
+        return urlunsplit(("", "", path, parts.query, ""))
+
     return urlunsplit((parts.scheme or "http", parts.netloc, path, parts.query, ""))
 
 

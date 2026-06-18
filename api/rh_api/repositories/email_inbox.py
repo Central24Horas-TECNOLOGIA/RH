@@ -182,7 +182,7 @@ class EmailInboxRepositoryMixin:
         )
         rows = rows_to_dicts(cursor, cursor.fetchall())
         if not rows:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail recebido nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail recebido não encontrado.")
         return rows[0]
 
     def _upsert_email_inbox_summary(self, cursor, item: dict) -> None:
@@ -442,7 +442,7 @@ class EmailInboxRepositoryMixin:
 
             uid = normalize_text(row.get("message_uid"))
             if not uid:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="UID do e-mail nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="UID do e-mail não encontrado.")
             try:
                 result = self._email_inbox_service().download_cv_attachments(uid=uid, item_id=normalize_text(row.get("id")))
             except EmailInboxUnavailable as exc:
@@ -701,7 +701,7 @@ class EmailInboxRepositoryMixin:
                     "success": True,
                     "duplicate": True,
                     "id_pre_analise": existing_id,
-                    "message": "CV recebido por e-mail ja existia na pre-analise.",
+                    "message": "CV recebido por e-mail já existia na pré-análise.",
                 }
 
             cursor.execute(
@@ -806,7 +806,7 @@ class EmailInboxRepositoryMixin:
     def link_configured_email_inbox_to_process(self, item_id: str, data: dict) -> dict:
         process_ref = normalize_text(data.get("id_processo_ref") or data.get("id_processo"))
         if not process_ref:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo de destino nao informado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo de destino não informado.")
 
         conn = self._connect()
         try:
@@ -829,11 +829,11 @@ class EmailInboxRepositoryMixin:
             ensure_candidate_attachments_table(cursor)
             processo = get_process_row(cursor, process_ref)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo de destino nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo de destino não encontrado.")
             if is_process_closed(processo.get("status")):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="Este processo esta encerrado e nao aceita novos candidatos.",
+                    detail="Este processo está encerrado e não aceita novos candidatos.",
                 )
             fresh_row = self._select_email_inbox_item(cursor, item_id)
             pre_analysis = self._load_email_inbox_pre_analysis(cursor, int(fresh_row.get("id_pre_analise") or 0))
@@ -851,7 +851,7 @@ class EmailInboxRepositoryMixin:
                 whatsapp=whatsapp,
             )
             if existing_candidate:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este candidato ja esta vinculado a este processo.")
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este candidato já está vinculado a este processo.")
 
             id_registro = insert_candidate_process_record(
                 cursor,
@@ -1028,7 +1028,7 @@ class EmailInboxRepositoryMixin:
                 self._email_inbox_service().delete_message(uid)
             except EmailInboxUnavailable as exc:
                 self.logger.warning(
-                    "Nao foi possivel excluir o e-mail no IMAP. O item sera ocultado no sistema. item_id=%s erro=%s",
+                    "Não foi possível excluir o e-mail no IMAP. O item será ocultado no sistema. item_id=%s erro=%s",
                     item_id,
                     exc.message,
                 )

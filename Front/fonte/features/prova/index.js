@@ -1,6 +1,10 @@
 ﻿import { html, useEffect, useMemo, useState } from '../infraestrutura-react.js';
 import {
+  OPCOES_OPERACOES,
+  OPCOES_TRILHAS_PROVA,
+  OPCOES_VAGAS_PROVA,
   SUGESTOES_NIVEL_POR_VAGA,
+  montarProvaPorBlueprint,
   resolverBlueprintProva,
 } from '../../perguntas.js';
 import {
@@ -34,11 +38,107 @@ import {
   obterChaveProcesso,
   obterReferenciaProcesso,
 } from '../../shared/process-reference.js';
+import {
+  NIVEIS_PERSONALIZACAO,
+  PERFIS_OPERACAO,
+  STATUS_PERSONALIZACAO,
+  TIPOS_ATENDIMENTO_PERSONALIZACAO,
+  gerarPersonalizacaoProva,
+  inferirPerfilAtendimentoPersonalizacao,
+  registrarHistoricoPersonalizacao,
+} from './services/personalizacao-inteligente.js';
+import { isProcessClosed } from '../../shared/process-flow.js';
 
 const STATUS_CANDIDATOS_AGENDADOS = new Set(['Agendado', 'Confirmado']);
+const OPCAO_OUTRO = 'Outro';
 
 function normalizarTexto(valor) {
   return String(valor || '').trim();
+}
+
+function obterItensOrdenacaoQuestao(questao) {
+  const itens = Array.isArray(questao?.itensOrdenacao)
+    ? questao.itensOrdenacao
+    : Array.isArray(questao?.itens_ordenacao)
+      ? questao.itens_ordenacao
+      : [];
+
+  return itens.map((item) => normalizarTexto(item)).filter(Boolean);
+}
+
+function DescricaoQuestao({ questao }) {
+  const itensOrdenacao = obterItensOrdenacaoQuestao(questao);
+  if (!itensOrdenacao.length) {
+    return html`<p class="exam-question-description">${questao.description}</p>`;
+  }
+
+  const contexto = normalizarTexto(questao.contextoCandidato);
+  const enunciado = normalizarTexto(
+    questao.enunciadoQuestao || questao.enunciadoCandidato || questao.description,
+  );
+  const instrucoes = normalizarTexto(questao.instrucaoCandidato);
+
+  return html`
+    <div class="exam-question-description">
+      ${contexto ? html`<p>${contexto}</p>` : null}
+      ${enunciado ? html`<p>${enunciado}</p>` : null}
+      <ul class="exam-question-order-list">
+        ${itensOrdenacao.map(
+          (item) => html`<li key=${item}>${item}</li>`,
+        )}
+      </ul>
+      ${instrucoes ? html`<p>${instrucoes}</p>` : null}
+    </div>
+  `;
+}
+
+function validarEmailContato(valor) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizarTexto(valor));
+}
+
+function validarTelefoneContato(valor) {
+  const digitos = normalizarTexto(valor).replace(/\D/g, '');
+  return digitos.length >= 10 && digitos.length <= 13;
+}
+
+function lerValoresMultiselect(event) {
+  return Array.from(event.target.selectedOptions || [])
+    .map((opcao) => normalizarTexto(opcao.value))
+    .filter(Boolean);
+}
+
+function montarListaComOutro(lista = [], outro = '') {
+  return [
+    ...lista.filter((item) => item !== OPCAO_OUTRO),
+    normalizarTexto(outro),
+  ].filter(Boolean);
+}
+
+function normalizarBusca(valor) {
+  return normalizarTexto(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function normalizarValorTrilhaProva(valor) {
+  const chave = normalizarBusca(valor);
+  if (!chave) return '';
+  if (chave.includes('comercial')) return 'comercial';
+  if (chave.includes('financeiro')) return 'financeiro';
+  if (chave.includes('rh')) return 'rh';
+  if (chave.includes('ti')) return 'ti';
+  if (chave.includes('adm') || chave.includes('gestao')) return 'adm';
+  if (chave.includes('operacao') || chave.includes('padrao')) return 'operacao';
+  return chave;
+}
+
+function obterOpcaoVaga(label) {
+  const chave = normalizarBusca(label);
+  return (
+    OPCOES_VAGAS_PROVA.find((opcao) => normalizarBusca(opcao.label) === chave) ||
+    null
+  );
 }
 
 function montarIdentificadorCandidatoAgendado(candidato) {
@@ -190,7 +290,26 @@ export function TelaConfiguracao({ controlador }) {
       controlador.estado.candidato.track !== 'automatico'
         ? controlador.estado.candidato.track
         : '',
+    operacao: '',
     tempo: controlador.estado.candidato.time || 40,
+    candidatoNome: controlador.estado.candidato.name || '',
+    candidatoEmail: controlador.estado.candidato.email || '',
+    candidatoTelefone: controlador.estado.candidato.whatsapp || '',
+  }));
+  const [personalizacao, setPersonalizacao] = useState(() => ({
+    ativada: false,
+    operacao: '',
+    clientesOperacoes: [],
+    clienteOutro: '',
+    tiposAtendimento: [],
+    tipoAtendimentoOutro: '',
+    situacaoPratica: '',
+    perfilOperacao: PERFIS_OPERACAO.find((perfil) => perfil.id === 'call_center')?.id || PERFIS_OPERACAO[0].id,
+    nivelPersonalizacao: NIVEIS_PERSONALIZACAO[1].id,
+    status: STATUS_PERSONALIZACAO.NAO_PERSONALIZADA,
+    questoes: [],
+    alertas: [],
+    historico: null,
   }));
 
   useEffect(() => {
@@ -198,13 +317,13 @@ export function TelaConfiguracao({ controlador }) {
       try {
         const lista = await lerProcessos(true);
         const abertos = (Array.isArray(lista) ? lista : []).filter(
-          (processo) => String(processo.status || '').trim() !== 'Encerrado',
+          (processo) => !isProcessClosed(processo),
         );
         setProcessosAbertos(abertos);
       } catch (error) {
         setErro(
           error?.message ||
-            'Nao foi possivel carregar os processos seletivos abertos.',
+            'Não foi possível carregar os processos seletivos abertos.',
         );
       }
     })();
@@ -224,10 +343,21 @@ export function TelaConfiguracao({ controlador }) {
 
   useEffect(() => {
     const nivelSugerido = SUGESTOES_NIVEL_POR_VAGA[formulario.vaga];
-    if (nivelSugerido && !formulario.nivel) {
-      setFormulario((anterior) => ({ ...anterior, nivel: nivelSugerido }));
+    const trilhaSugerida = normalizarValorTrilhaProva(
+      obterOpcaoVaga(formulario.vaga)?.track || '',
+    );
+
+    if (
+      (nivelSugerido && formulario.nivel !== nivelSugerido) ||
+      (trilhaSugerida && formulario.trilha !== trilhaSugerida)
+    ) {
+      setFormulario((anterior) => ({
+        ...anterior,
+        ...(nivelSugerido ? { nivel: nivelSugerido } : {}),
+        ...(trilhaSugerida ? { trilha: trilhaSugerida } : {}),
+      }));
     }
-  }, [formulario.vaga, formulario.nivel]);
+  }, [formulario.vaga, formulario.nivel, formulario.trilha]);
 
   const processoSelecionado = useMemo(() => {
     if (!formulario.processo || formulario.processo === 'PROCESSO_UNICO') {
@@ -258,6 +388,10 @@ export function TelaConfiguracao({ controlador }) {
 
     const referenciaProcesso = obterReferenciaProcesso(processoSelecionado);
     const vagaProcesso = normalizarTexto(processoSelecionado.vaga);
+    const trilhaProcesso =
+      normalizarValorTrilhaProva(processoSelecionado.trilha) ||
+      normalizarValorTrilhaProva(obterOpcaoVaga(vagaProcesso)?.track || '');
+    const nivelProcesso = SUGESTOES_NIVEL_POR_VAGA[vagaProcesso] || '';
 
     setFormulario((anterior) => {
       const proximoFormulario = { ...anterior };
@@ -276,8 +410,36 @@ export function TelaConfiguracao({ controlador }) {
         mudou = true;
       }
 
+      if (nivelProcesso && normalizarTexto(anterior.nivel) !== nivelProcesso) {
+        proximoFormulario.nivel = nivelProcesso;
+        mudou = true;
+      }
+
+      if (trilhaProcesso && normalizarTexto(anterior.trilha) !== trilhaProcesso) {
+        proximoFormulario.trilha = trilhaProcesso;
+        mudou = true;
+      }
+
+      if (
+        processoSelecionado.operacao &&
+        normalizarTexto(anterior.operacao) !== normalizarTexto(processoSelecionado.operacao)
+      ) {
+        proximoFormulario.operacao = processoSelecionado.operacao;
+        mudou = true;
+      }
+
       return mudou ? proximoFormulario : anterior;
     });
+    setPersonalizacao((anterior) => ({
+      ...anterior,
+      operacao: anterior.operacao,
+      questoes: [],
+      alertas: [],
+      historico: null,
+      status: anterior.ativada
+        ? STATUS_PERSONALIZACAO.PENDENTE
+        : STATUS_PERSONALIZACAO.NAO_PERSONALIZADA,
+    }));
   }, [processoSelecionado]);
 
   useEffect(() => {
@@ -321,7 +483,7 @@ export function TelaConfiguracao({ controlador }) {
         setCandidatosAgendados([]);
         setErro(
           error?.message ||
-            'Nao foi possivel carregar os candidatos agendados deste processo.',
+            'Não foi possível carregar os candidatos agendados deste processo.',
         );
       }
     })();
@@ -350,9 +512,139 @@ export function TelaConfiguracao({ controlador }) {
     );
   }, [formulario]);
 
+  const montarConfiguracaoPersonalizacao = () => {
+    const clientes = montarListaComOutro(
+      personalizacao.clientesOperacoes,
+      personalizacao.clienteOutro,
+    );
+    const tiposAtendimento = montarListaComOutro(
+      personalizacao.tiposAtendimento,
+      personalizacao.tipoAtendimentoOutro,
+    );
+    const trilha =
+      formulario.trilha ||
+      processoSelecionado?.trilha ||
+      obterOpcaoVaga(formulario.vaga)?.track ||
+      '';
+
+    return {
+      operacao: clientes.join(', '),
+      cliente: clientes.join(', '),
+      clientesOperacoes: clientes,
+      vaga: formulario.vaga,
+      trilha,
+      nivelProva: formulario.nivel || blueprint?.level || '',
+      blueprintLabel: blueprint?.label || '',
+      perfilOperacao: inferirPerfilAtendimentoPersonalizacao({
+        clientes,
+        tipos: tiposAtendimento,
+        area: trilha,
+        vaga: formulario.vaga,
+      }) || personalizacao.perfilOperacao,
+      tiposAtendimento,
+      nivelPersonalizacao: personalizacao.nivelPersonalizacao,
+      situacaoPratica: personalizacao.situacaoPratica,
+      usuario:
+        controlador.estado.nomeUsuarioAutenticado ||
+        controlador.estado.usuarioAutenticado ||
+        'RH',
+    };
+  };
+
+  const camposPersonalizacaoPreenchidos = (configuracao) =>
+    Boolean(
+      normalizarTexto(configuracao.operacao) &&
+        (configuracao.tiposAtendimento || []).length &&
+        normalizarTexto(configuracao.nivelPersonalizacao),
+    );
+
+  const montarHistoricoFallbackPersonalizacao = (
+    configuracao,
+    questoesBase,
+    mensagem,
+  ) => ({
+    id: `${Date.now()}-fallback`,
+    acao: 'fallback_personalizacao_automatica',
+    operacao: configuracao.operacao,
+    cliente: configuracao.cliente,
+    vaga: configuracao.vaga,
+    trilha: configuracao.trilha,
+    nivel_prova: configuracao.nivelProva,
+    blueprint_label: configuracao.blueprintLabel,
+    perfil_atendimento:
+      PERFIS_OPERACAO.find((perfil) => perfil.id === configuracao.perfilOperacao)
+        ?.label || configuracao.perfilOperacao,
+    nivel_personalizacao:
+      NIVEIS_PERSONALIZACAO.find(
+        (nivel) => nivel.id === configuracao.nivelPersonalizacao,
+      )?.label || configuracao.nivelPersonalizacao,
+    usuario: configuracao.usuario,
+    data_hora: new Date().toISOString(),
+    mecanismo: 'template_local_fallback',
+    total_questoes: questoesBase.length,
+    alertas: [mensagem],
+  });
+
+  const gerarPersonalizacaoAutomatica = () => {
+    const configuracao = montarConfiguracaoPersonalizacao();
+    const questoesBase = montarProvaPorBlueprint(blueprint);
+
+    try {
+      const resultado = gerarPersonalizacaoProva(questoesBase, configuracao);
+      const historico = {
+        ...(resultado.historico || {}),
+        status_publicacao: STATUS_PERSONALIZACAO.PUBLICADA,
+        publicada_em: new Date().toISOString(),
+      };
+      registrarHistoricoPersonalizacao(historico);
+      setPersonalizacao((anterior) => ({
+        ...anterior,
+        status: STATUS_PERSONALIZACAO.PUBLICADA,
+        questoes: resultado.questoes,
+        alertas: resultado.alertas,
+        historico,
+      }));
+
+      return {
+        enabled: true,
+        status: STATUS_PERSONALIZACAO.PUBLICADA,
+        configuracao,
+        questoes: resultado.questoes,
+        alertas: resultado.alertas,
+        historico,
+      };
+    } catch (error) {
+      const mensagem =
+        error?.message ||
+        'Não foi possível personalizar todas as questões automaticamente. A prova continuará com as questões originais nos itens não personalizados.';
+      const historico = montarHistoricoFallbackPersonalizacao(
+        configuracao,
+        questoesBase,
+        mensagem,
+      );
+      registrarHistoricoPersonalizacao(historico);
+      setPersonalizacao((anterior) => ({
+        ...anterior,
+        status: STATUS_PERSONALIZACAO.ERRO,
+        questoes: questoesBase,
+        alertas: [mensagem],
+        historico,
+      }));
+
+      return {
+        enabled: true,
+        status: STATUS_PERSONALIZACAO.ERRO,
+        configuracao,
+        questoes: questoesBase,
+        alertas: [mensagem],
+        historico,
+      };
+    }
+  };
+
   const prosseguir = () => {
     if (!formulario.vaga || !formulario.nivel || !formulario.tempo) {
-      setErro('Preencha os campos da configuracao para prosseguir.');
+      setErro('Preencha os campos da configuração para prosseguir.');
       return;
     }
 
@@ -361,14 +653,68 @@ export function TelaConfiguracao({ controlador }) {
       return;
     }
 
+    if (!formulario.trilha) {
+      setErro('Selecione a Área/Trilha para prosseguir.');
+      return;
+    }
+
+    const processoUnico = formulario.processo === 'PROCESSO_UNICO';
+    if (processoUnico) {
+      const nome = normalizarTexto(formulario.candidatoNome);
+      const email = normalizarTexto(formulario.candidatoEmail);
+      const telefone = normalizarTexto(formulario.candidatoTelefone);
+      if (!nome || !email || !telefone) {
+        setErro('Processo único exige nome completo, e-mail e telefone do candidato.');
+        return;
+      }
+      if (!validarEmailContato(email)) {
+        setErro('Informe um e-mail válido para o candidato do Processo único.');
+        return;
+      }
+      if (!validarTelefoneContato(telefone)) {
+        setErro('Informe um telefone válido para o candidato do Processo único.');
+        return;
+      }
+    }
+
+    let personalizacaoProva = null;
+    if (personalizacao.ativada) {
+      if (!blueprint) {
+        setErro('Selecione uma combinação válida de vaga, nível e trilha.');
+        return;
+      }
+
+      const configuracao = montarConfiguracaoPersonalizacao();
+      if (!camposPersonalizacaoPreenchidos(configuracao)) {
+        setErro(
+          'Preencha os campos obrigatórios da Personalização Inteligente antes de prosseguir.',
+        );
+        return;
+      }
+
+      personalizacaoProva = gerarPersonalizacaoAutomatica();
+    }
+
     setErro('');
+    const candidatoProcessoUnico =
+      formulario.processo === 'PROCESSO_UNICO'
+        ? {
+            nome_candidato: normalizarTexto(formulario.candidatoNome),
+            email: normalizarTexto(formulario.candidatoEmail),
+            telefone: normalizarTexto(formulario.candidatoTelefone),
+            whatsapp: normalizarTexto(formulario.candidatoTelefone),
+            status_entrevista: 'Apto para prova',
+          }
+        : candidatoAgendadoSelecionado;
+
     controlador.configurarFluxo({
       role: formulario.vaga,
       level: formulario.nivel,
       track: formulario.trilha || '',
       time: Number(formulario.tempo),
       processId: formulario.processo,
-      scheduledCandidate: candidatoAgendadoSelecionado,
+      scheduledCandidate: candidatoProcessoUnico,
+      personalizacaoProva,
     });
   };
 
@@ -414,7 +760,7 @@ export function TelaConfiguracao({ controlador }) {
     } catch (error) {
       setErro(
         error?.message ||
-          'Nao foi possivel atualizar o status do candidato para Compareceu.',
+          'Não foi possível atualizar o status do candidato para Compareceu.',
       );
     } finally {
       setAtualizandoCandidatoAgendado(false);
@@ -425,19 +771,20 @@ export function TelaConfiguracao({ controlador }) {
     <${PainelRh}
       screenId="screen-config"
       navAtiva="screen-config"
-      subtituloMarca="Configuracao da prova"
-      placeholderBusca="Configuracao do fluxo da prova"
+      subtituloMarca="Configuração da prova"
+      placeholderBusca="Configuração do fluxo da prova"
       controlador=${controlador}
       acaoPrimaria=${{
         label: 'Iniciar teste',
+        permissao: 'provas.enviar',
         onClick: () => controlador.iniciarNovoFluxo(),
       }}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Console • Configuracao"
-        title="Configuracao da prova"
-        description="Selecione perfil, nivel, trilha e processo sem alterar o roteamento hash nem a integracao existente."
+        kicker="Console • Configuração"
+        title="Configuração da prova"
+        description="Selecione perfil, nível, trilha e processo sem alterar o roteamento hash nem a integração existente."
       />
 
       ${
@@ -449,7 +796,7 @@ export function TelaConfiguracao({ controlador }) {
             >
               <div class="rh-inline-alert mb-0">
                 <strong>${requisitoBuscado.titulo || 'Requisito'}</strong>
-                <div>${requisitoBuscado.descricao || 'Sem descricao adicional.'}</div>
+                <div>${requisitoBuscado.descricao || 'Sem descrição adicional.'}</div>
               </div>
             </${SectionCard}>
           `
@@ -457,8 +804,8 @@ export function TelaConfiguracao({ controlador }) {
       }
 
       <${SectionCard}
-        title="Parametros da avaliacao"
-        description="Todos os campos abaixo alimentam o mesmo estado global ja utilizado pelo sistema."
+        title="Parâmetros da avaliação"
+        description="Todos os campos abaixo alimentam o mesmo estado global já utilizado pelo sistema."
         tourId="config-parameters"
       >
         <div class="row g-3">
@@ -475,7 +822,7 @@ export function TelaConfiguracao({ controlador }) {
                 })}
             >
               <option value="">Selecione...</option>
-              <option value="PROCESSO_UNICO">Processo unico</option>
+              <option value="PROCESSO_UNICO">Processo único</option>
               ${processosAbertos.map(
                 (processo) => html`
                   <option
@@ -514,11 +861,54 @@ export function TelaConfiguracao({ controlador }) {
                 processoSelecionado
                   ? atualizandoCandidatoAgendado
                     ? 'Atualizando o status do candidato para Compareceu...'
-                    : 'Ao selecionar um candidato agendado, o nome sera preenchido automaticamente e a agenda operacional sera atualizada para Compareceu.'
+                    : 'Ao selecionar um candidato agendado, o nome será preenchido automaticamente e a agenda operacional será atualizada para Compareceu.'
                   : 'Selecione um processo para listar os candidatos com entrevista agendada.'
               }
             </div>
           </div>
+
+          ${formulario.processo === 'PROCESSO_UNICO'
+            ? html`
+                <div class="col-md-6">
+                  <label class="form-label">Nome completo do candidato</label>
+                  <input
+                    class="form-control rh-flow-input"
+                    value=${formulario.candidatoNome}
+                    onInput=${(event) =>
+                      setFormulario({
+                        ...formulario,
+                        candidatoNome: event.target.value,
+                      })}
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">E-mail do candidato</label>
+                  <input
+                    class="form-control rh-flow-input"
+                    type="email"
+                    value=${formulario.candidatoEmail}
+                    onInput=${(event) =>
+                      setFormulario({
+                        ...formulario,
+                        candidatoEmail: event.target.value,
+                      })}
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Telefone do candidato</label>
+                  <input
+                    class="form-control rh-flow-input"
+                    inputmode="tel"
+                    value=${formulario.candidatoTelefone}
+                    onInput=${(event) =>
+                      setFormulario({
+                        ...formulario,
+                        candidatoTelefone: event.target.value,
+                      })}
+                  />
+                </div>
+              `
+            : null}
 
           <div class="col-md-6">
             <label class="form-label">Perfil da vaga</label>
@@ -529,20 +919,18 @@ export function TelaConfiguracao({ controlador }) {
                 setFormulario({ ...formulario, vaga: event.target.value })}
             >
               <option value="">Selecione...</option>
-              <option>Jovem Aprendiz</option>
-              <option>Operador</option>
-              <option>Estagiario</option>
-              <option>Supervisor</option>
-              <option>Control Desk</option>
-              <option>Planejamento</option>
-              <option>TI</option>
-              <option>Analista</option>
-              <option>Outros</option>
+              ${OPCOES_VAGAS_PROVA.map(
+                (opcao) => html`
+                  <option key=${opcao.label} value=${opcao.label}>
+                    ${opcao.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
           <div class="col-md-6">
-            <label class="form-label">Nivel da prova</label>
+            <label class="form-label">Nível da prova</label>
             <select
               class="form-select rh-flow-input"
               value=${formulario.nivel}
@@ -550,28 +938,31 @@ export function TelaConfiguracao({ controlador }) {
                 setFormulario({ ...formulario, nivel: event.target.value })}
             >
               <option value="">Selecione...</option>
-              <option value="1">Nivel 1 - Jovem Aprendiz</option>
-              <option value="2">Nivel 2 - Operador / Estagiario</option>
+              <option value="1">Nível 1 - Jovem Aprendiz</option>
+              <option value="2">Nível 2 - Operador / Estagiário / Suporte Técnico Júnior</option>
               <option value="3">
-                Nivel 3 - Supervisor / Control Desk / Planejamento
+                Nível 3 - Supervisor / Control Desk / Suporte Técnico Pleno
               </option>
-              <option value="4">Nivel 4 - TI / Analista / Outros</option>
+              <option value="4">Nível 4 - Planejamento / Suporte Técnico Sênior / TI</option>
             </select>
           </div>
 
           <div class="col-md-6">
-            <label class="form-label">Area / Trilha</label>
+            <label class="form-label">Área / Trilha</label>
             <select
               class="form-select rh-flow-input"
               value=${formulario.trilha}
               onChange=${(event) =>
                 setFormulario({ ...formulario, trilha: event.target.value })}
             >
-              <option value="">Automatico</option>
-              <option value="operacao">Operacao</option>
-              <option value="ti">TI</option>
-              <option value="rh">RH</option>
-              <option value="adm">ADM / Gestao</option>
+              <option value="">Selecione...</option>
+              ${OPCOES_TRILHAS_PROVA.map(
+                (opcao) => html`
+                  <option key=${opcao.value} value=${opcao.value}>
+                    ${opcao.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
@@ -595,10 +986,208 @@ export function TelaConfiguracao({ controlador }) {
           </div>
           <div>
             <div class="fw-semibold mb-1">
-              ${blueprint?.label || 'Fluxo que sera aplicado'}
+              ${blueprint?.label || 'Fluxo que será aplicado'}
             </div>
             <div class="text-muted small">${montarDescricaoFluxo(blueprint)}</div>
           </div>
+        </div>
+
+        <div class="border rounded-2 p-3 mt-4 generated-personalization-box">
+          <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+            <label class="form-check m-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                checked=${personalizacao.ativada}
+                onChange=${(event) =>
+                  setPersonalizacao({
+                    ...personalizacao,
+                    ativada: event.target.checked,
+                    status: event.target.checked
+                      ? STATUS_PERSONALIZACAO.PENDENTE
+                      : STATUS_PERSONALIZACAO.NAO_PERSONALIZADA,
+                    ...(!event.target.checked
+                      ? {
+                          operacao: '',
+                          clientesOperacoes: [],
+                          clienteOutro: '',
+                          tiposAtendimento: [],
+                          tipoAtendimentoOutro: '',
+                          situacaoPratica: '',
+                        }
+                      : {}),
+                    questoes: [],
+                    alertas: [],
+                    historico: null,
+                  })}
+              />
+              <span class="form-check-label fw-semibold">
+                Desejo personalizar esta prova por operação/cliente
+              </span>
+            </label>
+            <span class="badge bg-secondary">${personalizacao.status}</span>
+          </div>
+          <div class="form-text mt-2">
+            Opcional. Desmarcado, o sistema gera uma prova padrão com base em vaga, área, nível, etapas e regras existentes.
+          </div>
+
+          ${personalizacao.ativada
+            ? html`
+                <div class="row g-3 mt-1">
+                  <div class="col-md-6">
+                    <label class="form-label">Cliente/Operação</label>
+                    <select
+                      class="form-select generated-multiselect"
+                      multiple
+                      value=${personalizacao.clientesOperacoes}
+                      onChange=${(event) =>
+                        setPersonalizacao({
+                          ...personalizacao,
+                          clientesOperacoes: lerValoresMultiselect(event),
+                          status: STATUS_PERSONALIZACAO.PENDENTE,
+                          questoes: [],
+                          alertas: [],
+                          historico: null,
+                        })}
+                    >
+                      ${[...OPCOES_OPERACOES, OPCAO_OUTRO].map(
+                        (operacao) => html`
+                          <option
+                            key=${operacao}
+                            value=${operacao}
+                            selected=${personalizacao.clientesOperacoes.includes(operacao)}
+                          >
+                            ${operacao}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Tipo de atendimento</label>
+                    <select
+                      class="form-select generated-multiselect"
+                      multiple
+                      value=${personalizacao.tiposAtendimento}
+                      onChange=${(event) =>
+                        setPersonalizacao({
+                          ...personalizacao,
+                          tiposAtendimento: lerValoresMultiselect(event),
+                          status: STATUS_PERSONALIZACAO.PENDENTE,
+                          questoes: [],
+                          alertas: [],
+                          historico: null,
+                        })}
+                    >
+                      ${TIPOS_ATENDIMENTO_PERSONALIZACAO.map(
+                        (tipo) => html`
+                          <option
+                            key=${tipo}
+                            value=${tipo}
+                            selected=${personalizacao.tiposAtendimento.includes(tipo)}
+                          >
+                            ${tipo}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  </div>
+                  ${personalizacao.clientesOperacoes.includes(OPCAO_OUTRO)
+                    ? html`
+                        <div class="col-md-6">
+                          <label class="form-label">Outro cliente/operação</label>
+                          <input
+                            class="form-control"
+                            value=${personalizacao.clienteOutro}
+                            onInput=${(event) =>
+                              setPersonalizacao({
+                                ...personalizacao,
+                                clienteOutro: event.target.value,
+                                status: STATUS_PERSONALIZACAO.PENDENTE,
+                                questoes: [],
+                                alertas: [],
+                                historico: null,
+                              })}
+                          />
+                        </div>
+                      `
+                    : null}
+                  ${personalizacao.tiposAtendimento.includes(OPCAO_OUTRO)
+                    ? html`
+                        <div class="col-md-6">
+                          <label class="form-label">Outro tipo de atendimento</label>
+                          <input
+                            class="form-control"
+                            value=${personalizacao.tipoAtendimentoOutro}
+                            onInput=${(event) =>
+                              setPersonalizacao({
+                                ...personalizacao,
+                                tipoAtendimentoOutro: event.target.value,
+                                status: STATUS_PERSONALIZACAO.PENDENTE,
+                                questoes: [],
+                                alertas: [],
+                                historico: null,
+                              })}
+                          />
+                        </div>
+                      `
+                    : null}
+                  <div class="col-md-6">
+                    <label class="form-label">Nível de personalização</label>
+                    <select
+                      class="form-select"
+                      value=${personalizacao.nivelPersonalizacao}
+                      onChange=${(event) =>
+                        setPersonalizacao({
+                          ...personalizacao,
+                          nivelPersonalizacao: event.target.value,
+                          status: STATUS_PERSONALIZACAO.PENDENTE,
+                          questoes: [],
+                          alertas: [],
+                          historico: null,
+                        })}
+                    >
+                      ${NIVEIS_PERSONALIZACAO.map(
+                        (nivel) => html`
+                          <option key=${nivel.id} value=${nivel.id}>
+                            ${nivel.label}: ${nivel.descricao}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  </div>
+                  <div class="col-md-12">
+                    <label class="form-label">Situação prática da operação</label>
+                    <textarea
+                      class="form-control"
+                      rows="2"
+                      placeholder="Ex.: Paciente entra em contato com dúvida sobre agendamento e demonstra preocupação com o tratamento."
+                      value=${personalizacao.situacaoPratica}
+                      onInput=${(event) =>
+                        setPersonalizacao({
+                          ...personalizacao,
+                          situacaoPratica: event.target.value,
+                          status: STATUS_PERSONALIZACAO.PENDENTE,
+                          questoes: [],
+                          alertas: [],
+                          historico: null,
+                        })}
+                    ></textarea>
+                    <div class="form-text">
+                      Opcional, mas recomendado. Ajuda a criar situações realistas sem transformar a prova em treinamento interno.
+                    </div>
+                  </div>
+                </div>
+
+                ${personalizacao.alertas.length
+                  ? html`
+                      <div class="alert alert-warning mt-3 mb-0">
+                        ${personalizacao.alertas.slice(0, 3).join(' ')}
+                      </div>
+                    `
+                  : null}
+              `
+            : null}
         </div>
 
         ${erro ? html`<div class="alert alert-danger mt-4">${erro}</div>` : null}
@@ -626,23 +1215,55 @@ export function TelaConfiguracao({ controlador }) {
 
 export function TelaCandidato({ controlador }) {
   const [nome, setNome] = useState(controlador.estado.candidato.name || '');
+  const [email, setEmail] = useState(controlador.estado.candidato.email || '');
+  const [whatsapp, setWhatsapp] = useState(
+    controlador.estado.candidato.whatsapp || '',
+  );
   const [erro, setErro] = useState('');
+  const [salvandoContato, setSalvandoContato] = useState(false);
   const regrasCandidato = Array.isArray(controlador.regrasCandidato)
     ? controlador.regrasCandidato
     : [];
 
   useEffect(() => {
     setNome(controlador.estado.candidato.name || '');
-  }, [controlador.estado.candidato.name]);
+    setEmail(controlador.estado.candidato.email || '');
+    setWhatsapp(controlador.estado.candidato.whatsapp || '');
+  }, [
+    controlador.estado.candidato.name,
+    controlador.estado.candidato.email,
+    controlador.estado.candidato.whatsapp,
+  ]);
 
-  const iniciar = () => {
-    controlador.atualizarNomeCandidato(nome);
-    const resultado = controlador.iniciarProva(nome);
-    if (!resultado.ok) {
-      setErro(resultado.mensagem);
-      return;
-    }
+  const iniciar = async () => {
+    setSalvandoContato(true);
     setErro('');
+    try {
+      const dadosContato = { name: nome, email, whatsapp };
+      controlador.atualizarDadosContatoCandidato(dadosContato);
+      const confirmacao =
+        await controlador.confirmarDadosContatoCandidato(dadosContato);
+      if (!confirmacao.ok) {
+        setErro(confirmacao.mensagem);
+        return;
+      }
+
+      const resultado = controlador.iniciarProva(
+        confirmacao.dados.name,
+        confirmacao.dados,
+      );
+      if (!resultado.ok) {
+        setErro(resultado.mensagem);
+        return;
+      }
+    } catch (error) {
+      setErro(
+        error?.message ||
+          'Não foi possível confirmar seus dados. Verifique as informações e tente novamente.',
+      );
+    } finally {
+      setSalvandoContato(false);
+    }
   };
 
   return html`
@@ -650,6 +1271,11 @@ export function TelaCandidato({ controlador }) {
       <div class="rh-standalone-page">
         <div class="rh-candidate-layout">
           <aside class="rh-candidate-side-card">
+            <h2 class="h5 fw-bold mb-2">Confirme seus dados</h2>
+            <p class="text-muted small mb-3">
+              Nome, e-mail e WhatsApp serão usados pelo RH para identificar sua
+              prova e acompanhar o processo seletivo.
+            </p>
             <label
               class="form-label small text-uppercase fw-bold text-muted mb-2"
             >
@@ -658,19 +1284,68 @@ export function TelaCandidato({ controlador }) {
             <div class="rh-candidate-name-shell">
               <input
                 class="form-control rh-flow-input"
-                placeholder="Ex: Joao Augusto da Silva"
+                placeholder="Ex: João Augusto da Silva"
                 value=${nome}
                 onInput=${(event) => {
                   setNome(event.target.value);
-                  controlador.atualizarNomeCandidato(event.target.value);
+                  controlador.atualizarDadosContatoCandidato({
+                    name: event.target.value,
+                    email,
+                    whatsapp,
+                  });
                 }}
                 type="text"
               />
               <span class="material-symbols-outlined">badge</span>
             </div>
 
+            <div class="rh-candidate-contact-grid">
+              <div>
+                <label
+                  class="form-label small text-uppercase fw-bold text-muted mb-2"
+                >
+                  E-mail
+                </label>
+                <input
+                  class="form-control rh-flow-input"
+                  placeholder="nome@email.com"
+                  value=${email}
+                  onInput=${(event) => {
+                    setEmail(event.target.value);
+                    controlador.atualizarDadosContatoCandidato({
+                      name: nome,
+                      email: event.target.value,
+                      whatsapp,
+                    });
+                  }}
+                  type="email"
+                />
+              </div>
+              <div>
+                <label
+                  class="form-label small text-uppercase fw-bold text-muted mb-2"
+                >
+                  WhatsApp
+                </label>
+                <input
+                  class="form-control rh-flow-input"
+                  placeholder="(11) 99999-9999"
+                  value=${whatsapp}
+                  onInput=${(event) => {
+                    setWhatsapp(event.target.value);
+                    controlador.atualizarDadosContatoCandidato({
+                      name: nome,
+                      email,
+                      whatsapp: event.target.value,
+                    });
+                  }}
+                  type="tel"
+                />
+              </div>
+            </div>
+
             <div class="rh-candidate-summary-card mt-4">
-              <h3 class="h6 fw-bold mb-3">Etapas e criterios</h3>
+              <h3 class="h6 fw-bold mb-3">Etapas e critérios</h3>
               <ul class="candidate-summary-list">
                 ${regrasCandidato.map(
                   (item) => html`
@@ -687,97 +1362,77 @@ export function TelaCandidato({ controlador }) {
           <section class="rh-candidate-main-card">
             <h2 class="h3 fw-bold mb-2">Instruções ao candidato</h2>
             <p class="text-muted mb-4">
-              Leia atentamente as orientacoes antes de iniciar a prova.
+              Leia atentamente as orientações antes de iniciar a prova.
             </p>
 
             <div class="rh-instruction-grid">
               <article class="rh-instruction-card">
-                <h3>Antes de comecar</h3>
+                <h3>Antes de começar</h3>
                 <ul class="rules-list">
                   <li>
-                    Confira se o nome informado esta correto antes de iniciar a avaliacao.
+                    Confira se nome, e-mail e WhatsApp estão corretos antes de
+                    iniciar a avaliação.
                   </li>
                   <li>
-                    Leia todas as orientacoes da tela e siga somente as instrucoes passadas pelo
-                    responsavel do RH.
+                    Leia todas as orientações da tela e siga somente as instruções passadas pelo
+                    responsável do RH.
                   </li>
                   <li>
-                    Mantenha aberto apenas o que for necessario para realizar a prova. Evite
-                    abas, arquivos ou consultas que nao tenham sido autorizados.
+                    Mantenha aberto apenas o que for necessário para realizar a prova. Evite
+                    abas, arquivos ou consultas que não tenham sido autorizados.
                   </li>
                   <li>
-                    Em exercicios de Excel, baixe o arquivo base, edite a sua propria copia e
-                    envie a versao respondida quando solicitado.
+                    Em exercícios de Excel, baixe o arquivo base, edite a sua própria cópia e
+                    envie a versão respondida quando solicitado.
                   </li>
                   <li>
-                    Em exercicios de texto, responda com clareza, organizacao e cuidado com
-                    ortografia, pontuacao e formatacao.
+                    Em exercícios de texto, responda com clareza, organização e cuidado com
+                    ortografia, pontuação e formatação.
                   </li>
                   <li>
-                    O cronometro sera iniciado ao comecar a prova. Organize seu tempo antes de
-                    avancar.
+                    O cronômetro será iniciado ao começar a prova. Organize seu tempo antes de
+                    avançar.
                   </li>
                   <li>
-                    Caso perceba qualquer problema tecnico antes do inicio, avise o responsavel
-                    pela aplicacao imediatamente.
+                    Caso perceba qualquer problema técnico antes do início, avise o responsável
+                    pela aplicação imediatamente.
                   </li>
-                  <li>Leia atentamente cada questao.</li>
-                  <li>
-                    Em exercicios de Excel, baixe o arquivo e envie a versao
-                    respondida.
-                  </li>
-                  <li>
-                    O sistema registra automaticamente o andamento da prova.
-                  </li>
-                  <li>Revise as respostas sempre que possivel.</li>
                 </ul>
               </article>
               <article class="rh-instruction-card">
                 <h3>Durante a prova</h3>
                 <ul class="rules-list">
                   <li>
-                    Responda com atencao: algumas questoes avaliam conhecimento, outras avaliam
-                    raciocinio, escrita, organizacao e pratica.
+                    Responda com atenção: algumas questões avaliam conhecimento, outras avaliam
+                    raciocínio, escrita, organização e prática.
                   </li>
                   <li>
-                    O tempo de prova e controlado pelo sistema. Ao finalizar o prazo, a
-                    avaliacao podera ser encerrada pelo responsavel.
+                    O tempo de prova é controlado pelo sistema. Ao finalizar o prazo, a
+                    avaliação poderá ser encerrada pelo responsável.
                   </li>
                   <li>
-                    Nao atualize a pagina, nao feche o navegador e nao utilize o botao voltar do
-                    navegador durante a avaliacao.
+                    Não atualize a página, não feche o navegador e não utilize o botão voltar do
+                    navegador durante a avaliação.
                   </li>
                   <li>
                     Salve ou anexe os arquivos solicitados somente nos campos indicados. Arquivos
-                    enviados fora do local correto podem nao ser considerados.
+                    enviados fora do local correto podem não ser considerados.
                   </li>
                   <li>
-                    Em questoes praticas, organize o material como faria em uma rotina real de
+                    Em questões práticas, organize o material como faria em uma rotina real de
                     trabalho: nomeie, formate e revise antes de concluir.
                   </li>
                   <li>
                     Se houver travamento, queda de energia, erro no arquivo ou outra dificuldade
-                    tecnica, comunique imediatamente o responsavel pela aplicacao.
+                    técnica, comunique imediatamente o responsável pela aplicação.
                   </li>
                   <li>
-                    Ao terminar, revise o que for possivel e finalize somente quando tiver
-                    certeza de que deseja encerrar a avaliacao.
+                    Ao terminar, revise o que for possível e finalize somente quando tiver
+                    certeza de que deseja encerrar a avaliação.
                   </li>
                   <li>
-                    Depois da finalizacao, o resultado ficara disponivel apenas para analise
+                    Depois da finalização, o resultado ficará disponível apenas para análise
                     interna do RH.
-                  </li>
-                  <li>
-                    Algumas etapas avaliam pratica, raciocinio e organizacao.
-                  </li>
-                  <li>O cronometro segue o tempo configurado pelo RH.</li>
-                  <li>
-                    Ao finalizar, o resultado fica disponivel para analise
-                    interna.
-                  </li>
-                  <li>
-                    Se houver dificuldade tecnica, avise o responsavel pela
-                    aplicacao.
                   </li>
                 </ul>
               </article>
@@ -793,8 +1448,8 @@ export function TelaCandidato({ controlador }) {
               <div class="rh-candidate-disclaimer">
                 <span class="material-symbols-outlined">info</span>
                 <span>
-                  Ao iniciar, voce confirma que leu e concorda com as
-                  orientacoes da avaliacao.
+                  Ao iniciar, você confirma seus dados de contato e concorda
+                  com as orientações da avaliação.
                 </span>
               </div>
               <div class="d-flex gap-2 flex-wrap">
@@ -810,8 +1465,9 @@ export function TelaCandidato({ controlador }) {
                   type="button"
                   class="btn btn-success btn-lg"
                   onClick=${iniciar}
+                  disabled=${salvandoContato}
                 >
-                  Iniciar prova
+                  ${salvandoContato ? 'Confirmando...' : 'Confirmar e iniciar prova'}
                 </button>
               </div>
             </div>
@@ -844,7 +1500,7 @@ export function TelaProva({ controlador }) {
       <section class="active screen" id="screen-exam">
         <div class="container py-5">
           <div class="alert alert-warning mb-0">
-            Nenhuma questao foi carregada para esta prova.
+            Nenhuma questão foi carregada para esta prova.
           </div>
         </div>
       </section>
@@ -876,7 +1532,7 @@ export function TelaProva({ controlador }) {
       }
       setErroFinalizacao(
         resultado?.mensagem ||
-          'Nao foi possivel finalizar a prova com as respostas atuais.',
+          'Não foi possível finalizar a prova com as respostas atuais.',
       );
       return;
     }
@@ -905,12 +1561,12 @@ export function TelaProva({ controlador }) {
       <${ModalPadrao}
         aberto=${confirmarEncerramento}
         titulo="Confirmar encerramento"
-        subtitulo="Ao encerrar a prova agora, o candidato sera marcado como Desistente e eliminado do processo. Deseja continuar?"
+        subtitulo="Ao encerrar a prova agora, o candidato será marcado como Desistente e eliminado do processo. Deseja continuar?"
         onClose=${() => setConfirmarEncerramento(false)}
       >
         <div class="rh-details-body">
           <div class="alert alert-warning mb-0">
-            Ao confirmar, nao sera exigido Excel nem conclusao das etapas restantes.
+            Ao confirmar, não será exigido Excel nem conclusão das etapas restantes.
           </div>
         </div>
         <footer class="rh-modal-footer">
@@ -933,7 +1589,7 @@ export function TelaProva({ controlador }) {
               if (!resultado?.ok) {
                 setErroFinalizacao(
                   resultado?.mensagem ||
-                    'Nao foi possivel encerrar a prova com as respostas atuais.',
+                    'Não foi possível encerrar a prova com as respostas atuais.',
                 );
                 return;
               }
@@ -947,13 +1603,13 @@ export function TelaProva({ controlador }) {
 
       <${ModalPadrao}
         aberto=${!!confirmarExcelAusente}
-        titulo="Excel nao enviado"
+        titulo="Excel não enviado"
         subtitulo="A etapa de Excel pode ser finalizada com nota zero se o candidato decidir continuar."
         onClose=${() => setConfirmarExcelAusente(null)}
       >
         <div class="rh-details-body">
           <div class="alert alert-warning mb-0">
-            Voce ainda nao enviou a prova de Excel. Essa etapa recebera nota zero e impactara sua nota final. Deseja finalizar mesmo assim?
+            Você ainda não enviou a prova de Excel. Essa etapa receberá nota zero e impactará sua nota final. Deseja finalizar mesmo assim?
           </div>
         </div>
         <footer class="rh-modal-footer">
@@ -981,7 +1637,7 @@ export function TelaProva({ controlador }) {
               if (!resultado?.ok) {
                 setErroFinalizacao(
                   resultado?.mensagem ||
-                    'Nao foi possivel finalizar a prova com as respostas atuais.',
+                    'Não foi possível finalizar a prova com as respostas atuais.',
                 );
                 return;
               }
@@ -1031,10 +1687,10 @@ export function TelaProva({ controlador }) {
         <div class="exam-screen-content">
           <div class="exam-question-card">
             <span class="exam-question-kicker">
-              ${`Questao ${indiceAtual + 1} de ${controlador.estado.questoes.length}`}
+              ${`Questão ${indiceAtual + 1} de ${controlador.estado.questoes.length}`}
             </span>
             <h3 class="exam-question-title">${questaoAtual.title}</h3>
-            <p class="exam-question-description">${questaoAtual.description}</p>
+            <${DescricaoQuestao} questao=${questaoAtual} />
           </div>
 
           <div class="exam-dynamic-area">
@@ -1156,7 +1812,7 @@ export function TelaConclusao({ controlador }) {
       setTipoSalvar('danger');
       setAlertaSalvar(
         retorno?.mensagem ||
-          'Nao foi possivel salvar a prova no servidor. Verifique a API e tente novamente.',
+          'Não foi possível salvar a prova no servidor. Verifique a API e tente novamente.',
       );
       return;
     }
@@ -1196,14 +1852,14 @@ export function TelaConclusao({ controlador }) {
       />
       <div class="rh-finish-screen">
         <div class="rh-finish-shell">
-          <div class="rh-finish-badge">${modoDesistencia ? 'Desistente' : 'Concluido'}</div>
+          <div class="rh-finish-badge">${modoDesistencia ? 'Desistente' : 'Concluído'}</div>
           <!-- <div class="rh-finish-icon-wrap">
             <div class="rh-finish-icon">OK</div>
           </div> -->
           <h2 class="rh-finish-title">
             ${modoDesistencia
-              ? 'Prova encerrada antes da conclusao.'
-              : 'Avaliacao finalizada com sucesso !'}
+              ? 'Prova encerrada antes da conclusão.'
+              : 'Avaliação finalizada com sucesso!'}
           </h2>
           <p class="rh-finish-subtitle">
             ${modoDesistencia
@@ -1218,11 +1874,11 @@ export function TelaConclusao({ controlador }) {
               <div class="rh-finish-info-icon is-blue">
                 <span class="material-symbols-outlined">task_alt</span>
               </div>
-              <h3>${modoDesistencia ? 'Registro de desistência' : 'Finalizacao obrigatoria'}</h3>
+              <h3>${modoDesistencia ? 'Registro de desistência' : 'Finalização obrigatória'}</h3>
               <p>
                 ${modoDesistencia
-                  ? 'A desistência esta sendo registrada sem exigir entrega de Excel ou etapas pendentes.'
-                  : 'Para concluir corretamente esta avaliacao, e obrigatorio salvar o resultado no sistema.'}
+                  ? 'A desistência está sendo registrada sem exigir entrega de Excel ou etapas pendentes.'
+                  : 'Para concluir corretamente esta avaliação, é obrigatório salvar o resultado no sistema.'}
               </p>
               <br />
               <button
@@ -1246,11 +1902,11 @@ export function TelaConclusao({ controlador }) {
               <div class="rh-finish-info-icon is-gold">
                 <span class="material-symbols-outlined">trending_up</span>
               </div>
-              <h3>${modoDesistencia ? 'Acesso bloqueado' : 'Proximos passos'}</h3>
+              <h3>${modoDesistencia ? 'Acesso bloqueado' : 'Próximos passos'}</h3>
               <p>
                 ${modoDesistencia
-                  ? 'Para voltar, abrir resultado ou retornar ao menu, sera necessario informar login e senha novamente.'
-                  : 'O RH recebera o registro salvo e podera continuar a analise do candidato nas telas de gestao.'}
+                  ? 'Para voltar, abrir resultado ou retornar ao menu, será necessário informar login e senha novamente.'
+                  : 'O RH receberá o registro salvo e poderá continuar a análise do candidato nas telas de gestão.'}
               </p>
             </article>
           </div>
@@ -1279,7 +1935,7 @@ export function TelaConclusao({ controlador }) {
             </div>
             <div class="rh-finish-access-title">Acesso restrito RH</div>
             <p class="rh-finish-access-text">
-              O resultado detalhado permanece restrito a usuarios autenticados
+              O resultado detalhado permanece restrito a usuários autenticados
               no sistema.
             </p>
             <button
@@ -1299,7 +1955,7 @@ export function TelaConclusao({ controlador }) {
 export function TelaResultado({ controlador }) {
   const estado = controlador.estado;
   const dataGeracao = new Date().toLocaleString('pt-BR');
-  const identificador = estado.idResultadoAtual || 'Nao salvo';
+  const identificador = estado.idResultadoAtual || 'Não salvo';
   const [acaoRestrita, setAcaoRestrita] = useState(null);
 
   return html`
@@ -1322,13 +1978,13 @@ export function TelaResultado({ controlador }) {
           <div class="rh-result-sidebar-title">
             <span class="material-symbols-outlined">assignment_turned_in</span>
             <div>
-              <strong>Avaliacao tecnica</strong>
+              <strong>Avaliação técnica</strong>
               <span>${`ID: ${identificador}`}</span>
             </div>
           </div>
           <nav class="rh-result-nav">
             <button type="button" class="rh-result-nav-btn is-active">
-              Pontuacao
+              Pontuação
             </button>
           </nav>
           <button
@@ -1343,7 +1999,7 @@ export function TelaResultado({ controlador }) {
         <div class="rh-result-main">
           <div class="rh-result-topnav no-print">
             <div class="rh-result-topnav-links">
-              <span class="is-active">Avaliacoes</span>
+              <span class="is-active">Avaliações</span>
             </div>
             <div class="rh-result-topnav-actions">
               <button
@@ -1372,9 +2028,9 @@ export function TelaResultado({ controlador }) {
               <div class="print-page">
                 <div class="rh-result-header">
                   <div>
-                    <h2 class="rh-result-title">Resultado da avaliacao</h2>
+                    <h2 class="rh-result-title">Resultado da avaliação</h2>
                     <p class="rh-result-subtitle">
-                      Relatorio consolidado em ${dataGeracao}
+                      Relatório consolidado em ${dataGeracao}
                     </p>
                   </div>
                   <span class="rh-result-status-badge no-print">
@@ -1411,7 +2067,7 @@ export function TelaResultado({ controlador }) {
                 <div class="rh-result-body-grid">
                   <section class="rh-result-stage-panel">
                     <div class="rh-result-panel-head">
-                      <h3>Pontuacao por etapa</h3>
+                      <h3>Pontuação por etapa</h3>
                       <span>Peso total: 100%</span>
                     </div>
                     <div class="rh-stage-grid">
@@ -1447,7 +2103,7 @@ export function TelaResultado({ controlador }) {
                             ${etapa.pendings
                               ? html`
                                   <div class="small text-muted mt-2">
-                                    ${`Pendencias de revisao: ${etapa.pendings}`}
+                                    ${`Pendências de revisão: ${etapa.pendings}`}
                                   </div>
                                 `
                               : null}
@@ -1459,13 +2115,13 @@ export function TelaResultado({ controlador }) {
 
                   <aside class="rh-result-side-stack">
                     <${SectionCard}
-                      title="Observacoes do RH"
+                      title="Observações do RH"
                       className="rh-section-card--flat"
                     >
                       <textarea
                         class="form-control"
                         rows="7"
-                        placeholder="Digite observacoes sobre desempenho, postura, tempo, comportamento, pontos fortes e pontos de atencao."
+                        placeholder="Digite observações sobre desempenho, postura, tempo, comportamento, pontos fortes e pontos de atenção."
                         value=${estado.observacaoRh || ''}
                         onInput=${(event) =>
                           controlador.atualizarObservacaoRh(event.target.value)}
@@ -1473,7 +2129,7 @@ export function TelaResultado({ controlador }) {
                     </${SectionCard}>
 
                     <${SectionCard}
-                      title="Pendencias"
+                      title="Pendências"
                       className="rh-section-card--flat"
                     >
                       ${
@@ -1534,8 +2190,8 @@ export function TelaResultado({ controlador }) {
                             `
                           : html`
                               <${EmptyState}
-                                title="Sem pendencias"
-                                text="Nao ha pendencias de revisao registradas para esta prova."
+                                title="Sem pendências"
+                                text="Não há pendências de revisão registradas para esta prova."
                               />
                             `
                       }
@@ -1550,7 +2206,7 @@ export function TelaResultado({ controlador }) {
                   <${MetricGrid}
                     items=${[
                       {
-                        label: 'Pontuacao bruta',
+                        label: 'Pontuação bruta',
                         value: `${estado.totalScore}/${estado.totalMax}`,
                       },
                       {
@@ -1570,7 +2226,7 @@ export function TelaResultado({ controlador }) {
                 <div class="print-sheet-topbar">${dataGeracao}</div>
                 <div class="print-sheet-title-row">
                   <div>
-                    <h1>Resultado da avaliacao</h1>
+                    <h1>Resultado da avaliação</h1>
                     <p>Resumo final da prova</p>
                   </div>
                 </div>
@@ -1578,12 +2234,12 @@ export function TelaResultado({ controlador }) {
                   <div>${`Candidato(a): ${estado.candidato.name || '-'}`}</div>
                   <div>${`Vaga: ${estado.candidato.role || '-'}`}</div>
                   <div>
-                    ${`Nivel da prova: ${estado.candidato.level || '-'} • ${controlador.blueprint?.label || '-'}`}
+                    ${`Nível da prova: ${estado.candidato.level || '-'} • ${controlador.blueprint?.label || '-'}`}
                   </div>
                   <div>${`Nota final: ${formatarNotaVisual(estado.notaFinalPonderada, 2)}`}</div>
                 </div>
                 <div class="print-sheet-divider"></div>
-                <h2 class="print-sheet-section-title">Pontuacao por etapa</h2>
+                <h2 class="print-sheet-section-title">Pontuação por etapa</h2>
                 <div class="print-stage-grid">
                   ${(estado.resumoEtapas || []).map(
                     (etapa) => html`
@@ -1605,7 +2261,7 @@ export function TelaResultado({ controlador }) {
                   )}
                 </div>
                 <div class="print-sheet-divider print-gap-top"></div>
-                <h2 class="print-sheet-section-title">Pendencias para revisao do RH</h2>
+                <h2 class="print-sheet-section-title">Pendências para revisão do RH</h2>
                 <div class="print-manual-box">
                   ${
                     (estado.pendenciasManuais || []).length
@@ -1631,11 +2287,11 @@ export function TelaResultado({ controlador }) {
                   }
                 </div>
                 <div class="print-sheet-divider print-gap-top"></div>
-                <h2 class="print-sheet-section-title">Observacao do RH</h2>
+                <h2 class="print-sheet-section-title">Observação do RH</h2>
                 <div class="print-observation-note">
                   ${
                     (estado.observacaoRh || '').trim() ||
-                    'Anotacoes sobre desempenho, postura, tempo e pontos de atencao.'
+                    'Anotações sobre desempenho, postura, tempo e pontos de atenção.'
                   }
                 </div>
               </div>

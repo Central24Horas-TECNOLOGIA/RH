@@ -40,13 +40,33 @@ export function MetricGrid({ items = [] }) {
         (item, indice) => html`
           <article
             key=${item.label || indice}
-            class=${`rh-metric-card ${item.variant || ''}`.trim()}
-          >
-            <span class="rh-metric-label">${item.label}</span>
-            <strong class="rh-metric-value">${item.value}</strong>
-            ${item.helper
-              ? html`<span class="rh-metric-helper">${item.helper}</span>`
+            class=${`rh-metric-card ${item.variant || ''} ${item.onClick ? 'is-clickable' : ''}`.trim()}
+            role=${item.onClick ? 'button' : null}
+            tabIndex=${item.onClick ? 0 : null}
+            onClick=${item.onClick || null}
+            onKeyDown=${item.onClick
+              ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    item.onClick();
+                  }
+                }
               : null}
+          >
+            ${item.icon
+              ? html`
+                  <span class="material-symbols-outlined rh-metric-icon">
+                    ${item.icon}
+                  </span>
+                `
+              : null}
+            <span class="rh-metric-content">
+              <span class="rh-metric-label">${item.label}</span>
+              <strong class="rh-metric-value">${item.value}</strong>
+              ${item.helper
+                ? html`<span class="rh-metric-helper">${item.helper}</span>`
+                : null}
+            </span>
           </article>
         `,
       )}
@@ -65,7 +85,7 @@ export function EmptyState({ title, text }) {
 
 export function LoadingState({
   titulo = 'Carregando dados',
-  descricao = 'Aguarde enquanto as informacoes sao atualizadas.',
+  descricao = 'Aguarde enquanto as informações são atualizadas.',
 }) {
   return html`
     <div class="rh-loading-state">

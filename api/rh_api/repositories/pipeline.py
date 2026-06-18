@@ -94,7 +94,7 @@ class PipelineRepositoryMixin:
     def create_pipeline_candidate(self, data: dict) -> dict:
         id_processo = normalize_text(data.get("id_processo"))
         if not id_processo:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo obrigatorio para criar card no pipeline.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo obrigatório para criar card no pipeline.")
 
         conn = self._connect()
         try:
@@ -103,7 +103,7 @@ class PipelineRepositoryMixin:
             ensure_process_reference_columns(cursor)
             processo = get_process_row(cursor, data.get("id_processo_ref") or id_processo)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
             if is_process_closed(processo.get("status")):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -174,7 +174,7 @@ class PipelineRepositoryMixin:
             )
             current_rows = rows_to_dicts(cursor, cursor.fetchall())
             if not current_rows:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card do pipeline nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card do pipeline não encontrado.")
             current = current_rows[0]
 
             new_stage = normalize_pipeline_stage(data.get("etapa_pipeline"))
@@ -215,7 +215,7 @@ class PipelineRepositoryMixin:
             )
             rows = rows_to_dicts(cursor, cursor.fetchall())
             if not rows:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card do pipeline nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card do pipeline não encontrado.")
             row = rows[0]
 
             id_processo = normalize_text(row.get("id_processo"))

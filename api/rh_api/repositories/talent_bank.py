@@ -2,22 +2,27 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pyodbc
 from fastapi import HTTPException, status
 
-from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
+from ..services.helpers import (
+    normalize_compare_text,
+    normalize_indication_type,
+    normalize_text,
+    rows_to_dicts,
+)
 from ..services.process_flow import (
     CANDIDATE_STATUS_ANALYSIS,
-    CANDIDATE_STATUS_APPROVED,
-    CANDIDATE_STATUS_ELIMINATED,
     CANDIDATE_STATUS_TALENT_BANK,
-    CANDIDATE_STATUS_WITHDREW,
     build_process_closed_message,
     canonicalize_candidate_status,
     is_process_closed,
 )
 from .bootstrap import (
+    describe_database_error,
     ensure_pipeline_columns,
     ensure_process_reference_columns,
+    ensure_talent_bank_table,
     get_process_row,
     insert_candidate_process_record,
 )
@@ -28,6 +33,7 @@ class TalentBankRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_talent_bank_table(cursor)
             ensure_pipeline_columns(cursor)
             ensure_process_reference_columns(cursor)
             profile_map = self._get_candidate_profile_map(cursor)
@@ -44,7 +50,10 @@ class TalentBankRepositoryMixin:
                     vaga,
                     pontuacao_final,
                     data_movimentacao,
-                    origem
+                    origem,
+                    eh_indicacao,
+                    tipo_indicacao,
+                    indicacao_em
                 FROM banco_talentos
                 """
             )
@@ -72,6 +81,8 @@ class TalentBankRepositoryMixin:
                 item["whatsapp"] = profile.get("whatsapp", "")
                 item["cidade"] = profile.get("cidade", "")
                 item["bairro"] = profile.get("bairro", "")
+                item["eh_indicacao"] = bool(item.get("eh_indicacao"))
+                item["tipo_indicacao"] = normalize_text(item.get("tipo_indicacao"))
                 item["cv_disponivel"] = bool(normalize_text(cv_attachment.get("caminho_arquivo")))
                 item["cv_nome_arquivo"] = normalize_text(cv_attachment.get("nome_arquivo_original"))
                 item["cv_tipo_arquivo"] = normalize_text(cv_attachment.get("tipo_arquivo"))
@@ -109,6 +120,7 @@ class TalentBankRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_talent_bank_table(cursor)
             cursor.execute("DELETE FROM banco_talentos WHERE id_banco = ?", (id_banco,))
             conn.commit()
             return {"success": True}
@@ -119,6 +131,7 @@ class TalentBankRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_talent_bank_table(cursor)
             ensure_pipeline_columns(cursor)
             ensure_process_reference_columns(cursor)
 
@@ -138,6 +151,18 @@ class TalentBankRepositoryMixin:
             email = normalize_text(data.get("email"))
             telefone = normalize_text(data.get("telefone"))
             whatsapp = normalize_text(data.get("whatsapp"))
+            codigo_acesso = normalize_text(
+                data.get("codigo_acesso") or data.get("codigo_cp") or data.get("codigo_prova"),
+            )
+            bank_indication_type = normalize_indication_type(row.get("tipo_indicacao"))
+            indication_type = normalize_indication_type(data.get("tipo_indicacao")) or bank_indication_type
+            is_indication = (
+                bool(data.get("eh_indicacao"))
+                or bool(row.get("eh_indicacao"))
+                or bool(indication_type)
+            )
+            if bool(data.get("eh_indicacao")) and not indication_type:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selecione o tipo de indicacao.")
 
             id_banco_existente = self._find_talent_bank_duplicate_id(
                 cursor,
@@ -145,7 +170,12 @@ class TalentBankRepositoryMixin:
                 email=email,
                 telefone=telefone,
                 whatsapp=whatsapp,
+                codigo_acesso=codigo_acesso,
+                nome_candidato=nome_candidato,
+                vaga=vaga,
+                origem=origem,
             )
+            already_exists = bool(id_banco_existente)
 
             if id_banco_existente:
                 cursor.execute(
@@ -159,7 +189,10 @@ class TalentBankRepositoryMixin:
                         vaga = ?,
                         pontuacao_final = ?,
                         data_movimentacao = ?,
-                        origem = ?
+                        origem = ?,
+                        eh_indicacao = CASE WHEN ? = 1 THEN 1 ELSE ISNULL(eh_indicacao, 0) END,
+                        tipo_indicacao = CASE WHEN ? <> '' THEN ? ELSE tipo_indicacao END,
+                        indicacao_em = CASE WHEN ? = 1 THEN ISNULL(indicacao_em, GETDATE()) ELSE indicacao_em END
                     WHERE id_banco = ?
                     """,
                     (
@@ -171,40 +204,30 @@ class TalentBankRepositoryMixin:
                         pontuacao_final,
                         data_movimentacao,
                         origem,
+                        1 if is_indication else 0,
+                        indication_type,
+                        indication_type,
+                        1 if is_indication else 0,
                         id_banco_existente,
                     ),
                 )
                 id_banco = id_banco_existente
             else:
-                cursor.execute(
-                    """
-                    INSERT INTO banco_talentos
-                    (
-                        id_processo,
-                        id_processo_ref,
-                        id_teste,
-                        nome_candidato,
-                        vaga,
-                        pontuacao_final,
-                        data_movimentacao,
-                        origem
-                    )
-                    OUTPUT INSERTED.id_banco
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        id_processo,
-                        id_processo_ref,
-                        id_teste,
-                        nome_candidato,
-                        vaga,
-                        pontuacao_final,
-                        data_movimentacao,
-                        origem,
-                    ),
+                id_banco = self._insert_talent_bank_record(
+                    cursor,
+                    {
+                        "id_processo": id_processo,
+                        "id_processo_ref": id_processo_ref,
+                        "id_teste": id_teste,
+                        "nome_candidato": nome_candidato,
+                        "vaga": vaga,
+                        "pontuacao_final": pontuacao_final,
+                        "data_movimentacao": data_movimentacao,
+                        "origem": origem,
+                        "eh_indicacao": is_indication,
+                        "tipo_indicacao": indication_type,
+                    },
                 )
-                inserted_row = cursor.fetchone()
-                id_banco = int(inserted_row[0])
 
             self._upsert_candidate_profile(
                 cursor,
@@ -257,7 +280,29 @@ class TalentBankRepositoryMixin:
                         data_movimentacao=data_movimentacao,
                     )
             conn.commit()
-            return {"success": True, "id_banco": id_banco}
+            return {
+                "success": True,
+                "id_banco": id_banco,
+                "already_exists": already_exists,
+                "message": (
+                    "Este candidato já está no Banco de Talentos."
+                    if already_exists
+                    else "Candidato enviado para o Banco de Talentos."
+                ),
+            }
+        except pyodbc.Error as exc:
+            try:
+                conn.rollback()
+            except pyodbc.Error:
+                pass
+            self.logger.error(
+                "Falha ao enviar candidato para Banco de Talentos: %s",
+                describe_database_error(exc),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Não foi possível enviar o candidato para o Banco de Talentos. Verifique os dados do candidato e tente novamente.",
+            ) from exc
         finally:
             conn.close()
 
@@ -265,6 +310,7 @@ class TalentBankRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            ensure_talent_bank_table(cursor)
             ensure_pipeline_columns(cursor)
             ensure_process_reference_columns(cursor)
             cursor.execute(
@@ -277,7 +323,9 @@ class TalentBankRepositoryMixin:
                     vaga,
                     pontuacao_final,
                     origem,
-                    data_movimentacao
+                    data_movimentacao,
+                    eh_indicacao,
+                    tipo_indicacao
                 FROM banco_talentos
                 WHERE id_banco = ?
                 """,
@@ -301,12 +349,16 @@ class TalentBankRepositoryMixin:
                 )
 
             data_movimentacao = datetime.now().isoformat()
-            origem = "Banco de Talentos"
+            origem = normalize_text(data.get("origem")) or "Banco de Talentos"
             vaga = normalize_text(processo.get("vaga")) or row.get("vaga")
             id_teste = normalize_text(row.get("id_teste"))
+            indication_type = normalize_indication_type(data.get("tipo_indicacao"))
+            is_indication = bool(data.get("eh_indicacao")) or bool(indication_type)
+            if bool(data.get("eh_indicacao")) and not indication_type:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selecione o tipo de indicação.")
             cursor.execute(
                 """
-                SELECT id_registro, status_candidato
+                SELECT id_registro, id_processo, id_processo_ref, status_candidato
                 FROM candidatos_processos
                 WHERE id_teste = ?
                 """,
@@ -317,9 +369,62 @@ class TalentBankRepositoryMixin:
                     linked_candidate.get("status_candidato"),
                 )
                 if linked_status != CANDIDATE_STATUS_TALENT_BANK:
+                    same_target_process = (
+                        normalize_text(linked_candidate.get("id_processo_ref")) == normalize_text(processo.get("id_processo_ref"))
+                        or (
+                            normalize_text(linked_candidate.get("id_processo")) == normalize_text(processo.get("id_processo"))
+                            and not normalize_text(linked_candidate.get("id_processo_ref"))
+                        )
+                    )
+                    if same_target_process:
+                        cursor.execute(
+                            """
+                            UPDATE candidatos_processos
+                            SET
+                                eh_indicacao = CASE WHEN ? = 1 THEN 1 ELSE ISNULL(eh_indicacao, 0) END,
+                                tipo_indicacao = CASE WHEN ? <> '' THEN ? ELSE tipo_indicacao END,
+                                indicacao_em = CASE WHEN ? = 1 THEN ISNULL(indicacao_em, GETDATE()) ELSE indicacao_em END
+                            WHERE id_registro = ?
+                            """,
+                            (
+                                1 if is_indication else 0,
+                                indication_type,
+                                indication_type,
+                                1 if is_indication else 0,
+                                linked_candidate.get("id_registro"),
+                            ),
+                        )
+                        if is_indication:
+                            self._record_candidate_movement(
+                                cursor,
+                                id_teste=id_teste,
+                                id_registro=linked_candidate.get("id_registro"),
+                                id_processo=processo.get("id_processo", ""),
+                                id_processo_ref=processo.get("id_processo_ref", ""),
+                                nome_candidato=row.get("nome_candidato"),
+                                vaga=vaga,
+                                origem_inicial=origem,
+                                tipo_movimentacao="Indicação registrada no processo",
+                                status_anterior=linked_status,
+                                status_novo=linked_status,
+                                observacao=f"Indicação: {indication_type}",
+                            )
+                        cursor.execute("DELETE FROM banco_talentos WHERE id_banco = ?", (id_banco,))
+                        conn.commit()
+                        return {
+                            "success": True,
+                            "already_exists": True,
+                            "id_registro": linked_candidate.get("id_registro"),
+                            "status_candidato": linked_status,
+                            "message": "Este candidato já estava vinculado ao processo destino.",
+                        }
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
-                        detail="Este candidato já está vinculado a um processo seletivo.",
+                        detail=(
+                            "Este candidato já está vinculado a este processo seletivo."
+                            if same_target_process
+                            else "Este candidato já está vinculado a um processo seletivo."
+                        ),
                     )
             profile = self._get_candidate_profile_map(cursor).get(id_teste, {})
             profile_email = normalize_compare_text(profile.get("email"))
@@ -352,12 +457,6 @@ class TalentBankRepositoryMixin:
                 ),
             )
             existing_rows = rows_to_dicts(cursor, cursor.fetchall())
-            terminal_statuses = {
-                CANDIDATE_STATUS_APPROVED,
-                CANDIDATE_STATUS_ELIMINATED,
-                CANDIDATE_STATUS_TALENT_BANK,
-                CANDIDATE_STATUS_WITHDREW,
-            }
             for existing in existing_rows:
                 same_candidate = normalize_text(existing.get("id_teste")) == id_teste
                 same_email = profile_email and normalize_compare_text(existing.get("email")) == profile_email
@@ -367,16 +466,47 @@ class TalentBankRepositoryMixin:
                     continue
 
                 existing_status = canonicalize_candidate_status(existing.get("status_candidato"))
-                if existing_status == CANDIDATE_STATUS_APPROVED:
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail="Este candidato já foi aprovado neste processo destino.",
+                cursor.execute(
+                    """
+                    UPDATE candidatos_processos
+                    SET
+                        eh_indicacao = CASE WHEN ? = 1 THEN 1 ELSE ISNULL(eh_indicacao, 0) END,
+                        tipo_indicacao = CASE WHEN ? <> '' THEN ? ELSE tipo_indicacao END,
+                        indicacao_em = CASE WHEN ? = 1 THEN ISNULL(indicacao_em, GETDATE()) ELSE indicacao_em END
+                    WHERE id_registro = ?
+                    """,
+                    (
+                        1 if is_indication else 0,
+                        indication_type,
+                        indication_type,
+                        1 if is_indication else 0,
+                        existing.get("id_registro"),
+                    ),
+                )
+                if is_indication:
+                    self._record_candidate_movement(
+                        cursor,
+                        id_teste=existing.get("id_teste") or id_teste,
+                        id_registro=existing.get("id_registro"),
+                        id_processo=processo.get("id_processo", ""),
+                        id_processo_ref=processo.get("id_processo_ref", ""),
+                        nome_candidato=existing.get("nome_candidato") or row.get("nome_candidato"),
+                        vaga=vaga,
+                        origem_inicial=origem,
+                        tipo_movimentacao="Indicação registrada no processo",
+                        status_anterior=existing_status,
+                        status_novo=existing_status,
+                        observacao=f"Indicação: {indication_type}",
                     )
-                if existing_status not in terminal_statuses:
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail="Este candidato já está ativo no processo destino.",
-                    )
+                cursor.execute("DELETE FROM banco_talentos WHERE id_banco = ?", (id_banco,))
+                conn.commit()
+                return {
+                    "success": True,
+                    "already_exists": True,
+                    "id_registro": existing.get("id_registro"),
+                    "status_candidato": existing_status,
+                    "message": "Este candidato já estava vinculado ao processo destino.",
+                }
 
             id_registro = insert_candidate_process_record(
                 cursor,
@@ -391,6 +521,8 @@ class TalentBankRepositoryMixin:
                     "origem": origem,
                     "etapa_pipeline": "Triagem",
                     "data_atualizacao_pipeline": datetime.now(),
+                    "eh_indicacao": is_indication,
+                    "tipo_indicacao": indication_type,
                 },
             )
 
@@ -398,6 +530,23 @@ class TalentBankRepositoryMixin:
                 cursor,
                 id_teste=id_teste,
                 nome_candidato=row.get("nome_candidato"),
+            )
+            self._record_candidate_movement(
+                cursor,
+                id_teste=id_teste,
+                id_registro=id_registro,
+                id_processo=processo.get("id_processo", ""),
+                id_processo_ref=processo.get("id_processo_ref", ""),
+                nome_candidato=row.get("nome_candidato"),
+                vaga=vaga,
+                origem_inicial=origem,
+                tipo_movimentacao="Candidato vinculado a processo seletivo",
+                status_anterior=CANDIDATE_STATUS_TALENT_BANK,
+                status_novo=CANDIDATE_STATUS_ANALYSIS,
+                observacao=(
+                    f"Origem: {origem}"
+                    + (f" | Indicação: {indication_type}" if is_indication else "")
+                ),
             )
             cursor.execute("DELETE FROM banco_talentos WHERE id_banco = ?", (id_banco,))
             conn.commit()

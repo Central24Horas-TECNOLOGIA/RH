@@ -5,10 +5,16 @@
   useState,
 } from '../../infraestrutura-react.js';
 import {
+  OPCOES_OPERACOES,
+  OPCOES_TRILHAS_PROCESSO,
+  OPCOES_VAGAS_PROCESSO,
+} from '../../perguntas.js';
+import {
   TAMANHO_ANALISE,
   TAMANHO_HISTORICO,
   TAMANHO_RECENTES,
   atualizarStatusCandidato,
+  abrirFichaCandidatoDaProva,
   baixarCvCandidato,
   baixarPacoteHistorico,
   carregarDetalhesProva,
@@ -20,6 +26,7 @@ import {
   lerDetalheAnaliseCandidato,
   lerHistorico,
   lerHistoricoPaginado,
+  lerEntrevistas,
   lerProcessos,
   montarIdProcesso,
   obterClasseSituacaoAtual,
@@ -94,6 +101,95 @@ function normalizarTextoPainel(valor) {
   return String(valor || '').trim();
 }
 
+function mascararEmailContato(valor) {
+  const texto = String(valor || '').trim();
+  if (!texto) return '-';
+  const [usuario, dominio] = texto.split('@');
+  if (!usuario || !dominio) return '***';
+  const prefixoUsuario = usuario.slice(0, Math.min(2, usuario.length));
+  const partesDominio = dominio.split('.');
+  const dominioBase = partesDominio.shift() || '';
+  const sufixoDominio = partesDominio.length ? `.${partesDominio.join('.')}` : '';
+  return `${prefixoUsuario}${'*'.repeat(Math.max(3, usuario.length - prefixoUsuario.length))}@${dominioBase.slice(0, 1)}***${sufixoDominio}`;
+}
+
+function mascararTelefoneContato(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  if (!digitos) return '-';
+  if (digitos.length <= 4) return '****';
+  const ultimos = digitos.slice(-4);
+  const ddd = digitos.length >= 10 ? `(${digitos.slice(-11, -9)}) ` : '';
+  return `${ddd}*****-${ultimos}`;
+}
+
+function obterIntervaloPaginacao(paginacao) {
+  const total = Number(paginacao?.totalItens || 0);
+  if (!total) return '0-0';
+
+  const inicio = (Number(paginacao.paginaAtual || 1) - 1) * Number(paginacao.tamanhoPagina || paginacao.itens?.length || 1) + 1;
+  const fim = Math.min(total, inicio + Number(paginacao.itens?.length || 0) - 1);
+  return `${inicio}-${fim}`;
+}
+
+function PaginacaoCompacta({
+  paginacao,
+  onChange,
+  label,
+  onVerTodos = null,
+}) {
+  const totalPaginas = Math.max(1, Number(paginacao?.totalPaginas || 1));
+  const paginaAtual = Math.min(
+    Math.max(1, Number(paginacao?.paginaAtual || 1)),
+    totalPaginas,
+  );
+  const paginas = Array.from({ length: totalPaginas }, (_, indice) => indice + 1);
+
+  return html`
+    <footer class="c24-pagination">
+      <span>${label}</span>
+      <div class="c24-pagination-actions">
+        <button
+          type="button"
+          class="c24-page-btn"
+          aria-label="Página anterior"
+          disabled=${paginaAtual <= 1}
+          onClick=${() => onChange(paginaAtual - 1)}
+        >
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        ${paginas.map(
+          (pagina) => html`
+            <button
+              key=${pagina}
+              type="button"
+              class=${`c24-page-btn ${pagina === paginaAtual ? 'is-active' : ''}`}
+              onClick=${() => onChange(pagina)}
+            >
+              ${pagina}
+            </button>
+          `,
+        )}
+        <button
+          type="button"
+          class="c24-page-btn"
+          aria-label="Próxima página"
+          disabled=${paginaAtual >= totalPaginas}
+          onClick=${() => onChange(paginaAtual + 1)}
+        >
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+        ${onVerTodos
+          ? html`
+              <button type="button" class="c24-page-link" onClick=${onVerTodos}>
+                Ver todos
+              </button>
+            `
+          : null}
+      </div>
+    </footer>
+  `;
+}
+
 function obterClasseStatusEmail(status) {
   const texto = normalizarTextoPainel(status).toLowerCase();
   if (texto.includes('banco')) return 'is-talent';
@@ -122,7 +218,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
   const [detalheEmail, setDetalheEmail] = useState(null);
   const [mostrarIgnorados, setMostrarIgnorados] = useState(false);
   const [paginaAtual, setPaginaAtual] = useState(1);
-  const [tamanhoPagina, setTamanhoPagina] = useState(compacto ? 5 : 10);
+  const [tamanhoPagina, setTamanhoPagina] = useState(compacto ? 2 : 10);
   const [filtroTexto, setFiltroTexto] = useState('');
 
   const paginacaoEmails = useMemo(
@@ -233,8 +329,8 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
       );
     } catch (error) {
       registrarErroAcao(
-        error,
-        'Não foi possível enviar este candidato para o Banco de Talentos.',
+        null,
+        'Não foi possível enviar o candidato para o Banco de Talentos. Verifique os dados do candidato e tente novamente.',
       );
     }
   };
@@ -302,10 +398,10 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
   return html`
     <${SectionCard}
       className=${`mailbox-card ${compacto ? 'mailbox-card-compact' : 'mailbox-card-full'}`}
-      title=${compacto ? 'Caixa de Currículos' : 'Caixa de E-mail'}
+      title=${compacto ? 'Caixa de E-mail' : ''}
       description=${compacto
-      ? 'Resumo dos currículos recebidos na caixa configurada.'
-      : 'Consulta completa dos e-mails recebidos com currículos.'}
+      ? ''
+      : ''}
       actions=${html`
         <div class=${`mailbox-toolbar rh-email-panel-actions ${compacto ? 'mailbox-toolbar-compact' : 'mailbox-toolbar-full'}`}>
           ${!compacto
@@ -355,9 +451,10 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
   value=${String(tamanhoPagina)}
   onChange=${(event) => setTamanhoPagina(Number(event.target.value) || 5)}
 >
+            <option value="2">2</option>
+            <option value="3">3</option>
             <option value="5">5</option>
             <option value="10">10</option>
-            <option value="15">15</option>
           </select>
 
           <button
@@ -392,8 +489,12 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
       ? html`
             ${payloadEmail && !payloadEmail.configured
           ? html`
-                  <div class="alert alert-warning">
-                    ${payloadEmail?.message || MENSAGEM_EMAIL_NAO_CONFIGURADO}
+                  <div class="alert alert-warning mailbox-config-alert">
+                    <span class="material-symbols-outlined">error</span>
+                    <div>
+                      <strong>Caixa de e-mail corporativa ainda não configurada.</strong>
+                      <span>Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor.</span>
+                    </div>
                   </div>
                 `
           : payloadEmail?.message
@@ -466,7 +567,9 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-dark rh-action-btn email-action-btn"
-                                    disabled=${!item.possui_anexo || acaoEmAndamento === `cv:${item.id}`}
+                                    disabled=${!item.possui_anexo ||
+                                    acaoEmAndamento === `cv:${item.id}` ||
+                                    !controlador?.possuiPermissao?.('candidatos.baixar_curriculo')}
                                     onClick=${() => abrirCvEmail(item)}
                                   >
                                     <span class="material-symbols-outlined">description</span>
@@ -476,7 +579,9 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-primary rh-action-btn email-action-btn"
-                                    disabled=${!item.possui_anexo || acaoEmAndamento === `analisar:${item.id}`}
+                                    disabled=${!item.possui_anexo ||
+                                    acaoEmAndamento === `analisar:${item.id}` ||
+                                    !controlador?.possuiPermissao?.('candidatos.avaliar_curriculo')}
                                     onClick=${() => analisarEmail(item)}
                                   >
                                     <span class="material-symbols-outlined">auto_awesome</span>
@@ -512,7 +617,9 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                                       <button
                                         type="button"
                                         class="btn btn-sm btn-outline-primary rh-action-btn email-action-btn"
-                                        disabled=${!selecoesProcesso[item.id] || acaoEmAndamento === `vincular:${item.id}`}
+                                        disabled=${!selecoesProcesso[item.id] ||
+                    acaoEmAndamento === `vincular:${item.id}` ||
+                    !controlador?.possuiPermissao?.('candidatos.criar')}
                                         onClick=${() => vincularEmail(item)}
                                       >
                                         <span class="material-symbols-outlined">link</span>
@@ -523,7 +630,8 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                 : null}
 
                                 <div class="email-actions-group email-actions-group-secondary">
-                                  ${!compacto
+                                  ${!compacto &&
+                controlador?.possuiPermissao?.('candidatos.mover_etapa')
                 ? html`
                                       <button
                                         type="button"
@@ -537,25 +645,33 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                                     `
                 : null}
 
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-danger rh-action-btn email-action-btn"
-                                    disabled=${acaoEmAndamento === `ignorar:${item.id}`}
-                                    onClick=${() => ignorarEmail(item)}
-                                  >
-                                    <span class="material-symbols-outlined">visibility_off</span>
-                                    Ignorar
-                                  </button>
+                                  ${controlador?.possuiPermissao?.('candidatos.mover_etapa')
+                ? html`
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger rh-action-btn email-action-btn"
+                                        disabled=${acaoEmAndamento === `ignorar:${item.id}`}
+                                        onClick=${() => ignorarEmail(item)}
+                                      >
+                                        <span class="material-symbols-outlined">visibility_off</span>
+                                        Ignorar
+                                      </button>
+                                    `
+                : null}
 
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-danger rh-action-btn email-action-btn"
-                                    disabled=${acaoEmAndamento === `excluir:${item.id}`}
-                                    onClick=${() => excluirEmail(item)}
-                                  >
-                                    <span class="material-symbols-outlined">delete</span>
-                                    Excluir
-                                  </button>
+                                  ${controlador?.possuiPermissao?.('candidatos.excluir')
+                ? html`
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-danger rh-action-btn email-action-btn"
+                                        disabled=${acaoEmAndamento === `excluir:${item.id}`}
+                                        onClick=${() => excluirEmail(item)}
+                                      >
+                                        <span class="material-symbols-outlined">delete</span>
+                                        Excluir
+                                      </button>
+                                    `
+                : null}
                                 </div>
                               </div>
                             </td>
@@ -563,11 +679,14 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                         `,
           )
           : html`
-                        <tr>
+                        <tr class="email-empty-row">
                           <td class="text-center text-muted py-4" colSpan=${compacto ? 6 : 9}>
-                            ${carregando
-              ? 'Carregando currículos recebidos.'
-              : 'Nenhum currículo recebido por e-mail para listar.'}
+                            <span class="material-symbols-outlined">inbox</span>
+                            <span>
+                              ${carregando
+                                ? 'Carregando currículos recebidos.'
+                                : 'Nenhum currículo recebido por e-mail para listar.'}
+                            </span>
                           </td>
                         </tr>
                       `}
@@ -575,16 +694,29 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
               </table>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
-              <small class="text-muted">
-                Exibindo ${paginacaoEmails.itens.length} de ${paginacaoEmails.totalItens} e-mail(s).
-              </small>
-              <${GrupoPaginacao}
-                paginaAtual=${paginacaoEmails.paginaAtual}
-                totalPaginas=${paginacaoEmails.totalPaginas}
-                onChange=${setPaginaAtual}
-              />
-            </div>
+            ${compacto
+              ? html`
+                  <${PaginacaoCompacta}
+                    paginacao=${{ ...paginacaoEmails, tamanhoPagina }}
+                    onChange=${setPaginaAtual}
+                    label=${`Mostrando ${obterIntervaloPaginacao({
+                      ...paginacaoEmails,
+                      tamanhoPagina,
+                    })} de ${paginacaoEmails.totalItens} e-mail(s)`}
+                  />
+                `
+              : html`
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
+                    <small class="text-muted">
+                      Exibindo ${paginacaoEmails.itens.length} de ${paginacaoEmails.totalItens} e-mail(s).
+                    </small>
+                    <${GrupoPaginacao}
+                      paginaAtual=${paginacaoEmails.paginaAtual}
+                      totalPaginas=${paginacaoEmails.totalPaginas}
+                      onChange=${setPaginaAtual}
+                    />
+                  </div>
+                `}
           `
       : null}
 
@@ -659,15 +791,15 @@ export function TelaLogin({ controlador }) {
       <div class="rh-login-page">
         <div class="rh-login-hero" data-tour-id="login-hero">
           <div class="rh-login-hero-badge">Sistema Interno RH</div>
-          <h1 class="rh-login-hero-title">Plataforma de provas, processos e analise.</h1>
+          <h1 class="rh-login-hero-title">Plataforma de provas, processos e análise.</h1>
           <p class="rh-login-hero-text">
-            Um fluxo unico para aplicacao de provas, acompanhamento de candidatos,
-            banco de talentos e analise operacional.
+            Um fluxo único para aplicação de provas, acompanhamento de candidatos,
+            banco de talentos e análise operacional.
           </p>
           <div class="rh-login-hero-points">
-            <span>Historico consolidado</span>
+            <span>Histórico consolidado</span>
             <span>Processos seletivos</span>
-            <span>Analise de candidatos</span>
+            <span>Análise de candidatos</span>
           </div>
         </div>
 
@@ -743,7 +875,7 @@ export function TelaLogin({ controlador }) {
           <div class="rh-login-help-row">
             <${BotaoAjudaTour}
               compact=${true}
-              label="Ver orientacoes"
+              label="Ver orientações"
               onClick=${() => setTourReopenSignal((valor) => valor + 1)}
             />
           </div>
@@ -772,16 +904,24 @@ export function TelaInicio({ controlador }) {
   const [recentes, setRecentes] = useState([]);
   const [processos, setProcessos] = useState([]);
   const [candidatosProcessos, setCandidatosProcessos] = useState([]);
+  const [entrevistas, setEntrevistas] = useState([]);
+  const [paginaRecentes, setPaginaRecentes] = useState(1);
   const [detalheAberto, setDetalheAberto] = useState(null);
 
   const carregar = async () => {
     setCarregando(true);
     try {
-      const [resultadoHistorico, resultadoProcessos, resultadoCandidatos] =
+      const [
+        resultadoHistorico,
+        resultadoProcessos,
+        resultadoCandidatos,
+        resultadoEntrevistas,
+      ] =
         await Promise.allSettled([
           lerHistorico(),
           lerProcessos(true),
           lerCandidatosProcessos(true),
+          lerEntrevistas(),
         ]);
       const historico =
         resultadoHistorico.status === 'fulfilled'
@@ -805,6 +945,12 @@ export function TelaInicio({ controlador }) {
           ? resultadoCandidatos.value
           : [],
       );
+      setEntrevistas(
+        resultadoEntrevistas.status === 'fulfilled' &&
+          Array.isArray(resultadoEntrevistas.value)
+          ? resultadoEntrevistas.value
+          : [],
+      );
     } finally {
       setCarregando(false);
     }
@@ -814,10 +960,16 @@ export function TelaInicio({ controlador }) {
     carregar();
   }, []);
 
+  const processosAtivos = useMemo(
+    () => (Array.isArray(processos) ? processos : []).filter(
+      (processo) => !isProcessClosed(processo.status),
+    ),
+    [processos],
+  );
+
   const processosAndamento = useMemo(
     () =>
-      (Array.isArray(processos) ? processos : [])
-        .filter((processo) => !isProcessClosed(processo.status))
+      processosAtivos
         .slice(0, 4)
         .map((processo) => {
           const referencia = obterReferenciaProcesso(processo);
@@ -851,199 +1003,423 @@ export function TelaInicio({ controlador }) {
             percentual,
           };
         }),
-    [processos, candidatosProcessos],
+    [processosAtivos, candidatosProcessos],
   );
+
+  const recentesPaginados = useMemo(
+    () => obterItensPaginados(recentes, paginaRecentes, 3),
+    [recentes, paginaRecentes],
+  );
+
+  const hojeIso = formatarDataParaInput(new Date());
+  const entrevistasHoje = useMemo(
+    () =>
+      (Array.isArray(entrevistas) ? entrevistas : []).filter(
+        (item) => formatarDataParaInput(item.data_entrevista) === hojeIso,
+      ),
+    [entrevistas, hojeIso],
+  );
+  const candidatosEmAnalise = useMemo(
+    () =>
+      (Array.isArray(candidatosProcessos) ? candidatosProcessos : []).filter(
+        (candidato) =>
+          normalizarTextoPainel(getCandidateVisibleStatus(candidato))
+            .toLowerCase()
+            .includes('analise'),
+      ),
+    [candidatosProcessos],
+  );
+  const alertasOperacionais = useMemo(
+    () =>
+      (Array.isArray(entrevistas) ? entrevistas : []).filter((item) => {
+        const status = normalizarTextoPainel(item.status_entrevista).toLowerCase();
+        return status.includes('falt') || status.includes('cancel');
+      }),
+    [entrevistas],
+  );
+  const candidatosAtivosResumo = useMemo(
+    () =>
+      (Array.isArray(candidatosProcessos) ? candidatosProcessos : []).filter((candidato) => {
+        const status = normalizarTextoPainel(getCandidateVisibleStatus(candidato)).toLowerCase();
+        return (
+          !status.includes('banco') &&
+          !status.includes('elimin') &&
+          !status.includes('reprov') &&
+          !status.includes('desist')
+        );
+      }),
+    [candidatosProcessos],
+  );
+  const contratacoesResumo = useMemo(
+    () =>
+      (Array.isArray(candidatosProcessos) ? candidatosProcessos : []).filter(
+        (candidato) => getCandidateVisibleStatus(candidato) === 'Aprovado',
+      ),
+    [candidatosProcessos],
+  );
+  const pendenciasResumo =
+    candidatosEmAnalise.length + alertasOperacionais.length;
+  const indicadoresPainel = useMemo(
+    () => [
+      {
+        icon: 'groups',
+        label: 'Candidatos ativos',
+        value: candidatosAtivosResumo.length,
+        helper: 'Em acompanhamento',
+        variant: 'is-home is-blue',
+      },
+      {
+        icon: 'folder_open',
+        label: 'Processos abertos',
+        value: processosAtivos.length,
+        helper: 'Abertos agora',
+        variant: 'is-home is-green',
+      },
+      {
+        icon: 'calendar_month',
+        label: 'Entrevistas hoje',
+        value: entrevistasHoje.length,
+        helper: 'Agenda do dia',
+        variant: 'is-home is-yellow',
+      },
+      {
+        icon: 'warning',
+        label: 'Pendências',
+        value: pendenciasResumo,
+        helper: pendenciasResumo ? 'Requer atenção' : 'Sem alertas',
+        variant: 'is-home is-red',
+      },
+      {
+        icon: 'star',
+        label: 'Contratações',
+        value: contratacoesResumo.length,
+        helper: 'Aprovados',
+        variant: 'is-home is-blue',
+      },
+    ],
+    [
+      candidatosAtivosResumo.length,
+      contratacoesResumo.length,
+      entrevistasHoje.length,
+      pendenciasResumo,
+      processosAtivos.length,
+    ],
+  );
+  const notificacoesDia = useMemo(() => {
+    const processoRecente = processosAtivos[0];
+    const candidatoAprovado = (Array.isArray(candidatosProcessos)
+      ? candidatosProcessos
+      : []
+    ).find((candidato) => getCandidateVisibleStatus(candidato) === 'Aprovado');
+    const notificacoes = [];
+
+    if (candidatoAprovado) {
+      notificacoes.push({
+        icon: 'check_circle',
+        variant: 'is-success',
+        text: `Candidato aprovado para ${candidatoAprovado.vaga || 'vaga aberta'}`,
+      });
+    }
+
+    if (processoRecente) {
+      notificacoes.push({
+        icon: 'folder_open',
+        variant: 'is-info',
+        text: `Processo seletivo aberto para ${processoRecente.vaga || processoRecente.id_processo || 'vaga'}`,
+      });
+    }
+
+    if (alertasOperacionais.length) {
+      notificacoes.push({
+        icon: 'cancel',
+        variant: 'is-danger',
+        text: `${alertasOperacionais.length} alerta(s) de entrevista`,
+      });
+    }
+
+    if (entrevistasHoje.length) {
+      notificacoes.push({
+        icon: 'groups',
+        variant: 'is-purple',
+        text: `${entrevistasHoje.length} candidatos agendados para hoje`,
+      });
+    }
+
+    return notificacoes;
+  }, [alertasOperacionais.length, candidatosProcessos, entrevistasHoje.length, processosAtivos]);
 
   return html`
     <${PainelRh}
       screenId="screen-menu"
       navAtiva="screen-menu"
-      subtituloMarca="Central 24h"
-      placeholderBusca="Painel executivo do RH"
+      subtituloMarca="Plataforma de Recrutamento e Seleção"
+      placeholderBusca="Buscar candidatos, processos, vagas ou provas..."
       controlador=${controlador}
       acaoPrimaria=${{
-      label: 'Iniciar teste',
-      onClick: () => controlador.iniciarNovoFluxo(),
+      label: 'Gerar prova',
+      icon: 'assignment_add',
+      permissao: 'provas.enviar',
+      onClick: () => {
+        try {
+          sessionStorage.setItem('rh_open_generated_exam_modal_v1', '1');
+        } catch (error) {
+          // Navegacao ainda funciona se o navegador bloquear sessionStorage.
+        }
+        controlador.irParaTelaProtegida('screen-generated-exams');
+      },
     }}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Painel principal"
-        title="Ultimas provas salvas"
-        description="Acesso rapido aos registros mais recentes com historico detalhado e download do pacote salvo."
+        title="Olá, RH!"
+        description="Panorama geral do recrutamento hoje."
         actions=${html`
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="btn btn-outline-secondary rh-action-btn c24-top-refresh-btn"
             onClick=${carregar}
           >
+            <span class="material-symbols-outlined">refresh</span>
             Atualizar
           </button>
         `}
       />
 
       <${SectionCard}
-        title="Atalhos operacionais"
-        description="Acesse os fluxos principais do sistema."
+        title="Acessos rápidos"
+        className="home-quick-card"
         tourId="home-shortcuts"
       >
-        <div class="rh-action-grid">
-          <button
-            type="button"
-            class="rh-action-card"
-            onClick=${() => controlador.iniciarNovoFluxo()}
-          >
-            <span class="material-symbols-outlined">play_circle</span>
-            <strong>Nova prova</strong>
-            <p>Inicie uma avaliacao individual ou vinculada a um processo.</p>
-          </button>
-          <button
-            type="button"
-            class="rh-action-card"
-            onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
-          >
-            <span class="material-symbols-outlined">folder_managed</span>
-            <strong>Processos seletivos</strong>
-            <p>Gerencie vagas, status e candidatos em andamento.</p>
-          </button>
-          <button
-            type="button"
-            class="rh-action-card"
-            onClick=${() => controlador.irParaTelaProtegida('screen-history')}
-          >
-            <span class="material-symbols-outlined">history</span>
-            <strong>Historico completo</strong>
-            <p>Filtre provas salvas por nome, vaga e data.</p>
-          </button>
+        <div class="home-quick-grid">
+          ${[
+            {
+              label: 'Nova vaga',
+              icon: 'work',
+              permissao: 'vagas.criar',
+              onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
+            },
+            {
+              label: 'Adicionar candidato',
+              icon: 'person_add',
+              permissao: 'candidatos.criar',
+              onClick: () => controlador.irParaTelaProtegida('screen-candidates'),
+            },
+            {
+              label: 'Agendar entrevista',
+              icon: 'calendar_month',
+              permissao: 'entrevistas.visualizar',
+              onClick: () => controlador.irParaTelaProtegida('screen-interviews'),
+            },
+            {
+              label: 'Enviar e-mail',
+              icon: 'send',
+              permissao: 'candidatos.criar',
+              onClick: () => controlador.irParaTelaProtegida('screen-email-inbox'),
+            },
+            {
+              label: 'Relatórios',
+              icon: 'bar_chart',
+              permissao: 'relatorios.visualizar',
+              onClick: () => controlador.irParaTelaProtegida('screen-analysis-candidates'),
+            },
+            {
+              label: 'Mais opções',
+              icon: 'more_horiz',
+              permissao: 'configuracoes.visualizar',
+              onClick: () => controlador.irParaTelaProtegida('screen-settings'),
+            },
+          ]
+            .filter((item) => !item.permissao || controlador.possuiPermissao(item.permissao))
+            .map(
+              (item) => html`
+                <button
+                  key=${item.label}
+                  type="button"
+                  class="home-quick-action"
+                  onClick=${item.onClick}
+                >
+                  <span class="material-symbols-outlined">${item.icon}</span>
+                  <strong>${item.label}</strong>
+                </button>
+              `,
+            )}
         </div>
       </${SectionCard}>
 
-      <div class="home-dashboard-grid">
-        <${SecaoCurriculosRecebidosEmail} modo="resumo" controlador=${controlador} />
+      <${SectionCard}
+        title="Resumo do dia"
+        className="day-summary-card compact-dashboard-card"
+      >
+        <div class="day-summary-layout">
+          <div class="day-summary-stats">
+            ${[
+              ...indicadoresPainel,
+              {
+                icon: 'notifications',
+                label: 'Notificações do dia',
+                value: notificacoesDia.length,
+                variant: 'is-blue',
+              },
+            ].map(
+              (item) => html`
+                <article class=${`day-stat-card ${item.variant || ''}`} key=${item.label}>
+                  <span class="material-symbols-outlined">${item.icon}</span>
+                  <div>
+                    <strong>${item.value}</strong>
+                    <span>${item.label}</span>
+                  </div>
+                </article>
+              `,
+            )}
+          </div>
+        </div>
+      </${SectionCard}>
 
-        <${SectionCard}
-          title="Registros recentes"
-          description="Clique em um registro para abrir o detalhamento salvo."
-          tourId="home-recent"
-        >
-          ${carregando
-        ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
-        : recentes.length
-          ? html`
-                  <div class="rh-recent-grid">
-                    ${recentes.map(
-            (item) => html`
-                        <button
-                          key=${item.id_teste}
-                          type="button"
-                          class="rh-recent-card"
-                          onClick=${async () =>
-                setDetalheAberto(
-                  await carregarDetalhesProva(item.id_teste),
-                )}
-                        >
-                          <div class="rh-recent-avatar-wrap">
-                            <span class="rh-recent-avatar">
-                              ${String(item.nome_candidato || 'C')
-                .trim()
-                .slice(0, 1)
-                .toUpperCase()}
-                            </span>
+      <div class="home-dashboard-grid home-dashboard-main-grid">
+        <div class="home-dashboard-stack home-dashboard-stack--left">
+          <${SectionCard}
+            title="Entrevistas agendadas"
+            className="processes-today-card compact-dashboard-card"
+          >
+            ${entrevistasHoje.length
+              ? html`
+                  <div class="processes-today-list">
+                    ${entrevistasHoje.slice(0, 5).map(
+                      (item) => html`
+                        <article class="processes-today-item" key=${`${item.id_entrevista || item.id_slot || item.nome_candidato}-${item.data_entrevista}`}>
+                          <span class="material-symbols-outlined">event_available</span>
+                          <div>
+                            <strong>${item.nome_candidato || 'Entrevista'}</strong>
+                            <small>${item.vaga || item.id_processo || 'Processo'} • ${formatarDataHora(item.data_entrevista)}</small>
                           </div>
-                          <div class="rh-recent-card-body">
-                            <strong>${item.nome_candidato || '-'}</strong>
-                            <span>${item.vaga || '-'}</span>
-                            <span>${item.data_exibicao || '-'}</span>
-                          </div>
-                          <span class="material-symbols-outlined">arrow_forward</span>
-                        </button>
+                          <span class=${`rh-status-pill ${obterClasseStatusEntrevista(item.status_entrevista)}`}>
+                            ${item.status_entrevista || 'Agendada'}
+                          </span>
+                        </article>
                       `,
-          )}
+                    )}
                   </div>
                 `
-          : html`
+              : html`
+                  <div class="home-empty-state">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                    <h3>Nenhuma entrevista hoje</h3>
+                    <p>As entrevistas agendadas para hoje aparecerão aqui.</p>
+                  </div>
+                `}
+          </${SectionCard}>
+
+          <${SecaoCurriculosRecebidosEmail} modo="resumo" controlador=${controlador} />
+        </div>
+
+        <div class="home-dashboard-stack home-dashboard-stack--right">
+          <${SectionCard}
+            title="Provas recentes"
+            className="recent-records-card compact-dashboard-card"
+            tourId="home-recent"
+            actions=${html`
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                onClick=${() => controlador.irParaTelaProtegida('screen-history')}
+              >
+                Ver todos
+              </button>
+            `}
+          >
+            ${carregando
+              ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
+              : recentes.length
+                ? html`
+                    <div class="rh-recent-grid">
+                      ${recentesPaginados.itens.map(
+                        (item) => html`
+                          <button
+                            key=${item.id_teste}
+                            type="button"
+                            class="rh-recent-card"
+                            onClick=${async () =>
+                              setDetalheAberto(
+                                await carregarDetalhesProva(item.id_teste),
+                              )}
+                          >
+                            <div class="rh-recent-avatar-wrap">
+                              <span class="rh-recent-avatar">
+                                ${String(item.nome_candidato || 'T')
+                                  .trim()
+                                  .slice(0, 1)
+                                  .toUpperCase()}
+                              </span>
+                            </div>
+                            <div class="rh-recent-card-body">
+                              <strong>${item.nome_candidato || '-'}</strong>
+                              <span>${item.vaga || '-'}</span>
+                              <span>${item.data_exibicao || '-'}</span>
+                            </div>
+                            <span class="material-symbols-outlined">arrow_forward</span>
+                          </button>
+                        `,
+                      )}
+                    </div>
+                    <${PaginacaoCompacta}
+                      paginacao=${{ ...recentesPaginados, tamanhoPagina: 3 }}
+                      onChange=${setPaginaRecentes}
+                      label=${`Mostrando ${obterIntervaloPaginacao({
+                        ...recentesPaginados,
+                        tamanhoPagina: 3,
+                      })} de ${recentesPaginados.totalItens}`}
+                    />
+                  `
+                : html`
+                    <${EmptyState}
+                      title="Nenhum registro salvo"
+                      text="Assim que uma prova for concluída e salva, ela aparecerá aqui."
+                    />
+                  `}
+          </${SectionCard}>
+
+          <${SectionCard}
+            title="Processos em andamento"
+            className="process-progress-card compact-dashboard-card"
+          >
+            ${processosAndamento.length
+              ? html`
+                  <div class="process-progress-list active-process-list">
+                    ${processosAndamento.map(
+                      (item) => html`
+                        <article class="process-progress-item active-process-card" key=${item.id}>
+                          <div class="active-process-info">
+                            <strong>${item.nome}</strong>
+                            <div class="active-process-meta">
+                              <span>${item.candidatos} candidatos</span>
+                              <span>${item.percentual}% preenchido</span>
+                            </div>
+                            <div class="active-process-progress" aria-hidden="true">
+                              <span style=${{ width: `${item.percentual}%` }}></span>
+                            </div>
+                          </div>
+                          <div class="active-process-actions">
+                            <button
+                              type="button"
+                              class="btn-soft-primary"
+                              onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
+                            >
+                              Ver processos
+                            </button>
+                          </div>
+                        </article>
+                      `,
+                    )}
+                  </div>
+                `
+              : html`
                   <${EmptyState}
-                    title="Nenhum registro salvo"
-                    text="Assim que uma prova for concluida e salva, ela aparecera aqui."
+                    title="Nenhum processo em andamento"
+                    text="Os processos abertos aparecerão aqui assim que forem cadastrados."
                   />
                 `}
-        </${SectionCard}>
-      </div>
-
-      <div class="home-dashboard-grid home-dashboard-grid--secondary">
-        <${SectionCard}
-          title="Processos em andamento"
-          className="process-progress-card compact-dashboard-card"
-        >
-          ${processosAndamento.length
-            ? html`
-                <div class="process-progress-list active-process-list">
-                  ${processosAndamento.map(
-                    (item) => html`
-                      <article class="process-progress-item active-process-card" key=${item.id}>
-                        <div class="active-process-info">
-                          <strong>${item.nome}</strong>
-                          <div class="active-process-meta">
-                            <span>${item.candidatos} candidatos</span>
-                            <span>${item.percentual}% preenchido</span>
-                          </div>
-                        </div>
-                        <div class="active-process-actions">
-                          <button
-                            type="button"
-                            class="btn-soft-primary"
-                            onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
-                          >
-                            Ver processos
-                          </button>
-                        </div>
-                      </article>
-                    `,
-                  )}
-                </div>
-              `
-            : html`
-                <${EmptyState}
-                  title="Nenhum processo em andamento"
-                  text="Os processos abertos aparecerão aqui assim que forem cadastrados."
-                />
-              `}
-        </${SectionCard}>
-
-        <${SectionCard}
-          title="Resumo rapido"
-          description="Visao imediata do volume mais recente salvo no sistema."
-          className="quick-summary-card compact-dashboard-card"
-        >
-          <div class="quick-summary-grid">
-            <article class="quick-summary-item">
-              <span class="material-symbols-outlined quick-summary-icon">
-                history
-              </span>
-              <div>
-                <span class="quick-summary-label">Registros recentes</span>
-                <strong class="quick-summary-value">${recentes.length}</strong>
-                <span class="quick-summary-helper">
-                  Ultimos itens visiveis no painel
-                </span>
-              </div>
-            </article>
-            <article class="quick-summary-item">
-              <span class="material-symbols-outlined quick-summary-icon">
-                sync
-              </span>
-              <div>
-                <span class="quick-summary-label">Status de carregamento</span>
-                <strong class="quick-summary-value">
-                  ${carregando ? 'Atualizando' : 'Pronto'}
-                </strong>
-                <span class="quick-summary-helper">
-                  Consulta do historico consolidado
-                </span>
-              </div>
-            </article>
-          </div>
-        </${SectionCard}>
+          </${SectionCard}>
+        </div>
       </div>
 
       <${ModalDetalhesProva}
@@ -1054,6 +1430,13 @@ export function TelaInicio({ controlador }) {
         detalheAberto?.linha?.id_teste,
         detalheAberto?.linha?.nome_candidato || 'candidato',
       )}
+        onCandidateDetails=${async () => {
+          try {
+            await abrirFichaCandidatoDaProva(detalheAberto);
+          } catch (error) {
+            window.alert('Não foi possível localizar a ficha deste candidato.');
+          }
+        }}
       />
     </${PainelRh}>
   `;
@@ -1072,7 +1455,7 @@ export function TelaCaixaEmail({ controlador }) {
       <${PageIntro}
         kicker="Currículos recebidos"
         title="Caixa de E-mail"
-        description="Tela dedicada para consultar, filtrar, analisar, vincular, enviar ao Banco de Talentos, ignorar ou excluir e-mails recebidos."
+        description=""
       />
 
       <${SecaoCurriculosRecebidosEmail}
@@ -1127,18 +1510,19 @@ export function TelaHistorico({ controlador }) {
     <${PainelRh}
       screenId="screen-history"
       navAtiva="screen-history"
-      subtituloMarca="Historico de provas"
-      placeholderBusca="Consulta do historico de avaliacoes"
+      subtituloMarca="Histórico de provas"
+      placeholderBusca="Consulta do histórico de avaliações"
       controlador=${controlador}
       acaoPrimaria=${{
       label: 'Iniciar teste',
+      permissao: 'provas.enviar',
       onClick: () => controlador.iniciarNovoFluxo(),
     }}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Console • Historico"
-        title="Historico de exames"
+        kicker="Console • Histórico"
+        title="Histórico de exames"
         description="Consulte resultados salvos com filtros por candidato, vaga e data."
       />
 
@@ -1184,7 +1568,7 @@ export function TelaHistorico({ controlador }) {
 
       <${SectionCard}
         title="Resultados salvos"
-        description="Tabela consolidada com status atualizado e acoes de consulta."
+        description="Tabela consolidada com status atualizado e ações de consulta."
         tourId="history-results"
       >
         <div class="table-responsive">
@@ -1193,16 +1577,16 @@ export function TelaHistorico({ controlador }) {
               <tr>
                 <th>Candidato</th>
                 <th>Vaga</th>
-                <th>Nivel</th>
+                <th>Nível</th>
                 <th>Data</th>
                 <th>Nota</th>
                 <th>Status</th>
-                <th class="text-end">Acoes</th>
+                <th class="text-end">Ações</th>
               </tr>
             </thead>
             <tbody>
               ${carregando
-      ? html`<${TabelaVazia} colunas=${7} texto="Carregando historico..." />`
+      ? html`<${TabelaVazia} colunas=${7} texto="Carregando histórico..." />`
       : linhas.length
         ? linhas.map(
           (linha) => html`
@@ -1277,6 +1661,13 @@ export function TelaHistorico({ controlador }) {
         detalheAberto?.linha?.id_teste,
         detalheAberto?.linha?.nome_candidato || 'candidato',
       )}
+        onCandidateDetails=${async () => {
+          try {
+            await abrirFichaCandidatoDaProva(detalheAberto);
+          } catch (error) {
+            window.alert('Não foi possível localizar a ficha deste candidato.');
+          }
+        }}
       />
     </${PainelRh}>
   `;
@@ -1333,7 +1724,7 @@ export function TelaCriarProcesso({ controlador }) {
 
       controlador.irParaTelaProtegida('screen-processes');
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel criar o processo.');
+      setErro(error?.message || 'Não foi possível criar o processo.');
     } finally {
       setSalvando(false);
     }
@@ -1355,12 +1746,12 @@ export function TelaCriarProcesso({ controlador }) {
       <${PageIntro}
         kicker="Console • Novo processo"
         title="Abrir processo seletivo"
-        description="Cadastre uma vaga com a mesma logica funcional do sistema atual, agora em uma composicao mais previsivel."
+        description="Cadastre uma vaga com a mesma lógica funcional do sistema atual, agora em uma composição mais previsível."
       />
 
       <${SectionCard}
         title="Dados do processo"
-        description="Os campos abaixo mantem a compatibilidade com a API e com o fluxo atual de provas."
+        description="Os campos abaixo mantêm a compatibilidade com a API e com o fluxo atual de provas."
         tourId="process-create-form"
       >
         <div class="row g-3">
@@ -1373,15 +1764,13 @@ export function TelaCriarProcesso({ controlador }) {
       setFormulario({ ...formulario, vaga: event.target.value })}
             >
               <option value="">Selecione...</option>
-              <option>Jovem Aprendiz</option>
-              <option>Operador</option>
-              <option>Estagiario</option>
-              <option>Supervisor</option>
-              <option>Control Desk</option>
-              <option>Planejamento</option>
-              <option>TI</option>
-              <option>Analista</option>
-              <option>Outros</option>
+              ${OPCOES_VAGAS_PROCESSO.map(
+                (opcao) => html`
+                  <option key=${opcao.label} value=${opcao.label}>
+                    ${opcao.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
@@ -1412,7 +1801,7 @@ export function TelaCriarProcesso({ controlador }) {
           </div>
 
           <div class="col-md-6">
-            <label class="form-label">Operacao</label>
+            <label class="form-label">Operação / Cliente</label>
             <select
               class="form-select rh-flow-input"
               value=${formulario.operacao}
@@ -1420,16 +1809,18 @@ export function TelaCriarProcesso({ controlador }) {
       setFormulario({ ...formulario, operacao: event.target.value })}
             >
               <option value="">Selecione...</option>
-              <option>CRF</option>
-              <option>DAVITA</option>
-              <option>NEWE</option>
-              <option>BRAVA</option>
-              <option>ENDOVIEW</option>
+              ${OPCOES_OPERACOES.map(
+                (operacao) => html`
+                  <option key=${operacao} value=${operacao}>
+                    ${operacao}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
           <div class="col-md-6">
-            <label class="form-label">Trilha</label>
+            <label class="form-label">Área/Trilha</label>
             <select
               class="form-select rh-flow-input"
               disabled=${!!regras.trilhaFixa}
@@ -1438,8 +1829,13 @@ export function TelaCriarProcesso({ controlador }) {
       setFormulario({ ...formulario, trilha: event.target.value })}
             >
               <option value="">Selecione...</option>
-              <option value="RH">RH</option>
-              <option value="TI">TI</option>
+              ${OPCOES_TRILHAS_PROCESSO.map(
+                (opcao) => html`
+                  <option key=${opcao.value} value=${opcao.value}>
+                    ${opcao.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
 
@@ -1538,12 +1934,12 @@ export function TelaBancoTalentos({ controlador }) {
       setLinhas(Array.isArray(banco) ? banco : []);
       setProcessosAbertos(
         (Array.isArray(processos) ? processos : []).filter(
-          (processo) => String(processo.status || '').trim() !== 'Encerrado',
+          (processo) => !isProcessClosed(processo),
         ),
       );
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel carregar o banco de talentos.',
+        error?.message || 'Não foi possível carregar o banco de talentos.',
       );
       setLinhas([]);
     } finally {
@@ -1557,7 +1953,7 @@ export function TelaBancoTalentos({ controlador }) {
 
   const abrirCurriculo = async (candidato) => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
-      window.alert('Nao ha curriculo disponivel para este candidato.');
+      window.alert('Não há currículo disponível para este candidato.');
       return;
     }
 
@@ -1572,7 +1968,7 @@ export function TelaBancoTalentos({ controlador }) {
       baixarBlob(arquivo.filename || 'curriculo', arquivo.blob);
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel abrir o curriculo do candidato.',
+        error?.message || 'Não foi possível abrir o currículo do candidato.',
       );
     }
   };
@@ -1589,7 +1985,7 @@ export function TelaBancoTalentos({ controlador }) {
       await carregar();
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel remover o candidato do banco.',
+        error?.message || 'Não foi possível remover o candidato do banco.',
       );
     } finally {
       setSalvando(false);
@@ -1629,7 +2025,7 @@ export function TelaBancoTalentos({ controlador }) {
       setPerfilEdicao(null);
       await carregar();
     } catch (error) {
-      setErro(error?.message || 'Nao foi possivel atualizar o perfil RH.');
+      setErro(error?.message || 'Não foi possível atualizar o perfil RH.');
     } finally {
       setSalvando(false);
     }
@@ -1663,7 +2059,7 @@ export function TelaBancoTalentos({ controlador }) {
       await carregar();
     } catch (error) {
       setErro(
-        error?.message || 'Nao foi possivel reutilizar o candidato selecionado.',
+        error?.message || 'Não foi possível reutilizar o candidato selecionado.',
       );
     } finally {
       setSalvando(false);
@@ -1681,15 +2077,15 @@ export function TelaBancoTalentos({ controlador }) {
     >
       <${PageIntro}
         kicker="Console • Banco de talentos"
-        title="Candidatos reaproveitaveis"
-        description="Acompanhe candidatos guardados para oportunidades futuras, filtre por habilidade e registre tags e observacoes do RH."
+        title="Banco de talentos"
+        description=""
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
 
       <${SectionCard}
         title="Filtros"
-        description="Busque candidatos por nome, habilidade e tags cadastradas."
+        description=""
         tourId="talent-filters"
       >
         <div class="rh-filter-grid rh-filter-grid--wide">
@@ -1717,7 +2113,7 @@ export function TelaBancoTalentos({ controlador }) {
             <label>Tag</label>
             <input
               class="form-control"
-              placeholder="Prioritario, Boa aderencia..."
+              placeholder="Prioritário, Boa aderência..."
               value=${filtros.tag}
               onInput=${(event) =>
       setFiltros({ ...filtros, tag: event.target.value })}
@@ -1728,14 +2124,14 @@ export function TelaBancoTalentos({ controlador }) {
 
       <${SectionCard}
         title="Lista atual"
-        description="Reaproveitamento, perfil RH e filtros avancados funcionando sobre dados persistidos."
+        description="Reaproveitamento, perfil RH e filtros avançados funcionando sobre dados persistidos."
         tourId="talent-table"
       >
         ${carregando
       ? html`
               <${LoadingState}
                 titulo="Carregando banco de talentos"
-                descricao="Buscando candidatos, tags e observacoes persistidas."
+                descricao="Buscando candidatos, tags e observações persistidas."
               />
             `
       : html`
@@ -1750,10 +2146,10 @@ export function TelaBancoTalentos({ controlador }) {
                       <th>Vaga</th>
                       <th>Nota</th>
                       <th>Habilidades / tags</th>
-                      <th>Observacoes RH</th>
+                      <th>Observações RH</th>
                       <th>Entrevista</th>
                       <th>CV</th>
-                      <th class="text-end">Acoes</th>
+                      <th class="text-end">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1789,7 +2185,7 @@ export function TelaBancoTalentos({ controlador }) {
                                   <small>${linha.origem || '-'}</small>
                                 </div>
                               </td>
-                              <td>${linha.observacao_rh || 'Sem observacoes.'}</td>
+                              <td>${linha.observacao_rh || 'Sem observações.'}</td>
                               <td>
                                 ${linha.status_entrevista
                 ? html`
@@ -1802,7 +2198,7 @@ export function TelaBancoTalentos({ controlador }) {
                                         <small>${formatarDataHora(linha.data_entrevista)}</small>
                                       </div>
                                     `
-                : 'Nao agendada'}
+                : 'Não agendada'}
                               </td>
                               <td>
                                 ${linha.cv_disponivel
@@ -1864,7 +2260,7 @@ export function TelaBancoTalentos({ controlador }) {
       <${ModalPadrao}
         aberto=${!!candidatoParaUtilizar}
         titulo="Utilizar candidato"
-        subtitulo="Selecione o processo aberto e confirme a reutilizacao."
+        subtitulo="Selecione o processo aberto e confirme a reutilização."
         onClose=${() => {
       setCandidatoParaUtilizar(null);
       setProcessoSelecionadoUso('');
@@ -1905,7 +2301,7 @@ export function TelaBancoTalentos({ controlador }) {
             disabled=${salvando}
             onClick=${confirmarUso}
           >
-            Confirmar utilizacao
+            Confirmar utilização
           </button>
         </footer>
       </${ModalPadrao}>
@@ -1913,7 +2309,7 @@ export function TelaBancoTalentos({ controlador }) {
       <${ModalPadrao}
         aberto=${!!perfilEdicao}
         titulo="Perfil RH do candidato"
-        subtitulo="Cadastre habilidades, tags e observacoes persistidas para reutilizacao futura."
+        subtitulo="Cadastre habilidades, tags e observações persistidas para reutilização futura."
         onClose=${() => setPerfilEdicao(null)}
       >
         ${perfilEdicao
@@ -1945,7 +2341,7 @@ export function TelaBancoTalentos({ controlador }) {
                     <label class="form-label">Tags</label>
                     <input
                       class="form-control"
-                      placeholder="Prioritario, Boa aderencia..."
+                      placeholder="Prioritário, Boa aderência..."
                       value=${formularioPerfil.tags}
                       onInput=${(event) =>
           setFormularioPerfil({
@@ -1955,7 +2351,7 @@ export function TelaBancoTalentos({ controlador }) {
                     />
                   </div>
                   <div class="col-md-12">
-                    <label class="form-label">Observacao RH</label>
+                    <label class="form-label">Observação RH</label>
                     <textarea
                       class="form-control"
                       rows="5"
@@ -2006,8 +2402,8 @@ function GraficoComparativoAnalise({ itens = [] }) {
   if (!dados.length) {
     return html`
       <${EmptyState}
-        title="Sem dados para o grafico"
-        text="Nao ha informacoes suficientes para exibir a comparacao."
+        title="Sem dados para o gráfico"
+        text="Não há informações suficientes para exibir a comparação."
       />
     `;
   }
@@ -2144,28 +2540,28 @@ export function TelaAnaliseCandidatos({ controlador }) {
   const aplicarAcao = async (statusCandidato) => {
     if (!detalhe?.id_teste) return;
     if (detalheEstadoAcoes.processClosed) {
-      window.alert('O processo seletivo deste candidato esta encerrado e nao permite novas movimentacoes.');
+      window.alert('O processo seletivo deste candidato está encerrado e não permite novas movimentações.');
       return;
     }
     if (
       statusCandidato === 'Aprovado' &&
       !detalheEstadoAcoes.canApprove
     ) {
-      window.alert('A aprovacao nao esta disponivel para o status atual deste candidato.');
+      window.alert('A aprovação não está disponível para o status atual deste candidato.');
       return;
     }
     if (
       statusCandidato === 'Eliminado' &&
       !detalheEstadoAcoes.canEliminate
     ) {
-      window.alert('A eliminacao nao esta disponivel para o status atual deste candidato.');
+      window.alert('A eliminação não está disponível para o status atual deste candidato.');
       return;
     }
     if (
       statusCandidato === 'Banco de talentos' &&
       !detalheEstadoAcoes.canSendToTalentBank
     ) {
-      window.alert('O envio para banco de talentos nao esta disponivel para o status atual deste candidato.');
+      window.alert('O envio para banco de talentos não está disponível para o status atual deste candidato.');
       return;
     }
 
@@ -2178,7 +2574,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
 
     if (!vinculo) {
       window.alert(
-        'Nao foi possivel localizar o vinculo do candidato com o processo.',
+        'Não foi possível localizar o vínculo do candidato com o processo.',
       );
       return;
     }
@@ -2196,21 +2592,21 @@ export function TelaAnaliseCandidatos({ controlador }) {
     <${PainelRh}
       screenId="screen-analysis-candidates"
       navAtiva="screen-analysis-candidates"
-      subtituloMarca="Analise por candidato"
-      placeholderBusca="Inteligencia analitica do RH"
+      subtituloMarca="Análise por candidato"
+      placeholderBusca="Inteligência analítica do RH"
       controlador=${controlador}
       mostrarAtalhos=${false}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Console • Relatorios"
-        title="Relatorios e analise por candidato"
-        description="Exporte processos e candidatos por periodo, mantendo a analise individual disponivel para consulta operacional."
+        kicker="Console • Relatórios"
+        title="Relatórios e análise por candidato"
+        description="Exporte processos e candidatos por período, mantendo a análise individual disponível para consulta operacional."
       />
 
       <${SectionCard}
-        title="Relatorios exportaveis"
-        description="Os dados sao gerados sob demanda pela API, sem criar arquivo permanente no servidor."
+        title="Relatórios exportáveis"
+        description="Os dados são gerados sob demanda pela API, sem criar arquivo permanente no servidor."
         actions=${html`
           <button
             type="button"
@@ -2236,14 +2632,14 @@ export function TelaAnaliseCandidatos({ controlador }) {
             class=${`btn ${relatorioAtivo === 'processos' ? 'btn-primary' : 'btn-outline-primary'}`}
             onClick=${() => setRelatorioAtivo('processos')}
           >
-            Relatorio de Processos
+            Relatório de Processos
           </button>
           <button
             type="button"
             class=${`btn ${relatorioAtivo === 'candidatos' ? 'btn-primary' : 'btn-outline-primary'}`}
             onClick=${() => setRelatorioAtivo('candidatos')}
           >
-            Relatorio de Candidatos
+            Relatório de Candidatos
           </button>
         </div>
 
@@ -2340,7 +2736,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                             </tr>
                           `,
           )
-          : html`<${TabelaVazia} colunas=${8} texto="Nenhum processo no periodo." />`}
+          : html`<${TabelaVazia} colunas=${8} texto="Nenhum processo no período." />`}
                   </tbody>
                 </table>
               </div>
@@ -2357,6 +2753,9 @@ export function TelaAnaliseCandidatos({ controlador }) {
                       <th>Movimentações</th>
                       <th>Nota</th>
                       <th>Status</th>
+                      <th>Classificação RH</th>
+                      <th>Justificativa RH</th>
+                      <th>CV</th>
                       <th>Última movimentação</th>
                       <th>Aprovação</th>
                       <th>Eliminação/Reprovação</th>
@@ -2382,6 +2781,12 @@ export function TelaAnaliseCandidatos({ controlador }) {
                                   ${linha.status_atual || linha.status || '-'}
                                 </span>
                               </td>
+                              <td>${linha.classificacao_rh || '-'}</td>
+                              <td>${linha.justificativa_observacoes_rh || linha.observacao_rh || '-'}</td>
+                              <td>
+                                <div>${linha.cv_disponivel || '-'}</div>
+                                <div class="small text-muted">${linha.cv_arquivo || linha.cv_classificacao || '-'}</div>
+                              </td>
                               <td>${formatarDataHora(linha.data_movimentacao)}</td>
                               <td>${formatarDataHora(linha.data_aprovacao)}</td>
                               <td>${formatarDataHora(linha.data_eliminacao_reprovacao)}</td>
@@ -2389,13 +2794,13 @@ export function TelaAnaliseCandidatos({ controlador }) {
                               <td>${linha.etapa_eliminacao || '-'}</td>
                               <td>${formatarDataHora(linha.data_banco_talentos)}</td>
                               <td>
-                                <div>${linha.email || '-'}</div>
-                                <div class="small text-muted">${linha.telefone || '-'}</div>
+                                <div>${mascararEmailContato(linha.email)}</div>
+                                <div class="small text-muted">${mascararTelefoneContato(linha.telefone)}</div>
                               </td>
                             </tr>
                           `,
           )
-          : html`<${TabelaVazia} colunas=${14} texto="Nenhum candidato no periodo." />`}
+          : html`<${TabelaVazia} colunas=${17} texto="Nenhum candidato no período." />`}
                   </tbody>
                 </table>
               </div>
@@ -2434,7 +2839,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
     }}
             />
           </${CampoFiltro}>
-          <${CampoFiltro} label="Nota minima" icon="star">
+          <${CampoFiltro} label="Nota mínima" icon="star">
             <input
               class="form-control"
               type="number"
@@ -2452,8 +2857,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
       </${BlocoFiltro}>
 
       <${SectionCard}
-        title="Ranking analitico"
-        description="O modal de detalhe respeita o status atual do candidato e bloqueia movimentacoes em processo encerrado."
+        title="Ranking analítico"
+        description="O modal de detalhe respeita o status atual do candidato e bloqueia movimentações em processo encerrado."
         tourId="analysis-ranking"
       >
         <div class="table-responsive">
@@ -2465,9 +2870,9 @@ export function TelaAnaliseCandidatos({ controlador }) {
                 <th>Vaga</th>
                 <th>Nota</th>
                 <th>Afinidade</th>
-                <th>Recomendacao</th>
+                <th>Recomendação</th>
                 <th>Status</th>
-                <th class="text-end">Acoes</th>
+                <th class="text-end">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -2508,7 +2913,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
       : html`
                     <${TabelaVazia}
                       colunas=${8}
-                      texto="Nenhuma analise disponivel."
+                      texto="Nenhuma análise disponível."
                     />
                   `}
             </tbody>
@@ -2524,8 +2929,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
 
       <${ModalPadrao}
         aberto=${!!detalhe}
-        titulo=${`Analise do candidato • ${detalhe?.nome_candidato || 'Candidato'}`}
-        subtitulo="Comparativo analitico entre desempenho e expectativa da vaga."
+        titulo=${`Análise do candidato • ${detalhe?.nome_candidato || 'Candidato'}`}
+        subtitulo="Comparativo analítico entre desempenho e expectativa da vaga."
         onClose=${() => setDetalhe(null)}
       >
         ${detalhe
@@ -2547,7 +2952,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
             )}%`,
           },
           {
-            label: 'Recomendacao',
+            label: 'Recomendação',
             value: html`
                         <span class=${obterClasseAderencia(detalhe.recomendacao)}>
                           ${detalhe.recomendacao || '-'}
@@ -2573,7 +2978,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                 </${SectionCard}>
 
                 <${SectionCard}
-                  title="Observacoes"
+                  title="Observações"
                   className="rh-section-card--flat"
                 >
                   <div class="rh-detail-list">
@@ -2632,8 +3037,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
           ? html`
                         <span class="text-muted">
                           ${isProcessClosed(detalhe?.status_processo)
-              ? 'Processo encerrado: sem movimentacoes.'
-              : 'Sem acoes operacionais para o status atual.'}
+              ? 'Processo encerrado: sem movimentações.'
+              : 'Sem ações operacionais para o status atual.'}
                         </span>
                       `
           : null}

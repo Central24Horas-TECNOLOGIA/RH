@@ -6,21 +6,29 @@ from .helpers import normalize_compare_text, normalize_text
 from .process_flow import (
     CANDIDATE_STATUS_APPROVED,
     CANDIDATE_STATUS_ATTENDED,
+    CANDIDATE_STATUS_CANCELED,
     CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_ELIMINATED,
     CANDIDATE_STATUS_MISSED,
+    CANDIDATE_STATUS_NO_RESPONSE,
+    CANDIDATE_STATUS_PENDING_CONFIRMATION,
     CANDIDATE_STATUS_RESCHEDULED,
     CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_TALENT_BANK,
+    CANDIDATE_STATUS_WITHDREW,
 )
 
 
 INTERVIEW_STATUSES = (
+    CANDIDATE_STATUS_PENDING_CONFIRMATION,
     CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_RESCHEDULED,
+    CANDIDATE_STATUS_NO_RESPONSE,
+    CANDIDATE_STATUS_CANCELED,
     CANDIDATE_STATUS_ATTENDED,
     CANDIDATE_STATUS_MISSED,
+    CANDIDATE_STATUS_WITHDREW,
     CANDIDATE_STATUS_APPROVED,
     CANDIDATE_STATUS_ELIMINATED,
     CANDIDATE_STATUS_TALENT_BANK,
@@ -30,18 +38,26 @@ INTERVIEW_STATUSES = (
 def normalize_interview_status(status: str | None) -> str:
     safe_status = normalize_compare_text(status)
 
+    if safe_status in {"pendente de confirmacao", "pendente confirmacao"}:
+        return CANDIDATE_STATUS_PENDING_CONFIRMATION
     if safe_status == "agendado":
-        return "Agendado"
+        return CANDIDATE_STATUS_SCHEDULED
     if safe_status == "entrevista agendada":
-        return "Agendado"
+        return CANDIDATE_STATUS_SCHEDULED
     if safe_status == "confirmado":
-        return "Confirmado"
+        return CANDIDATE_STATUS_CONFIRMED
     if safe_status == "reagendado":
-        return "Reagendado"
+        return CANDIDATE_STATUS_RESCHEDULED
+    if safe_status == "nao respondeu":
+        return CANDIDATE_STATUS_NO_RESPONSE
+    if safe_status == "cancelado":
+        return CANDIDATE_STATUS_CANCELED
     if safe_status == "compareceu":
-        return "Compareceu"
+        return CANDIDATE_STATUS_ATTENDED
     if safe_status == "faltou":
-        return "Faltou"
+        return CANDIDATE_STATUS_MISSED
+    if safe_status in {"desistiu", "desistente"}:
+        return CANDIDATE_STATUS_WITHDREW
     if safe_status == "aprovado":
         return CANDIDATE_STATUS_APPROVED
     if safe_status == "banco de talentos":
@@ -49,7 +65,7 @@ def normalize_interview_status(status: str | None) -> str:
     if safe_status == "reprovado" or "eliminado" in safe_status:
         return CANDIDATE_STATUS_ELIMINATED
 
-    return "Agendado"
+    return CANDIDATE_STATUS_PENDING_CONFIRMATION
 
 
 def format_interview_datetime(value: str | datetime | None) -> str:

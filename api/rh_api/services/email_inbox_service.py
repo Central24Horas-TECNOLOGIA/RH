@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 EMAIL_INBOX_ORIGIN = "Recebimento de e-mail"
 EMAIL_INBOX_NOT_CONFIGURED_MESSAGE = (
-    "Caixa de e-mail corporativa ainda nao configurada. Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor."
+    "Caixa de e-mail corporativa ainda não configurada. Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor."
 )
 EMAIL_INBOX_CONNECTION_ERROR_MESSAGE = (
-    "Nao foi possivel conectar a caixa de e-mail. Verifique as configuracoes do servidor."
+    "Não foi possível conectar à caixa de e-mail. Verifique as configurações do servidor."
 )
 ALLOWED_CV_EXTENSIONS = {".pdf", ".doc", ".docx"}
 BLOCKED_ATTACHMENT_EXTENSIONS = {
@@ -197,7 +197,7 @@ class EmailInboxService:
             message = "Caixa de e-mail desativada no servidor."
         elif provider_key not in allowed_providers or protocol_key != "imap":
             configured = False
-            message = "Caixa de e-mail corporativa ainda nao configurada. Configure PROVIDER=microsoft365 e PROTOCOL=imap."
+            message = "Caixa de e-mail corporativa ainda não configurada. Configure PROVIDER=microsoft365 e PROTOCOL=imap."
         elif not host or not username:
             configured = False
             message = EMAIL_INBOX_NOT_CONFIGURED_MESSAGE
@@ -215,7 +215,7 @@ class EmailInboxService:
                 message = EMAIL_INBOX_NOT_CONFIGURED_MESSAGE
         else:
             configured = False
-            message = "Modo de autenticacao da caixa de e-mail nao suportado."
+            message = "Modo de autenticação da caixa de e-mail não suportado."
 
         status_key = "configured"
         if not enabled:
@@ -258,7 +258,7 @@ class EmailInboxService:
             import msal  # type: ignore[import-not-found]
         except ImportError as exc:
             raise EmailInboxUnavailable(
-                "MSAL nao esta instalado no servidor para autenticacao OAuth2 do IMAP."
+                "MSAL não está instalado no servidor para autenticação OAuth2 do IMAP."
             ) from exc
 
         app = msal.ConfidentialClientApplication(
@@ -272,7 +272,7 @@ class EmailInboxService:
         access_token = normalize_text(token_payload.get("access_token"))
         if not access_token:
             logger.warning("OAuth2 IMAP sem access_token: %s", token_payload.get("error_description") or token_payload.get("error"))
-            raise EmailInboxUnavailable("OAuth2 nao autorizou acesso ao IMAP. Verifique tenant, app, secret e permissoes.")
+            raise EmailInboxUnavailable("OAuth2 não autorizou acesso ao IMAP. Verifique tenant, app, secret e permissões.")
         return access_token
 
     def _open_mailbox(self, *, readonly: bool = True):
@@ -438,7 +438,7 @@ class EmailInboxService:
 
     def _serialize_message(self, uid: str, message) -> dict:
         subject = _decode_header_value(message.get("subject")) or "(sem assunto)"
-        sender = _decode_header_value(message.get("from")) or "Remetente nao informado"
+        sender = _decode_header_value(message.get("from")) or "Remetente não informado"
         message_id = normalize_text(message.get("message-id"))
         item_id = self._message_item_id(uid, message_id)
         body = self._message_body(message)
@@ -483,16 +483,16 @@ class EmailInboxService:
     def fetch_message(self, uid: str):
         safe_uid = normalize_text(uid)
         if not safe_uid:
-            raise EmailInboxUnavailable("E-mail nao informado.", configured=True)
+            raise EmailInboxUnavailable("E-mail não informado.", configured=True)
         mailbox = self._open_mailbox(readonly=True)
         try:
             typ, data = mailbox.uid("fetch", safe_uid, "(RFC822)")
             if typ != "OK" or not data:
-                raise EmailInboxUnavailable("E-mail nao encontrado.", configured=True)
+                raise EmailInboxUnavailable("E-mail não encontrado.", configured=True)
             for item in data:
                 if isinstance(item, tuple) and item[1]:
                     return BytesParser(policy=policy.default).parsebytes(item[1])
-            raise EmailInboxUnavailable("E-mail nao encontrado.", configured=True)
+            raise EmailInboxUnavailable("E-mail não encontrado.", configured=True)
         finally:
             try:
                 mailbox.logout()
@@ -502,13 +502,13 @@ class EmailInboxService:
     def delete_message(self, uid: str) -> None:
         safe_uid = normalize_text(uid)
         if not safe_uid:
-            raise EmailInboxUnavailable("UID do e-mail nao informado.", configured=True)
+            raise EmailInboxUnavailable("UID do e-mail não informado.", configured=True)
 
         mailbox = self._open_mailbox(readonly=False)
         try:
             typ, _ = mailbox.uid("STORE", safe_uid, "+FLAGS", r"(\Deleted)")
             if typ != "OK":
-                raise EmailInboxUnavailable("Nao foi possivel marcar o e-mail para exclusao.", configured=True)
+                raise EmailInboxUnavailable("Não foi possível marcar o e-mail para exclusão.", configured=True)
 
             mailbox.expunge()
         finally:
@@ -531,7 +531,7 @@ class EmailInboxService:
             search_flag = "UNSEEN" if unread_only else "ALL"
             typ, data = mailbox.uid("search", None, search_flag)
             if typ != "OK":
-                raise EmailInboxUnavailable("Nao foi possivel pesquisar mensagens na caixa de entrada.", configured=True)
+                raise EmailInboxUnavailable("Não foi possível pesquisar mensagens na caixa de entrada.", configured=True)
             uids = (data[0] or b"").split()
             fetch_count = max(safe_limit, min(len(uids), safe_limit * 3))
             selected = list(reversed(uids[-fetch_count:]))
@@ -582,7 +582,7 @@ class EmailInboxService:
         summary = self._serialize_message(uid, message)
         attachments = self._iter_cv_attachments(item_id, message, include_content=True)
         if not attachments:
-            raise EmailInboxUnavailable("Este e-mail nao possui anexo de curriculo valido.", configured=True)
+            raise EmailInboxUnavailable("Este e-mail não possui anexo de currículo válido.", configured=True)
 
         received_at = _parse_message_datetime(message) or datetime.now()
         date_folder = received_at.strftime("%Y-%m-%d")
@@ -661,18 +661,18 @@ class EmailInboxService:
         if selected is None and not requested_id and candidates:
             selected = candidates[0]
         if not selected:
-            raise EmailInboxUnavailable("Anexo nao encontrado.", configured=True)
+            raise EmailInboxUnavailable("Anexo não encontrado.", configured=True)
 
         path = Path(normalize_text(selected.get("path")))
         try:
             root = self.attachments_root.resolve()
             resolved = path.resolve()
         except OSError as exc:
-            raise EmailInboxUnavailable("Anexo nao encontrado.", configured=True) from exc
+            raise EmailInboxUnavailable("Anexo não encontrado.", configured=True) from exc
         if root not in [resolved, *resolved.parents]:
-            raise EmailInboxUnavailable("Anexo invalido.", configured=True)
+            raise EmailInboxUnavailable("Anexo inválido.", configured=True)
         if not resolved.exists() or not resolved.is_file():
-            raise EmailInboxUnavailable("Anexo nao encontrado.", configured=True)
+            raise EmailInboxUnavailable("Anexo não encontrado.", configured=True)
 
         return {
             **selected,

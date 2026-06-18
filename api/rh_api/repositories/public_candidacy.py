@@ -124,7 +124,7 @@ class PublicCandidacyRepositoryMixin:
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Nao foi possivel gerar um link publico unico para este processo.",
+            detail="Não foi possível gerar um link público único para este processo.",
         )
 
     def _get_storage_root(self) -> Path:
@@ -261,11 +261,11 @@ class PublicCandidacyRepositoryMixin:
 
                 processo = get_process_row(cursor, id_processo)
                 if not processo:
-                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
                 if is_process_closed(processo.get("status")):
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
-                        detail="O processo seletivo esta encerrado e nao permite gerar pagina publica de candidatura.",
+                        detail="O processo seletivo está encerrado e não permite gerar página pública de candidatura.",
                     )
 
                 current_slug = normalize_text(processo.get("link_publico_slug"))
@@ -337,7 +337,7 @@ class PublicCandidacyRepositoryMixin:
             ensure_process_columns(cursor)
             processo = get_process_row(cursor, id_processo)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
 
             where_clause, params = build_process_where_clause(processo)
             cursor.execute(
@@ -362,7 +362,7 @@ class PublicCandidacyRepositoryMixin:
             ensure_process_columns(cursor)
             processo = self._get_public_process_by_slug(cursor, slug)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vaga publica nao encontrada.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vaga pública não encontrada.")
             return self._build_public_process_payload(processo)
         finally:
             conn.close()
@@ -393,27 +393,27 @@ class PublicCandidacyRepositoryMixin:
         if not all([safe_name, safe_email, safe_phone, safe_area, safe_city, safe_neighborhood]):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Preencha todos os campos obrigatorios da candidatura.",
+                detail="Preencha todos os campos obrigatórios da candidatura.",
             )
         if not accepted_lgpd:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="E obrigatorio aceitar o termo de uso de dados (LGPD).",
+                detail="É obrigatório aceitar o termo de uso de dados (LGPD).",
             )
         if not is_valid_email(safe_email):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Informe um e-mail valido para concluir a candidatura.",
+                detail="Informe um e-mail válido para concluir a candidatura.",
             )
         if not is_valid_phone(safe_phone):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Informe um telefone ou WhatsApp valido para concluir a candidatura.",
+                detail="Informe um telefone ou WhatsApp válido para concluir a candidatura.",
             )
         if curriculo is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Anexe o curriculo antes de enviar a candidatura.",
+                detail="Anexe o currículo antes de enviar a candidatura.",
             )
 
         upload_bytes = await curriculo.read()
@@ -433,7 +433,7 @@ class PublicCandidacyRepositoryMixin:
 
                 processo = self._get_public_process_by_slug(cursor, slug)
                 if not processo:
-                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vaga publica nao encontrada.")
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vaga pública não encontrada.")
                 if not self._is_public_link_active(processo):
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
@@ -591,7 +591,7 @@ class PublicCandidacyRepositoryMixin:
                         except Exception as exc:
                             raise HTTPException(
                                 status_code=status.HTTP_404_NOT_FOUND,
-                                detail="O curriculo salvo na pre-analise nao esta disponivel.",
+                                detail="O currículo salvo na pré-análise não está disponível.",
                             ) from exc
 
                         return {
@@ -601,14 +601,14 @@ class PublicCandidacyRepositoryMixin:
                             "size_bytes": len(content),
                         }
 
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Curriculo do candidato nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Currículo do candidato não encontrado.")
 
             row = rows[0]
             file_path = Path(normalize_text(row.get("caminho_arquivo")))
             if not file_path.exists():
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="O arquivo do curriculo nao esta mais disponivel no servidor.",
+                    detail="O arquivo do currículo não está mais disponível no servidor.",
                 )
 
             return {

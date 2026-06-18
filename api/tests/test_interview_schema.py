@@ -6,9 +6,19 @@ from pydantic import ValidationError
 
 from rh_api.schemas.interviews import InterviewCreateRequest, InterviewSlotCreateRequest
 from rh_api.services.interviews import build_interview_message
+from rh_api.services.process_flow import CANDIDATE_STATUS_PENDING_CONFIRMATION
 
 
 class InterviewSchemaTests(unittest.TestCase):
+    def test_interview_create_defaults_to_pending_confirmation(self):
+        payload = InterviewCreateRequest(
+            id_registro=10,
+            id_slot=3,
+            data_entrevista="",
+        )
+
+        self.assertEqual(payload.status_entrevista, CANDIDATE_STATUS_PENDING_CONFIRMATION)
+
     def test_empty_interview_datetime_is_accepted_as_none_when_slot_is_used(self):
         payload = InterviewCreateRequest(
             id_registro=10,

@@ -1,38 +1,41 @@
-# 10 — Manual do administrador/suporte
+# 10 - Manual do administrador/suporte
 
-## Pré-requisitos
+## Pre-requisitos
 
-- Windows Server ou estação Windows autorizada.
-- Python compatível com o projeto.
-- SQL Server/SQL Server Express acessível.
+- Windows Server ou estacao Windows autorizada.
+- Python compativel com o projeto.
+- SQL Server/SQL Server Express acessivel.
 - Driver ODBC do SQL Server instalado.
 - Acesso ao banco `RH_Provas_C24H` ou equivalente configurado.
-- Permissão na caixa Microsoft 365 de currículos, se e-mail estiver ativo.
+- Permissao na caixa Microsoft 365 de curriculos, se e-mail estiver ativo.
 
-## Instalação backend
+## Instalacao
 
 ```powershell
 cd C:\Caminho\RH
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r apiequirements.txt
+pip install -r requirements.txt
 ```
 
-Se o `requirements.txt` falhar por encoding, recrie o arquivo em UTF-8 com os mesmos pacotes ou instale os pacotes principais manualmente.
+## Configuracao `.env`
 
-## Configuração `.env`
-
-Baseie-se em `.env.example`, mas não versionar o `.env` real.
+Baseie-se em `.env.example`, mas nunca versione o `.env` real.
 
 Exemplo seguro:
 
 ```env
 RH_APP_ENV=development
 RH_LOG_LEVEL=INFO
-RH_SQL_SERVER=192.168.5.62\SQLEXPRESS
+RH_SERVER_HOST=127.0.0.1
+RH_SERVER_PORT=8010
+RH_SERVE_FRONTEND=true
+RH_SQL_SERVER=SERVIDOR_SQL,1433
 RH_SQL_DATABASE=RH_Provas_C24H
 RH_SQL_DRIVER=ODBC Driver 18 for SQL Server
-RH_SQL_TRUSTED_CONNECTION=true
+RH_SQL_TRUSTED_CONNECTION=false
+RH_SQL_USERNAME=
+RH_SQL_PASSWORD=
 RH_SQL_ENCRYPT=no
 RH_SQL_TRUST_SERVER_CERTIFICATE=true
 RH_AUTH_USER=rh.local
@@ -41,46 +44,54 @@ RH_AUTH_TOKEN_SECRET=segredo-grande-aleatorio
 RH_AUTH_TOKEN_TTL_MINUTES=480
 ```
 
-## Configuração do segredo de e-mail
+## Segredos de e-mail
 
-O client secret não deve ficar em arquivo.
+Secrets de e-mail nao devem ficar em documentacao nem commits.
 
 ```powershell
 setx RH_EMAIL_CLIENT_SECRET "COLE_O_SECRET_AQUI"
 ```
 
-Depois feche e abra o terminal/serviço novamente.
+Depois feche e abra o terminal ou reinicie o servico.
 
-## Subir API
-
-```powershell
-uvicorn api.app:app --host 127.0.0.1 --port 8010 --reload
-```
-
-Para rede interna, se necessário:
+## Subir sistema local
 
 ```powershell
-uvicorn api.app:app --host 0.0.0.0 --port 8010
+.\.venv\Scripts\python.exe run.py
 ```
 
-## Subir frontend local
+Com reload apenas em desenvolvimento:
 
 ```powershell
-cd C:\Caminho\RH
-python -m http.server 5500
+.\.venv\Scripts\python.exe run.py --reload
 ```
 
-Acessar:
+Acesse:
 
 ```text
-http://127.0.0.1:5500/Front/index.html#/login
+http://127.0.0.1:8010
 ```
 
-## Checklist de diagnóstico
+## Subir no servidor interno
 
-### API não sobe
+```powershell
+$env:RH_APP_ENV="server"
+$env:RH_SERVER_HOST="0.0.0.0"
+$env:RH_SERVER_PORT="8010"
+.\.venv\Scripts\python.exe run.py --no-reload
+```
 
-1. Verificar `.venv` ativado.
+Se o servidor for `192.168.5.62`, libere firewall e acesse:
+
+```text
+http://192.168.5.62:8010
+```
+
+## Checklist de diagnostico
+
+### Sistema nao sobe
+
+1. Verificar `.venv` e Python.
 2. Verificar `uvicorn` instalado.
 3. Verificar porta em uso.
 4. Verificar import error no terminal.
@@ -88,28 +99,28 @@ http://127.0.0.1:5500/Front/index.html#/login
 
 ### Erro de banco
 
-1. Testar conexão com SQL Server Management Studio.
-2. Confirmar servidor/instância.
+1. Testar conexao com SQL Server Management Studio.
+2. Confirmar servidor/instancia.
 3. Confirmar nome do banco.
 4. Confirmar driver ODBC 17/18.
-5. Confirmar autenticação integrada ou usuário/senha.
+5. Confirmar autenticacao integrada ou usuario/senha.
 6. Checar se o banco tem as tabelas esperadas.
 
-### Caixa de e-mail não carrega
+### Caixa de e-mail nao carrega
 
 1. Conferir `RH_EMAIL_INBOX_ENABLED=true`.
 2. Conferir mailbox, tenant, client ID e secret.
-3. Confirmar permissões no Microsoft 365.
-4. Reiniciar API após `setx`.
-5. Verificar pasta de anexos e permissão de escrita.
+3. Confirmar permissoes no Microsoft 365.
+4. Reiniciar sistema apos `setx`.
+5. Verificar pasta de anexos e permissao de escrita.
 
-### Frontend não chama API
+### Frontend nao chama API
 
-1. Conferir `runtime-config.js`.
-2. Conferir porta da API.
-3. Conferir CORS.
-4. Abrir console do navegador.
-5. Testar endpoint raiz da API no navegador.
+1. Conferir `http://127.0.0.1:8010/runtime-config.js`.
+2. Conferir console do navegador.
+3. Conferir `RH_FRONTEND_API_BASE_URL`; para mesma origem deve ficar vazio.
+4. Conferir CORS apenas se houver frontend externo.
+5. Testar `http://127.0.0.1:8010/api/status`.
 
 ## Backup
 
@@ -121,10 +132,10 @@ Fazer backup de:
 - anexos de e-mail;
 - arquivos de prova se forem alterados.
 
-## Boas práticas de manutenção
+## Boas praticas de manutencao
 
 1. Alterar primeiro em ambiente de teste.
 2. Fazer backup antes de mexer no banco.
-3. Não editar arquivos em duplicidade sem saber qual é o ativo.
-4. Documentar toda mudança de regra.
-5. Testar o fluxo completo afetado, não só a tela alterada.
+3. Nao editar arquivos em duplicidade sem saber qual e o ativo.
+4. Documentar toda mudanca de regra.
+5. Testar o fluxo completo afetado, nao so a tela alterada.

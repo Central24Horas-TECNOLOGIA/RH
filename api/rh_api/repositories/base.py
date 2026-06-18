@@ -13,6 +13,7 @@ from ..config import Settings
 from ..db import get_connection
 from ..services.helpers import (
     normalize_compare_text,
+    normalize_indication_type,
     normalize_string_list,
     normalize_text,
     rows_to_dicts,
@@ -21,14 +22,10 @@ from ..services.helpers import (
 from ..services.pipeline import infer_pipeline_stage
 from ..services.process_flow import (
     CANDIDATE_STATUS_APPROVED,
-    CANDIDATE_STATUS_ATTENDED,
-    CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_ELIMINATED,
-    CANDIDATE_STATUS_MISSED,
-    CANDIDATE_STATUS_RESCHEDULED,
-    CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_TALENT_BANK,
     CANDIDATE_STATUS_WITHDREW,
+    INTERVIEW_OPERATIONAL_STATUSES,
     build_approved_candidate_locked_message,
     build_candidate_status_action_label,
     build_process_closed_message,
@@ -45,8 +42,11 @@ from .bootstrap import (
     ensure_candidate_metadata_columns,
     ensure_candidate_attachments_table,
     ensure_candidate_movements_table,
+    ensure_talent_bank_table,
     ensure_process_reference_columns,
+    get_next_id_banco,
     get_gabaritos_payload_column,
+    is_identity_column,
     is_deadlock_error,
     resolve_process_row_for_related_record,
     sort_process_rows,
@@ -89,7 +89,7 @@ class BaseRepository:
                     raise HTTPException(
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                         detail=final_message
-                        or "O banco de dados ficou temporariamente indisponivel por conflito de concorrencia. Tente novamente em instantes.",
+                        or "O banco de dados ficou temporariamente indisponível por conflito de concorrência. Tente novamente em instantes.",
                     ) from exc
 
                 wait_seconds = base_delay_seconds * attempt
@@ -110,6 +110,8 @@ class BaseRepository:
             "habilidades": normalize_string_list(safe_json_loads(safe_row.get("habilidades_json"), [])),
             "tags": normalize_string_list(safe_json_loads(safe_row.get("tags_json"), [])),
             "observacao_rh": normalize_text(safe_row.get("observacao_rh")),
+            "classificacao_indicacao": normalize_text(safe_row.get("classificacao_indicacao")),
+            "justificativa_indicacao": normalize_text(safe_row.get("justificativa_indicacao")),
             "email": normalize_text(safe_row.get("email")),
             "telefone": normalize_text(safe_row.get("telefone")),
             "whatsapp": normalize_text(safe_row.get("whatsapp")),
@@ -128,6 +130,8 @@ class BaseRepository:
                 habilidades_json,
                 tags_json,
                 observacao_rh,
+                classificacao_indicacao,
+                justificativa_indicacao,
                 email,
                 telefone,
                 whatsapp,
@@ -233,6 +237,69 @@ class BaseRepository:
                 continue
             result.setdefault(id_teste, []).append(row)
         return result
+
+    def _get_generated_exam_status_maps(self, cursor) -> dict[str, dict]:
+        cursor.execute("SELECT OBJECT_ID('dbo.provas_geradas', 'U')")
+        if not cursor.fetchone()[0]:
+            return {"by_registro": {}, "by_candidate_process": {}, "by_teste": {}}
+
+        cursor.execute(
+            """
+            WITH provas_ordenadas AS (
+                SELECT
+                    prova.id_prova,
+                    prova.id_registro,
+                    prova.id_teste,
+                    prova.id_processo,
+                    prova.id_processo_ref,
+                    prova.status,
+                    prova.codigo_acesso,
+                    prova.gerada_em,
+                    prova.iniciada_em,
+                    prova.finalizada_em,
+                    prova.cancelada_em,
+                    resultado.nota_final_prova,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ISNULL(prova.id_registro, 0)
+                        ORDER BY prova.atualizado_em DESC, prova.id_prova DESC
+                    ) AS ordem_registro,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY prova.id_teste, ISNULL(prova.id_processo_ref, ''), ISNULL(prova.id_processo, '')
+                        ORDER BY prova.atualizado_em DESC, prova.id_prova DESC
+                    ) AS ordem_processo,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY prova.id_teste
+                        ORDER BY prova.atualizado_em DESC, prova.id_prova DESC
+                    ) AS ordem_teste
+                FROM dbo.provas_geradas prova
+                OUTER APPLY (
+                    SELECT TOP 1 nota_final_prova
+                    FROM dbo.resultados_provas resultado
+                    WHERE resultado.id_prova = prova.id_prova
+                    ORDER BY resultado.atualizado_em DESC, resultado.id_resultado DESC
+                ) resultado
+                WHERE ISNULL(prova.id_teste, '') <> ''
+            )
+            SELECT *
+            FROM provas_ordenadas
+            WHERE ordem_registro = 1 OR ordem_processo = 1 OR ordem_teste = 1
+            """
+        )
+        maps = {"by_registro": {}, "by_candidate_process": {}, "by_teste": {}}
+        for row in rows_to_dicts(cursor, cursor.fetchall()):
+            id_registro = int(row.get("id_registro") or 0)
+            id_teste = normalize_text(row.get("id_teste"))
+            id_processo = normalize_text(row.get("id_processo"))
+            id_processo_ref = normalize_text(row.get("id_processo_ref"))
+            if id_registro and int(row.get("ordem_registro") or 0) == 1:
+                maps["by_registro"][id_registro] = row
+            if id_teste and int(row.get("ordem_processo") or 0) == 1:
+                for process_ref in {id_processo_ref, id_processo}:
+                    if process_ref:
+                        maps["by_candidate_process"][f"{id_teste}@@{process_ref}"] = row
+            if id_teste and int(row.get("ordem_teste") or 0) == 1:
+                maps["by_teste"][id_teste] = row
+        return maps
 
     def _select_history_result_for_candidate(self, candidate: dict, history_rows: list[dict]) -> dict:
         if not history_rows:
@@ -367,9 +434,15 @@ class BaseRepository:
         cv_map = self._get_candidate_cv_map(cursor)
         pre_analysis_cv_map = self._get_pre_analysis_cv_map(cursor)
         history_result_map = self._get_history_result_map(cursor)
+        generated_exam_maps = self._get_generated_exam_status_maps(cursor)
 
         for candidate in candidates:
             id_teste = normalize_text(candidate.get("id_teste"))
+            id_registro = int(candidate.get("id_registro") or 0)
+            process_refs = {
+                normalize_text(candidate.get("id_processo_ref")),
+                normalize_text(candidate.get("id_processo")),
+            }
             profile = profile_map.get(id_teste, {})
             latest_interview = interview_map.get(id_teste, {})
             contato_cv = cv_contact_map.get(id_teste, {})
@@ -378,6 +451,17 @@ class BaseRepository:
                 candidate,
                 history_result_map.get(id_teste, []),
             )
+            generated_exam = {}
+            if id_registro:
+                generated_exam = generated_exam_maps["by_registro"].get(id_registro, {})
+            if not generated_exam and id_teste:
+                for process_ref in process_refs:
+                    if process_ref:
+                        generated_exam = generated_exam_maps["by_candidate_process"].get(f"{id_teste}@@{process_ref}", {})
+                        if generated_exam:
+                            break
+            if not generated_exam and id_teste:
+                generated_exam = generated_exam_maps["by_teste"].get(id_teste, {})
             raw_candidate_status = normalize_text(candidate.get("status_candidato"))
             raw_interview_status = normalize_text(latest_interview.get("status_entrevista"))
             candidate_status = canonicalize_candidate_status(raw_candidate_status)
@@ -390,6 +474,8 @@ class BaseRepository:
             candidate["tags"] = profile.get("tags", [])
             candidate["habilidades"] = profile.get("habilidades", [])
             candidate["observacao_rh"] = profile.get("observacao_rh", "")
+            candidate["classificacao_indicacao"] = profile.get("classificacao_indicacao", "")
+            candidate["justificativa_indicacao"] = profile.get("justificativa_indicacao", "")
             candidate["nome_candidato"] = (
                 profile.get("nome_candidato", "")
                 or normalize_text(candidate.get("nome_candidato"))
@@ -420,6 +506,8 @@ class BaseRepository:
             )
             candidate["cidade"] = profile.get("cidade", "") or normalize_text(candidate.get("cidade"))
             candidate["bairro"] = profile.get("bairro", "") or normalize_text(candidate.get("bairro"))
+            candidate["eh_indicacao"] = bool(candidate.get("eh_indicacao"))
+            candidate["tipo_indicacao"] = normalize_text(candidate.get("tipo_indicacao"))
             candidate["cv_disponivel"] = bool(normalize_text(cv_attachment.get("caminho_arquivo")))
             candidate["cv_nome_arquivo"] = normalize_text(cv_attachment.get("nome_arquivo_original"))
             candidate["cv_tipo_arquivo"] = normalize_text(cv_attachment.get("tipo_arquivo"))
@@ -443,6 +531,11 @@ class BaseRepository:
             candidate["id_teste_prova"] = id_teste if has_real_proof else ""
             candidate["data_prova_realizada"] = history_result.get("data_iso") or candidate.get("data_prova")
             candidate["status_prova"] = normalize_text(history_result.get("status"))
+            candidate["tem_prova_gerada"] = bool(generated_exam)
+            candidate["id_prova_gerada"] = generated_exam.get("id_prova") if generated_exam else None
+            candidate["status_prova_gerada"] = normalize_text(generated_exam.get("status")) if generated_exam else ""
+            candidate["codigo_prova_gerada"] = normalize_text(generated_exam.get("codigo_acesso")) if generated_exam else ""
+            candidate["data_prova_gerada"] = generated_exam.get("gerada_em") if generated_exam else None
             candidate["etapas_prova_json"] = normalize_text(history_result.get("etapas_json"))
             candidate["origem_rotulo"] = self._format_candidate_origin(candidate)
 
@@ -457,6 +550,8 @@ class BaseRepository:
         habilidades: list[str] | None = None,
         tags: list[str] | None = None,
         observacao_rh: str | None = None,
+        classificacao_indicacao: str | None = None,
+        justificativa_indicacao: str | None = None,
         email: str | None = None,
         telefone: str | None = None,
         whatsapp: str | None = None,
@@ -476,6 +571,8 @@ class BaseRepository:
                 habilidades_json,
                 tags_json,
                 observacao_rh,
+                classificacao_indicacao,
+                justificativa_indicacao,
                 email,
                 telefone,
                 whatsapp,
@@ -495,11 +592,13 @@ class BaseRepository:
                     "habilidades_json": existing[1],
                     "tags_json": existing[2],
                     "observacao_rh": existing[3],
-                    "email": existing[4],
-                    "telefone": existing[5],
-                    "whatsapp": existing[6],
-                    "cidade": existing[7],
-                    "bairro": existing[8],
+                    "classificacao_indicacao": existing[4],
+                    "justificativa_indicacao": existing[5],
+                    "email": existing[6],
+                    "telefone": existing[7],
+                    "whatsapp": existing[8],
+                    "cidade": existing[9],
+                    "bairro": existing[10],
                 }
             )
             if existing
@@ -508,6 +607,8 @@ class BaseRepository:
                 "habilidades": [],
                 "tags": [],
                 "observacao_rh": "",
+                "classificacao_indicacao": "",
+                "justificativa_indicacao": "",
                 "email": "",
                 "telefone": "",
                 "whatsapp": "",
@@ -524,6 +625,16 @@ class BaseRepository:
             if observacao_rh is not None
             else existing_profile.get("observacao_rh", "")
         )
+        merged_recommendation = (
+            normalize_text(classificacao_indicacao)
+            if classificacao_indicacao is not None
+            else existing_profile.get("classificacao_indicacao", "")
+        )
+        merged_justification = (
+            normalize_text(justificativa_indicacao)
+            if justificativa_indicacao is not None
+            else existing_profile.get("justificativa_indicacao", "")
+        )
         merged_email = normalize_text(email) if email is not None else existing_profile.get("email", "")
         merged_phone = normalize_text(telefone) if telefone is not None else existing_profile.get("telefone", "")
         merged_whatsapp = normalize_text(whatsapp) if whatsapp is not None else existing_profile.get("whatsapp", "")
@@ -539,6 +650,8 @@ class BaseRepository:
                     habilidades_json = ?,
                     tags_json = ?,
                     observacao_rh = ?,
+                    classificacao_indicacao = ?,
+                    justificativa_indicacao = ?,
                     email = ?,
                     telefone = ?,
                     whatsapp = ?,
@@ -552,6 +665,8 @@ class BaseRepository:
                     json.dumps(merged_skills, ensure_ascii=False),
                     json.dumps(merged_tags, ensure_ascii=False),
                     merged_observation,
+                    merged_recommendation,
+                    merged_justification,
                     merged_email,
                     merged_phone,
                     merged_whatsapp,
@@ -570,13 +685,15 @@ class BaseRepository:
                     habilidades_json,
                     tags_json,
                     observacao_rh,
+                    classificacao_indicacao,
+                    justificativa_indicacao,
                     email,
                     telefone,
                     whatsapp,
                     cidade,
                     bairro
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     safe_id_teste,
@@ -584,6 +701,8 @@ class BaseRepository:
                     json.dumps(merged_skills, ensure_ascii=False),
                     json.dumps(merged_tags, ensure_ascii=False),
                     merged_observation,
+                    merged_recommendation,
+                    merged_justification,
                     merged_email,
                     merged_phone,
                     merged_whatsapp,
@@ -740,7 +859,9 @@ class BaseRepository:
                 aprovado_em,
                 eliminado_em,
                 motivo_eliminacao,
-                etapa_eliminacao
+                etapa_eliminacao,
+                eh_indicacao,
+                tipo_indicacao
             FROM candidatos_processos
             """
         )
@@ -768,9 +889,17 @@ class BaseRepository:
         email: str = "",
         telefone: str = "",
         whatsapp: str = "",
+        codigo_acesso: str = "",
+        nome_candidato: str = "",
+        vaga: str = "",
+        origem: str = "",
     ) -> int | None:
         safe_id_teste = normalize_text(id_teste)
+        safe_codigo = normalize_text(codigo_acesso).upper()
         safe_email = normalize_compare_text(email)
+        safe_name = normalize_compare_text(nome_candidato)
+        safe_vacancy = normalize_compare_text(vaga)
+        safe_origin = normalize_compare_text(origem)
 
         def only_digits(value: str) -> str:
             digits = re.sub(r"\D", "", normalize_text(value))
@@ -784,12 +913,40 @@ class BaseRepository:
             if only_digits(item)
         }
 
+        ensure_talent_bank_table(cursor)
+        generated_exam_ids = set()
+        if safe_codigo:
+            cursor.execute(
+                """
+                IF OBJECT_ID('dbo.provas_geradas', 'U') IS NULL
+                BEGIN
+                    SELECT NULL
+                END
+                ELSE
+                BEGIN
+                    SELECT id_teste
+                    FROM dbo.provas_geradas
+                    WHERE UPPER(codigo_acesso) = ?
+                       OR CONVERT(NVARCHAR(50), id_prova) = ?
+                END
+                """,
+                (safe_codigo, safe_codigo),
+            )
+            generated_exam_ids = {
+                normalize_text(row[0])
+                for row in cursor.fetchall()
+                if normalize_text(row[0])
+            }
+
         ensure_candidate_metadata_table(cursor)
         cursor.execute(
             """
             SELECT
                 banco.id_banco,
                 banco.id_teste,
+                banco.nome_candidato,
+                banco.vaga,
+                banco.origem,
                 meta.email,
                 meta.telefone,
                 meta.whatsapp
@@ -805,6 +962,12 @@ class BaseRepository:
             if safe_id_teste and normalize_text(row.get("id_teste")) == safe_id_teste:
                 return id_banco
 
+            if safe_codigo and normalize_text(row.get("id_teste")).upper() == safe_codigo:
+                return id_banco
+
+            if generated_exam_ids and normalize_text(row.get("id_teste")) in generated_exam_ids:
+                return id_banco
+
             row_email = normalize_compare_text(row.get("email"))
             if safe_email and row_email == safe_email:
                 return id_banco
@@ -817,7 +980,71 @@ class BaseRepository:
             if safe_phones and row_phones.intersection(safe_phones):
                 return id_banco
 
+            row_name = normalize_compare_text(row.get("nome_candidato"))
+            row_vacancy = normalize_compare_text(row.get("vaga"))
+            row_origin = normalize_compare_text(row.get("origem"))
+            if (
+                safe_name
+                and row_name == safe_name
+                and (not safe_vacancy or not row_vacancy or row_vacancy == safe_vacancy)
+                and (not safe_origin or not row_origin or row_origin == safe_origin)
+            ):
+                return id_banco
+
         return None
+
+    def _insert_talent_bank_record(self, cursor, data: dict) -> int:
+        ensure_talent_bank_table(cursor)
+
+        columns = [
+            "id_processo",
+            "id_processo_ref",
+            "id_teste",
+            "nome_candidato",
+            "vaga",
+            "pontuacao_final",
+            "data_movimentacao",
+            "origem",
+            "eh_indicacao",
+            "tipo_indicacao",
+            "indicacao_em",
+        ]
+        indication_type = normalize_indication_type(data.get("tipo_indicacao"))
+        is_indication = bool(data.get("eh_indicacao")) or bool(indication_type)
+        values = [
+            data.get("id_processo", ""),
+            data.get("id_processo_ref", ""),
+            data.get("id_teste", ""),
+            data.get("nome_candidato", ""),
+            data.get("vaga", ""),
+            data.get("pontuacao_final", ""),
+            data.get("data_movimentacao") or datetime.now().isoformat(),
+            data.get("origem", ""),
+            1 if is_indication else 0,
+            indication_type,
+            datetime.now() if is_indication else None,
+        ]
+
+        id_banco = None
+        if not is_identity_column(cursor, "banco_talentos", "id_banco"):
+            id_banco = get_next_id_banco(cursor)
+            columns.insert(0, "id_banco")
+            values.insert(0, id_banco)
+
+        placeholders = ", ".join("?" for _ in columns)
+        cursor.execute(
+            f"""
+            INSERT INTO banco_talentos
+            (
+                {", ".join(columns)}
+            )
+            OUTPUT INSERTED.id_banco
+            VALUES ({placeholders})
+            """,
+            tuple(values),
+        )
+        inserted_row = cursor.fetchone()
+        return int(inserted_row[0] or id_banco or 0)
 
     def _get_answer_files_map(self, cursor) -> dict[str, dict]:
         payload_column = get_gabaritos_payload_column(cursor)
@@ -997,7 +1224,7 @@ class BaseRepository:
             )
 
         if not id_processo:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo do candidato nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Processo do candidato não encontrado.")
 
         processo = resolve_process_row_for_related_record(
             cursor,
@@ -1010,7 +1237,7 @@ class BaseRepository:
             ],
         )
         if not processo:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo nao encontrado.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo seletivo não encontrado.")
         if is_process_closed(processo.get("status")):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -1085,6 +1312,7 @@ class BaseRepository:
                     if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_ELIMINATED)
                     else normalize_text(payload.get("mensagem_aprovacao"))
                 ),
+                usuario_responsavel=normalize_text(payload.get("usuario_responsavel")),
             )
 
         if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_APPROVED):
@@ -1149,14 +1377,13 @@ class BaseRepository:
             )
 
         interview_synced_statuses = {
-            normalize_compare_text(CANDIDATE_STATUS_SCHEDULED),
-            normalize_compare_text(CANDIDATE_STATUS_CONFIRMED),
-            normalize_compare_text(CANDIDATE_STATUS_RESCHEDULED),
-            normalize_compare_text(CANDIDATE_STATUS_ATTENDED),
-            normalize_compare_text(CANDIDATE_STATUS_MISSED),
+            normalize_compare_text(status_item)
+            for status_item in INTERVIEW_OPERATIONAL_STATUSES
+        } | {
             normalize_compare_text(CANDIDATE_STATUS_APPROVED),
             normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
             normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK),
+            normalize_compare_text(CANDIDATE_STATUS_WITHDREW),
         }
         if id_teste and new_status_normalized in interview_synced_statuses:
             cursor.execute(
@@ -1195,6 +1422,9 @@ class BaseRepository:
                 email=profile.get("email", ""),
                 telefone=profile.get("telefone", ""),
                 whatsapp=profile.get("whatsapp", ""),
+                nome_candidato=nome_candidato,
+                vaga=vaga,
+                origem=origem or "Prova",
             )
 
             if id_banco_existente:
@@ -1225,31 +1455,16 @@ class BaseRepository:
                     ),
                 )
             else:
-                cursor.execute(
-                    """
-                    INSERT INTO banco_talentos
-                    (
-                        id_processo,
-                        id_processo_ref,
-                        id_teste,
-                        nome_candidato,
-                        vaga,
-                        pontuacao_final,
-                        data_movimentacao,
-                        origem
-                    )
-                    OUTPUT INSERTED.id_banco
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        id_processo,
-                        processo.get("id_processo_ref", ""),
-                        id_teste,
-                        nome_candidato,
-                        vaga,
-                        pontuacao_final,
-                        data_movimentacao or datetime.now().isoformat(),
-                        origem or "Prova",
-                    ),
+                self._insert_talent_bank_record(
+                    cursor,
+                    {
+                        "id_processo": id_processo,
+                        "id_processo_ref": processo.get("id_processo_ref", ""),
+                        "id_teste": id_teste,
+                        "nome_candidato": nome_candidato,
+                        "vaga": vaga,
+                        "pontuacao_final": pontuacao_final,
+                        "data_movimentacao": data_movimentacao or datetime.now().isoformat(),
+                        "origem": origem or "Prova",
+                    },
                 )
-                cursor.fetchone()

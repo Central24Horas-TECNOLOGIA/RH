@@ -10,7 +10,14 @@ from fastapi import HTTPException, status
 
 from ..config import Settings
 from ..db import get_connection
-from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
+from ..passwords import hash_password
+from ..rbac import PERMISSION_DEFINITIONS, ROLE_ADMIN, ROLE_DEFINITIONS, ROLE_PERMISSIONS, SETTINGS_CATALOGS
+from ..services.helpers import (
+    normalize_compare_text,
+    normalize_indication_type,
+    normalize_text,
+    rows_to_dicts,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -19,6 +26,353 @@ _SCHEMA_BOOTSTRAPPED = False
 _SQL_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 PROCESS_REF_SEPARATOR = "@@"
 LOCAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
+
+
+def ensure_security_tables(cursor, settings: Settings) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.perfis', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.perfis (
+                id_perfil NVARCHAR(40) NOT NULL PRIMARY KEY,
+                nome NVARCHAR(80) NOT NULL,
+                nivel NVARCHAR(40) NULL,
+                descricao NVARCHAR(500) NULL,
+                ativo BIT NOT NULL CONSTRAINT DF_perfis_ativo DEFAULT 1,
+                sistema BIT NOT NULL CONSTRAINT DF_perfis_sistema DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.permissoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.permissoes (
+                chave NVARCHAR(120) NOT NULL PRIMARY KEY,
+                modulo NVARCHAR(80) NULL,
+                descricao NVARCHAR(500) NULL,
+                critica BIT NOT NULL CONSTRAINT DF_permissoes_critica DEFAULT 0,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.perfil_permissoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.perfil_permissoes (
+                id_perfil NVARCHAR(40) NOT NULL,
+                chave_permissao NVARCHAR(120) NOT NULL,
+                permitido BIT NOT NULL CONSTRAINT DF_perfil_permissoes_permitido DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                CONSTRAINT PK_perfil_permissoes PRIMARY KEY (id_perfil, chave_permissao)
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.usuarios', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.usuarios (
+                id_usuario INT IDENTITY(1,1) PRIMARY KEY,
+                login NVARCHAR(120) NOT NULL,
+                nome NVARCHAR(180) NOT NULL,
+                email NVARCHAR(180) NOT NULL,
+                perfil_id NVARCHAR(40) NOT NULL,
+                status NVARCHAR(30) NOT NULL CONSTRAINT DF_usuarios_status DEFAULT 'Ativo',
+                senha_hash NVARCHAR(500) NOT NULL,
+                criado_por NVARCHAR(180) NULL,
+                atualizado_por NVARCHAR(180) NULL,
+                ultimo_acesso_em DATETIME NULL,
+                bloqueado_em DATETIME NULL,
+                desativado_em DATETIME NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("login", "NVARCHAR(120)"),
+        ("nome", "NVARCHAR(180)"),
+        ("email", "NVARCHAR(180)"),
+        ("perfil_id", "NVARCHAR(40)"),
+        ("status", "NVARCHAR(30)"),
+        ("senha_hash", "NVARCHAR(500)"),
+        ("criado_por", "NVARCHAR(180)"),
+        ("atualizado_por", "NVARCHAR(180)"),
+        ("ultimo_acesso_em", "DATETIME"),
+        ("bloqueado_em", "DATETIME"),
+        ("desativado_em", "DATETIME"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.usuarios', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.usuarios
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.logs_auditoria', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.logs_auditoria (
+                id_log INT IDENTITY(1,1) PRIMARY KEY,
+                id_usuario INT NULL,
+                nome_usuario NVARCHAR(180) NULL,
+                email_usuario NVARCHAR(180) NULL,
+                perfil_id NVARCHAR(40) NULL,
+                perfil_nome NVARCHAR(80) NULL,
+                data_hora DATETIME NOT NULL DEFAULT GETDATE(),
+                modulo NVARCHAR(80) NULL,
+                acao NVARCHAR(120) NULL,
+                entidade NVARCHAR(120) NULL,
+                entidade_id NVARCHAR(180) NULL,
+                valor_anterior NVARCHAR(MAX) NULL,
+                valor_novo NVARCHAR(MAX) NULL,
+                justificativa NVARCHAR(MAX) NULL,
+                origem NVARCHAR(180) NULL,
+                sucesso BIT NOT NULL CONSTRAINT DF_logs_auditoria_sucesso DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_usuario", "INT"),
+        ("nome_usuario", "NVARCHAR(180)"),
+        ("email_usuario", "NVARCHAR(180)"),
+        ("perfil_id", "NVARCHAR(40)"),
+        ("perfil_nome", "NVARCHAR(80)"),
+        ("data_hora", "DATETIME"),
+        ("modulo", "NVARCHAR(80)"),
+        ("acao", "NVARCHAR(120)"),
+        ("entidade", "NVARCHAR(120)"),
+        ("entidade_id", "NVARCHAR(180)"),
+        ("valor_anterior", "NVARCHAR(MAX)"),
+        ("valor_novo", "NVARCHAR(MAX)"),
+        ("justificativa", "NVARCHAR(MAX)"),
+        ("origem", "NVARCHAR(180)"),
+        ("sucesso", "BIT"),
+        ("criado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.logs_auditoria', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.logs_auditoria
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    for role in ROLE_DEFINITIONS.values():
+        cursor.execute(
+            """
+            IF NOT EXISTS (SELECT 1 FROM perfis WHERE id_perfil = ?)
+            BEGIN
+                INSERT INTO perfis (id_perfil, nome, nivel, descricao, ativo, sistema, criado_em, atualizado_em)
+                VALUES (?, ?, ?, ?, 1, 1, GETDATE(), GETDATE())
+            END
+            ELSE
+            BEGIN
+                UPDATE perfis
+                SET nome = ?, nivel = ?, descricao = ?, ativo = 1, sistema = 1, atualizado_em = GETDATE()
+                WHERE id_perfil = ?
+            END
+            """,
+            (
+                role.id,
+                role.id,
+                role.name,
+                role.level,
+                role.description,
+                role.name,
+                role.level,
+                role.description,
+                role.id,
+            ),
+        )
+
+    for permission in PERMISSION_DEFINITIONS.values():
+        cursor.execute(
+            """
+            IF NOT EXISTS (SELECT 1 FROM permissoes WHERE chave = ?)
+            BEGIN
+                INSERT INTO permissoes (chave, modulo, descricao, critica, criado_em)
+                VALUES (?, ?, ?, ?, GETDATE())
+            END
+            ELSE
+            BEGIN
+                UPDATE permissoes
+                SET modulo = ?, descricao = ?, critica = ?
+                WHERE chave = ?
+            END
+            """,
+            (
+                permission.key,
+                permission.key,
+                permission.module,
+                permission.description,
+                1 if permission.critical else 0,
+                permission.module,
+                permission.description,
+                1 if permission.critical else 0,
+                permission.key,
+            ),
+        )
+
+    for role_id, permissions in ROLE_PERMISSIONS.items():
+        for permission_key in permissions:
+            cursor.execute(
+                """
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM perfil_permissoes
+                    WHERE id_perfil = ? AND chave_permissao = ?
+                )
+                BEGIN
+                    INSERT INTO perfil_permissoes
+                    (id_perfil, chave_permissao, permitido, criado_em, atualizado_em)
+                    VALUES (?, ?, 1, GETDATE(), GETDATE())
+                END
+                """,
+                (role_id, permission_key, role_id, permission_key),
+            )
+
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'UX_usuarios_login'
+              AND object_id = OBJECT_ID('dbo.usuarios')
+        )
+        BEGIN
+            CREATE UNIQUE INDEX UX_usuarios_login ON dbo.usuarios(login)
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'UX_usuarios_email'
+              AND object_id = OBJECT_ID('dbo.usuarios')
+        )
+        BEGIN
+            CREATE UNIQUE INDEX UX_usuarios_email ON dbo.usuarios(email)
+        END
+        """
+    )
+
+    default_login = settings.auth_user or "rh"
+    default_password = settings.auth_password or "1234"
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM usuarios
+            WHERE LOWER(login) = LOWER(?) OR LOWER(email) = LOWER(?)
+        )
+        BEGIN
+            INSERT INTO usuarios
+            (
+                login,
+                nome,
+                email,
+                perfil_id,
+                status,
+                senha_hash,
+                criado_por,
+                atualizado_por,
+                criado_em,
+                atualizado_em
+            )
+            VALUES (?, ?, ?, ?, 'Ativo', ?, 'bootstrap', 'bootstrap', GETDATE(), GETDATE())
+        END
+        """,
+        (
+            default_login,
+            default_login,
+            default_login,
+            default_login,
+            default_login,
+            ROLE_ADMIN,
+            hash_password(default_password),
+        ),
+    )
+
+
+def ensure_reusable_config_tables(cursor) -> None:
+    for definition in SETTINGS_CATALOGS.values():
+        table = definition["table"]
+        cursor.execute(
+            f"""
+            IF OBJECT_ID('dbo.{table}', 'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.{table} (
+                    id_item INT IDENTITY(1,1) PRIMARY KEY,
+                    chave NVARCHAR(120) NULL,
+                    nome NVARCHAR(180) NOT NULL,
+                    descricao NVARCHAR(MAX) NULL,
+                    categoria NVARCHAR(120) NULL,
+                    payload_json NVARCHAR(MAX) NULL,
+                    ativo BIT NOT NULL CONSTRAINT DF_{table}_ativo DEFAULT 1,
+                    usado BIT NOT NULL CONSTRAINT DF_{table}_usado DEFAULT 0,
+                    criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                    atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+                )
+            END
+            """
+        )
+        for column_name, sql_type in (
+            ("chave", "NVARCHAR(120)"),
+            ("nome", "NVARCHAR(180)"),
+            ("descricao", "NVARCHAR(MAX)"),
+            ("categoria", "NVARCHAR(120)"),
+            ("payload_json", "NVARCHAR(MAX)"),
+            ("ativo", "BIT"),
+            ("usado", "BIT"),
+            ("criado_em", "DATETIME"),
+            ("atualizado_em", "DATETIME"),
+        ):
+            cursor.execute(
+                f"""
+                IF COL_LENGTH('dbo.{table}', '{column_name}') IS NULL
+                BEGIN
+                    ALTER TABLE dbo.{table}
+                    ADD {column_name} {sql_type} NULL
+                END
+                """
+            )
+        cursor.execute(
+            f"""
+            UPDATE dbo.{table}
+            SET ativo = 1
+            WHERE ativo IS NULL
+            """
+        )
+        cursor.execute(
+            f"""
+            UPDATE dbo.{table}
+            SET usado = 0
+            WHERE usado IS NULL
+            """
+        )
+
 
 def ensure_cv_pre_analises_table(cursor) -> None:
     cursor.execute(
@@ -166,6 +520,9 @@ def ensure_candidate_approval_columns(cursor) -> None:
         ("banco_talentos_em", "DATETIME"),
         ("mensagem_aprovacao_enviada_whatsapp_em", "DATETIME"),
         ("mensagem_aprovacao_enviada_email_em", "DATETIME"),
+        ("eh_indicacao", "BIT"),
+        ("tipo_indicacao", "NVARCHAR(80)"),
+        ("indicacao_em", "DATETIME"),
     ):
         cursor.execute(
             f"""
@@ -282,6 +639,8 @@ def ensure_candidate_metadata_table(cursor) -> None:
                 habilidades_json NVARCHAR(MAX) NULL,
                 tags_json NVARCHAR(MAX) NULL,
                 observacao_rh NVARCHAR(MAX) NULL,
+                classificacao_indicacao NVARCHAR(80) NULL,
+                justificativa_indicacao NVARCHAR(MAX) NULL,
                 email NVARCHAR(255) NULL,
                 telefone NVARCHAR(50) NULL,
                 whatsapp NVARCHAR(50) NULL,
@@ -301,6 +660,8 @@ def ensure_candidate_metadata_columns(cursor) -> None:
         ("habilidades_json", "NVARCHAR(MAX)"),
         ("tags_json", "NVARCHAR(MAX)"),
         ("observacao_rh", "NVARCHAR(MAX)"),
+        ("classificacao_indicacao", "NVARCHAR(80)"),
+        ("justificativa_indicacao", "NVARCHAR(MAX)"),
         ("email", "NVARCHAR(255)"),
         ("telefone", "NVARCHAR(50)"),
         ("whatsapp", "NVARCHAR(50)"),
@@ -392,6 +753,140 @@ def ensure_candidate_attachments_table(cursor) -> None:
         UPDATE dbo.candidatos_anexos
         SET atualizado_em = GETDATE()
         WHERE atualizado_em IS NULL
+        """
+    )
+
+
+def ensure_talent_bank_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.banco_talentos', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.banco_talentos (
+                id_banco INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                id_teste NVARCHAR(120) NULL,
+                nome_candidato NVARCHAR(255) NULL,
+                vaga NVARCHAR(255) NULL,
+                pontuacao_final NVARCHAR(60) NULL,
+                data_movimentacao DATETIME NULL,
+                origem NVARCHAR(120) NULL,
+                eh_indicacao BIT NULL,
+                tipo_indicacao NVARCHAR(80) NULL,
+                indicacao_em DATETIME NULL
+            )
+        END
+        """
+    )
+
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.banco_talentos', 'id_banco') IS NULL
+        BEGIN
+            ALTER TABLE dbo.banco_talentos
+            ADD id_banco INT IDENTITY(1,1) NOT NULL
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("id_teste", "NVARCHAR(120)"),
+        ("nome_candidato", "NVARCHAR(255)"),
+        ("vaga", "NVARCHAR(255)"),
+        ("pontuacao_final", "NVARCHAR(60)"),
+        ("data_movimentacao", "DATETIME"),
+        ("origem", "NVARCHAR(120)"),
+        ("eh_indicacao", "BIT"),
+        ("tipo_indicacao", "NVARCHAR(80)"),
+        ("indicacao_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.banco_talentos', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.banco_talentos
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        UPDATE dbo.banco_talentos
+        SET eh_indicacao = 0
+        WHERE eh_indicacao IS NULL
+        """
+    )
+
+    cursor.execute(
+        """
+        IF COLUMNPROPERTY(OBJECT_ID('dbo.banco_talentos'), 'id_banco', 'IsIdentity') = 0
+        BEGIN
+            DECLARE @max_id_banco INT;
+            SELECT @max_id_banco = ISNULL(MAX(id_banco), 0)
+            FROM dbo.banco_talentos
+            WHERE id_banco IS NOT NULL;
+
+            ;WITH pendentes AS (
+                SELECT
+                    id_banco,
+                    ROW_NUMBER() OVER (
+                        ORDER BY
+                            ISNULL(data_movimentacao, CONVERT(DATETIME, '19000101', 112)),
+                            ISNULL(id_teste, ''),
+                            ISNULL(nome_candidato, '')
+                    ) AS ordem
+                FROM dbo.banco_talentos
+                WHERE id_banco IS NULL
+            )
+            UPDATE pendentes
+            SET id_banco = @max_id_banco + ordem;
+
+            IF NOT EXISTS (
+                SELECT 1
+                FROM dbo.banco_talentos
+                WHERE id_banco IS NULL
+            )
+            AND NOT EXISTS (
+                SELECT id_banco
+                FROM dbo.banco_talentos
+                GROUP BY id_banco
+                HAVING COUNT(*) > 1
+            )
+            BEGIN
+                ALTER TABLE dbo.banco_talentos
+                ALTER COLUMN id_banco INT NOT NULL
+            END
+        END
+        """
+    )
+
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.key_constraints
+            WHERE parent_object_id = OBJECT_ID('dbo.banco_talentos')
+              AND type = 'PK'
+        )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM dbo.banco_talentos
+            WHERE id_banco IS NULL
+        )
+        AND NOT EXISTS (
+            SELECT id_banco
+            FROM dbo.banco_talentos
+            GROUP BY id_banco
+            HAVING COUNT(*) > 1
+        )
+        BEGIN
+            ALTER TABLE dbo.banco_talentos
+            ADD CONSTRAINT PK_banco_talentos_id_banco PRIMARY KEY (id_banco)
+        END
         """
     )
 
@@ -558,6 +1053,7 @@ def ensure_candidate_movements_table(cursor) -> None:
     for column_name, sql_type in (
         ("id_teste", "NVARCHAR(120)"),
         ("id_registro", "INT"),
+        ("id_entrevista", "INT"),
         ("id_processo", "NVARCHAR(60)"),
         ("id_processo_ref", "NVARCHAR(255)"),
         ("nome_candidato", "NVARCHAR(255)"),
@@ -590,6 +1086,399 @@ def ensure_candidate_movements_table(cursor) -> None:
     )
 
 
+def ensure_process_dossier_notes_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.processos_dossie_anotacoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.processos_dossie_anotacoes (
+                id_anotacao INT IDENTITY(1,1) PRIMARY KEY,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                id_teste NVARCHAR(120) NULL,
+                nome_candidato NVARCHAR(255) NULL,
+                texto NVARCHAR(MAX) NULL,
+                usuario_responsavel NVARCHAR(180) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("id_teste", "NVARCHAR(120)"),
+        ("nome_candidato", "NVARCHAR(255)"),
+        ("texto", "NVARCHAR(MAX)"),
+        ("usuario_responsavel", "NVARCHAR(180)"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.processos_dossie_anotacoes', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.processos_dossie_anotacoes
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        UPDATE dbo.processos_dossie_anotacoes
+        SET criado_em = GETDATE()
+        WHERE criado_em IS NULL
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.processos_dossie_anotacoes
+        SET atualizado_em = criado_em
+        WHERE atualizado_em IS NULL
+        """
+    )
+
+
+def ensure_conecta_exams_tables(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.provas_geradas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.provas_geradas (
+                id_prova INT IDENTITY(1,1) PRIMARY KEY,
+                id_teste NVARCHAR(120) NOT NULL,
+                id_registro INT NULL,
+                id_entrevista INT NULL,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                nome_candidato NVARCHAR(255) NULL,
+                email_acesso NVARCHAR(255) NULL,
+                telefone_acesso NVARCHAR(50) NULL,
+                cpf NVARCHAR(30) NULL,
+                vaga NVARCHAR(255) NULL,
+                operacao NVARCHAR(255) NULL,
+                trilha NVARCHAR(120) NULL,
+                nivel NVARCHAR(80) NULL,
+                tempo_total INT NULL,
+                quantidade_questoes INT NULL,
+                etapas_json NVARCHAR(MAX) NULL,
+                categorias_json NVARCHAR(MAX) NULL,
+                configuracao_json NVARCHAR(MAX) NULL,
+                questoes_json NVARCHAR(MAX) NULL,
+                instrucoes_operacao NVARCHAR(MAX) NULL,
+                status NVARCHAR(80) NOT NULL DEFAULT 'Gerada',
+                codigo_acesso NVARCHAR(4) NOT NULL,
+                token_sessao_publica NVARCHAR(160) NULL,
+                token_expira_em DATETIME NULL,
+                metodo_acesso NVARCHAR(40) NULL,
+                tentativas_acesso INT NULL,
+                gerada_por NVARCHAR(180) NULL,
+                gerada_em DATETIME NOT NULL DEFAULT GETDATE(),
+                iniciada_em DATETIME NULL,
+                revisada_em DATETIME NULL,
+                finalizada_em DATETIME NULL,
+                expira_em DATETIME NULL,
+                reaberta_em DATETIME NULL,
+                reaberta_por NVARCHAR(180) NULL,
+                motivo_reabertura NVARCHAR(MAX) NULL,
+                respostas_anteriores_mantidas BIT NULL,
+                cancelada_em DATETIME NULL,
+                cancelada_por NVARCHAR(180) NULL,
+                motivo_cancelamento NVARCHAR(MAX) NULL,
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("id_teste", "NVARCHAR(120)"),
+        ("id_registro", "INT"),
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("nome_candidato", "NVARCHAR(255)"),
+        ("email_acesso", "NVARCHAR(255)"),
+        ("telefone_acesso", "NVARCHAR(50)"),
+        ("cpf", "NVARCHAR(30)"),
+        ("vaga", "NVARCHAR(255)"),
+        ("operacao", "NVARCHAR(255)"),
+        ("trilha", "NVARCHAR(120)"),
+        ("nivel", "NVARCHAR(80)"),
+        ("tempo_total", "INT"),
+        ("quantidade_questoes", "INT"),
+        ("etapas_json", "NVARCHAR(MAX)"),
+        ("categorias_json", "NVARCHAR(MAX)"),
+        ("configuracao_json", "NVARCHAR(MAX)"),
+        ("questoes_json", "NVARCHAR(MAX)"),
+        ("instrucoes_operacao", "NVARCHAR(MAX)"),
+        ("status", "NVARCHAR(80)"),
+        ("codigo_acesso", "NVARCHAR(4)"),
+        ("token_sessao_publica", "NVARCHAR(160)"),
+        ("token_expira_em", "DATETIME"),
+        ("metodo_acesso", "NVARCHAR(40)"),
+        ("tentativas_acesso", "INT"),
+        ("gerada_por", "NVARCHAR(180)"),
+        ("gerada_em", "DATETIME"),
+        ("iniciada_em", "DATETIME"),
+        ("revisada_em", "DATETIME"),
+        ("finalizada_em", "DATETIME"),
+        ("expira_em", "DATETIME"),
+        ("reaberta_em", "DATETIME"),
+        ("reaberta_por", "NVARCHAR(180)"),
+        ("motivo_reabertura", "NVARCHAR(MAX)"),
+        ("respostas_anteriores_mantidas", "BIT"),
+        ("cancelada_em", "DATETIME"),
+        ("cancelada_por", "NVARCHAR(180)"),
+        ("motivo_cancelamento", "NVARCHAR(MAX)"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.provas_geradas', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.provas_geradas
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'UX_provas_geradas_codigo_acesso'
+              AND object_id = OBJECT_ID('dbo.provas_geradas')
+        )
+        BEGIN
+            CREATE UNIQUE INDEX UX_provas_geradas_codigo_acesso
+            ON dbo.provas_geradas(codigo_acesso)
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'IX_provas_geradas_email_status'
+              AND object_id = OBJECT_ID('dbo.provas_geradas')
+        )
+        BEGIN
+            CREATE INDEX IX_provas_geradas_email_status
+            ON dbo.provas_geradas(email_acesso, status)
+        END
+        """
+    )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.respostas_provas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.respostas_provas (
+                id_resposta INT IDENTITY(1,1) PRIMARY KEY,
+                id_prova INT NOT NULL,
+                id_teste NVARCHAR(120) NOT NULL,
+                questao_indice INT NOT NULL,
+                questao_id NVARCHAR(120) NULL,
+                texto_questao_snapshot NVARCHAR(MAX) NULL,
+                alternativas_snapshot NVARCHAR(MAX) NULL,
+                resposta_json NVARCHAR(MAX) NULL,
+                resposta_correta NVARCHAR(MAX) NULL,
+                categoria NVARCHAR(120) NULL,
+                peso DECIMAL(8,2) NULL,
+                correta BIT NULL,
+                nota DECIMAL(8,2) NULL,
+                tempo_resposta_segundos INT NULL,
+                respondida_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_prova", "INT"),
+        ("id_teste", "NVARCHAR(120)"),
+        ("questao_indice", "INT"),
+        ("questao_id", "NVARCHAR(120)"),
+        ("texto_questao_snapshot", "NVARCHAR(MAX)"),
+        ("alternativas_snapshot", "NVARCHAR(MAX)"),
+        ("resposta_json", "NVARCHAR(MAX)"),
+        ("resposta_correta", "NVARCHAR(MAX)"),
+        ("categoria", "NVARCHAR(120)"),
+        ("peso", "DECIMAL(8,2)"),
+        ("correta", "BIT"),
+        ("nota", "DECIMAL(8,2)"),
+        ("tempo_resposta_segundos", "INT"),
+        ("respondida_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.respostas_provas', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.respostas_provas
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.resultados_provas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.resultados_provas (
+                id_resultado INT IDENTITY(1,1) PRIMARY KEY,
+                id_prova INT NOT NULL,
+                id_teste NVARCHAR(120) NOT NULL,
+                nota_objetiva DECIMAL(8,2) NULL,
+                nota_redacao DECIMAL(8,2) NULL,
+                nota_excel DECIMAL(8,2) NULL,
+                nota_tecnica DECIMAL(8,2) NULL,
+                nota_comunicacao DECIMAL(8,2) NULL,
+                nota_lgpd DECIMAL(8,2) NULL,
+                nota_final_prova DECIMAL(8,2) NULL,
+                score_por_categoria_json NVARCHAR(MAX) NULL,
+                resumo_etapas_json NVARCHAR(MAX) NULL,
+                status_correcao NVARCHAR(80) NULL,
+                pendente_avaliacao_manual BIT NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_prova", "INT"),
+        ("id_teste", "NVARCHAR(120)"),
+        ("nota_objetiva", "DECIMAL(8,2)"),
+        ("nota_redacao", "DECIMAL(8,2)"),
+        ("nota_excel", "DECIMAL(8,2)"),
+        ("nota_tecnica", "DECIMAL(8,2)"),
+        ("nota_comunicacao", "DECIMAL(8,2)"),
+        ("nota_lgpd", "DECIMAL(8,2)"),
+        ("nota_final_prova", "DECIMAL(8,2)"),
+        ("score_por_categoria_json", "NVARCHAR(MAX)"),
+        ("resumo_etapas_json", "NVARCHAR(MAX)"),
+        ("status_correcao", "NVARCHAR(80)"),
+        ("pendente_avaliacao_manual", "BIT"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.resultados_provas', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.resultados_provas
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.scores_conecta', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.scores_conecta (
+                id_score INT IDENTITY(1,1) PRIMARY KEY,
+                id_teste NVARCHAR(120) NOT NULL,
+                id_prova INT NULL,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                score_final DECIMAL(8,2) NULL,
+                classificacao NVARCHAR(80) NULL,
+                confiabilidade NVARCHAR(40) NULL,
+                status_analise NVARCHAR(80) NULL,
+                componentes_json NVARCHAR(MAX) NULL,
+                pontos_fortes_json NVARCHAR(MAX) NULL,
+                pontos_atencao_json NVARCHAR(MAX) NULL,
+                alertas_criticos_json NVARCHAR(MAX) NULL,
+                dados_ausentes_json NVARCHAR(MAX) NULL,
+                justificativa NVARCHAR(MAX) NULL,
+                calculado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                recalculado_por NVARCHAR(180) NULL,
+                motivo_recalculo NVARCHAR(MAX) NULL
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_teste", "NVARCHAR(120)"),
+        ("id_prova", "INT"),
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("score_final", "DECIMAL(8,2)"),
+        ("classificacao", "NVARCHAR(80)"),
+        ("confiabilidade", "NVARCHAR(40)"),
+        ("status_analise", "NVARCHAR(80)"),
+        ("componentes_json", "NVARCHAR(MAX)"),
+        ("pontos_fortes_json", "NVARCHAR(MAX)"),
+        ("pontos_atencao_json", "NVARCHAR(MAX)"),
+        ("alertas_criticos_json", "NVARCHAR(MAX)"),
+        ("dados_ausentes_json", "NVARCHAR(MAX)"),
+        ("justificativa", "NVARCHAR(MAX)"),
+        ("calculado_em", "DATETIME"),
+        ("recalculado_por", "NVARCHAR(180)"),
+        ("motivo_recalculo", "NVARCHAR(MAX)"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.scores_conecta', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.scores_conecta
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.decisoes_rh', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.decisoes_rh (
+                id_decisao INT IDENTITY(1,1) PRIMARY KEY,
+                id_teste NVARCHAR(120) NOT NULL,
+                id_processo NVARCHAR(60) NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                decisao NVARCHAR(80) NOT NULL,
+                justificativa NVARCHAR(MAX) NULL,
+                observacao NVARCHAR(MAX) NULL,
+                usuario_responsavel NVARCHAR(180) NULL,
+                data_decisao DATETIME NOT NULL DEFAULT GETDATE(),
+                score_no_momento DECIMAL(8,2) NULL,
+                classificacao_no_momento NVARCHAR(80) NULL,
+                score_considerado BIT NULL
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_teste", "NVARCHAR(120)"),
+        ("id_processo", "NVARCHAR(60)"),
+        ("id_processo_ref", "NVARCHAR(255)"),
+        ("decisao", "NVARCHAR(80)"),
+        ("justificativa", "NVARCHAR(MAX)"),
+        ("observacao", "NVARCHAR(MAX)"),
+        ("usuario_responsavel", "NVARCHAR(180)"),
+        ("data_decisao", "DATETIME"),
+        ("score_no_momento", "DECIMAL(8,2)"),
+        ("classificacao_no_momento", "NVARCHAR(80)"),
+        ("score_considerado", "BIT"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.decisoes_rh', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.decisoes_rh
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+
 def ensure_interviews_table(cursor) -> None:
     cursor.execute(
         """
@@ -618,7 +1507,6 @@ def ensure_interviews_table(cursor) -> None:
     )
 
     for column_name, sql_type in (
-        ("id_entrevista", "INT"),
         ("id_processo", "NVARCHAR(60)"),
         ("id_processo_ref", "NVARCHAR(255)"),
         ("id_registro", "INT"),
@@ -658,18 +1546,6 @@ def ensure_interviews_table(cursor) -> None:
         UPDATE dbo.entrevistas_agendadas
         SET atualizado_em = GETDATE()
         WHERE atualizado_em IS NULL
-        """
-    )
-
-    cursor.execute(
-        """
-        IF COL_LENGTH('dbo.entrevistas_agendadas', 'id_agendamento') IS NOT NULL
-           AND COL_LENGTH('dbo.entrevistas_agendadas', 'id_entrevista') IS NOT NULL
-        BEGIN
-            UPDATE dbo.entrevistas_agendadas
-            SET id_entrevista = id_agendamento
-            WHERE id_entrevista IS NULL
-        END
         """
     )
 
@@ -756,7 +1632,7 @@ def _ensure_process_reference_column(cursor, table_name: str) -> None:
     if not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_table):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Nao foi possivel preparar a coluna de referencia de processo.",
+            detail="Não foi possível preparar a coluna de referência de processo.",
         )
 
     cursor.execute(
@@ -799,7 +1675,7 @@ def _ensure_nullable_decimal_column(cursor, table_name: str, column_name: str, *
     if not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_table) or not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_column):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Nao foi possivel ajustar a tipagem numerica da tabela.",
+            detail="Não foi possível ajustar a tipagem numérica da tabela.",
         )
 
     current_type = _get_column_type(cursor, safe_table, safe_column)
@@ -863,16 +1739,21 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
         conn = get_connection(settings, autocommit=True)
         try:
             cursor = conn.cursor()
+            ensure_security_tables(cursor, settings)
+            ensure_reusable_config_tables(cursor)
             ensure_process_columns(cursor)
             ensure_pipeline_columns(cursor)
             ensure_candidate_metadata_table(cursor)
             ensure_candidate_metadata_columns(cursor)
             ensure_candidate_attachments_table(cursor)
+            ensure_talent_bank_table(cursor)
             ensure_email_inbox_items_table(cursor)
             ensure_cv_pre_analises_table(cursor)
             ensure_interviews_table(cursor)
             ensure_interview_slots_table(cursor)
             ensure_candidate_movements_table(cursor)
+            ensure_process_dossier_notes_table(cursor)
+            ensure_conecta_exams_tables(cursor)
             ensure_process_reference_columns(cursor)
             ensure_decimal_process_columns(cursor)
         finally:
@@ -931,6 +1812,15 @@ def insert_candidate_process_record(
             detail="Dados insuficientes para adicionar o candidato ao processo.",
         )
 
+    ensure_candidate_approval_columns(cursor)
+    indication_type = normalize_indication_type(payload.get("tipo_indicacao"))
+    is_indication = bool(payload.get("eh_indicacao")) or bool(indication_type)
+    if bool(payload.get("eh_indicacao")) and not indication_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Selecione o tipo de indicação.",
+        )
+
     columns = [
         "id_processo",
         "id_processo_ref",
@@ -943,6 +1833,9 @@ def insert_candidate_process_record(
         "origem",
         "etapa_pipeline",
         "data_atualizacao_pipeline",
+        "eh_indicacao",
+        "tipo_indicacao",
+        "indicacao_em",
     ]
     values = [
         payload.get("id_processo") or process_row.get("id_processo"),
@@ -953,9 +1846,12 @@ def insert_candidate_process_record(
         status_candidato,
         payload.get("pontuacao_final"),
         payload.get("data_prova") or datetime.now().isoformat(),
-        payload.get("origem") or "Pre-analise de CV",
+        payload.get("origem") or "Pré-análise de CV",
         payload.get("etapa_pipeline") or "Prova",
         payload.get("data_atualizacao_pipeline") or datetime.now(),
+        1 if is_indication else 0,
+        indication_type,
+        datetime.now() if is_indication else None,
     ]
     if not identity_id_registro:
         columns.insert(0, "id_registro")
@@ -984,7 +1880,7 @@ def get_next_numeric_id(cursor, table_name: str, column_name: str) -> int:
     if not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_table) or not _SQL_IDENTIFIER_PATTERN.fullmatch(safe_column):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Nao foi possivel gerar o proximo identificador numerico solicitado.",
+            detail="Não foi possível gerar o próximo identificador numérico solicitado.",
         )
 
     cursor.execute(f"SELECT ISNULL(MAX({safe_column}), 0) + 1 FROM {safe_table}")
@@ -1004,7 +1900,7 @@ def get_gabaritos_payload_column(cursor) -> str:
 
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=f"Coluna de payload nao encontrada na tabela dbo.gabaritos. Colunas disponiveis: {columns}",
+        detail=f"Coluna de payload não encontrada na tabela dbo.gabaritos. Colunas disponíveis: {columns}",
     )
 
 
@@ -1223,7 +2119,7 @@ def build_process_where_clause(process_row_or_ref) -> tuple[str, tuple]:
     if not safe_process_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Identificador do processo nao informado.",
+            detail="Identificador do processo não informado.",
         )
 
     if safe_created_at:
@@ -1237,7 +2133,7 @@ def generate_unique_process_id(cursor, requested_process_id: str) -> str:
     if not base_process_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Identificador base do processo nao informado.",
+            detail="Identificador base do processo não informado.",
         )
 
     cursor.execute(

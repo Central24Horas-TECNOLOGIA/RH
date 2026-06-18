@@ -30,14 +30,23 @@ export function obterClasseEtapaResultado(percentual) {
   return 'bad';
 }
 
+function normalizarComparacaoVisual(valor) {
+  return String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 export function obterClasseStatusProcesso(status) {
   const valor = canonicalizeCandidateStatus(status);
   if (valor === 'Aprovado') return 'is-approved';
   if (valor === 'Qualificado') return 'is-highlight';
+  if (valor === 'Pendente' || valor === 'Não respondeu') return 'is-analysis';
   if (valor === 'Agendado' || valor === 'Confirmado' || valor === 'Reagendado') return 'is-scheduled';
-  if (valor.startsWith('Eliminado') || valor === 'Reprovado' || valor === 'Desistente') return 'is-eliminated';
+  if (valor.startsWith('Eliminado') || valor === 'Reprovado' || valor === 'Desistente' || valor === 'Cancelado') return 'is-eliminated';
   if (valor === 'Banco de Talentos') return 'is-talent';
-  if (valor === 'Nao qualificado' || valor === 'NÃ£o qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
+  if (normalizarComparacaoVisual(valor) === 'nao qualificado') return 'is-not-qualified';
   return 'is-analysis';
 }
 
@@ -46,10 +55,11 @@ export function obterClasseStatusEntrevista(status) {
   if (valor === 'Aprovado') return 'is-approved';
   if (valor === 'Banco de Talentos') return 'is-talent';
   if (valor === 'Compareceu') return 'is-approved';
-  if (valor === 'Faltou' || valor === 'Eliminado' || valor === 'Desistente') return 'is-eliminated';
+  if (valor === 'Pendente' || valor === 'Não respondeu') return 'is-analysis';
+  if (valor === 'Faltou' || valor === 'Eliminado' || valor === 'Desistente' || valor === 'Cancelado') return 'is-eliminated';
   if (valor === 'Agendado' || valor === 'Confirmado' || valor === 'Reagendado') return 'is-scheduled';
   if (valor === 'Qualificado') return 'is-highlight';
-  if (valor === 'Nao qualificado' || valor === 'NÃ£o qualificado' || valor === 'Não qualificado') return 'is-not-qualified';
+  if (normalizarComparacaoVisual(valor) === 'nao qualificado') return 'is-not-qualified';
   return 'is-analysis';
 }
 
@@ -132,25 +142,25 @@ export function montarResumoAnaliticoCv(item) {
   }
 
   if (problemas.length) {
-    partes.push(`Pontos de atencao: ${problemas.join(' ')}`);
+    partes.push(`Pontos de atenção: ${problemas.join(' ')}`);
   } else {
-    partes.push('Nao foram identificados problemas criticos na leitura automatica do curriculo.');
+    partes.push('Não foram identificados problemas críticos na leitura automática do currículo.');
   }
 
   if (educationStrength) {
-    partes.push(`Analise de formacao: ${educationStrength}.`);
+    partes.push(`Análise de formação: ${educationStrength}.`);
   }
 
   if (experienceStrength) {
-    partes.push(`Analise de experiencia profissional: ${experienceStrength}.`);
+    partes.push(`Análise de experiência profissional: ${experienceStrength}.`);
   }
 
   if (score >= 7) {
-    partes.push('Por isso, o curriculo foi considerado com forte aderencia ao processo.');
+    partes.push('Por isso, o currículo foi considerado com forte aderência ao processo.');
   } else if (score >= 4.5) {
-    partes.push('Por isso, o curriculo foi considerado razoavelmente aderente ao processo.');
+    partes.push('Por isso, o currículo foi considerado razoavelmente aderente ao processo.');
   } else {
-    partes.push('Por isso, o curriculo foi considerado pouco aderente ao processo.');
+    partes.push('Por isso, o currículo foi considerado pouco aderente ao processo.');
   }
 
   return partes.join('\n\n');

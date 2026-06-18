@@ -192,6 +192,8 @@ export interface CandidateProfileUpdateRequest {
   habilidades: string[];
   tags: string[];
   observacao_rh: string;
+  classificacao_indicacao?: string;
+  justificativa_indicacao?: string;
 }
 
 export interface InterviewItem {

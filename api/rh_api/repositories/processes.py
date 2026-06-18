@@ -5,20 +5,22 @@ from datetime import datetime
 
 from fastapi import HTTPException, status
 
-from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
+from ..services.helpers import (
+    normalize_compare_text,
+    normalize_indication_type,
+    normalize_text,
+    rows_to_dicts,
+)
 from ..services.pipeline import infer_pipeline_stage, map_pipeline_stage_to_status, normalize_pipeline_stage
 from ..services.process_flow import (
     CANDIDATE_STATUS_ANALYSIS,
     CANDIDATE_STATUS_APPROVED,
-    CANDIDATE_STATUS_ATTENDED,
-    CANDIDATE_STATUS_CONFIRMED,
     CANDIDATE_STATUS_ELIMINATED,
-    CANDIDATE_STATUS_MISSED,
     CANDIDATE_STATUS_NOT_QUALIFIED,
     CANDIDATE_STATUS_QUALIFIED,
-    CANDIDATE_STATUS_SCHEDULED,
     CANDIDATE_STATUS_TALENT_BANK,
     CANDIDATE_STATUS_WITHDREW,
+    INTERVIEW_OPERATIONAL_STATUSES,
     build_approved_candidate_locked_message,
     build_process_closed_message,
     build_terminal_candidate_locked_message,
@@ -31,6 +33,7 @@ from ..services.process_flow import (
 )
 from .bootstrap import (
     build_process_where_clause,
+    ensure_process_dossier_notes_table,
     ensure_pipeline_columns,
     ensure_process_columns,
     ensure_process_reference_columns,
@@ -61,10 +64,7 @@ class ProcessRepositoryMixin:
             return requested
 
         if current in {
-            CANDIDATE_STATUS_SCHEDULED,
-            CANDIDATE_STATUS_CONFIRMED,
-            CANDIDATE_STATUS_ATTENDED,
-            CANDIDATE_STATUS_MISSED,
+            *INTERVIEW_OPERATIONAL_STATUSES,
             CANDIDATE_STATUS_APPROVED,
             CANDIDATE_STATUS_ELIMINATED,
             CANDIDATE_STATUS_TALENT_BANK,
@@ -191,6 +191,7 @@ class ProcessRepositoryMixin:
                 f"""
                 UPDATE processos_seletivos
                 SET
+                    vaga = ?,
                     quantidade_vagas = ?,
                     data_encerramento = ?,
                     operacao = ?,
@@ -205,6 +206,9 @@ class ProcessRepositoryMixin:
                 WHERE {where_clause}
                 """,
                 (
+                    normalize_text(data.get("vaga"))
+                    if data.get("vaga") is not None
+                    else processo.get("vaga", ""),
                     int(data.get("quantidade_vagas", 0) or 0),
                     data.get("data_encerramento", ""),
                     data.get("operacao", ""),
@@ -295,7 +299,9 @@ class ProcessRepositoryMixin:
                     aprovado_em,
                     eliminado_em,
                     motivo_eliminacao,
-                    etapa_eliminacao
+                    etapa_eliminacao,
+                    eh_indicacao,
+                    tipo_indicacao
                 FROM candidatos_processos
             """
             params = []
@@ -373,6 +379,10 @@ class ProcessRepositoryMixin:
             effective_data_prova = normalize_text(data.get("data_prova")) or datetime.now().isoformat()
             effective_origin = normalize_text(data.get("origem")) or "Prova"
             effective_vaga = normalize_text(data.get("vaga")) or normalize_text(processo.get("vaga"))
+            indication_type = normalize_indication_type(data.get("tipo_indicacao"))
+            is_indication = bool(data.get("eh_indicacao")) or bool(indication_type)
+            if bool(data.get("eh_indicacao")) and not indication_type:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selecione o tipo de indicação.")
 
             current = None
             provided_id_registro = int(data.get("id_registro") or 0)
@@ -395,7 +405,9 @@ class ProcessRepositoryMixin:
                         aprovado_em,
                         eliminado_em,
                         motivo_eliminacao,
-                        etapa_eliminacao
+                        etapa_eliminacao,
+                        eh_indicacao,
+                        tipo_indicacao
                     FROM candidatos_processos
                     WHERE id_registro = ?
                     """,
@@ -423,7 +435,9 @@ class ProcessRepositoryMixin:
                         aprovado_em,
                         eliminado_em,
                         motivo_eliminacao,
-                        etapa_eliminacao
+                        etapa_eliminacao,
+                        eh_indicacao,
+                        tipo_indicacao
                     FROM candidatos_processos
                     WHERE id_teste = ?
                     ORDER BY id_registro DESC
@@ -432,9 +446,21 @@ class ProcessRepositoryMixin:
                 )
                 existing_links = rows_to_dicts(cursor, cursor.fetchall())
                 if existing_links:
+                    same_target_process = any(
+                        normalize_text(item.get("id_processo_ref")) == normalize_text(processo.get("id_processo_ref"))
+                        or (
+                            normalize_text(item.get("id_processo")) == normalize_text(processo.get("id_processo"))
+                            and not normalize_text(item.get("id_processo_ref"))
+                        )
+                        for item in existing_links
+                    )
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
-                        detail="Este candidato já está vinculado a um processo seletivo.",
+                        detail=(
+                            "Este candidato já está vinculado a este processo seletivo."
+                            if same_target_process
+                            else "Este candidato já está vinculado a um processo seletivo."
+                        ),
                     )
             elif current and id_teste:
                 cursor.execute(
@@ -548,12 +574,31 @@ class ProcessRepositoryMixin:
                     "origem": effective_origin,
                     "etapa_pipeline": stage,
                     "data_atualizacao_pipeline": datetime.now(),
+                    "eh_indicacao": is_indication,
+                    "tipo_indicacao": indication_type,
                 },
             )
             self._upsert_candidate_profile(
                 cursor,
                 id_teste=id_teste,
                 nome_candidato=data.get("nome_candidato", ""),
+            )
+            self._record_candidate_movement(
+                cursor,
+                id_teste=id_teste,
+                id_registro=id_registro,
+                id_processo=processo.get("id_processo", ""),
+                id_processo_ref=processo.get("id_processo_ref", ""),
+                nome_candidato=data.get("nome_candidato", ""),
+                vaga=effective_vaga,
+                origem_inicial=effective_origin,
+                tipo_movimentacao="Candidato vinculado a processo seletivo",
+                status_anterior="Sem processo vinculado",
+                status_novo=requested_status,
+                observacao=(
+                    f"Origem: {effective_origin}"
+                    + (f" | Indicação: {indication_type}" if is_indication else "")
+                ),
             )
 
             if requested_status != CANDIDATE_STATUS_ANALYSIS or stage != "Triagem":
@@ -613,7 +658,9 @@ class ProcessRepositoryMixin:
                     aprovado_em,
                     eliminado_em,
                     motivo_eliminacao,
-                    etapa_eliminacao
+                    etapa_eliminacao,
+                    eh_indicacao,
+                    tipo_indicacao
                 FROM candidatos_processos
                 WHERE id_registro = ?
                 """,
@@ -658,6 +705,176 @@ class ProcessRepositoryMixin:
         finally:
             conn.close()
 
+    def list_process_dossier_notes(self, id_processo: str) -> list[dict]:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_dossier_notes_table(cursor)
+            ensure_process_reference_columns(cursor)
+            processo = get_process_row(cursor, id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
+
+            process_ref = normalize_text(processo.get("id_processo_ref"))
+            cursor.execute(
+                """
+                SELECT
+                    id_anotacao,
+                    id_processo,
+                    id_processo_ref,
+                    id_teste,
+                    nome_candidato,
+                    texto,
+                    usuario_responsavel,
+                    criado_em,
+                    atualizado_em
+                FROM processos_dossie_anotacoes
+                WHERE id_processo = ?
+                  AND ISNULL(id_processo_ref, '') = ?
+                ORDER BY atualizado_em DESC, id_anotacao DESC
+                """,
+                (processo.get("id_processo"), process_ref),
+            )
+            return rows_to_dicts(cursor, cursor.fetchall())
+        finally:
+            conn.close()
+
+    def create_process_dossier_note(
+        self,
+        id_processo: str,
+        data: dict,
+        *,
+        usuario_responsavel: str = "",
+    ) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_dossier_notes_table(cursor)
+            ensure_process_reference_columns(cursor)
+            processo = get_process_row(cursor, id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
+
+            id_teste = normalize_text(data.get("id_teste"))
+            nome_candidato = normalize_text(data.get("nome_candidato"))
+            if id_teste and not nome_candidato:
+                cursor.execute(
+                    """
+                    SELECT TOP 1 nome_candidato
+                    FROM candidatos_processos
+                    WHERE id_teste = ?
+                    ORDER BY id_registro DESC
+                    """,
+                    (id_teste,),
+                )
+                row = cursor.fetchone()
+                nome_candidato = normalize_text(row[0] if row else "")
+
+            cursor.execute(
+                """
+                INSERT INTO processos_dossie_anotacoes
+                (
+                    id_processo,
+                    id_processo_ref,
+                    id_teste,
+                    nome_candidato,
+                    texto,
+                    usuario_responsavel,
+                    criado_em,
+                    atualizado_em
+                )
+                OUTPUT INSERTED.id_anotacao
+                VALUES (?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                """,
+                (
+                    processo.get("id_processo"),
+                    normalize_text(processo.get("id_processo_ref")),
+                    id_teste,
+                    nome_candidato,
+                    normalize_text(data.get("texto")),
+                    normalize_text(usuario_responsavel),
+                ),
+            )
+            inserted = cursor.fetchone()
+            note_id = int(inserted[0] or 0)
+            conn.commit()
+        finally:
+            conn.close()
+
+        return self.get_process_dossier_note(note_id)
+
+    def get_process_dossier_note(self, id_anotacao: int) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_dossier_notes_table(cursor)
+            cursor.execute(
+                """
+                SELECT
+                    id_anotacao,
+                    id_processo,
+                    id_processo_ref,
+                    id_teste,
+                    nome_candidato,
+                    texto,
+                    usuario_responsavel,
+                    criado_em,
+                    atualizado_em
+                FROM processos_dossie_anotacoes
+                WHERE id_anotacao = ?
+                """,
+                (int(id_anotacao or 0),),
+            )
+            rows = rows_to_dicts(cursor, cursor.fetchall())
+            if not rows:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anotação do dossiê não encontrada.")
+            return rows[0]
+        finally:
+            conn.close()
+
+    def update_process_dossier_note(
+        self,
+        id_anotacao: int,
+        data: dict,
+        *,
+        usuario_responsavel: str = "",
+    ) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_dossier_notes_table(cursor)
+            cursor.execute(
+                """
+                SELECT id_anotacao
+                FROM processos_dossie_anotacoes
+                WHERE id_anotacao = ?
+                """,
+                (int(id_anotacao or 0),),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anotação do dossiê não encontrada.")
+
+            cursor.execute(
+                """
+                UPDATE processos_dossie_anotacoes
+                SET
+                    texto = ?,
+                    usuario_responsavel = COALESCE(NULLIF(?, ''), usuario_responsavel),
+                    atualizado_em = GETDATE()
+                WHERE id_anotacao = ?
+                """,
+                (
+                    normalize_text(data.get("texto")),
+                    normalize_text(usuario_responsavel),
+                    int(id_anotacao or 0),
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return self.get_process_dossier_note(id_anotacao)
+
     def get_process_details(self, id_processo: str) -> dict:
         def operation() -> dict:
             conn = self._connect()
@@ -688,7 +905,9 @@ class ProcessRepositoryMixin:
                         aprovado_em,
                         eliminado_em,
                         motivo_eliminacao,
-                        etapa_eliminacao
+                        etapa_eliminacao,
+                        eh_indicacao,
+                        tipo_indicacao
                     FROM candidatos_processos
                     WHERE id_processo = ?
                     ORDER BY id_registro DESC
@@ -784,12 +1003,7 @@ class ProcessRepositoryMixin:
                     "entrevistas": sum(
                         1
                         for status_item in status_fluxo_visivel
-                        if status_item in {
-                            CANDIDATE_STATUS_SCHEDULED,
-                            CANDIDATE_STATUS_CONFIRMED,
-                            CANDIDATE_STATUS_ATTENDED,
-                            CANDIDATE_STATUS_MISSED,
-                        }
+                        if status_item in INTERVIEW_OPERATIONAL_STATUSES
                     ),
                     "aprovados": sum(1 for status_item in status_fluxo_visivel if status_item == CANDIDATE_STATUS_APPROVED),
                     "eliminados": sum(1 for status_item in status_fluxo_visivel if status_item in {CANDIDATE_STATUS_ELIMINATED, CANDIDATE_STATUS_WITHDREW}),

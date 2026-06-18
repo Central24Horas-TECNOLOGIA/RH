@@ -1,8 +1,24 @@
 import { criarLogger } from '../../logger.js';
 
 const CONFIG_RUNTIME = window.RUNTIME_CONFIG || {};
+
+function detectarApiLocalPadrao() {
+  const local = window.location || {};
+  const host = local.hostname || '';
+  const porta = local.port || '';
+  const ehHostLocal = ['localhost', '127.0.0.1', '::1'].includes(host);
+
+  if (local.protocol === 'file:') {
+    return 'http://127.0.0.1:8000';
+  }
+if (ehHostLocal) {
+  return `${local.protocol || 'http:'}//${host}:8081`;
+}
+  return '';
+}
+
 const URL_API_BASE =
-  CONFIG_RUNTIME.API_BASE_URL || window.__RH_API_BASE__ || 'http://127.0.0.1:8010';
+  CONFIG_RUNTIME.API_BASE_URL || window.__RH_API_BASE__ || detectarApiLocalPadrao();
 export const URL_PUBLICA_BASE_CANDIDATURA =
   CONFIG_RUNTIME.PUBLIC_CANDIDATE_BASE_URL ||
   window.__RH_PUBLIC_CANDIDATE_BASE_URL__ ||
@@ -10,6 +26,7 @@ export const URL_PUBLICA_BASE_CANDIDATURA =
 const TEMPO_CACHE_MS = 15000;
 const CHAVE_TOKEN_AUTENTICACAO = 'rh_api_access_token';
 const CHAVE_USUARIO_AUTENTICADO = 'rh_api_authenticated_user';
+const CHAVE_SESSAO_AUTENTICACAO = 'rh_api_session_payload';
 
 export const EVENTO_AUTENTICACAO_EXPIRADA = 'rh-auth-expired';
 
@@ -36,20 +53,57 @@ function gravarCache(chave, data) {
 }
 
 export function lerSessaoAutenticacao() {
+  let payload = {};
+  try {
+    payload = JSON.parse(sessionStorage.getItem(CHAVE_SESSAO_AUTENTICACAO) || '{}');
+  } catch (error) {
+    payload = {};
+  }
+
   return {
     token: sessionStorage.getItem(CHAVE_TOKEN_AUTENTICACAO) || '',
     usuario: sessionStorage.getItem(CHAVE_USUARIO_AUTENTICADO) || '',
+    nome: payload.nome || '',
+    email: payload.email || '',
+    perfil: payload.perfil || '',
+    perfil_nome: payload.perfil_nome || '',
+    nivel: payload.nivel || '',
+    permissoes: Array.isArray(payload.permissoes) ? payload.permissoes : [],
   };
 }
 
-export function salvarSessaoAutenticacao(token, usuario) {
+export function salvarSessaoAutenticacao(token, sessaoOuUsuario) {
+  const sessao =
+    typeof sessaoOuUsuario === 'object' && sessaoOuUsuario !== null
+      ? sessaoOuUsuario
+      : { usuario: sessaoOuUsuario || '' };
   sessionStorage.setItem(CHAVE_TOKEN_AUTENTICACAO, token || '');
-  sessionStorage.setItem(CHAVE_USUARIO_AUTENTICADO, usuario || '');
+  sessionStorage.setItem(CHAVE_USUARIO_AUTENTICADO, sessao.usuario || sessao.email || '');
+  sessionStorage.setItem(
+    CHAVE_SESSAO_AUTENTICACAO,
+    JSON.stringify({
+      usuario: sessao.usuario || sessao.email || '',
+      nome: sessao.nome || '',
+      email: sessao.email || '',
+      perfil: sessao.perfil || '',
+      perfil_nome: sessao.perfil_nome || '',
+      nivel: sessao.nivel || '',
+      permissoes: Array.isArray(sessao.permissoes) ? sessao.permissoes : [],
+    }),
+  );
 }
 
 export function limparSessaoAutenticacao() {
-  sessionStorage.removeItem(CHAVE_TOKEN_AUTENTICACAO);
-  sessionStorage.removeItem(CHAVE_USUARIO_AUTENTICADO);
+  [sessionStorage, localStorage].forEach((armazenamento) => {
+    try {
+      armazenamento.removeItem(CHAVE_TOKEN_AUTENTICACAO);
+      armazenamento.removeItem(CHAVE_USUARIO_AUTENTICADO);
+      armazenamento.removeItem(CHAVE_SESSAO_AUTENTICACAO);
+    } catch (error) {
+      logger.warn('Não foi possível limpar dados locais de autenticação.', error);
+    }
+  });
+  cacheMemoria.clear();
 }
 
 export function possuiSessaoAutenticada() {
@@ -95,7 +149,7 @@ async function executarRequisicao(caminho, opcoes = {}, configuracao = {}) {
       mensagem: error?.message || '',
     });
     throw new Error(
-      `Nao foi possivel conectar com a API em ${URL_API_BASE}${caminho}. Verifique se o servidor da API esta ativo.`,
+      `Não foi possível conectar com a API em ${URL_API_BASE}${caminho}. Verifique se o servidor da API está ativo.`,
     );
   }
 
@@ -113,12 +167,12 @@ async function executarRequisicao(caminho, opcoes = {}, configuracao = {}) {
       textoErro,
     });
     if (resposta.status === 400 || resposta.status === 422) {
-      throw new Error(textoErro || 'Nao foi possivel validar os dados enviados para a API.');
+      throw new Error(textoErro || 'Não foi possível validar os dados enviados para a API.');
     }
     if (resposta.status >= 500) {
       throw new Error(
         textoErro ||
-          'Nao foi possivel concluir a operacao. A API retornou erro interno. Verifique o log do servidor.',
+          'Não foi possível concluir a operação. A API retornou erro interno. Verifique o log do servidor.',
       );
     }
     throw new Error(textoErro || `Falha na API (${resposta.status}).`);

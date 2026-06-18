@@ -11,18 +11,31 @@ from ..services.process_flow import (
     canonicalize_candidate_status,
 )
 
+PROFILE_RECOMMENDATION_LABELS = {
+    "indicado": "Indicado",
+    "indicado com restricoes": "Indicado com restrições",
+    "contraindicado": "Contraindicado",
+}
+
+
+def normalize_profile_recommendation(value) -> str:
+    safe_value = normalize_text(value)
+    if not safe_value:
+        return ""
+    return PROFILE_RECOMMENDATION_LABELS.get(normalize_compare_text(safe_value), safe_value)
+
 
 class CandidateProfileRepositoryMixin:
     def update_standalone_candidate_status(self, id_teste: str, data: dict) -> dict:
         safe_id_teste = normalize_text(id_teste)
         if not safe_id_teste:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato nao informado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato não informado.")
 
         requested_status = canonicalize_candidate_status(data.get("status_candidato"))
         if requested_status not in {CANDIDATE_STATUS_APPROVED, CANDIDATE_STATUS_ELIMINATED}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Status avulso permitido apenas para aprovacao ou eliminacao.",
+                detail="Status avulso permitido apenas para aprovação ou eliminação.",
             )
 
         conn = self._connect()
@@ -58,7 +71,7 @@ class CandidateProfileRepositoryMixin:
             )
             history_row = cursor.fetchone()
             if not history_row:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato nao encontrado para atualizar o status.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato não encontrado para atualizar o status.")
 
             current_status = canonicalize_candidate_status(history_row[1])
             if normalize_compare_text(current_status) == normalize_compare_text(CANDIDATE_STATUS_APPROVED):
@@ -92,7 +105,7 @@ class CandidateProfileRepositoryMixin:
     def upsert_candidate_profile(self, id_teste: str, data: dict) -> dict:
         safe_id_teste = normalize_text(id_teste)
         if not safe_id_teste:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato nao informado.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato não informado.")
 
         conn = self._connect()
         try:
@@ -112,7 +125,7 @@ class CandidateProfileRepositoryMixin:
             )
             candidate_row = cursor.fetchone()
             if not candidate_row:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato nao encontrado para atualizar o perfil.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato não encontrado para atualizar o perfil.")
 
             safe_name = normalize_text(data.get("nome_candidato")) or normalize_text(candidate_row[0])
             if not safe_name:
@@ -120,17 +133,18 @@ class CandidateProfileRepositoryMixin:
 
             safe_email = normalize_text(data.get("email"))
             if safe_email and not is_valid_email(safe_email):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail valido.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail válido.")
 
             safe_phone = normalize_text(data.get("telefone"))
             safe_whatsapp = normalize_text(data.get("whatsapp"))
             if safe_phone and not is_valid_phone(safe_phone):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone valido.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone válido.")
             if safe_whatsapp and not is_valid_phone(safe_whatsapp):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um WhatsApp valido.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um WhatsApp válido.")
 
             safe_skills = normalize_string_list(data.get("habilidades", []))
             safe_tags = normalize_string_list(data.get("tags", []))
+            safe_recommendation = normalize_profile_recommendation(data.get("classificacao_indicacao"))
 
             self._upsert_candidate_profile(
                 cursor,
@@ -138,7 +152,17 @@ class CandidateProfileRepositoryMixin:
                 nome_candidato=safe_name,
                 habilidades=safe_skills or None,
                 tags=safe_tags or None,
-                observacao_rh=data.get("observacao_rh") if normalize_text(data.get("observacao_rh")) else None,
+                observacao_rh=(
+                    data.get("observacao_rh")
+                    if "observacao_rh" in data
+                    else None
+                ),
+                classificacao_indicacao=safe_recommendation if "classificacao_indicacao" in data else None,
+                justificativa_indicacao=(
+                    data.get("justificativa_indicacao")
+                    if "justificativa_indicacao" in data
+                    else None
+                ),
                 email=safe_email or None,
                 telefone=safe_phone or None,
                 whatsapp=safe_whatsapp or None,
@@ -161,6 +185,8 @@ class CandidateProfileRepositoryMixin:
                     habilidades_json,
                     tags_json,
                     observacao_rh,
+                    classificacao_indicacao,
+                    justificativa_indicacao,
                     email,
                     telefone,
                     whatsapp,
@@ -181,11 +207,13 @@ class CandidateProfileRepositoryMixin:
                         "habilidades_json": updated[1] if updated else "[]",
                         "tags_json": updated[2] if updated else "[]",
                         "observacao_rh": updated[3] if updated else data.get("observacao_rh", ""),
-                        "email": updated[4] if updated else safe_email,
-                        "telefone": updated[5] if updated else safe_phone,
-                        "whatsapp": updated[6] if updated else safe_whatsapp,
-                        "cidade": updated[7] if updated else data.get("cidade", ""),
-                        "bairro": updated[8] if updated else data.get("bairro", ""),
+                        "classificacao_indicacao": updated[4] if updated else safe_recommendation,
+                        "justificativa_indicacao": updated[5] if updated else data.get("justificativa_indicacao", ""),
+                        "email": updated[6] if updated else safe_email,
+                        "telefone": updated[7] if updated else safe_phone,
+                        "whatsapp": updated[8] if updated else safe_whatsapp,
+                        "cidade": updated[9] if updated else data.get("cidade", ""),
+                        "bairro": updated[10] if updated else data.get("bairro", ""),
                     }
                 ),
             }

@@ -146,7 +146,7 @@ class HistoryAndProcessRulesTests(unittest.TestCase):
             )
 
         insert_query, insert_params = cursor.executed[-1]
-        self.assertNotIn("[CÃ³digo]", insert_query)
+        self.assertNotIn("[código]", insert_query)
         self.assertEqual(insert_params[0], "TESTE-002")
 
     def test_process_rule_preserves_compareceu_during_proof_save(self):
@@ -172,6 +172,10 @@ class HistoryAndProcessRulesTests(unittest.TestCase):
     def test_interview_update_schema_accepts_reschedule_status(self):
         payload = InterviewUpdateRequest(status_entrevista="Reagendado")
         self.assertEqual(payload.status_entrevista, "Reagendado")
+
+    def test_interview_update_schema_accepts_pending_confirmation_status(self):
+        payload = InterviewUpdateRequest(status_entrevista="Pendente")
+        self.assertEqual(payload.status_entrevista, "Pendente")
 
     def test_interview_slot_schema_validates_minimum_duration(self):
         payload = InterviewSlotCreateRequest(

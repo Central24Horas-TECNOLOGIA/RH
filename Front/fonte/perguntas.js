@@ -1,10 +1,17 @@
-﻿function wordQ(
+﻿import {
+  getQuestoes,
+  getQuestoesParaBlueprint,
+  obterResumoBancoQuestoes,
+} from './banco-questoes.js';
+
+function wordQ(
   stageKey,
   stageLabel,
   title,
   description,
   expected,
   points = 10,
+  extras = {},
 ) {
   return {
     stageKey,
@@ -12,8 +19,17 @@
     type: 'word',
     title,
     description,
+    titulo: title,
+    tipo: 'word',
+    categoria: stageLabel,
+    enunciadoCandidato: description,
+    instrucaoCandidato: '',
+    contextoInternoGeracao: '',
+    criteriosAvaliacao: Array.isArray(expected?.criteria) ? expected.criteria : [],
+    respostaEsperadaInterna: '',
     expected,
     points,
+    ...extras,
   };
 }
 
@@ -32,6 +48,14 @@ function mcqQ(
     type: 'multiple',
     title,
     description,
+    titulo: title,
+    tipo: 'multiple',
+    categoria: stageLabel,
+    enunciadoCandidato: description,
+    instrucaoCandidato: '',
+    contextoInternoGeracao: '',
+    criteriosAvaliacao: [],
+    respostaEsperadaInterna: answer,
     options,
     answer,
     points,
@@ -52,6 +76,14 @@ function excelExternalQ(
     type: 'excel_external',
     title,
     description,
+    titulo: title,
+    tipo: 'excel_external',
+    categoria: stageLabel,
+    enunciadoCandidato: description,
+    instrucaoCandidato: '',
+    contextoInternoGeracao: '',
+    criteriosAvaliacao: [],
+    respostaEsperadaInterna: taskId,
     taskId,
     points,
   };
@@ -200,17 +232,58 @@ const MACRO_RJ = [
   ['RJ', 5],
 ];
 
-const ROLE_LEVEL_SUGGESTIONS = {
-  'Jovem Aprendiz': '1',
-  Operador: '2',
-  Estagiário: '2',
-  Supervisor: '3',
-  'Control Desk': '3',
-  Planejamento: '3',
-  TI: '4',
-  Analista: '4',
-  Outros: '4',
-};
+const JOB_PROFILE_OPTIONS = [
+  { label: 'Jovem Aprendiz', level: '1', track: 'Operação' },
+  { label: 'Operador', level: '2', track: 'Operação' },
+  { label: 'Estagiário', level: '2', track: '' },
+  { label: 'Suporte Técnico Júnior', level: '2', track: 'TI' },
+  { label: 'Suporte Técnico Pleno', level: '3', track: 'TI' },
+  { label: 'Suporte Técnico Sênior', level: '4', track: 'TI' },
+  { label: 'Supervisor', level: '3', track: 'Operação / Gestão' },
+  { label: 'Control Desk', level: '3', track: 'TI' },
+  { label: 'Planejamento', level: '4', track: 'Operação / Gestão' },
+  { label: 'TI', level: '4', track: 'TI' },
+  { label: 'Analista', level: '4', track: 'ADM / Gestão' },
+  { label: 'Outros', level: '4', track: 'ADM / Gestão' },
+];
+
+const OPERATION_OPTIONS = [
+  'CRF / Flamengo',
+  'Davita',
+  'Endoview',
+  'Newe Seguros',
+  'Central24Horas',
+  'Brava',
+];
+
+const TRACK_OPTIONS_EXAM = [
+  { value: 'operacao', label: 'Padrão / Operação' },
+  { value: 'comercial', label: 'Comercial' },
+  { value: 'financeiro', label: 'Financeiro' },
+  { value: 'ti', label: 'TI' },
+  { value: 'rh', label: 'RH' },
+  { value: 'adm', label: 'ADM / Gestão' },
+];
+
+const TRACK_OPTIONS_PROCESS = [
+  { value: 'Operação', label: 'Operação' },
+  { value: 'Comercial', label: 'Comercial' },
+  { value: 'Financeiro', label: 'Financeiro' },
+  { value: 'RH', label: 'RH' },
+  { value: 'TI', label: 'TI' },
+  { value: 'ADM / Gestão', label: 'ADM / Gestão' },
+];
+
+const ROLE_LEVEL_SUGGESTIONS = JOB_PROFILE_OPTIONS.reduce(
+  (mapa, opcao) => ({
+    ...mapa,
+    [opcao.label]: opcao.level,
+  }),
+  {
+    Estagiário: '2',
+    Estagiario: '2',
+  },
+);
 
 const STAGE_LABELS = {
   word_basic: 'Word',
@@ -224,18 +297,234 @@ const STAGE_LABELS = {
   tech_ti_basic: 'Conhecimentos Técnicos: TI',
   tech_rh_basic: 'Conhecimentos Técnicos: RH',
   tech_adm_basic: 'Conhecimentos Técnicos: Avançado',
+  tech_commercial_basic: 'Conhecimentos Técnicos: Comercial',
+  tech_finance_basic: 'Conhecimentos Técnicos: Financeiro',
+  tech_operation_basic: 'Conhecimentos Técnicos: Operação',
   tech_ti_specific: 'Conhecimentos Técnicos Específicos - TI',
   tech_adm_specific: 'Conhecimentos Técnicos Específicos - Administração',
   writing_logic: 'Avaliação de Escrita e Lógica',
+  professional_essay: 'Redação: Estudo de Caso Profissional',
   analysis_eval: 'Avaliação de Análise',
   tech_logic: 'Avaliação Técnica e Lógica',
 };
+
+const LIMITE_LINHAS_REDACAO = 20;
+const LIMITE_CARACTERES_REDACAO = 2200;
+const ORIENTACAO_REDACAO =
+  `Seu texto deve ter introdução, desenvolvimento e conclusão. Escreva até ${LIMITE_LINHAS_REDACAO} linhas.`;
+const CRITERIOS_REDACAO = [
+  'Clareza',
+  'Coerência',
+  'Coesão',
+  'Ortografia',
+  'Organização das ideias',
+  'Adequação ao tema',
+  'Argumentação',
+  `Cumprimento do limite de até ${LIMITE_LINHAS_REDACAO} linhas`,
+];
+
+function normalizarChave(valor) {
+  return String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+const ESSAY_CASES = {
+  jovem_aprendiz: {
+    minTextLength: 100,
+    theme: 'Responsabilidade, organização e comunicação no começo da vida profissional',
+    description:
+      'Uma pessoa que está iniciando sua primeira experiência profissional recebeu uma orientação para organizar informações simples, conferir se está tudo correto e pedir ajuda quando tiver dúvida. Explique como essa pessoa pode agir com responsabilidade, atenção e respeito para aprender a rotina e evitar erros.',
+    supportTexts: [
+      'O início da vida profissional costuma ser um período de adaptação. Para muitos jovens, o primeiro emprego representa o contato com novas responsabilidades, horários, regras, colegas e formas de comunicação. Nesse momento, atitudes simples, como ouvir com atenção, anotar orientações, tirar dúvidas e cumprir combinados, ajudam a construir confiança e demonstram disposição para aprender com a equipe. Também permitem que a pessoa compreenda melhor a rotina e participe com mais segurança.',
+      'Em uma situação cotidiana, um jovem aprendiz recebeu uma lista de tarefas para organizar documentos e repassar uma informação à equipe. Ao perceber que uma das orientações estava incompleta, ele decidiu confirmar a informação antes de continuar. Essa atitude evitou retrabalho, preservou a qualidade da entrega e mostrou cuidado com uma atividade simples, sem depender de experiência anterior. Mesmo em tarefas iniciais, conferir dados e comunicar dúvidas pode fazer diferença no resultado.',
+    ],
+    proposal:
+      'Com base nos textos-base e em seus conhecimentos, escreva um texto explicando por que responsabilidade, organização e comunicação respeitosa são importantes para quem está começando a vida profissional.',
+  },
+  operador: {
+    minTextLength: 130,
+    theme: 'Atendimento claro, empatia e organização em situações simples',
+    description:
+      'Um cliente entra em contato para pedir uma informação e demonstra preocupação porque não entendeu bem uma orientação recebida anteriormente. Explique como um atendente pode ouvir com atenção, organizar as informações, responder com clareza e registrar o atendimento de forma adequada.',
+    supportTexts: [
+      'O atendimento ao público exige escuta ativa, linguagem clara e respeito. Quando a pessoa atendida demonstra dúvida ou preocupação, a forma de acolher a demanda influencia a compreensão da orientação e a confiança no serviço. Um atendimento bem conduzido organiza as informações, confirma dados essenciais e evita respostas apressadas que possam gerar novos contatos ou retrabalho.',
+      'Registros completos ajudam a equipe a acompanhar o que foi solicitado, quais informações foram confirmadas e quais próximos passos precisam ser realizados. Em rotinas de atendimento, uma anotação objetiva permite que outras pessoas entendam o histórico da solicitação e deem continuidade à tratativa com mais segurança, mantendo cordialidade e responsabilidade.',
+    ],
+    proposal:
+      'Com base nos textos de apoio, escreva uma resposta sobre a importância da clareza, da empatia e da organização no atendimento ao cliente.',
+  },
+  rh: {
+    minTextLength: 180,
+    theme: 'Organização de informações e comunicação profissional no RH',
+    description:
+      'Você faz parte da equipe de RH e precisa atender um colaborador que está com dúvidas sobre documentos pendentes, registro de ponto e prazo de retorno de um processo seletivo interno. Ao mesmo tempo, a área precisa manter as informações organizadas para que o histórico fique claro para o gestor e para o próprio colaborador. Explique como você conduziria o atendimento, quais informações verificaria, como organizaria os registros e de que forma comunicaria os próximos passos com postura profissional.',
+  },
+  ti_basico: {
+    minTextLength: 180,
+    description:
+      'Você está atuando em uma equipe de suporte técnico e recebe a solicitação de um colaborador que informa que o computador está lento, o pacote Office não abre corretamente e há dificuldade para acessar uma pasta compartilhada na rede. Descreva como você conduziria o atendimento, quais informações coletaria, quais verificações faria inicialmente e como comunicaria o andamento ao usuário.',
+  },
+  ti_pleno: {
+    minTextLength: 210,
+    description:
+      'Uma equipe registra chamados recorrentes sobre lentidão em estações de trabalho, falhas intermitentes de acesso a um sistema interno e dúvidas sobre uso do pacote Office. Como suporte técnico pleno, descreva como você organizaria a triagem, quais evidências analisaria, quando escalonaria a tratativa e como manteria os usuários informados durante a investigação.',
+  },
+  ti_senior: {
+    minTextLength: 240,
+    description:
+      'Um incidente crítico afeta parte da operação: usuários relatam falha de autenticação no Windows, instabilidade de rede e impacto no acesso a sistemas essenciais. Como suporte técnico sênior, explique como você priorizaria o atendimento, orientaria a equipe, analisaria possíveis causas, comunicaria riscos e acompanharia a normalização sem perder o registro técnico do incidente.',
+  },
+  comercial: {
+    minTextLength: 180,
+    description:
+      'A área comercial recebeu uma base com cadastros incompletos, indicadores divergentes e solicitações de atualização em uma planilha usada para acompanhar contatos e resultados. Explique como você organizaria os dados, quais conferências faria no Excel, como trataria inconsistências e de que forma apresentaria as informações para apoiar a análise dos indicadores.',
+  },
+  financeiro: {
+    minTextLength: 180,
+    description:
+      'A área financeira precisa conferir documentos, valores lançados em planilhas e pendências de uma rotina de controle antes do fechamento do dia. Descreva como você organizaria a conferência, quais cuidados teria com dados e documentos, como registraria divergências e como comunicaria uma pendência que precisa de validação do responsável.',
+  },
+  operacao: {
+    minTextLength: 170,
+    description:
+      'Você faz parte de uma rotina operacional que recebeu aumento no volume de demandas, alguns registros incompletos e reclamações sobre demora no retorno. Explique como organizaria as prioridades, registraria as ocorrências, comunicaria os envolvidos e acompanharia a solução do problema com clareza e postura profissional.',
+  },
+  supervisor: {
+    minTextLength: 230,
+    description:
+      'Você supervisiona uma operação que apresentou queda de SLA, aumento de recontato e conflito entre colaboradores sobre a distribuição de demandas em um horário de pico. Explique como analisaria os indicadores, organizaria a equipe, conduziria a comunicação com os envolvidos e acompanharia um plano de ação para recuperar a estabilidade operacional.',
+  },
+  planejamento: {
+    minTextLength: 230,
+    description:
+      'A área de planejamento identificou aumento de demanda em uma fila, desvio de escala e risco de impacto nos indicadores do dia. Descreva como você analisaria volume, capacidade, SLA e prioridades, quais dados organizaria em planilha e como comunicaria recomendações para a liderança tomar decisão com base em evidências.',
+  },
+  generico: {
+    minTextLength: 180,
+    description:
+      'Você recebe uma demanda profissional que envolve organização de informações, comunicação com diferentes pessoas e necessidade de registrar uma solução de forma clara. Explique como analisaria o cenário, definiria prioridades, comunicaria os envolvidos e acompanharia a conclusão da demanda com postura profissional.',
+  },
+};
+
+function montarTemaRedacao(caso, chave) {
+  if (caso.theme) return caso.theme;
+  const temas = {
+    rh: 'Comunicação profissional e organização de informações',
+    ti_basico: 'Atendimento técnico inicial com clareza e registro',
+    ti_pleno: 'Triagem técnica, comunicação e acompanhamento',
+    ti_senior: 'Priorização e comunicação em incidentes críticos',
+    comercial: 'Organização de dados e apoio à análise comercial',
+    financeiro: 'Conferência, cuidado com dados e comunicação de pendências',
+    operacao: 'Organização, clareza e postura em demandas operacionais',
+    supervisor: 'Análise, comunicação e condução de equipe',
+    planejamento: 'Análise de dados, prioridades e recomendação operacional',
+  };
+  return temas[chave] || 'Organização, comunicação e solução de situações práticas';
+}
+
+function montarTextosApoioRedacao(caso, tema) {
+  const textosConfigurados = Array.isArray(caso.supportTexts)
+    ? caso.supportTexts
+    : caso.motivatingTexts;
+  if (Array.isArray(textosConfigurados) && textosConfigurados.length >= 2) {
+    return textosConfigurados
+      .slice(0, 2)
+      .map((texto) => String(texto || '').replace(/^Texto-(base|motivador)\s*\d+\s*:\s*/i, '').trim());
+  }
+
+  return [
+    `${tema} exige atenção ao contexto, interpretação das informações disponíveis e cuidado na forma de comunicar uma resposta. Em uma rotina profissional, clareza e organização ajudam a reduzir dúvidas, retrabalho e decisões tomadas sem conferência. Ao escrever sobre esse tema, o candidato deve relacionar atitudes observáveis no trabalho com responsabilidade, respeito e compromisso com a qualidade da entrega.`,
+    'Em uma situação prática, uma equipe recebeu uma demanda com informações incompletas e prazos curtos. Antes de agir, uma pessoa conferiu os dados disponíveis, organizou as prioridades e comunicou o que ainda precisava ser confirmado. Essa postura permitiu orientar os envolvidos com mais segurança e demonstrou que resolver problemas também depende de registro, escuta e acompanhamento.',
+  ];
+}
+
+function obterChaveRedacao(role, track = '') {
+  const chaveRole = normalizarChave(role);
+  const chaveTrilha = normalizarChave(track);
+
+  if (chaveRole.includes('jovem aprendiz') || chaveRole.includes('aprendiz')) {
+    return 'jovem_aprendiz';
+  }
+  if (chaveRole.includes('operador') || chaveRole.includes('atendente')) {
+    return 'operador';
+  }
+  if (chaveRole.includes('planejamento')) return 'planejamento';
+  if (chaveRole.includes('supervisor')) return 'supervisor';
+  if (chaveRole.includes('suporte tecnico senior')) return 'ti_senior';
+  if (chaveRole.includes('suporte tecnico pleno')) return 'ti_pleno';
+  if (
+    chaveRole.includes('suporte tecnico junior') ||
+    chaveRole === 'ti' ||
+    chaveTrilha.includes('ti')
+  ) {
+    return 'ti_basico';
+  }
+  if (chaveRole.includes('comercial') || chaveTrilha.includes('comercial')) {
+    return 'comercial';
+  }
+  if (chaveRole.includes('financeiro') || chaveTrilha.includes('financeiro')) {
+    return 'financeiro';
+  }
+  if (chaveRole.includes('rh') || chaveTrilha.includes('rh')) return 'rh';
+  if (
+    chaveRole.includes('operacao') ||
+    chaveRole.includes('operador') ||
+    chaveTrilha.includes('operacao')
+  ) {
+    return 'operacao';
+  }
+
+  return 'generico';
+}
+
+function professionalEssayPool(role, track = '') {
+  const chave = obterChaveRedacao(role, track);
+  const caso = ESSAY_CASES[chave] || ESSAY_CASES.generico;
+  const tema = montarTemaRedacao(caso, chave);
+  const textosApoio = montarTextosApoioRedacao(caso, tema);
+  const proposta =
+    caso.proposal ||
+    `Com base nos textos-base e em seus conhecimentos, escreva um texto argumentativo sobre: ${tema}.`;
+  return [
+    wordQ(
+      'professional_essay',
+      STAGE_LABELS.professional_essay,
+      'Redação',
+      `${caso.description}\n\n${proposta}\n\n${ORIENTACAO_REDACAO}`,
+      {
+        minTextLength: caso.minTextLength,
+        minSentences: 4,
+        essay: true,
+        maxCharacters: LIMITE_CARACTERES_REDACAO,
+        maxLines: LIMITE_LINHAS_REDACAO,
+        criteria: CRITERIOS_REDACAO,
+      },
+      10,
+      {
+        essay: {
+          theme: tema,
+          supportTexts: textosApoio,
+          motivatingTexts: textosApoio,
+          proposal: proposta,
+          orientation: ORIENTACAO_REDACAO,
+          maxCharacters: LIMITE_CARACTERES_REDACAO,
+          maxLines: LIMITE_LINHAS_REDACAO,
+          criteria: CRITERIOS_REDACAO,
+        },
+      },
+    ),
+  ];
+}
+
 function wordBasicPool() {
   return [
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
+      'Recado simples para a equipe',
       'Durante a troca de turno das 14h, o supervisor percebeu que alguns operadores estavam retornando com atraso das pausas, o que acabou impactando a organização da equipe e o fluxo de atendimento. Para reforçar essa orientação de forma clara e objetiva, foi solicitado um comunicado interno simples para toda a operação. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto orientando que os operadores devem retornar das pausas no horário correto, a fim de evitar impactos no atendimento e na rotina da operação.',
       {
         titleText: 'COMUNICADO INTERNO',
@@ -247,7 +536,7 @@ function wordBasicPool() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Durante o período de atendimento da manhã, por volta das 10h20, foi identificada uma instabilidade no sistema utilizado pela operação, o que causou impacto momentâneo no fluxo de atendimento por aproximadamente 10 minutos. Após a atuação da equipe responsável, o acesso foi restabelecido e a operação voltou ao funcionamento normal. Considerando esse cenário, redija um e-mail curto e profissional para o supervisor, explicando o ocorrido de forma clara e informando que o sistema já foi normalizado.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -266,7 +555,7 @@ function wordBasicLevel3Pool() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Redação de comunicado interno',
+      'Aviso simples para a equipe',
       'A equipe do turno da manhã precisará seguir, de forma temporária, uma pequena alteração no script de atendimento utilizado pela operação. Para que todos recebam a informação de maneira rápida e clara, será necessário elaborar um aviso interno com orientação objetiva. Com base nesse cenário, escreva o título "AVISO DE EQUIPE" em negrito e centralizado. Em seguida, redija um comunicado com pelo menos 2 frases, utilizando linguagem clara, direta e de fácil entendimento.',
       {
         titleText: 'AVISO DE EQUIPE',
@@ -299,9 +588,9 @@ function wordAdvancedPool() {
       'word_advanced',
       STAGE_LABELS.word_advanced,
       'Redação de relatório técnico',
-      'Após uma falha de integração entre sistemas, a gerência solicitou um relatório técnico resumido para entender o que aconteceu e quais foram os impactos gerados na operação. Nesse tipo de documento, é importante apresentar o ocorrido de forma clara, mencionando o incidente e os reflexos observados, como lentidão, interrupções ou dificuldades no andamento das atividades. Considerando esse contexto, escreva o título "RELATORIO TECNICO" em negrito e centralizado. Em seguida, descreva o incidente e os impactos operacionais em pelo menos 2 frases.',
+      'Após uma falha de integração entre sistemas, a gerência solicitou um relatório técnico resumido para entender o que aconteceu e quais foram os impactos gerados na operação. Nesse tipo de documento, é importante apresentar o ocorrido de forma clara, mencionando o incidente e os reflexos observados, como lentidão, interrupções ou dificuldades no andamento das atividades. Considerando esse contexto, escreva o título "RELATÓRIO TÉCNICO" em negrito e centralizado. Em seguida, descreva o incidente e os impactos operacionais em pelo menos 2 frases.',
       {
-        titleText: 'RELATORIO TECNICO',
+        titleText: 'RELATÓRIO TÉCNICO',
         titleBold: true,
         titleCenter: true,
         minSentences: 2,
@@ -319,8 +608,8 @@ function wordAdvancedPool() {
       'word_advanced',
       STAGE_LABELS.word_advanced,
       'Organização de procedimentos',
-      'Quando um problema é identificado em produção, torna-se necessário acompanhar a correção de forma organizada, registrando as ações executadas, o andamento da análise e a evolução da solução aplicada. Esse acompanhamento ajuda a dar mais clareza ao processo e facilita a comunicação entre as áreas envolvidas. Com base nesse cenário, escreva "PLANO DE ACAO" centralizado e, abaixo, redija um texto objetivo sobre como acompanhar a correção de um problema em produção.',
-      { titleText: 'PLANO DE ACAO', titleCenter: true, minTextLength: 55 },
+      'Quando um problema é identificado em produção, torna-se necessário acompanhar a correção de forma organizada, registrando as ações executadas, o andamento da análise e a evolução da solução aplicada. Esse acompanhamento ajuda a dar mais clareza ao processo e facilita a comunicação entre as áreas envolvidas. Com base nesse cenário, escreva "PLANO DE AÇÃO" centralizado e, abaixo, redija um texto objetivo sobre como acompanhar a correção de um problema em produção.',
+      { titleText: 'PLANO DE AÇÃO', titleCenter: true, minTextLength: 55 },
     ),
   ];
 }
@@ -330,7 +619,7 @@ function generalBasicPool() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Interpretação de situação de trabalho',
+      'Postura em situação prática',
       'Durante um período de pico de chamadas, a operação apresenta maior volume de atendimentos do que o habitual, o que pode gerar aumento no tempo de espera e maior insatisfação por parte dos clientes. Em uma dessas situações, um cliente inicia o contato irritado, reclamando da demora para ser atendido. Considerando a necessidade de manter a qualidade no atendimento mesmo em momentos de pressão, qual deve ser a sua postura inicial diante desse cenário?',
       [
         ' Transferir a ligação sem apresentar explicações',
@@ -343,7 +632,7 @@ function generalBasicPool() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Lógica básica',
+      'Soma simples de atendimentos',
       `Durante o acompanhamento da operação no período da manhã, foi solicitado o levantamento do volume de atendimentos recebidos por uma fila em horários diferentes. Os dados apurados foram os seguintes:
 
 9h: 18 atendimentos
@@ -462,6 +751,58 @@ function generalAdvPeoplePool() {
         ' Esperar que as dúvidas apareçam para só então explicar a mudança',
       ],
       1,
+    ),
+    mcqQ(
+      'general_adv_people',
+      STAGE_LABELS.general_adv_people,
+      'Gestão de conflitos',
+      'Durante um horário de maior pressão, dois colaboradores discordam sobre a divisão de demandas e a situação começa a afetar o clima da equipe. Como liderança, qual postura é mais adequada para reduzir o impacto operacional e tratar o conflito com maturidade?',
+      [
+        ' Ouvir os envolvidos, reorientar a distribuição de atividades com base em critérios claros e acompanhar a execução',
+        ' Ignorar o conflito para não interromper a rotina',
+        ' Expor os colaboradores diante de toda a equipe',
+        ' Retirar as demandas dos dois sem explicar o motivo',
+      ],
+      0,
+    ),
+    mcqQ(
+      'general_adv_people',
+      STAGE_LABELS.general_adv_people,
+      'Indicadores e causa raiz',
+      'Ao revisar os resultados do dia, o supervisor percebe queda de produtividade, aumento de recontato e maior tempo de espera. Antes de definir um plano de ação, qual análise inicial tende a ser mais consistente?',
+      [
+        ' Cruzar volume, capacidade, aderência, qualidade do atendimento e tipos de demanda recebidos',
+        ' Considerar apenas a percepção de que a equipe está lenta',
+        ' Observar somente o indicador que apresentou melhor resultado',
+        ' Aplicar cobrança geral sem validar dados',
+      ],
+      0,
+    ),
+    mcqQ(
+      'general_adv_people',
+      STAGE_LABELS.general_adv_people,
+      'Acompanhamento de plano de ação',
+      'Depois de definir ações para recuperar um indicador operacional, o supervisor precisa acompanhar se as medidas estão funcionando. Qual prática ajuda mais nesse acompanhamento?',
+      [
+        ' Definir responsáveis, prazos, indicador esperado e rotina de verificação dos resultados',
+        ' Aguardar o fim do mês sem monitorar a evolução',
+        ' Registrar apenas que existe um problema, sem ação definida',
+        ' Alterar as prioridades diariamente sem comunicar a equipe',
+      ],
+      0,
+    ),
+    mcqQ(
+      'general_adv_people',
+      STAGE_LABELS.general_adv_people,
+      'Tomada de decisão em cenário crítico',
+      'Uma operação recebe aumento inesperado de demanda, parte da equipe está em pausa e um cliente estratégico solicita retorno imediato. Qual decisão inicial é mais equilibrada?',
+      [
+        ' Reorganizar temporariamente a escala, priorizar a fila crítica e comunicar a liderança sobre o risco operacional',
+        ' Manter a escala sem ajustes mesmo com impacto imediato',
+        ' Cancelar todas as pausas sem avaliar a necessidade real',
+        ' Responder ao cliente sem verificar o andamento da demanda',
+      ],
+      0,
     ),
   ];
 }
@@ -746,6 +1087,356 @@ function techAdmBasicPool() {
   ];
 }
 
+function techCommercialBasicPool() {
+  return [
+    mcqQ(
+      'tech_commercial_basic',
+      STAGE_LABELS.tech_commercial_basic,
+      'Organização de dados comerciais',
+      'Ao apoiar a área comercial, você recebe uma planilha com contatos, status de retorno e observações de cada oportunidade. Para que os dados possam ser acompanhados com clareza, qual cuidado inicial é mais adequado?',
+      [
+        ' Organizar os registros por campos claros, conferir informações incompletas e manter padrão nos status',
+        ' Apagar os contatos sem retorno para reduzir o tamanho da planilha',
+        ' Usar cores diferentes sem registrar o significado de cada uma',
+        ' Deixar as observações fora da planilha para preencher depois de memória',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_commercial_basic',
+      STAGE_LABELS.tech_commercial_basic,
+      'Excel aplicado a indicadores',
+      'Uma planilha comercial possui colunas de quantidade de contatos realizados, retornos recebidos e oportunidades avançadas. Para acompanhar a evolução desses dados, qual recurso ajuda a resumir e comparar os resultados?',
+      [
+        ' Tabela, filtros e fórmulas simples de contagem ou percentual',
+        ' Alterar apenas a fonte da planilha',
+        ' Ocultar todas as colunas de resultado',
+        ' Registrar os números em mensagens separadas, sem consolidar',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_commercial_basic',
+      STAGE_LABELS.tech_commercial_basic,
+      'Noções de Power BI',
+      'Em uma rotina de apoio a indicadores, o Power BI pode ser utilizado para transformar dados de planilhas em visualizações. Qual é o principal benefício desse tipo de ferramenta?',
+      [
+        ' Substituir a necessidade de dados corretos',
+        ' Criar painéis que facilitam a leitura de tendências e resultados',
+        ' Impedir qualquer conferência manual das informações',
+        ' Armazenar senhas de clientes em relatórios',
+      ],
+      1,
+    ),
+    mcqQ(
+      'tech_commercial_basic',
+      STAGE_LABELS.tech_commercial_basic,
+      'Conferência de informações',
+      'Ao preparar uma lista de contatos comerciais, você percebe telefones duplicados e campos obrigatórios em branco. Qual atitude demonstra melhor organização?',
+      [
+        ' Enviar a lista mesmo com erros para não atrasar',
+        ' Conferir duplicidades, sinalizar pendências e corrigir o que for possível antes do envio',
+        ' Apagar todos os registros com dúvida sem comunicar ninguém',
+        ' Preencher dados faltantes sem validação',
+      ],
+      1,
+    ),
+    mcqQ(
+      'tech_commercial_basic',
+      STAGE_LABELS.tech_commercial_basic,
+      'Comunicação comercial interna',
+      'Após atualizar indicadores comerciais, você precisa avisar a equipe sobre uma divergência encontrada. Qual comunicação é mais adequada?',
+      [
+        ' Informar de forma objetiva qual dado divergiu, onde foi identificado e qual validação ainda é necessária',
+        ' Dizer apenas que a planilha está errada, sem detalhes',
+        ' Compartilhar a informação somente verbalmente, sem registro',
+        ' Culpar uma pessoa antes de verificar a origem da divergência',
+      ],
+      0,
+    ),
+  ];
+}
+
+function techFinanceBasicPool() {
+  return [
+    mcqQ(
+      'tech_finance_basic',
+      STAGE_LABELS.tech_finance_basic,
+      'Conferência de documentos',
+      'Em uma rotina financeira, documentos e valores precisam ser conferidos antes do registro final. Qual prática reduz o risco de erro?',
+      [
+        ' Conferir dados, valores, datas e identificação do documento antes de lançar ou encaminhar',
+        ' Registrar valores aproximados para ganhar tempo',
+        ' Ignorar documentos com informações incompletas sem avisar o responsável',
+        ' Misturar documentos conferidos e pendentes na mesma pilha sem identificação',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_finance_basic',
+      STAGE_LABELS.tech_finance_basic,
+      'Controle em planilhas',
+      'Uma planilha financeira simples precisa acompanhar valores recebidos, pendentes e divergentes. Qual organização ajuda mais na conferência?',
+      [
+        ' Campos padronizados, fórmulas conferidas e status claro para cada item',
+        ' Usar apenas comentários soltos fora da planilha',
+        ' Apagar linhas pendentes para a planilha parecer concluída',
+        ' Manter todos os valores em uma única célula',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_finance_basic',
+      STAGE_LABELS.tech_finance_basic,
+      'Tratamento de divergências',
+      'Durante a conferência, você identifica que o valor de um documento não bate com o valor registrado na planilha. Qual atitude é mais adequada?',
+      [
+        ' Ajustar o valor sem avisar ninguém',
+        ' Registrar a divergência, separar o item e solicitar validação do responsável',
+        ' Ignorar a diferença se ela parecer pequena',
+        ' Excluir o documento para evitar retrabalho',
+      ],
+      1,
+    ),
+    mcqQ(
+      'tech_finance_basic',
+      STAGE_LABELS.tech_finance_basic,
+      'Organização de prazos',
+      'Ao apoiar uma rotina financeira, algumas pendências têm prazo no mesmo dia e outras podem aguardar validação futura. Como priorizar?',
+      [
+        ' Tratar primeiro itens com prazo imediato ou risco de impacto no fechamento',
+        ' Resolver apenas os itens mais simples, independentemente do prazo',
+        ' Deixar todos os itens para o fim do expediente',
+        ' Escolher aleatoriamente para não perder tempo analisando',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_finance_basic',
+      STAGE_LABELS.tech_finance_basic,
+      'Confidencialidade',
+      'Dados financeiros e documentos internos devem ser tratados com cuidado. Qual conduta está correta?',
+      [
+        ' Compartilhar informações financeiras em qualquer grupo para agilizar',
+        ' Manter os dados restritos às pessoas envolvidas e seguir os procedimentos definidos',
+        ' Salvar documentos em locais sem controle de acesso',
+        ' Enviar comprovantes para contatos externos sem autorização',
+      ],
+      1,
+    ),
+  ];
+}
+
+function techOperationBasicPool() {
+  return [
+    mcqQ(
+      'tech_operation_basic',
+      STAGE_LABELS.tech_operation_basic,
+      'Registro de ocorrência',
+      'Durante a rotina operacional, um cliente relata um problema que precisa de acompanhamento. Qual registro é mais adequado?',
+      [
+        ' Registrar o relato, horário, dados relevantes, ação tomada e próximo encaminhamento',
+        ' Anotar apenas o primeiro nome do cliente',
+        ' Encerrar o atendimento sem protocolo',
+        ' Deixar para registrar ao fim da semana',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_operation_basic',
+      STAGE_LABELS.tech_operation_basic,
+      'Priorização de demandas',
+      'Você recebe três demandas ao mesmo tempo: uma ocorrência crítica, uma atualização de relatório semanal e uma dúvida simples por e-mail. O que deve ser tratado primeiro?',
+      [
+        ' A ocorrência crítica, por ter maior impacto imediato',
+        ' O relatório semanal, por ser mais demorado',
+        ' A dúvida simples, apenas por ser mais rápida',
+        ' Nenhuma demanda deve ser priorizada',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_operation_basic',
+      STAGE_LABELS.tech_operation_basic,
+      'Comunicação com cliente',
+      'Um cliente demonstra insatisfação pela demora no retorno de uma solicitação. Qual postura inicial é mais adequada?',
+      [
+        ' Ouvir o cliente, demonstrar atenção, verificar o registro e informar os próximos passos possíveis',
+        ' Interromper o cliente para encerrar o contato rapidamente',
+        ' Prometer solução imediata sem verificar o caso',
+        ' Transferir sem explicar o motivo',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_operation_basic',
+      STAGE_LABELS.tech_operation_basic,
+      'Acompanhamento de demanda',
+      'Após encaminhar uma solicitação para outra área, qual cuidado ajuda a evitar perda de informação?',
+      [
+        ' Acompanhar o status, manter o registro atualizado e sinalizar pendências quando necessário',
+        ' Apagar o registro depois do encaminhamento',
+        ' Considerar a demanda resolvida sem confirmação',
+        ' Registrar apenas verbalmente para economizar tempo',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_operation_basic',
+      STAGE_LABELS.tech_operation_basic,
+      'Rotina operacional',
+      'Antes de iniciar os atendimentos, qual prática ajuda a manter a rotina mais organizada?',
+      [
+        ' Verificar ferramentas, informações do dia, pendências e canais de comunicação',
+        ' Começar sem consultar nenhuma orientação',
+        ' Deixar ferramentas fechadas até o primeiro problema acontecer',
+        ' Usar dados do dia anterior sem conferência',
+      ],
+      0,
+    ),
+  ];
+}
+
+function techTiPlenoPool() {
+  return [
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Análise de chamados',
+      'Um chamado informa lentidão em um sistema usado por vários usuários, mas apenas uma equipe foi afetada. Qual análise inicial é mais adequada para um suporte técnico pleno?',
+      [
+        ' Comparar escopo do impacto, horários, rede utilizada, mensagens de erro e evidências dos usuários afetados',
+        ' Reiniciar todos os servidores imediatamente, sem coletar evidências',
+        ' Encerrar o chamado porque nem todos foram afetados',
+        ' Trocar os monitores dos usuários antes de validar o sistema',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Redes em nível intermediário',
+      'Um usuário acessa a internet, mas não consegue acessar uma pasta compartilhada da rede. Qual hipótese deve ser considerada?',
+      [
+        ' Pode haver problema de permissão, caminho de rede, DNS interno ou disponibilidade do compartilhamento',
+        ' O teclado está com falha obrigatoriamente',
+        ' A internet pública precisa ser desligada',
+        ' A planilha do usuário está com fonte inadequada',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Autonomia moderada',
+      'Ao identificar uma falha recorrente em estações de trabalho, qual postura demonstra autonomia adequada sem ultrapassar limites?',
+      [
+        ' Testar hipóteses controladas, registrar evidências e escalar quando houver risco ou necessidade de acesso avançado',
+        ' Fazer alterações críticas sem autorização',
+        ' Ignorar o histórico dos chamados anteriores',
+        ' Comunicar apenas depois que o problema se repetir muitas vezes',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Pacote Office',
+      'Vários usuários relatam que arquivos do Excel abrem com erro após atualização. Qual primeira abordagem é mais organizada?',
+      [
+        ' Validar se o erro ocorre em arquivos específicos ou em qualquer arquivo, versão do Office e permissões de acesso',
+        ' Reinstalar o Windows sem avaliação',
+        ' Apagar os arquivos afetados',
+        ' Enviar uma mensagem dizendo que não há solução',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Comunicação técnica',
+      'Durante um incidente em análise, a área usuária pede atualização. Qual resposta é mais adequada?',
+      [
+        ' Informar o status, evidências já coletadas, próxima verificação e previsão responsável quando houver segurança',
+        ' Prometer solução sem diagnóstico',
+        ' Dizer apenas que a TI está vendo, sem contexto mínimo',
+        ' Não responder até finalizar totalmente a análise',
+      ],
+      0,
+    ),
+  ];
+}
+
+function techTiSeniorPool() {
+  return [
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Diagnóstico avançado',
+      'Um incidente afeta autenticação, acesso a sistemas internos e compartilhamentos de rede em parte da operação. Qual abordagem inicial é mais adequada para suporte sênior?',
+      [
+        ' Definir escopo, coletar logs, verificar serviços críticos, impacto por grupo e orientar a equipe na triagem',
+        ' Trocar equipamentos aleatoriamente até algum usuário voltar',
+        ' Encerrar todos os chamados como erro do usuário',
+        ' Comunicar normalização antes de validar evidências',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Redes avançadas',
+      'Ao investigar perda intermitente de acesso a sistemas internos, qual conjunto de evidências tende a ajudar mais?',
+      [
+        ' Logs, testes de conectividade, DNS, rotas, horários de falha e comparação entre segmentos afetados e não afetados',
+        ' Apenas a opinião de um usuário',
+        ' A cor do cabo de rede, sem outros testes',
+        ' O número de arquivos salvos na área de trabalho',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Orientação técnica',
+      'Durante uma crise técnica, qual atitude de um suporte sênior ajuda a equipe?',
+      [
+        ' Distribuir frentes de análise, padronizar registro de evidências e orientar escalonamentos com prioridade',
+        ' Centralizar todas as informações sem repassar nada',
+        ' Pedir que cada pessoa investigue sem critério comum',
+        ' Evitar qualquer comunicação até o fim do incidente',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Incidentes críticos',
+      'Quando um incidente técnico afeta indicadores operacionais e usuários finais, o reporte deve conter:',
+      [
+        ' Contexto, impacto, hipótese técnica, ações em andamento, responsáveis e próximos passos',
+        ' Apenas a frase "estamos verificando"',
+        ' Informações pessoais sem relação com o incidente',
+        ' Detalhes irrelevantes para atrasar a decisão',
+      ],
+      0,
+    ),
+    mcqQ(
+      'tech_ti_specific',
+      STAGE_LABELS.tech_ti_specific,
+      'Prevenção de recorrência',
+      'Após normalizar uma falha crítica, qual ação é mais importante para reduzir recorrência?',
+      [
+        ' Registrar causa provável, impacto, ações aplicadas, validações e recomendações de prevenção',
+        ' Apagar evidências para evitar questionamentos',
+        ' Encerrar sem documentação porque o serviço voltou',
+        ' Transferir a responsabilidade sem análise',
+      ],
+      0,
+    ),
+  ];
+}
+
 function techTiSpecificPool() {
   return [
     mcqQ(
@@ -969,7 +1660,7 @@ function excelStageBasic() {
       'excel_basic',
       STAGE_LABELS.excel_basic,
       'Teste Prático de Excel',
-      'Baixe a planilha e realize as atividades práticas do nível básico, seguindo as orientações propostas no arquivo. As tarefas envolvem ações fundamentais de organização e edição, manuseio de células, design de tabelas, utilização de filtros e calculos simples. O exercício simula uma rotina simples de apoio administrativo em uma operação de atendimento.',
+      'Baixe a planilha e realize as atividades práticas do nível básico, seguindo as orientações propostas no arquivo. As tarefas envolvem ações fundamentais de organização e edição, manuseio de células, design de tabelas, utilização de filtros e cálculos simples. O exercício simula uma rotina simples de apoio administrativo em uma operação de atendimento.',
       'basic_exam',
       50,
     ),
@@ -1085,7 +1776,7 @@ function wordBasicPoolJovemAprendiz() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
+      'Recado simples para a equipe',
       'Durante a rotina do setor, foi percebido que alguns recados importantes estavam sendo passados apenas verbalmente, o que gerou dúvidas entre os colaboradores. Para evitar desencontro de informações, foi solicitado um comunicado simples para reforçar uma orientação à equipe. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto informando que todos devem conferir os avisos do setor no início do expediente.',
       {
         titleText: 'COMUNICADO INTERNO',
@@ -1097,14 +1788,14 @@ function wordBasicPoolJovemAprendiz() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Você teve um atraso pontual na chegada ao trabalho por causa de um problema no transporte e precisa avisar o supervisor de forma educada e profissional. Redija um e-mail curto informando o ocorrido e dizendo que já está se dirigindo ao local de trabalho.',
       { minTextLength: 55, minSentences: 2 },
     ),
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Lista de materiais para o primeiro dia',
+      'Lista curta de organização',
       'Um novo colaborador iniciará as atividades no setor e precisa receber uma orientação simples sobre o que deve levar no primeiro dia. Escreva o título "MATERIAIS PARA O PRIMEIRO DIA" e crie uma lista com pelo menos 3 itens contendo materiais ou documentos importantes.',
       {
         titleText: 'MATERIAIS PARA O PRIMEIRO DIA',
@@ -1120,7 +1811,7 @@ function wordBasicPoolOperador() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
+      'Recado simples para a equipe',
       'Durante a troca de turno, foi percebido que alguns registros de atendimento estavam sendo finalizados sem as observações necessárias, o que dificultou o acompanhamento dos casos. Para reforçar essa orientação, foi solicitado um comunicado interno simples para a equipe. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto orientando que os atendimentos devem ser finalizados com registro claro das informações principais.',
       {
         titleText: 'COMUNICADO INTERNO',
@@ -1132,7 +1823,7 @@ function wordBasicPoolOperador() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Durante o atendimento, você identificou um caso que precisa de acompanhamento do supervisor, pois o cliente informou uma divergência que não pode ser resolvida no primeiro contato. Redija um e-mail curto e profissional para o supervisor, resumindo a situação e solicitando orientação sobre a tratativa.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -1140,8 +1831,113 @@ function wordBasicPoolOperador() {
       'word_basic',
       STAGE_LABELS.word_basic,
       'Lista de pendências do atendimento',
-      'Ao encerrar o turno, você precisa deixar registradas algumas pendências para a próxima equipe dar continuidade aos casos em aberto. Escreva o título "PENDENCIAS DO TURNO" e crie uma lista com pelo menos 3 itens contendo exemplos de pendências ou ações que precisam de acompanhamento.',
-      { titleText: 'PENDENCIAS DO TURNO', requiresList: true, minListItems: 3 },
+      'Ao encerrar o turno, você precisa deixar registradas algumas pendências para a próxima equipe dar continuidade aos casos em aberto. Escreva o título "PENDÊNCIAS DO TURNO" e crie uma lista com pelo menos 3 itens contendo exemplos de pendências ou ações que precisam de acompanhamento.',
+      { titleText: 'PENDÊNCIAS DO TURNO', requiresList: true, minListItems: 3 },
+    ),
+  ];
+}
+
+function wordBasicPoolComercial() {
+  return [
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Comunicado de atualização comercial',
+      'A área comercial precisa avisar a equipe sobre a atualização de uma planilha de acompanhamento de contatos e indicadores. Escreva o título "ATUALIZAÇÃO COMERCIAL" em negrito e centralizado. Em seguida, redija um comunicado curto orientando a equipe a conferir os dados antes de registrar novos retornos.',
+      {
+        titleText: 'ATUALIZAÇÃO COMERCIAL',
+        titleBold: true,
+        titleCenter: true,
+        minTextLength: 55,
+      },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'E-mail sobre divergência em dados',
+      'Você identificou uma divergência entre a quantidade de contatos registrados e o total apresentado no indicador comercial. Redija um e-mail curto e profissional para o responsável, informando a divergência encontrada e solicitando validação dos dados.',
+      { minTextLength: 60, minSentences: 2 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Lista de conferência comercial',
+      'Antes de enviar uma base comercial para análise, é necessário conferir alguns pontos. Escreva o título "CHECKLIST COMERCIAL" e crie uma lista com pelo menos 3 itens contendo dados que devem ser verificados antes do envio.',
+      {
+        titleText: 'CHECKLIST COMERCIAL',
+        requiresList: true,
+        minListItems: 3,
+      },
+    ),
+  ];
+}
+
+function wordBasicPoolFinanceiro() {
+  return [
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Comunicado de pendência financeira',
+      'A área financeira precisa informar uma pendência de documentação para validação antes do fechamento do dia. Escreva o título "PENDÊNCIA FINANCEIRA" em negrito e centralizado. Em seguida, redija um comunicado curto, claro e profissional sobre a necessidade de conferência.',
+      {
+        titleText: 'PENDÊNCIA FINANCEIRA',
+        titleBold: true,
+        titleCenter: true,
+        minTextLength: 55,
+      },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'E-mail de conferência de valores',
+      'Durante a conferência de uma planilha, você identificou diferença entre o valor registrado e o documento recebido. Redija um e-mail curto para o responsável, informando a divergência e solicitando orientação para correção.',
+      { minTextLength: 60, minSentences: 2 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Lista de documentos para conferência',
+      'Antes de concluir uma rotina financeira, alguns documentos precisam ser separados e conferidos. Escreva o título "DOCUMENTOS PARA CONFERÊNCIA" e crie uma lista com pelo menos 3 itens que devem ser verificados.',
+      {
+        titleText: 'DOCUMENTOS PARA CONFERÊNCIA',
+        requiresList: true,
+        minListItems: 3,
+      },
+    ),
+  ];
+}
+
+function wordBasicPoolOperacaoEstagio() {
+  return [
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Comunicado operacional',
+      'Durante a rotina de atendimento, foi identificada a necessidade de reforçar o registro correto das ocorrências. Escreva o título "ORIENTAÇÃO OPERACIONAL" em negrito e centralizado. Em seguida, redija um comunicado curto orientando a equipe sobre a importância de registrar informações completas.',
+      {
+        titleText: 'ORIENTAÇÃO OPERACIONAL',
+        titleBold: true,
+        titleCenter: true,
+        minTextLength: 55,
+      },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'E-mail de acompanhamento de demanda',
+      'Um cliente informou que ainda aguarda retorno sobre uma solicitação registrada anteriormente. Redija um e-mail curto e profissional para o supervisor, resumindo a situação e solicitando orientação sobre o próximo encaminhamento.',
+      { minTextLength: 60, minSentences: 2 },
+    ),
+    wordQ(
+      'word_basic',
+      STAGE_LABELS.word_basic,
+      'Lista de rotina operacional',
+      'Antes de iniciar o atendimento, é importante conferir ferramentas, pendências e orientações do dia. Escreva o título "ROTINA OPERACIONAL" e crie uma lista com pelo menos 3 itens que devem ser verificados.',
+      {
+        titleText: 'ROTINA OPERACIONAL',
+        requiresList: true,
+        minListItems: 3,
+      },
     ),
   ];
 }
@@ -1151,10 +1947,10 @@ function wordBasicPoolEstagiarioTI() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
-      'A equipe de TI realizará uma atualização simples em uma ferramenta interna no fim do expediente, e os colaboradores precisam ser avisados com antecedência. Escreva o título "COMUNICADO TECNICO" em negrito e centralizado. Em seguida, redija um pequeno texto informando que poderá haver instabilidade temporária durante a atualização e que a equipe será avisada após a normalização.',
+      'Recado simples para a equipe',
+      'A equipe de TI realizará uma atualização simples em uma ferramenta interna no fim do expediente, e os colaboradores precisam ser avisados com antecedência. Escreva o título "COMUNICADO TÉCNICO" em negrito e centralizado. Em seguida, redija um pequeno texto informando que poderá haver instabilidade temporária durante a atualização e que a equipe será avisada após a normalização.',
       {
-        titleText: 'COMUNICADO TECNICO',
+        titleText: 'COMUNICADO TÉCNICO',
         titleBold: true,
         titleCenter: true,
         minTextLength: 45,
@@ -1163,7 +1959,7 @@ function wordBasicPoolEstagiarioTI() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Um usuário informou que não consegue acessar uma ferramenta interna e você precisa registrar o caso para acompanhamento do responsável. Redija um e-mail curto e profissional resumindo o problema e informando que a situação está em análise.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -1186,7 +1982,7 @@ function generalBasicPoolEstagiarioTI() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Interpretação de situação de trabalho',
+      'Postura em situação prática',
       'Um usuário entra em contato informando que não consegue acessar um sistema utilizado pela empresa e demonstra impaciência porque precisa concluir uma atividade com urgência. Considerando uma postura profissional no atendimento inicial de suporte, qual deve ser sua atitude?',
       [
         ' Pedir para o usuário aguardar sem registrar nenhuma informação',
@@ -1199,7 +1995,7 @@ function generalBasicPoolEstagiarioTI() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Lógica básica',
+      'Soma simples de atendimentos',
       `Durante um período de suporte, foram registrados os seguintes chamados resolvidos:
 9h: 4 chamados
 10h: 6 chamados
@@ -1276,7 +2072,7 @@ function wordBasicPoolEstagiarioRH() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Formatação de comunicado interno',
+      'Recado simples para a equipe',
       'O RH precisa reforçar para os colaboradores a importância de confirmar presença nas entrevistas internas agendadas com antecedência. Escreva o título "COMUNICADO INTERNO" em negrito e centralizado. Em seguida, redija um pequeno texto orientando que a confirmação seja feita dentro do prazo informado para evitar desencontros de agenda.',
       {
         titleText: 'COMUNICADO INTERNO',
@@ -1288,7 +2084,7 @@ function wordBasicPoolEstagiarioRH() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Um candidato enviou o currículo para uma vaga e você precisa responder confirmando o recebimento, informando que o material será analisado pelo RH. Redija um e-mail curto, cordial e profissional.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -1311,7 +2107,7 @@ function generalBasicPoolEstagiarioRH() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Interpretação de situação de trabalho',
+      'Postura em situação prática',
       'Um candidato entrou em contato demonstrando ansiedade para saber se seguirá no processo seletivo. Considerando a postura esperada do RH, qual deve ser a atitude inicial mais adequada?',
       [
         ' Ignorar a mensagem até que todas as etapas sejam finalizadas',
@@ -1324,7 +2120,7 @@ function generalBasicPoolEstagiarioRH() {
     mcqQ(
       'general_basic',
       STAGE_LABELS.general_basic,
-      'Lógica básica',
+      'Soma simples de atendimentos',
       `Em um processo seletivo, o RH agendou 5 entrevistas pela manhã, 4 à tarde e 3 no fim do dia.
 
 Considerando as informações apresentadas, quantas entrevistas foram agendadas no total? Caso necessário, você pode utilizar a calculadora do Windows para apoiar o cálculo.`,
@@ -1378,7 +2174,7 @@ function wordPoolHelpDesk() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'E-mail corporativo simples',
+      'Mensagem simples de acompanhamento',
       'Um sistema interno ficou indisponível por alguns minutos, impactando o trabalho de parte da equipe. Após a normalização, você precisa registrar o ocorrido para o supervisor. Redija um e-mail curto e profissional informando o problema, o impacto percebido e que o acesso já foi restabelecido.',
       { minTextLength: 55, minSentences: 2 },
     ),
@@ -1410,7 +2206,7 @@ function wordBasicLevel3PoolPlanejamento() {
     wordQ(
       'word_basic',
       STAGE_LABELS.word_basic,
-      'Redação de comunicado interno',
+      'Aviso simples para a equipe',
       'Foi identificado um ajuste temporário na distribuição das pausas da equipe para melhor equilíbrio da operação em um horário de maior demanda. Para comunicar essa alteração com clareza, escreva o título "AJUSTE OPERACIONAL" em negrito e centralizado. Em seguida, redija um comunicado com pelo menos 2 frases, utilizando linguagem clara, direta e de fácil entendimento.',
       {
         titleText: 'AJUSTE OPERACIONAL',
@@ -1468,7 +2264,7 @@ function techAdmBasicPoolPlanejamento() {
     mcqQ(
       'tech_adm_basic',
       STAGE_LABELS.tech_adm_basic,
-      'Interpretação de situação de trabalho',
+      'Postura em situação prática',
       'Ao acompanhar a operação, você identificou aumento repentino no volume de chamadas e queda do SLA em uma faixa horária específica. Considerando uma análise inicial de planejamento, qual deve ser a primeira leitura mais adequada?',
       [
         ' Verificar se houve aumento de demanda, redução de capacidade ou desvio de escala naquele período',
@@ -1649,11 +2445,16 @@ const EXAM_BLUEPRINTS = {
     stages: [
       {
         key: 'word_basic',
-        weight: 40,
+        weight: 35,
         questions: () => wordBasicPoolJovemAprendiz(),
       },
-      { key: 'excel_basic', weight: 40, questions: () => excelStageBasic() },
+      { key: 'excel_basic', weight: 35, questions: () => excelStageBasic() },
       { key: 'general_basic', weight: 20, questions: () => generalBasicPool() },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Jovem Aprendiz', 'Operação'),
+      },
     ],
   },
   operador: {
@@ -1662,20 +2463,25 @@ const EXAM_BLUEPRINTS = {
     stages: [
       {
         key: 'word_basic',
-        weight: 40,
+        weight: 35,
         questions: () => wordBasicPoolOperador(),
       },
-      { key: 'excel_basic', weight: 40, questions: () => excelStageQualid() },
+      { key: 'excel_basic', weight: 35, questions: () => excelStageQualid() },
       { key: 'general_basic', weight: 20, questions: () => generalBasicPool() },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Operador', 'Operação'),
+      },
     ],
   },
   estagiario_ti: {
     level: '2',
-    label: 'Nv 2 - Estagiario (TI)',
+    label: 'Nv 2 - Estagiário / TI',
     stages: [
       {
         key: 'word_basic',
-        weight: 20,
+        weight: 15,
         questions: () => wordBasicPoolEstagiarioTI(),
       },
       { key: 'excel_basic', weight: 20, questions: () => excelStageQualid() },
@@ -1684,21 +2490,26 @@ const EXAM_BLUEPRINTS = {
         weight: 10,
         questions: () => generalBasicPoolEstagiarioTI(),
       },
-      { key: 'tech_ti_basic', weight: 40, questions: () => techTiBasicPool() },
+      { key: 'tech_ti_basic', weight: 35, questions: () => techTiBasicPool() },
       {
         key: 'writing_logic',
         weight: 10,
         questions: () => writingLogicPoolEstagiarioTI(),
       },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Estagiário', 'TI'),
+      },
     ],
   },
   estagiario_rh: {
     level: '2',
-    label: 'Nv 2 - Estagiario (RH)',
+    label: 'Nv 2 - Estagiário / RH',
     stages: [
       {
         key: 'word_basic',
-        weight: 20,
+        weight: 15,
         questions: () => wordBasicPoolEstagiarioRH(),
       },
       { key: 'excel_basic', weight: 20, questions: () => excelStageQualid() },
@@ -1707,20 +2518,99 @@ const EXAM_BLUEPRINTS = {
         weight: 10,
         questions: () => generalBasicPoolEstagiarioRH(),
       },
-      { key: 'tech_rh_basic', weight: 40, questions: () => techRhBasicPool() },
+      { key: 'tech_rh_basic', weight: 35, questions: () => techRhBasicPool() },
       { key: 'writing_logic', weight: 10, questions: () => writingLogicPool() },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Estagiário', 'RH'),
+      },
+    ],
+  },
+  estagiario_comercial: {
+    level: '2',
+    label: 'Nv 2 - Estagiário / Comercial',
+    stages: [
+      {
+        key: 'word_basic',
+        weight: 15,
+        questions: () => wordBasicPoolComercial(),
+      },
+      { key: 'excel_basic', weight: 25, questions: () => excelStageQualid() },
+      { key: 'general_basic', weight: 15, questions: () => generalBasicPool() },
+      {
+        key: 'tech_commercial_basic',
+        weight: 35,
+        questions: () => techCommercialBasicPool(),
+      },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Estagiário', 'Comercial'),
+      },
+    ],
+  },
+  estagiario_operacao: {
+    level: '2',
+    label: 'Nv 2 - Estagiário / Operação',
+    stages: [
+      {
+        key: 'word_basic',
+        weight: 25,
+        questions: () => wordBasicPoolOperacaoEstagio(),
+      },
+      { key: 'excel_basic', weight: 25, questions: () => excelStageQualid() },
+      { key: 'general_basic', weight: 20, questions: () => generalBasicPool() },
+      {
+        key: 'tech_operation_basic',
+        weight: 20,
+        questions: () => techOperationBasicPool(),
+      },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Estagiário', 'Operação'),
+      },
+    ],
+  },
+  estagiario_financeiro: {
+    level: '2',
+    label: 'Nv 2 - Estagiário / Financeiro',
+    stages: [
+      {
+        key: 'word_basic',
+        weight: 15,
+        questions: () => wordBasicPoolFinanceiro(),
+      },
+      { key: 'excel_basic', weight: 30, questions: () => excelStageQualid() },
+      { key: 'general_basic', weight: 15, questions: () => generalBasicPool() },
+      {
+        key: 'tech_finance_basic',
+        weight: 30,
+        questions: () => techFinanceBasicPool(),
+      },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Estagiário', 'Financeiro'),
+      },
     ],
   },
   supervisor: {
     level: '3',
     label: 'Nv 3 - Supervisor',
     stages: [
-      { key: 'word_basic', weight: 35, questions: () => wordBasicLevel3Pool() },
-      { key: 'excel_mid', weight: 35, questions: () => excelStageMid() },
+      { key: 'word_basic', weight: 25, questions: () => wordBasicLevel3Pool() },
+      { key: 'excel_mid', weight: 25, questions: () => excelStageMid() },
       {
         key: 'general_adv_people',
-        weight: 30,
+        weight: 40,
         questions: () => generalAdvPeoplePool(),
+      },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Supervisor', 'Operação / Gestão'),
       },
     ],
   },
@@ -1728,7 +2618,7 @@ const EXAM_BLUEPRINTS = {
     level: '3',
     label: 'Nv 3 - Control Desk',
     stages: [
-      { key: 'word_basic', weight: 20, questions: () => wordPoolHelpDesk() },
+      { key: 'word_basic', weight: 15, questions: () => wordPoolHelpDesk() },
       {
         key: 'excel_advanced',
         weight: 20,
@@ -1741,40 +2631,74 @@ const EXAM_BLUEPRINTS = {
       },
       {
         key: 'tech_ti_basic',
-        weight: 40,
+        weight: 35,
         questions: () => techTiBasicPool(),
       },
       { key: 'analysis_eval', weight: 10, questions: () => analysisEvalPool() },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Control Desk', 'TI'),
+      },
     ],
   },
-  planejamento: {
-    level: '3',
-    label: 'Nv 3 - Planejamento',
+  suporte_tecnico_junior: {
+    level: '2',
+    label: 'Nv 2 - Suporte Técnico Júnior',
     stages: [
+      { key: 'word_basic', weight: 15, questions: () => wordBasicPoolEstagiarioTI() },
+      { key: 'excel_basic', weight: 20, questions: () => excelStageQualid() },
       {
-        key: 'word_basic',
-        weight: 20,
-        questions: () => wordBasicLevel3PoolPlanejamento(),
+        key: 'general_basic',
+        weight: 10,
+        questions: () => generalBasicPoolEstagiarioTI(),
       },
+      {
+        key: 'tech_ti_basic',
+        weight: 35,
+        questions: () => techTiBasicPool(),
+      },
+      { key: 'analysis_eval', weight: 10, questions: () => analysisEvalPool() },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Suporte Técnico Júnior', 'TI'),
+      },
+    ],
+  },
+  suporte_tecnico_pleno: {
+    level: '3',
+    label: 'Nv 3 - Suporte Técnico Pleno',
+    stages: [
+      { key: 'word_basic', weight: 15, questions: () => wordPoolHelpDesk() },
       {
         key: 'excel_advanced',
         weight: 20,
         questions: () => excelStagePlanning(),
       },
-      { key: 'general_basic', weight: 10, questions: () => generalBasicPool() },
       {
-        key: 'tech_adm_basic',
-        weight: 40,
-        questions: () => techAdmBasicPoolPlanejamento(),
+        key: 'general_basic',
+        weight: 10,
+        questions: () => generalBasicPoolEstagiarioTI(),
+      },
+      {
+        key: 'tech_ti_specific',
+        weight: 35,
+        questions: () => techTiPlenoPool(),
       },
       { key: 'analysis_eval', weight: 10, questions: () => analysisEvalPool() },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Suporte Técnico Pleno', 'TI'),
+      },
     ],
   },
-  ti: {
+  suporte_tecnico_senior: {
     level: '4',
-    label: 'Nv 4 - TI',
+    label: 'Nv 4 - Suporte Técnico Sênior',
     stages: [
-      { key: 'word_advanced', weight: 20, questions: () => wordAdvancedPool() },
+      { key: 'word_advanced', weight: 15, questions: () => wordAdvancedPool() },
       {
         key: 'excel_advanced',
         weight: 20,
@@ -1787,17 +2711,78 @@ const EXAM_BLUEPRINTS = {
       },
       {
         key: 'tech_ti_specific',
-        weight: 40,
+        weight: 35,
+        questions: () => techTiSeniorPool(),
+      },
+      { key: 'tech_logic', weight: 10, questions: () => techLogicPool() },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Suporte Técnico Sênior', 'TI'),
+      },
+    ],
+  },
+  planejamento: {
+    level: '4',
+    label: 'Nv 4 - Planejamento',
+    stages: [
+      {
+        key: 'word_basic',
+        weight: 15,
+        questions: () => wordBasicLevel3PoolPlanejamento(),
+      },
+      {
+        key: 'excel_advanced',
+        weight: 20,
+        questions: () => excelStagePlanning(),
+      },
+      { key: 'general_basic', weight: 10, questions: () => generalBasicPool() },
+      {
+        key: 'tech_adm_basic',
+        weight: 35,
+        questions: () => techAdmBasicPoolPlanejamento(),
+      },
+      { key: 'analysis_eval', weight: 10, questions: () => analysisEvalPool() },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Planejamento', 'Operação / Gestão'),
+      },
+    ],
+  },
+  ti: {
+    level: '4',
+    label: 'Nv 4 - TI',
+    stages: [
+      { key: 'word_advanced', weight: 15, questions: () => wordAdvancedPool() },
+      {
+        key: 'excel_advanced',
+        weight: 20,
+        questions: () => excelStageAdvanced(),
+      },
+      {
+        key: 'general_advanced',
+        weight: 10,
+        questions: () => generalAdvancedPoolTI(),
+      },
+      {
+        key: 'tech_ti_specific',
+        weight: 35,
         questions: () => techTiSpecificPool(),
       },
       { key: 'tech_logic', weight: 10, questions: () => techLogicPool() },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('TI', 'TI'),
+      },
     ],
   },
   adm: {
     level: '4',
     label: 'Nv 4 - Analista / Outros (ADM)',
     stages: [
-      { key: 'word_advanced', weight: 20, questions: () => wordAdvancedPool() },
+      { key: 'word_advanced', weight: 15, questions: () => wordAdvancedPool() },
       {
         key: 'excel_advanced',
         weight: 20,
@@ -1810,8 +2795,13 @@ const EXAM_BLUEPRINTS = {
       },
       {
         key: 'tech_adm_specific',
-        weight: 40,
+        weight: 35,
         questions: () => techAdmSpecificPoolAnalista(),
+      },
+      {
+        key: 'professional_essay',
+        weight: 10,
+        questions: () => professionalEssayPool('Analista', 'ADM / Gestão'),
       },
     ],
   },
@@ -1819,37 +2809,70 @@ const EXAM_BLUEPRINTS = {
 
 function resolveExamBlueprint(role, level, track = '') {
   const safeRole = String(role || '').trim();
-  const safeTrack = String(track || '')
-    .trim()
-    .toLowerCase();
+  const safeRoleKey = normalizarChave(safeRole);
+  const safeTrack = normalizarChave(track);
 
-  if (safeRole === 'Jovem Aprendiz' || level === '1') {
+  if (safeRoleKey === 'jovem aprendiz' || level === '1') {
     return EXAM_BLUEPRINTS.jovem_aprendiz;
   }
 
-  if (safeRole === 'Operador') {
+  if (safeRoleKey === 'operador') {
     return EXAM_BLUEPRINTS.operador;
   }
 
-  if (safeRole === 'Estagiário') {
-    return safeTrack === 'rh'
-      ? EXAM_BLUEPRINTS.estagiario_rh
-      : EXAM_BLUEPRINTS.estagiario_ti;
+  if (safeRoleKey === 'estagiario comercial') {
+    return EXAM_BLUEPRINTS.estagiario_comercial;
   }
 
-  if (safeRole === 'Supervisor') {
+  if (safeRoleKey === 'estagiario operacao') {
+    return EXAM_BLUEPRINTS.estagiario_operacao;
+  }
+
+  if (safeRoleKey === 'estagiario financeiro') {
+    return EXAM_BLUEPRINTS.estagiario_financeiro;
+  }
+
+  if (safeRoleKey === 'estagiario rh') {
+    return EXAM_BLUEPRINTS.estagiario_rh;
+  }
+
+  if (safeRoleKey === 'estagiario ti') {
+    return EXAM_BLUEPRINTS.estagiario_ti;
+  }
+
+  if (safeRoleKey === 'estagiario') {
+    if (safeTrack.includes('rh')) return EXAM_BLUEPRINTS.estagiario_rh;
+    if (safeTrack.includes('comercial')) return EXAM_BLUEPRINTS.estagiario_comercial;
+    if (safeTrack.includes('financeiro')) return EXAM_BLUEPRINTS.estagiario_financeiro;
+    if (safeTrack.includes('operacao')) return EXAM_BLUEPRINTS.estagiario_operacao;
+    return EXAM_BLUEPRINTS.estagiario_ti;
+  }
+
+  if (safeRoleKey === 'supervisor') {
     return EXAM_BLUEPRINTS.supervisor;
   }
 
-  if (safeRole === 'Control Desk') {
+  if (safeRoleKey === 'control desk') {
     return EXAM_BLUEPRINTS.helpdesk;
   }
 
-  if (safeRole === 'Planejamento') {
+  if (safeRoleKey === 'suporte tecnico junior') {
+    return EXAM_BLUEPRINTS.suporte_tecnico_junior;
+  }
+
+  if (safeRoleKey === 'suporte tecnico pleno') {
+    return EXAM_BLUEPRINTS.suporte_tecnico_pleno;
+  }
+
+  if (safeRoleKey === 'suporte tecnico senior') {
+    return EXAM_BLUEPRINTS.suporte_tecnico_senior;
+  }
+
+  if (safeRoleKey === 'planejamento') {
     return EXAM_BLUEPRINTS.planejamento;
   }
 
-  if (safeRole === 'TI') {
+  if (safeRoleKey === 'ti') {
     return EXAM_BLUEPRINTS.ti;
   }
 
@@ -1894,8 +2917,7 @@ function shuffleMultipleChoiceQuestion(question) {
 function getBlueprintQuestionTarget(blueprint) {
   if (!blueprint || !blueprint.label) return null;
 
-  if (blueprint.label.includes('Estagiário')) return 13;
-  if (blueprint.label.includes('Analista / Outros')) return 16;
+  if (blueprint.label.includes('Supervisor')) return 14;
 
   return null;
 }
@@ -1912,6 +2934,7 @@ function normalizeBlueprintQuestions(questions) {
 
 function buildExamFromBlueprint(blueprint) {
   const questions = [];
+  const questionBankIds = new Set();
 
   if (!blueprint || !Array.isArray(blueprint.stages)) {
     throw new Error('Blueprint inválido ou sem etapas definidas.');
@@ -1936,6 +2959,18 @@ function buildExamFromBlueprint(blueprint) {
       throw new Error(
         `A etapa "${stage?.key || index}" não retornou uma lista de questões válida.`,
       );
+    }
+
+    if (!String(stage.key || '').includes('excel')) {
+      stageQuestions = getQuestoesParaBlueprint(
+        blueprint,
+        stage,
+        stageQuestions,
+        questionBankIds,
+      );
+      stageQuestions.forEach((question) => {
+        if (question.questionBankId) questionBankIds.add(question.questionBankId);
+      });
     }
 
     questions.push(
@@ -1966,6 +3001,15 @@ function buildSearchRequirementsIndex() {
 
       if (!Array.isArray(stageQuestions)) return;
 
+      if (!String(stage.key || '').includes('excel')) {
+        try {
+          stageQuestions = getQuestoesParaBlueprint(blueprint, stage, stageQuestions);
+        } catch (error) {
+          console.error('Falha ao montar indice de requisitos pelo banco de questoes.', error);
+          stageQuestions = [];
+        }
+      }
+
       stageQuestions.forEach((question, questionIndex) => {
         items.push({
           id: `${blueprintKey}-${stage.key || stageIndex}-${questionIndex}`,
@@ -1988,12 +3032,17 @@ function buildSearchRequirementsIndex() {
 
 // Exporta apenas a superfície consumida pela aplicação React.
 export {
+  JOB_PROFILE_OPTIONS as OPCOES_VAGAS_PROCESSO,
+  JOB_PROFILE_OPTIONS as OPCOES_VAGAS_PROVA,
+  OPERATION_OPTIONS as OPCOES_OPERACOES,
+  TRACK_OPTIONS_EXAM as OPCOES_TRILHAS_PROVA,
+  TRACK_OPTIONS_PROCESS as OPCOES_TRILHAS_PROCESSO,
   ROLE_LEVEL_SUGGESTIONS as SUGESTOES_NIVEL_POR_VAGA,
   STAGE_LABELS as ROTULOS_ETAPAS,
   EXAM_BLUEPRINTS as BLUEPRINTS_PROVA,
+  getQuestoes,
+  obterResumoBancoQuestoes,
   buildSearchRequirementsIndex as montarIndiceRequisitosBusca,
   resolveExamBlueprint as resolverBlueprintProva,
   buildExamFromBlueprint as montarProvaPorBlueprint,
 };
-
-

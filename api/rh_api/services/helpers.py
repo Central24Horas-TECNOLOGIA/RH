@@ -82,3 +82,19 @@ def normalize_string_list(value) -> list[str]:
         normalized.append(safe_item)
 
     return normalized
+
+
+INDICATION_TYPE_LABELS = {
+    "indicado": "Indicado",
+    "indicado com restricao": "Indicado com restrição",
+    "indicado com restricoes": "Indicado com restrição",
+    "contraindicado": "Contraindicado",
+}
+
+
+def normalize_indication_type(value) -> str:
+    safe_value = normalize_text(value)
+    if not safe_value:
+        return ""
+
+    return INDICATION_TYPE_LABELS.get(normalize_compare_text(safe_value), "")

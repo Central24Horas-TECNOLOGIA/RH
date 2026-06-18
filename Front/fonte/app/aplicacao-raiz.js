@@ -1,4 +1,5 @@
 import { html, useEffect } from '../infraestrutura-react.js';
+"Teste de commit - Aplicação Raiz";
 import {
   navegarParaTela,
   usarTelaAtual,
@@ -15,12 +16,21 @@ import {
 } from '../features/telas-gestao.js';
 import {
   TelaDetalhesProcesso,
+  TelaProcessosAbertos,
+  TelaProcessosDecisoesPendentes,
+  TelaProcessosEncerrados,
   TelaProcessos,
 } from '../features/telas-processos.js';
-import { TelaCandidatos } from '../features/candidatos/index.js';
+import {
+  TelaCandidatos,
+  TelaDetalhesCandidato,
+} from '../features/candidatos/index.js';
 import { TelaPipelineCandidatos } from '../features/tela-pipeline.js';
 import { TelaEntrevistas } from '../features/tela-entrevistas.js';
 import { TelaCandidaturaPublica } from '../features/public-candidacy/index.js';
+import { TelaConectaProvas } from '../features/conecta-provas/index.js';
+import { TelaProvasResultados } from '../features/provas-geradas/index.js';
+import { TelaConfiguracoesSistema } from '../features/configuracoes/index.js';
 import {
   TelaCandidato,
   TelaConfiguracao,
@@ -32,12 +42,20 @@ import {
 function resolverTelaProtegida(telaAtual, controlador) {
   const { estado, blueprint } = controlador;
 
-  if (telaAtual === 'screen-public-candidacy') {
+  if (telaAtual === 'screen-public-candidacy' || telaAtual === 'screen-conecta-provas') {
+    return telaAtual;
+  }
+
+  if (telaAtual === 'screen-forbidden') {
     return telaAtual;
   }
 
   if (!estado.autenticado) {
     return 'screen-login';
+  }
+
+  if (!controlador.podeAcessarTela(telaAtual)) {
+    return 'screen-forbidden';
   }
 
   if (
@@ -80,7 +98,9 @@ export function Aplicacao() {
 
   useEffect(() => {
     if (telaResolvida !== telaAtual) {
-      navegarParaTela(telaResolvida);
+      navegarParaTela(telaResolvida, {
+        replace: telaResolvida === 'screen-login',
+      });
     }
   }, [telaAtual, telaResolvida]);
 
@@ -88,12 +108,16 @@ export function Aplicacao() {
     return html`<${TelaCandidaturaPublica} />`;
   }
 
+  if (telaResolvida === 'screen-conecta-provas') {
+    return html`<${TelaConectaProvas} />`;
+  }
+
   if (controlador.estado.validandoSessao) {
     return html`
       <section class="active screen" id="screen-loading">
         <div class="container py-5">
           <div class="alert alert-secondary mb-0">
-            Validando sessao do usuario...
+            Validando sessão do usuário...
           </div>
         </div>
       </section>
@@ -124,8 +148,24 @@ export function Aplicacao() {
     return html`<${TelaProcessos} controlador=${controlador} />`;
   }
 
+  if (telaResolvida === 'screen-processes-open') {
+    return html`<${TelaProcessosAbertos} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-processes-closed') {
+    return html`<${TelaProcessosEncerrados} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-process-decisions') {
+    return html`<${TelaProcessosDecisoesPendentes} controlador=${controlador} />`;
+  }
+
   if (telaResolvida === 'screen-candidates') {
     return html`<${TelaCandidatos} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-candidate-details') {
+    return html`<${TelaDetalhesCandidato} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-candidate-pipeline') {
@@ -146,6 +186,45 @@ export function Aplicacao() {
 
   if (telaResolvida === 'screen-analysis-candidates') {
     return html`<${TelaAnaliseCandidatos} controlador=${controlador} />`;
+  }
+
+  if (
+    telaResolvida === 'screen-settings' ||
+    telaResolvida === 'screen-settings-users' ||
+    telaResolvida === 'screen-settings-profiles' ||
+    telaResolvida === 'screen-settings-rules' ||
+    telaResolvida === 'screen-settings-logs'
+  ) {
+    return html`
+      <${TelaConfiguracoesSistema}
+        controlador=${controlador}
+        telaAtual=${telaResolvida}
+      />
+    `;
+  }
+
+  if (telaResolvida === 'screen-generated-exams') {
+    return html`<${TelaProvasResultados} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-forbidden') {
+    return html`
+      <section class="active screen" id="screen-forbidden">
+        <div class="container py-5">
+          <div class="alert alert-warning mb-3">
+            ${controlador.estado.avisoAcessoNegado ||
+            'Você não possui permissão para acessar esta área ou executar esta ação.'}
+          </div>
+          <button
+            type="button"
+            class="btn btn-primary"
+            onClick=${() => controlador.irParaMenu()}
+          >
+            Voltar ao painel
+          </button>
+        </div>
+      </section>
+    `;
   }
 
   if (telaResolvida === 'screen-config') {

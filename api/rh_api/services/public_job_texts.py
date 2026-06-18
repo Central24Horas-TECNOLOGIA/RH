@@ -28,65 +28,121 @@ DEFAULT_PUBLIC_JOB_TEXTS = {
     },
     "atendimento": {
         "descricao": (
-            "Oportunidade para atuar com atendimento ao cliente, prestando suporte, registrando informacoes "
-            "e garantindo uma comunicacao clara, humanizada e eficiente durante a rotina operacional."
+            "Oportunidade para atuar com atendimento ao cliente, prestando suporte, registrando informações "
+            "e garantindo uma comunicação clara, humanizada e eficiente durante a rotina operacional."
         ),
         "requisitos": [
-            "Ensino medio completo.",
-            "Experiencia com atendimento ao cliente, call center, suporte ou recepcao sera diferencial.",
-            "Boa diccao, escuta ativa e comunicacao objetiva.",
-            "Conhecimento basico em informatica e facilidade para utilizar sistemas.",
-            "Capacidade de seguir scripts, procedimentos e orientacoes de qualidade.",
-            "Postura cordial, resiliencia e foco na resolucao de demandas.",
+            "Ensino médio completo.",
+            "Experiência com atendimento ao cliente, call center, suporte ou recepção será diferencial.",
+            "Boa dicção, escuta ativa e comunicação objetiva.",
+            "Conhecimento básico em informática e facilidade para utilizar sistemas.",
+            "Capacidade de seguir scripts, procedimentos e orientações de qualidade.",
+            "Postura cordial, resiliência e foco na resolução de demandas.",
         ],
         "responsabilidades": [
-            "Realizar atendimento a clientes ou usuarios pelos canais definidos pela operacao.",
-            "Registrar corretamente dados, solicitacoes e encaminhamentos nos sistemas.",
-            "Seguir scripts, politicas de atendimento e orientacoes da lideranca.",
-            "Acompanhar demandas dentro dos prazos e acionar areas responsaveis quando necessario.",
-            "Contribuir para uma experiencia de atendimento clara, respeitosa e eficiente.",
+            "Realizar atendimento a clientes ou usuários pelos canais definidos pela operação.",
+            "Registrar corretamente dados, solicitações e encaminhamentos nos sistemas.",
+            "Seguir scripts, políticas de atendimento e orientações da liderança.",
+            "Acompanhar demandas dentro dos prazos e acionar áreas responsáveis quando necessário.",
+            "Contribuir para uma experiência de atendimento clara, respeitosa e eficiente.",
         ],
     },
     "administrativo": {
         "descricao": (
-            "Oportunidade para apoiar rotinas administrativas, controles internos, organizacao de informacoes "
-            "e acompanhamento de demandas da area, mantendo qualidade, confidencialidade e regularidade nos processos."
+            "Oportunidade para apoiar rotinas administrativas, controles internos, organização de informações "
+            "e acompanhamento de demandas da área, mantendo qualidade, confidencialidade e regularidade nos processos."
         ),
         "requisitos": [
-            "Ensino medio completo; formacao tecnica ou superior em andamento sera diferencial.",
-            "Experiencia com rotinas administrativas, controles, planilhas ou atendimento interno.",
-            "Conhecimento em pacote Office, especialmente Excel em nivel basico a intermediario.",
-            "Organizacao, atencao a detalhes e boa gestao de prioridades.",
-            "Boa comunicacao escrita e relacionamento interpessoal.",
+            "Ensino médio completo; formação técnica ou superior em andamento será diferencial.",
+            "Experiência com rotinas administrativas, controles, planilhas ou atendimento interno.",
+            "Conhecimento em pacote Office, especialmente Excel em nível básico a intermediário.",
+            "Organização, atenção a detalhes e boa gestão de prioridades.",
+            "Boa comunicação escrita e relacionamento interpessoal.",
             "Responsabilidade no tratamento de dados e documentos internos.",
         ],
         "responsabilidades": [
-            "Apoiar controles, cadastros, acompanhamentos e atualizacoes administrativas.",
-            "Organizar documentos, informacoes e registros conforme procedimentos internos.",
-            "Atender solicitacoes da area e apoiar a comunicacao com equipes relacionadas.",
-            "Preparar planilhas, relatorios simples e consolidacoes quando solicitado.",
-            "Manter rotinas em dia, com atencao a prazos, qualidade e confidencialidade.",
+            "Apoiar controles, cadastros, acompanhamentos e atualizações administrativas.",
+            "Organizar documentos, informações e registros conforme procedimentos internos.",
+            "Atender solicitações da área e apoiar a comunicação com equipes relacionadas.",
+            "Preparar planilhas, relatórios simples e consolidações quando solicitado.",
+            "Manter rotinas em dia, com atenção a prazos, qualidade e confidencialidade.",
+        ],
+    },
+    "comercial": {
+        "descricao": (
+            "Oportunidade para apoiar a rotina comercial com organização de dados, planilhas, indicadores, "
+            "contatos e consolidação de informações para acompanhamento da área."
+        ),
+        "requisitos": [
+            "Conhecimento básico em pacote Office, especialmente Excel.",
+            "Interesse em indicadores, dados comerciais e organização de informações.",
+            "Boa comunicação escrita e verbal.",
+            "Atenção a detalhes e facilidade para trabalhar com planilhas.",
+            "Noções de Power BI serão consideradas diferencial.",
+        ],
+        "responsabilidades": [
+            "Organizar bases, contatos, retornos e indicadores comerciais.",
+            "Apoiar conferência de planilhas e identificação de divergências.",
+            "Atualizar informações de acompanhamento conforme orientação da área.",
+            "Comunicar pendências e apoiar a consolidação de dados para análise.",
+        ],
+    },
+    "financeiro": {
+        "descricao": (
+            "Oportunidade para apoiar rotinas financeiras, conferência de documentos, organização de planilhas "
+            "e controle de informações com atenção a prazos e qualidade dos dados."
+        ),
+        "requisitos": [
+            "Conhecimento básico em Excel e organização de planilhas.",
+            "Atenção a detalhes, responsabilidade e postura profissional.",
+            "Interesse em controles financeiros, documentos e conferência de dados.",
+            "Boa comunicação para registrar e sinalizar pendências.",
+        ],
+        "responsabilidades": [
+            "Apoiar conferência de documentos, valores e informações em planilhas.",
+            "Registrar pendências e divergências de forma clara.",
+            "Organizar dados financeiros conforme procedimentos internos.",
+            "Apoiar controles e rotinas da área com confidencialidade.",
+        ],
+    },
+    "ti_suporte": {
+        "descricao": (
+            "Oportunidade para atuar com suporte técnico, atendimento a usuários, triagem de chamados, "
+            "diagnóstico de problemas em hardware, software, Windows, redes e pacote Office conforme o nível da vaga."
+        ),
+        "requisitos": [
+            "Conhecimento em hardware, software, Windows e pacote Office.",
+            "Boa comunicação para atendimento ao usuário e registro de chamados.",
+            "Capacidade de diagnosticar problemas com organização e evidências.",
+            "Noções de redes de computadores conforme o nível da vaga.",
+            "Postura colaborativa e foco em solução.",
+        ],
+        "responsabilidades": [
+            "Atender usuários, registrar chamados e acompanhar solicitações técnicas.",
+            "Realizar diagnóstico inicial ou intermediário conforme o nível da vaga.",
+            "Apoiar manutenção de computadores, sistemas, acessos e pacote Office.",
+            "Escalonar incidentes quando necessário e manter comunicação clara sobre o andamento.",
         ],
     },
     "supervisao": {
         "descricao": (
-            "Oportunidade para atuar na conducao de equipe e acompanhamento de indicadores, apoiando a operacao "
-            "na organizacao da rotina, orientacao dos colaboradores e garantia dos padroes de atendimento."
+            "Oportunidade para atuar na condução de equipe e acompanhamento de indicadores, apoiando a operação "
+            "na organização da rotina, orientação dos colaboradores e garantia dos padrões de atendimento."
         ),
         "requisitos": [
-            "Ensino medio completo; superior em andamento ou completo sera diferencial.",
-            "Experiencia anterior com lideranca, monitoria, supervisao ou apoio operacional.",
+            "Ensino médio completo; superior em andamento ou completo será diferencial.",
+            "Experiência anterior com liderança, monitoria, supervisão ou apoio operacional.",
             "Conhecimento de indicadores, controles operacionais e rotina de atendimento.",
-            "Boa comunicacao, organizacao e capacidade de orientar equipes.",
-            "Perfil analitico, postura colaborativa e foco em resultados.",
-            "Disponibilidade para acompanhar a escala e as necessidades da operacao.",
+            "Boa comunicação, organização e capacidade de orientar equipes.",
+            "Perfil analítico, postura colaborativa e foco em resultados.",
+            "Disponibilidade para acompanhar a escala e as necessidades da operação.",
         ],
         "responsabilidades": [
-            "Acompanhar a rotina da equipe e apoiar a distribuicao de atividades.",
-            "Monitorar indicadores, qualidade, produtividade e aderencia aos processos.",
-            "Orientar colaboradores, apoiar duvidas e conduzir alinhamentos operacionais.",
-            "Registrar ocorrencias, acompanhar planos de acao e reportar pontos relevantes.",
-            "Atuar junto a lideranca para manter a operacao organizada e dentro dos padroes definidos.",
+            "Acompanhar a rotina da equipe e apoiar a distribuição de atividades.",
+            "Monitorar indicadores, qualidade, produtividade e aderência aos processos.",
+            "Orientar colaboradores, apoiar dúvidas e conduzir alinhamentos operacionais.",
+            "Registrar ocorrências, acompanhar planos de ação e reportar pontos relevantes.",
+            "Atuar junto à liderança para manter a operação organizada e dentro dos padrões definidos.",
         ],
     },
 }
@@ -101,7 +157,14 @@ def _resolve_job_key(processo: dict | None) -> str:
             normalize_compare_text(safe_process.get("trilha")),
         ],
     )
+    haystack_padded = f" {haystack} "
 
+    if any(term in haystack_padded for term in ("suporte tecnico", "help desk", " ti ", " tecnico")):
+        return "ti_suporte"
+    if any(term in haystack for term in ("comercial", "power bi", "dados comerciais")):
+        return "comercial"
+    if any(term in haystack for term in ("financeiro", "financeira", "controles financeiros")):
+        return "financeiro"
     if any(term in haystack for term in ("supervisor", "supervisao", "lider")):
         return "supervisao"
     if any(term in haystack for term in ("administrativo", "assistente", "auxiliar", "backoffice", "excel")):

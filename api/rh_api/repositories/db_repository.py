@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .analytics import AnalyticsRepositoryMixin
 from .base import BaseRepository
+from .candidate_sheet import CandidateSheetRepositoryMixin
 from .bootstrap import (
     bootstrap_runtime_schema,
     describe_database_error,
@@ -10,23 +11,28 @@ from .bootstrap import (
 from .cv_analysis import CvAnalysisRepositoryMixin
 from .email_inbox import EmailInboxRepositoryMixin
 from .communications import CommunicationRepositoryMixin
+from .generated_exams import GeneratedExamRepositoryMixin
 from .history import HistoryRepositoryMixin
 from .interviews import InterviewRepositoryMixin
 from .pipeline import PipelineRepositoryMixin
 from .processes import ProcessRepositoryMixin
 from .profiles import CandidateProfileRepositoryMixin
 from .public_candidacy import PublicCandidacyRepositoryMixin
+from .security import SecurityRepositoryMixin
 from .talent_bank import TalentBankRepositoryMixin
 
 
 class DatabaseRepository(
+    SecurityRepositoryMixin,
     HistoryRepositoryMixin,
     ProcessRepositoryMixin,
     TalentBankRepositoryMixin,
     CandidateProfileRepositoryMixin,
+    CandidateSheetRepositoryMixin,
     CvAnalysisRepositoryMixin,
     EmailInboxRepositoryMixin,
     CommunicationRepositoryMixin,
+    GeneratedExamRepositoryMixin,
     AnalyticsRepositoryMixin,
     PipelineRepositoryMixin,
     InterviewRepositoryMixin,

@@ -9,10 +9,11 @@
 import { requisitar, invalidarCacheApi } from './services/api/core.js';
 
 export async function criarBancoTalentos(dadosCandidato) {
+  const { id_banco, ...payload } = dadosCandidato || {};
   const resultado = await requisitar('/talent-bank', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(dadosCandidato || {}),
+    body: JSON.stringify(payload),
   });
 
   invalidarCacheApi(
@@ -45,11 +46,32 @@ export {
   salvarHistorico,
 } from './services/api/history.js';
 export {
+  acessarProvaPorCodigo,
+  acessarProvaPorEmail,
+  acessarProvaPorTelefone,
+  cancelarProvaGerada,
+  confirmarDadosConectaProvas,
+  criarProvaGerada,
+  finalizarConectaProvas,
+  iniciarConectaProvas,
+  lerProvaGerada,
+  lerSessaoConectaProvas,
+  listarProvasGeradas,
+  marcarRevisaoConectaProvas,
+  reabrirProvaGerada,
+  recalcularScoreProva,
+  registrarDecisaoRhProva,
+  salvarAvaliacaoManualProva,
+  salvarRespostasConectaProvas,
+} from './services/api/generated-exams.js';
+export {
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
   analisarCvEmailRecebido,
   analisarCvEmailRecebidoGeral,
   analisarCvProcesso,
+  atualizarAnotacaoDossieProcesso,
+  atualizarFichaCandidato,
   atualizarPerfilCandidato,
   atualizarPreAnaliseCv,
   atualizarProcesso,
@@ -58,8 +80,10 @@ export {
   baixarCvCandidato,
   baixarAnexoEmailRecebido,
   criarCandidatoNoProcesso,
+  criarAnotacaoDossieProcesso,
   criarProcesso,
   desativarLinkPublicoCandidatura,
+  dispensarPreAnaliseCv,
   encerrarProcesso,
   excluirPreAnaliseCv,
   enviarEmailRecebidoBancoTalentos,
@@ -68,16 +92,20 @@ export {
   enviarEmailAprovacao,
   ignorarEmailRecebido,
   lerBancoTalentos,
+  lerAnotacoesDossieProcesso,
   lerCandidatosProcessos,
   lerDetalheProcesso,
   lerDetalheEmailRecebido,
   lerEmailsRecebidos,
   lerEmailsRecebidosProcesso,
+  lerFichaCandidato,
   lerPreAnalisesCv,
   lerProcessos,
   limparListaPreAnalisesCv,
   registrarWhatsappAprovacao,
+  registrarWhatsappContatoManual,
   removerBancoTalentos,
+  uploadCvCandidato,
   usarCandidatoDoBancoTalentos,
   excluirEmailRecebido,
   vincularEmailRecebidoProcesso,
@@ -109,3 +137,21 @@ export {
   lerEntrevistas,
   lerSlotsEntrevista,
 } from './services/api/interviews.js';
+export {
+  alterarStatusUsuario,
+  atualizarItemConfiguracao,
+  atualizarPermissoesPerfil,
+  atualizarUsuario,
+  baixarLogsAuditoria,
+  criarItemConfiguracao,
+  criarUsuario,
+  desativarItemConfiguracao,
+  excluirUsuario,
+  listarCatalogoConfiguracoes,
+  listarLogsAuditoria,
+  listarPerfis,
+  listarPermissoes,
+  listarUsuarios,
+  redefinirSenhaUsuario,
+  registrarSolicitacaoLgpd,
+} from './services/api/settings.js';

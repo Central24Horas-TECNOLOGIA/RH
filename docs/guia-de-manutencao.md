@@ -94,24 +94,28 @@ Todas as queries do banco ficam em `api/rh_api/repositories/`, separadas por dom
 5. Registre o router em `api/rh_api/main.py`.
 6. Adicione testes em `api/tests/`.
 
-## Como rodar frontend e backend
+## Como rodar o sistema
 
-### Backend
+### Comando unico
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
+python run.py
 ```
 
-### Frontend
+Abra `http://127.0.0.1:8010`.
+
+O backend FastAPI serve a API e o frontend `Front/` no mesmo processo.
+
+### Desenvolvimento com reload
 
 ```powershell
-python -m http.server 5500
+python run.py --reload
 ```
 
-Abra `http://127.0.0.1:5500/Front/index.html#/login`.
+Em servidor interno ou producao, use `--no-reload`.
 
 ## Como rodar os testes
 

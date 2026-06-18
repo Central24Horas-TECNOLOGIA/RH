@@ -1,21 +1,15 @@
-# Documentação Conecta C24h - RH
+# Documentacao Conecta C24h - RH
 
-> Gerado a partir da análise do pacote `RH(20).zip`. Esta documentação descreve o sistema existente, seus fluxos, telas, APIs, banco, código, testes, operação e manual do usuário.
-
-
-## Arquitetura lógica
+## Arquitetura logica
 
 ```text
-Usuário/RH/Candidato
+Usuario/RH/Candidato
         |
         v
-Frontend estático - Front/index.html + JS modular
+FastAPI - ponto unico em run.py
         |
-        v
-Cliente HTTP - Front/fonte/services/api/*
-        |
-        v
-Backend FastAPI - api/rh_api/routers/*
+        |-- Frontend estatico - Front/index.html, estilos/, fonte/, Exames/
+        |-- API - api/rh_api/routers/*
         |
         v
 Services - api/rh_api/services/*
@@ -31,70 +25,76 @@ SQL Server + armazenamento local de arquivos
 
 | Arquivo/Pasta | Papel |
 |---|---|
-| `Front/index.html` | Entrada da aplicação. |
+| `Front/index.html` | Entrada da aplicacao. |
+| `Front/runtime-config.js` | Configuracao segura para execucao standalone. |
 | `Front/fonte/principal.js` | Inicializa o root. |
-| `Front/fonte/aplicacao.js` | Monta a aplicação principal. |
+| `Front/fonte/aplicacao.js` | Monta a aplicacao principal. |
 | `Front/fonte/app/aplicacao-raiz.js` | Decide qual tela renderizar. |
-| `Front/fonte/app/controlador-aplicacao.js` | Estado, navegação e orquestração. |
-| `Front/fonte/features/*` | Telas por domínio. |
-| `Front/fonte/services/api/*` | Comunicação HTTP com backend. |
+| `Front/fonte/app/controlador-aplicacao.js` | Estado, navegacao e orquestracao. |
+| `Front/fonte/features/*` | Telas por dominio. |
+| `Front/fonte/services/api/*` | Comunicacao HTTP com backend por URL relativa. |
 | `Front/fonte/ui/*` | Layout, modais, feedback, tour e busca. |
 
 ## Camadas do backend
 
 | Arquivo/Pasta | Papel |
 |---|---|
-| `api/app.py` | Entrypoint do Uvicorn. |
-| `api/rh_api/main.py` | Cria app, middlewares, handlers e routers. |
+| `run.py` | Entrada unica para iniciar FastAPI + frontend. |
+| `start_conecta.ps1` | Script Windows para iniciar o sistema. |
+| `api/app.py` | Entrypoint compativel com Uvicorn. |
+| `api/rh_api/main.py` | Cria app, middlewares, handlers, routers e arquivos estaticos. |
+| `api/rh_api/config.py` | Le `.env`, `config.ini` e variaveis de ambiente. |
 | `api/rh_api/routers/*` | Endpoints HTTP. |
-| `api/rh_api/schemas/*` | Contratos de entrada/saída. |
+| `api/rh_api/schemas/*` | Contratos de entrada/saida. |
 | `api/rh_api/services/*` | Regras auxiliares. |
-| `api/rh_api/repositories/*` | SQL e persistência. |
-| `api/rh_api/db.py` | Conexão com SQL Server. |
+| `api/rh_api/repositories/*` | SQL e persistencia. |
+| `api/rh_api/db.py` | Conexao com SQL Server. |
 
-## Configurações principais
+## Configuracoes principais
 
-| Configuração | Finalidade |
+| Configuracao | Finalidade |
 |---|---|
-| `RH_SQL_SERVER` | Servidor/instância SQL. |
-| `RH_SQL_DATABASE` | Banco de dados. |
-| `RH_SQL_DRIVER` | Driver ODBC. |
-| `RH_AUTH_USER` / `RH_AUTH_PASSWORD` | Login local do RH. |
+| `RH_APP_ENV` | Ambiente: `development`, `server`, `test` ou `production`. |
+| `RH_SERVER_HOST` / `RH_SERVER_PORT` | Host e porta do servidor unico. |
+| `RH_SERVER_RELOAD` | Reload automatico, apenas para desenvolvimento. |
+| `RH_SERVE_FRONTEND` / `RH_FRONTEND_DIR` | Controle do frontend servido pelo FastAPI. |
+| `RH_FRONTEND_API_BASE_URL` | URL base da API; vazio para mesma origem. |
+| `RH_SQL_SERVER` / `RH_SQL_DATABASE` / `RH_SQL_DRIVER` | Conexao SQL Server. |
+| `RH_AUTH_USER` / `RH_AUTH_PASSWORD` | Bootstrap/local fallback de login. |
 | `RH_AUTH_TOKEN_SECRET` | Segredo do token. |
-| `RH_CORS_ALLOW_ORIGINS` | Origens permitidas. |
+| `RH_CORS_ALLOW_ORIGINS` | Origens externas permitidas, quando necessarias. |
 | `RH_CONFIG_INI` | Caminho opcional para config central. |
-| `RH_EMAIL_CLIENT_SECRET` | Segredo da integração de e-mail, idealmente fora do arquivo. |
 
 ## Como rodar
-
-### Backend
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
+python run.py
 ```
 
-### Frontend
+Com reload de desenvolvimento:
 
 ```powershell
-python -m http.server 5500
+python run.py --reload
 ```
 
 Acesso:
 
 ```text
-http://127.0.0.1:5500/Front/index.html#/login
+http://127.0.0.1:8010
 ```
 
-## Implantação recomendada
+## Implantacao recomendada
 
-1. Separar pasta de código de pasta de anexos/CVs.
-2. Configurar `.env`/`config.ini` no servidor.
-3. Criar venv e instalar dependências.
-4. Validar conexão ODBC com SQL Server.
-5. Subir API com Uvicorn/serviço.
-6. Servir frontend por IIS ou servidor estático.
+1. Separar pasta de codigo de pasta de anexos/CVs.
+2. Configurar `.env` ou `config.ini` no servidor.
+3. Criar venv e instalar dependencias.
+4. Validar conexao ODBC com SQL Server.
+5. Subir `run.py` sem `--reload` como processo ou servico.
+6. Usar proxy reverso somente se houver necessidade de dominio, HTTPS ou balanceamento.
 7. Testar login, processos, CV, e-mails, prova e entrevistas.
 8. Configurar backup de banco e arquivos.
+
+Detalhes operacionais: `docs/DEPLOY_CONECTA.md`.

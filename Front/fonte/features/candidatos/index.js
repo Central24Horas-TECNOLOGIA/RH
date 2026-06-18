@@ -8,18 +8,21 @@ import {
   atualizarPerfilCandidato,
   atualizarStatusCandidato,
   atualizarStatusCandidatoAvulso,
+  analisarCvCandidatoInscrito,
   baixarCvCandidato,
   criarBancoTalentos,
   criarCandidatoNoProcesso,
   lerBancoTalentos,
   lerCandidatosProcessos,
   lerEntrevistas,
+  lerFichaCandidato,
   lerHistorico,
   lerProcessos,
   removerBancoTalentos,
+  uploadCvCandidato,
   usarCandidatoDoBancoTalentos,
 } from '../../servico-api.js';
-import { baixarBlob } from '../../utilitarios.js';
+import { baixarBlob, obterItensPaginados } from '../../utilitarios.js';
 import {
   EmptyState,
   MetricGrid,
@@ -39,6 +42,7 @@ import {
   canonicalizeCandidateStatus,
   getCandidateActionState,
   getCandidateVisibleStatus,
+  isProcessClosed,
 } from '../../shared/process-flow.js';
 import { abrirBlobEmNovaGuia } from '../../shared/browser-utils.js';
 import {
@@ -55,10 +59,75 @@ function normalizarTexto(valor) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function mascararEmailContato(valor) {
+  const texto = String(valor || '').trim();
+  if (!texto) return '-';
+  const [usuario, dominio] = texto.split('@');
+  if (!usuario || !dominio) return '***';
+  const prefixoUsuario = usuario.slice(0, Math.min(2, usuario.length));
+  const partesDominio = dominio.split('.');
+  const dominioBase = partesDominio.shift() || '';
+  const sufixoDominio = partesDominio.length ? `.${partesDominio.join('.')}` : '';
+  return `${prefixoUsuario}${'*'.repeat(Math.max(3, usuario.length - prefixoUsuario.length))}@${dominioBase.slice(0, 1)}***${sufixoDominio}`;
+}
+
+function mascararTelefoneContato(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  if (!digitos) return '-';
+  if (digitos.length <= 4) return '****';
+  const ultimos = digitos.slice(-4);
+  const ddd = digitos.length >= 10 ? `(${digitos.slice(-11, -9)}) ` : '';
+  return `${ddd}*****-${ultimos}`;
+}
+
 const MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO =
   'Este candidato já foi aprovado. Para alterar sua situação, será necessário um novo cadastro ou atualização manual.';
 const MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO =
   'Processo encerrado. Movimentações não são permitidas.';
+const CHAVE_DETALHE_CANDIDATO_RH = 'rh_candidate_detail';
+const TAMANHO_PAGINA_CANDIDATOS_CENTRAL = 10;
+const CLASSIFICACOES_RH_CANDIDATO = [
+  'Indicado',
+  'Indicado com restrições',
+  'Contraindicado',
+];
+
+function isCandidatoIndicacao(candidato) {
+  return Boolean(candidato?.eh_indicacao) ||
+    Boolean(String(candidato?.tipo_indicacao || '').trim());
+}
+
+function isCandidatoManualmenteQualificado(candidato) {
+  const origem = normalizarTexto(candidato?.origem);
+  const origemRotulo = normalizarTexto(candidato?.origem_rotulo);
+  const observacao = normalizarTexto(candidato?.observacao_rh);
+  return Boolean(
+    candidato?.manual_override ||
+    candidato?.qualificacao_manual ||
+    origem.includes('uso manual rh') ||
+    origemRotulo.includes('uso manual rh') ||
+    observacao.includes('utilizado manualmente pelo rh'),
+  );
+}
+
+function montarTagsOperacionaisCandidato(candidato) {
+  return [
+    isCandidatoManualmenteQualificado(candidato)
+      ? {
+        chave: 'manualmente-qualificado',
+        label: 'Manualmente Qualificado',
+        className: 'candidate-manual-qualified-chip',
+      }
+      : null,
+    isCandidatoIndicacao(candidato)
+      ? {
+        chave: 'indicacao',
+        label: 'Indicação',
+        className: 'candidate-indication-chip',
+      }
+      : null,
+  ].filter(Boolean);
+}
 
 function candidatoEstaAprovado(candidato) {
   return (
@@ -99,7 +168,13 @@ function possuiReferenciaProcessoReal(candidato) {
   ).trim();
 
   if (!referencia) return false;
-  return normalizarTexto(referencia) !== 'processo_unico';
+  return ![
+    '-',
+    'sem processo',
+    'sem processo vinculado',
+    'processo unico',
+    'processo_unico',
+  ].includes(normalizarTexto(referencia));
 }
 
 function candidatoPodeAtrelar(candidato) {
@@ -127,77 +202,146 @@ function renderizarAcoesCandidatoCentral({
   candidato,
   salvando,
   onDetalhes,
+  onEditar,
   onAprovar,
   onEliminar,
   onBanco,
   onAtrelar,
+  controlador,
 }) {
   const estadoAcoes = obterEstadoAcoesCentral(candidato);
+  const podeAprovar = controlador?.possuiPermissao?.('candidatos.aprovar_final');
+  const podeEliminar = controlador?.possuiPermissao?.('candidatos.eliminar');
+  const podeMover = controlador?.possuiPermissao?.('candidatos.mover_etapa');
+  const podeCriar = controlador?.possuiPermissao?.('candidatos.criar');
+  const podeEditar = controlador?.possuiAlgumaPermissao?.(
+    'candidatos.editar',
+    'candidatos.editar_basico',
+    'candidatos.editar_admissional',
+  );
+  const acoes = [
+    {
+      valor: 'detalhes',
+      label: 'Ver detalhes',
+      executar: () => onDetalhes(candidato),
+    },
+  ];
+
+  if (podeEditar && candidato?.id_teste && typeof onEditar === 'function') {
+    acoes.push({
+      valor: 'editar',
+      label: 'Editar',
+      executar: () => onEditar(candidato),
+    });
+  }
+
+  if (estadoAcoes.canApprove && podeAprovar) {
+    acoes.push({
+      valor: 'aprovar',
+      label: 'Aprovar',
+      disabled: salvando,
+      executar: () => onAprovar(candidato),
+    });
+  }
+
+  if (
+    estadoAcoes.canSendToTalentBank &&
+    candidato.origem_cadastro !== 'banco' &&
+    candidato.id_teste &&
+    podeMover
+  ) {
+    acoes.push({
+      valor: 'banco',
+      label: 'Enviar ao Banco',
+      disabled: salvando,
+      executar: () => onBanco(candidato),
+    });
+  }
+
+  if (candidatoPodeAtrelar(candidato) && podeCriar) {
+    acoes.push({
+      valor: 'atrelar',
+      label: 'Adicionar a processo seletivo',
+      disabled: salvando,
+      executar: () => onAtrelar(candidato),
+    });
+  }
+
+  if (estadoAcoes.canEliminate && podeEliminar) {
+    acoes.push({
+      valor: 'descartar',
+      label: 'Descartar',
+      disabled: salvando,
+      executar: () => onEliminar(candidato),
+    });
+  }
 
   return html`
-    <div class="btn-group btn-group-sm">
-      <button
-        type="button"
-        class="btn btn-outline-primary"
-        title="Ver detalhes"
-        onClick=${() => onDetalhes(candidato)}
-      >
-        Detalhes
-      </button>
-      ${estadoAcoes.canApprove
-        ? html`
-            <button
-              type="button"
-              class="btn btn-outline-success"
-              title="Aprovar"
-              disabled=${salvando}
-              onClick=${() => onAprovar(candidato)}
-            >
-              Aprovar
-            </button>
-          `
-        : null}
-      ${estadoAcoes.canEliminate
-        ? html`
-            <button
-              type="button"
-              class="btn btn-outline-danger"
-              title="Eliminar"
-              disabled=${salvando}
-              onClick=${() => onEliminar(candidato)}
-            >
-              Eliminar
-            </button>
-          `
-        : null}
-      ${estadoAcoes.canSendToTalentBank &&
-      candidato.origem_cadastro !== 'banco' &&
-      candidato.id_teste
-        ? html`
-            <button
-              type="button"
-              class="btn btn-outline-warning"
-              title="Banco de Talentos"
-              disabled=${salvando}
-              onClick=${() => onBanco(candidato)}
-            >
-              Banco
-            </button>
-          `
-        : null}
-      ${candidatoPodeAtrelar(candidato)
-        ? html`
-            <button
-              type="button"
-              class="btn btn-outline-secondary"
-              title="Atrelar a processo"
-              disabled=${salvando}
-              onClick=${() => onAtrelar(candidato)}
-            >
-              Atrelar
-            </button>
-          `
-        : null}
+    <select
+      class="form-select form-select-sm candidate-row-action-select"
+      aria-label=${`Ações para ${candidato.nome_candidato || 'candidato'}`}
+      value=""
+      onChange=${(event) => {
+        const acaoSelecionada = acoes.find(
+          (acao) => acao.valor === event.target.value,
+        );
+        event.target.value = '';
+        if (!acaoSelecionada || acaoSelecionada.disabled) return;
+        acaoSelecionada.executar();
+      }}
+    >
+      <option value="">Ações</option>
+      ${acoes.map(
+        (acao) => html`
+          <option key=${acao.valor} value=${acao.valor} disabled=${!!acao.disabled}>
+            ${acao.label}
+          </option>
+        `,
+      )}
+    </select>
+  `;
+}
+
+function PaginacaoCompacta({
+  paginaAtual = 1,
+  totalPaginas = 1,
+  totalItens = 0,
+  tamanhoPagina = 1,
+  itensNaPagina = 0,
+  onChange,
+}) {
+  const total = Number(totalItens || 0);
+  if (!total || total <= Math.max(1, Number(tamanhoPagina || 1))) return null;
+
+  const totalPaginasSeguro = Math.max(1, Number(totalPaginas || 1));
+  const paginaSegura = Math.min(Math.max(1, Number(paginaAtual || 1)), totalPaginasSeguro);
+  const inicio = ((paginaSegura - 1) * Math.max(1, Number(tamanhoPagina || 1))) + 1;
+  const fim = Math.min(total, inicio + Math.max(0, Number(itensNaPagina || 0)) - 1);
+  const podeVoltar = paginaSegura > 1;
+  const podeAvancar = paginaSegura < totalPaginasSeguro;
+
+  return html`
+    <div class="c24-pagination-bar">
+      <span>Mostrando ${inicio}-${fim} de ${total}</span>
+      <div class="c24-pagination-actions">
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          disabled=${!podeVoltar}
+          onClick=${() => podeVoltar && onChange?.(paginaSegura - 1)}
+        >
+          Anterior
+        </button>
+        <span class="c24-pagination-current">${paginaSegura} de ${totalPaginasSeguro}</span>
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          disabled=${!podeAvancar}
+          onClick=${() => podeAvancar && onChange?.(paginaSegura + 1)}
+        >
+          Próximo
+        </button>
+      </div>
     </div>
   `;
 }
@@ -210,17 +354,33 @@ function renderizarAcoesRapidasDetalhe({
   onBanco,
   onEditar,
   onAtrelar,
+  controlador,
+  mostrarEditar = true,
 }) {
   const estadoAcoes = obterEstadoAcoesCentral(detalhe);
+  const podeAprovar = controlador?.possuiPermissao?.('candidatos.aprovar_final');
+  const podeEliminar = controlador?.possuiPermissao?.('candidatos.eliminar');
+  const podeMover = controlador?.possuiPermissao?.('candidatos.mover_etapa');
+  const podeEditarPermissao = controlador?.possuiAlgumaPermissao?.(
+    'candidatos.editar',
+    'candidatos.editar_basico',
+    'candidatos.editar_admissional',
+  );
+  const podeCriar = controlador?.possuiPermissao?.('candidatos.criar');
   const podeEditar =
-    !estadoAcoes.processClosed && !estadoAcoes.isFinalized && detalhe?.id_teste;
+    mostrarEditar &&
+    podeEditarPermissao &&
+    !estadoAcoes.processClosed &&
+    !estadoAcoes.isFinalized &&
+    detalhe?.id_teste;
   const temMovimentacao =
-    estadoAcoes.canApprove ||
-    estadoAcoes.canEliminate ||
+    (estadoAcoes.canApprove && podeAprovar) ||
+    (estadoAcoes.canEliminate && podeEliminar) ||
     (estadoAcoes.canSendToTalentBank &&
       detalhe.origem_cadastro !== 'banco' &&
-      detalhe.id_teste) ||
-    candidatoPodeAtrelar(detalhe) ||
+      detalhe.id_teste &&
+      podeMover) ||
+    (candidatoPodeAtrelar(detalhe) && podeCriar) ||
     podeEditar;
 
   if (!temMovimentacao) {
@@ -235,7 +395,7 @@ function renderizarAcoesRapidasDetalhe({
 
   return html`
     <div class="rh-modal-footer-actions">
-      ${estadoAcoes.canApprove
+      ${estadoAcoes.canApprove && podeAprovar
         ? html`
             <button
               type="button"
@@ -247,7 +407,7 @@ function renderizarAcoesRapidasDetalhe({
             </button>
           `
         : null}
-      ${estadoAcoes.canEliminate
+      ${estadoAcoes.canEliminate && podeEliminar
         ? html`
             <button
               type="button"
@@ -261,7 +421,8 @@ function renderizarAcoesRapidasDetalhe({
         : null}
       ${estadoAcoes.canSendToTalentBank &&
       detalhe.origem_cadastro !== 'banco' &&
-      detalhe.id_teste
+      detalhe.id_teste &&
+      podeMover
         ? html`
             <button
               type="button"
@@ -285,7 +446,7 @@ function renderizarAcoesRapidasDetalhe({
             </button>
           `
         : null}
-      ${candidatoPodeAtrelar(detalhe)
+      ${candidatoPodeAtrelar(detalhe) && podeCriar
         ? html`
             <button
               type="button"
@@ -293,7 +454,7 @@ function renderizarAcoesRapidasDetalhe({
               disabled=${salvando}
               onClick=${() => onAtrelar(detalhe)}
             >
-              Atrelar a processo
+              Adicionar a processo seletivo
             </button>
           `
         : null}
@@ -357,13 +518,41 @@ function obterVagaBancoTalentos(candidato) {
   return candidato?.vaga || obterOrigemBancoTalentos(candidato) || 'Processo Unico';
 }
 
+function obterProcessoPorReferencia(processosPorReferencia, referencia) {
+  const chave = String(referencia || '').trim();
+  if (!chave || !processosPorReferencia) return null;
+
+  if (processosPorReferencia instanceof Map) {
+    return processosPorReferencia.get(chave) || null;
+  }
+
+  if (Array.isArray(processosPorReferencia)) {
+    return processosPorReferencia.find((processo) =>
+      [
+        obterReferenciaProcesso(processo),
+        processo?.id_processo_ref,
+        processo?.id_processo,
+      ].some((valor) => String(valor || '').trim() === chave),
+    ) || null;
+  }
+
+  if (typeof processosPorReferencia === 'object') {
+    return processosPorReferencia[chave] || null;
+  }
+
+  return null;
+}
+
 function montarCandidatoDeProcesso(item, processosPorReferencia) {
   const processoReferencia = String(
     item.id_processo_ref || item.id_processo || '',
   ).trim();
   const processo =
-    processosPorReferencia.get(processoReferencia) ||
-    processosPorReferencia.get(String(item.id_processo || '').trim()) ||
+    obterProcessoPorReferencia(processosPorReferencia, processoReferencia) ||
+    obterProcessoPorReferencia(
+      processosPorReferencia,
+      String(item.id_processo || '').trim(),
+    ) ||
     null;
   const statusProcesso = processo?.status || item.status_processo || '';
   const estadoAcoes = getCandidateActionState(
@@ -424,7 +613,7 @@ function montarCandidatoDoBanco(item) {
     nome_candidato: item.nome_candidato || '-',
     status_visivel: CANDIDATE_STATUS_TALENT_BANK,
     id_processo_ref: item.id_processo_ref || item.id_processo || '',
-    processo_nome: item.id_processo || '-',
+    processo_nome: item.id_processo || 'Sem processo vinculado',
     vaga: item.vaga || '-',
     nota_exibicao: obterNotaCandidato(item),
     classificacao_exibicao: obterClassificacaoCandidato(item),
@@ -446,6 +635,7 @@ function montarCandidatoDoBanco(item) {
 }
 
 function montarCandidatoDoHistorico(item) {
+  const possuiProcesso = possuiReferenciaProcessoReal(item);
   const statusHistorico = canonicalizeCandidateStatus(
     item.status_candidato || item.status,
   );
@@ -456,14 +646,14 @@ function montarCandidatoDoHistorico(item) {
   const statusVisivel =
     estadoHistorico.isFinalized
       ? statusHistorico
-      : item.id_processo
+      : possuiProcesso
         ? 'Em processo'
         : 'Sem processo vinculado';
   const estadoAcoes = getCandidateActionState(
     { ...item, status_candidato: statusVisivel },
     '',
   );
-  const podeAtrelar = !possuiReferenciaProcessoReal(item) && estadoAcoes.canAttach;
+  const podeAtrelar = !possuiProcesso && estadoAcoes.canAttach;
 
   return {
     ...item,
@@ -473,7 +663,7 @@ function montarCandidatoDoHistorico(item) {
     nome_candidato: item.nome_candidato || '-',
     status_visivel: statusVisivel,
     id_processo_ref: item.id_processo_ref || item.id_processo || '',
-    processo_nome: item.id_processo || '-',
+    processo_nome: item.id_processo || 'Sem processo vinculado',
     vaga: item.vaga || '-',
     nota_exibicao: obterNotaCandidato(item),
     classificacao_exibicao: obterClassificacaoCandidato(item),
@@ -542,9 +732,17 @@ function SelectProcesso({ processos, valor, onChange, disabled = false }) {
       ${processos.map((processo) => {
         const referencia = obterReferenciaProcesso(processo);
         const rotulo = [
-          processo.id_processo || 'Processo',
-          processo.vaga ? `| ${processo.vaga}` : '',
-          processo.operacao ? `| ${processo.operacao}` : '',
+          processo.id_processo || processo.nome || 'Processo',
+          processo.vaga ? `| Vaga: ${processo.vaga}` : '',
+          processo.operacao || processo.cliente
+            ? `| ${processo.operacao || processo.cliente}`
+            : '',
+          processo.data_criacao ? `| Início: ${processo.data_criacao}` : '',
+          processo.data_encerramento ? `| Enc.: ${processo.data_encerramento}` : '',
+          processo.quantidade_vagas || processo.vagas
+            ? `| Vagas: ${processo.vagas_preenchidas || 0}/${processo.quantidade_vagas || processo.vagas}`
+            : '',
+          processo.status ? `| ${processo.status}` : '',
         ]
           .filter(Boolean)
           .join(' ');
@@ -578,8 +776,58 @@ function montarFormularioPerfil(candidato) {
     cidade: candidato?.cidade || '',
     bairro: candidato?.bairro || '',
     observacao_rh: candidato?.observacao_rh || '',
+    classificacao_indicacao: candidato?.classificacao_indicacao || '',
+    justificativa_indicacao: candidato?.justificativa_indicacao || '',
     habilidades: listaParaTexto(candidato?.habilidades || []),
     tags: listaParaTexto(candidato?.tags || []),
+  };
+}
+
+function aplicarDadosFichaAoCandidato(candidato, ficha) {
+  if (!ficha?.candidato) return candidato || {};
+  const dados = ficha.candidato || {};
+  const avaliacao = ficha.avaliacao_rh || {};
+  const curriculo = dados.curriculo || {};
+  const processos = Array.isArray(ficha.processos) ? ficha.processos : [];
+  const processoComIndicacao = processos.find(isCandidatoIndicacao) || {};
+  const processoManual = processos.find(isCandidatoManualmenteQualificado) || {};
+
+  return {
+    ...(candidato || {}),
+    nome_candidato: dados.nome_candidato || candidato?.nome_candidato || '',
+    email: dados.email || candidato?.email || '',
+    telefone: dados.telefone || candidato?.telefone || '',
+    whatsapp: dados.whatsapp || candidato?.whatsapp || '',
+    cidade: dados.cidade || candidato?.cidade || '',
+    bairro: dados.bairro || candidato?.bairro || '',
+    observacao_rh:
+      avaliacao.observacoes !== undefined
+        ? avaliacao.observacoes || ''
+        : candidato?.observacao_rh || '',
+    classificacao_indicacao:
+      avaliacao.classificacao || candidato?.classificacao_indicacao || '',
+    justificativa_indicacao:
+      avaliacao.justificativa || candidato?.justificativa_indicacao || '',
+    cv_disponivel:
+      curriculo.disponivel !== undefined
+        ? !!curriculo.disponivel
+        : !!candidato?.cv_disponivel,
+    cv_nome_arquivo:
+      curriculo.nome_arquivo || candidato?.cv_nome_arquivo || '',
+    cv_score_final:
+      dados.nota_curriculo || candidato?.cv_score_final || '',
+    nota_exibicao:
+      dados.nota_curriculo || candidato?.nota_exibicao || '',
+    classificacao_exibicao:
+      dados.status_curriculo || candidato?.classificacao_exibicao || '',
+    eh_indicacao:
+      Boolean(candidato?.eh_indicacao) || Boolean(processoComIndicacao.eh_indicacao),
+    tipo_indicacao:
+      candidato?.tipo_indicacao || processoComIndicacao.tipo_indicacao || '',
+    origem:
+      candidato?.origem || processoManual.origem || '',
+    origem_rotulo:
+      candidato?.origem_rotulo || processoManual.origem || '',
   };
 }
 
@@ -724,7 +972,7 @@ function abrirFichaImpressao(candidato, dossie) {
     <html lang="pt-BR">
       <head>
         <meta charset="utf-8" />
-        <title>Ficha do candidato</title>
+        <title>Dossiê do candidato</title>
         <style>
           body { font-family: Arial, sans-serif; color: #172033; margin: 32px; }
           h1 { font-size: 24px; margin: 0 0 6px; }
@@ -739,9 +987,9 @@ function abrirFichaImpressao(candidato, dossie) {
         </style>
       </head>
       <body>
-        <button onclick="window.print()">Imprimir ficha</button>
+        <button onclick="window.print()">Imprimir / salvar dossiê</button>
         <h1>${escaparHtml(candidato.nome_candidato || 'Candidato')}</h1>
-        <p>Ficha consolidada do candidato</p>
+        <p>Dossiê consolidado do candidato</p>
         <div class="grid">
           <p><strong>Status:</strong> ${escaparHtml(candidato.status_visivel || '-')}</p>
           <p><strong>Processo:</strong> ${escaparHtml(candidato.processo_nome || '-')}</p>
@@ -751,7 +999,11 @@ function abrirFichaImpressao(candidato, dossie) {
           <p><strong>Email:</strong> ${escaparHtml(candidato.email || '-')}</p>
           <p><strong>Telefone:</strong> ${escaparHtml(candidato.telefone || candidato.whatsapp || '-')}</p>
           <p><strong>CV:</strong> ${escaparHtml(candidato.cv_nome_arquivo || 'Sem CV anexado')}</p>
+          <p><strong>Classificação do RH:</strong> ${escaparHtml(candidato.classificacao_indicacao || '-')}</p>
         </div>
+
+        <h2>Avaliação do RH</h2>
+        <p><strong>Justificativa / observações do RH:</strong> ${escaparHtml(candidato.justificativa_indicacao || candidato.observacao_rh || '-')}</p>
 
         <h2>Alertas</h2>
         ${ficha.alertas.map((alerta) => `<div class="alerta">${escaparHtml(alerta)}</div>`).join('')}
@@ -818,6 +1070,660 @@ function abrirFichaImpressao(candidato, dossie) {
   janela.focus();
 }
 
+export function TelaDetalhesCandidato({ controlador }) {
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [fontes, setFontes] = useState({
+    historico: [],
+    candidatosProcessos: [],
+    bancoTalentos: [],
+    entrevistas: [],
+  });
+  const [candidato, setCandidato] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem(CHAVE_DETALHE_CANDIDATO_RH) || '{}');
+    } catch (error) {
+      return {};
+    }
+  });
+  const [formPerfil, setFormPerfil] = useState(() => montarFormularioPerfil(candidato));
+  const [salvando, setSalvando] = useState(false);
+  const [processosAbertos, setProcessosAbertos] = useState([]);
+  const [modalVinculoAberto, setModalVinculoAberto] = useState(false);
+  const [processoSelecionado, setProcessoSelecionado] = useState('');
+  const [salvandoVinculo, setSalvandoVinculo] = useState(false);
+  const [camposPerfilAlterados, setCamposPerfilAlterados] = useState({});
+  const [arquivoCvFicha, setArquivoCvFicha] = useState(null);
+  const [enviandoCvFicha, setEnviandoCvFicha] = useState(false);
+  const [analisandoCvFicha, setAnalisandoCvFicha] = useState(false);
+
+  const carregar = async () => {
+    setCarregando(true);
+    setErro('');
+    try {
+      const [historicoResp, candidatosResp, bancoResp, entrevistasResp, processosResp] =
+        await Promise.allSettled([
+          lerHistorico(),
+          lerCandidatosProcessos(true),
+          lerBancoTalentos(),
+          lerEntrevistas(),
+          lerProcessos(true),
+        ]);
+      const historico = historicoResp.status === 'fulfilled' && Array.isArray(historicoResp.value) ? historicoResp.value : [];
+      const candidatosProcessos = candidatosResp.status === 'fulfilled' && Array.isArray(candidatosResp.value) ? candidatosResp.value : [];
+      const bancoTalentos = bancoResp.status === 'fulfilled' && Array.isArray(bancoResp.value) ? bancoResp.value : [];
+      const entrevistas = entrevistasResp.status === 'fulfilled' && Array.isArray(entrevistasResp.value) ? entrevistasResp.value : [];
+      const processos = processosResp.status === 'fulfilled' && Array.isArray(processosResp.value) ? processosResp.value : [];
+      const processosPorReferencia = processos.reduce((mapa, processo) => {
+        const referencia = obterReferenciaProcesso(processo);
+        if (referencia) mapa.set(referencia, processo);
+        if (processo.id_processo) {
+          mapa.set(String(processo.id_processo), processo);
+        }
+        return mapa;
+      }, new Map());
+      const candidatosUnificados = [
+        ...historico.map(montarCandidatoDoHistorico),
+        ...bancoTalentos.map(montarCandidatoDoBanco),
+        ...candidatosProcessos.map((item) => montarCandidatoDeProcesso(item, processosPorReferencia)),
+      ];
+      const base = candidato || {};
+      const atualizado = candidatosUnificados.find((item) => mesmoCandidato(item, base)) || base;
+      let consolidado = { ...base, ...atualizado };
+      if (consolidado.id_teste) {
+        const ficha = await lerFichaCandidato(consolidado.id_teste).catch(() => null);
+        if (ficha) {
+          consolidado = aplicarDadosFichaAoCandidato(consolidado, ficha);
+        }
+      }
+
+      setFontes({ historico, candidatosProcessos, bancoTalentos, entrevistas });
+      setProcessosAbertos(processos.filter((processo) => !isProcessClosed(processo)));
+      setCandidato(consolidado);
+      setFormPerfil(montarFormularioPerfil(consolidado));
+      setCamposPerfilAlterados({});
+      sessionStorage.setItem(CHAVE_DETALHE_CANDIDATO_RH, JSON.stringify(consolidado));
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível carregar os detalhes do candidato.');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => {
+    carregar();
+  }, []);
+
+  const dossie = useMemo(
+    () => montarDossieCandidato(candidato || {}, fontes),
+    [candidato, fontes],
+  );
+  const eventosAvaliacao = [
+    ...dossie.provas.map((item) => ({
+      tipo: 'Prova realizada',
+      data: obterDataEvento(item),
+      processo: item.id_processo || item.vaga,
+      resultado: obterNotaCandidato(item),
+      observacao: item.pontuacao_bruta || item.etapas_json || 'Redação/resultado registrados quando disponíveis.',
+    })),
+    ...dossie.entrevistas.map((item) => ({
+      tipo: 'Entrevista',
+      data: item.data_entrevista,
+      processo: item.id_processo || '-',
+      resultado: item.status_entrevista || '-',
+      observacao: item.observacoes_rh || '-',
+    })),
+  ];
+
+  const atualizarCampo = (campo, valor) => {
+    setFormPerfil((atual) => ({ ...atual, [campo]: valor }));
+    setCamposPerfilAlterados((atual) => ({ ...atual, [campo]: true }));
+    setErro('');
+    setMensagem('');
+  };
+
+  const salvar = async () => {
+    if (!candidato?.id_teste) {
+      setErro('Este candidato ainda não possui ID de prova para edição consolidada.');
+      return;
+    }
+    setSalvando(true);
+    setErro('');
+    setMensagem('');
+    try {
+      const payload = {
+        nome_candidato: formPerfil.nome_candidato || candidato.nome_candidato || '',
+        email: formPerfil.email,
+        telefone: formPerfil.telefone,
+        whatsapp: formPerfil.whatsapp,
+        cidade: formPerfil.cidade,
+        bairro: formPerfil.bairro,
+        classificacao_indicacao: formPerfil.classificacao_indicacao,
+        justificativa_indicacao: formPerfil.justificativa_indicacao,
+        habilidades: textoParaLista(formPerfil.habilidades),
+        tags: textoParaLista(formPerfil.tags),
+      };
+      if (camposPerfilAlterados.observacao_rh) {
+        payload.observacao_rh = formPerfil.observacao_rh;
+      }
+      const resultado = await atualizarPerfilCandidato(candidato.id_teste, payload);
+      const atualizado = {
+        ...candidato,
+        ...payload,
+        ...(resultado?.candidato || {}),
+        habilidades: resultado?.candidato?.habilidades || payload.habilidades,
+        tags: resultado?.candidato?.tags || payload.tags,
+      };
+      setCandidato(atualizado);
+      setFormPerfil(montarFormularioPerfil(atualizado));
+      setCamposPerfilAlterados({});
+      sessionStorage.setItem(CHAVE_DETALHE_CANDIDATO_RH, JSON.stringify(atualizado));
+      setMensagem('Dados do candidato atualizados com sucesso.');
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível salvar as alterações do candidato.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const abrirCurriculo = async () => {
+    if (!candidato?.id_teste || !candidato?.cv_disponivel) {
+      window.alert('Não há currículo disponível para este candidato.');
+      return;
+    }
+    try {
+      const arquivo = await baixarCvCandidato(candidato.id_teste);
+      abrirBlobEmNovaGuia(arquivo.blob);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível abrir o currículo do candidato.');
+    }
+  };
+
+  const enviarCvFicha = async () => {
+    if (!candidato?.id_teste) {
+      setErro('Este candidato ainda não possui ID para anexar currículo.');
+      return;
+    }
+    if (!arquivoCvFicha) {
+      setErro('Selecione um CV para adicionar.');
+      return;
+    }
+
+    const extensao = `.${String(arquivoCvFicha.name || '').split('.').pop() || ''}`.toLowerCase();
+    if (!['.pdf', '.doc', '.docx'].includes(extensao)) {
+      setErro('Formato de currículo não suportado. Envie PDF, DOC ou DOCX.');
+      return;
+    }
+
+    setEnviandoCvFicha(true);
+    setErro('');
+    setMensagem('');
+    try {
+      const formData = new FormData();
+      formData.append('arquivo', arquivoCvFicha);
+      await uploadCvCandidato(candidato.id_teste, formData);
+      setArquivoCvFicha(null);
+      setMensagem('CV adicionado à ficha do candidato.');
+      await carregar();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível adicionar o CV.');
+    } finally {
+      setEnviandoCvFicha(false);
+    }
+  };
+
+  const analisarCvFicha = async () => {
+    if (!candidato?.id_teste) {
+      setErro('Este candidato ainda não possui ID para análise de CV.');
+      return;
+    }
+    if (!candidato?.cv_disponivel && !arquivoCvFicha) {
+      setErro('Adicione um CV antes de analisar.');
+      return;
+    }
+
+    setAnalisandoCvFicha(true);
+    setErro('');
+    setMensagem('');
+    try {
+      if (arquivoCvFicha) {
+        const formData = new FormData();
+        formData.append('arquivo', arquivoCvFicha);
+        await uploadCvCandidato(candidato.id_teste, formData);
+        setArquivoCvFicha(null);
+      }
+      const resultado = await analisarCvCandidatoInscrito(candidato.id_teste, {
+        id_processo: candidato.id_processo_ref || candidato.id_processo || '',
+      });
+      setMensagem(
+        `CV analisado. Classificação: ${resultado?.classificacao || '-'} | Score: ${resultado?.score ?? '-'}.`,
+      );
+      await carregar();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível analisar o CV.');
+    } finally {
+      setAnalisandoCvFicha(false);
+    }
+  };
+
+  const abrirModalVinculo = () => {
+    if (!candidatoPodeAtrelar(candidato)) {
+      window.alert('Este candidato não possui ações pendentes para vínculo.');
+      return;
+    }
+    if (!processosAbertos.length) {
+      window.alert('Nenhum processo seletivo aberto encontrado.');
+      return;
+    }
+    setProcessoSelecionado('');
+    setModalVinculoAberto(true);
+  };
+
+  const candidatoJaVinculadoAoProcessoFicha = () => {
+    if (!processoSelecionado) return false;
+
+    const idTeste = String(candidato?.id_teste || '').trim();
+    const email = normalizarTexto(candidato?.email || '');
+    const telefones = [candidato?.telefone, candidato?.whatsapp]
+      .map((valor) => String(valor || '').replace(/\D/g, ''))
+      .filter(Boolean);
+
+    return (fontes.candidatosProcessos || []).some((item) => {
+      const mesmaReferencia =
+        String(item.id_processo_ref || item.id_processo || '').trim() ===
+        String(processoSelecionado || '').trim();
+      if (!mesmaReferencia) return false;
+
+      const mesmoId = idTeste && String(item.id_teste || '').trim() === idTeste;
+      const mesmoEmail = email && normalizarTexto(item.email || '') === email;
+      const telefonesItem = [item.telefone, item.whatsapp]
+        .map((valor) => String(valor || '').replace(/\D/g, ''))
+        .filter(Boolean);
+      const mesmoTelefone =
+        telefones.length &&
+        telefonesItem.some((telefone) => telefones.includes(telefone));
+
+      return Boolean(mesmoId || mesmoEmail || mesmoTelefone);
+    });
+  };
+
+  const confirmarVinculoProcesso = async () => {
+    if (!processoSelecionado) {
+      window.alert('Selecione um processo seletivo aberto.');
+      return;
+    }
+
+    const processo = processosAbertos.find(
+      (item) => obterReferenciaProcesso(item) === processoSelecionado,
+    );
+    if (!processo) {
+      window.alert('Processo selecionado não encontrado.');
+      return;
+    }
+
+    if (candidatoJaVinculadoAoProcessoFicha()) {
+      window.alert('Este candidato já está vinculado a este processo seletivo.');
+      return;
+    }
+
+    setSalvandoVinculo(true);
+    setErro('');
+    setMensagem('');
+    try {
+      if (candidato?.origem_cadastro === 'banco' && candidato?.id_banco) {
+        await usarCandidatoDoBancoTalentos(candidato.id_banco, {
+          id_processo: processo.id_processo || '',
+          id_processo_ref: processoSelecionado,
+          origem: 'Ficha do candidato',
+        });
+      } else {
+        await criarCandidatoNoProcesso({
+          id_processo: processo.id_processo || '',
+          id_processo_ref: processoSelecionado,
+          id_teste: candidato.id_teste || '',
+          nome_candidato: candidato.nome_candidato || '',
+          vaga: candidato.vaga || processo.vaga || '',
+          status_candidato: CANDIDATE_STATUS_ANALYSIS,
+          pontuacao_final:
+            candidato.pontuacao_final ||
+            candidato.nota_final ||
+            candidato.nota_exibicao ||
+            '',
+          data_prova:
+            candidato.data_prova ||
+            candidato.data_iso ||
+            candidato.data_exibicao ||
+            new Date().toISOString(),
+          origem: 'Ficha do candidato',
+        });
+      }
+
+      setModalVinculoAberto(false);
+      setProcessoSelecionado('');
+      setMensagem('Candidato vinculado ao processo seletivo.');
+      await carregar();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível adicionar o candidato ao processo seletivo.');
+    } finally {
+      setSalvandoVinculo(false);
+    }
+  };
+
+  return html`
+    <${PainelRh}
+      screenId="screen-candidate-details"
+      navAtiva="screen-candidates"
+      subtituloMarca="Detalhes do candidato"
+      placeholderBusca="Buscar candidatos"
+      controlador=${controlador}
+      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
+    >
+      <${PageIntro}
+        kicker="Central de candidatos"
+        title=${candidato?.nome_candidato || 'Detalhes do Candidato'}
+        actions=${html`
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
+            onClick=${() =>
+              window.history.length > 1
+                ? window.history.back()
+                : controlador.irParaTelaProtegida('screen-candidates')}
+          >
+            <span class="material-symbols-outlined">arrow_back</span>
+            Voltar
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
+            onClick=${() => controlador.irParaTelaProtegida('screen-candidates')}
+          >
+            <span class="material-symbols-outlined">groups</span>
+            Lista geral de candidatos
+          </button>
+          <button type="button" class="btn btn-outline-primary btn-sm" onClick=${() => abrirFichaImpressao(candidato, dossie)}>
+            Baixar ficha
+          </button>
+          ${candidatoPodeAtrelar(candidato) && controlador?.possuiPermissao?.('candidatos.criar')
+            ? html`
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm"
+                  disabled=${salvandoVinculo}
+                  onClick=${abrirModalVinculo}
+                >
+                  Adicionar a processo seletivo
+                </button>
+              `
+            : null}
+          <button type="button" class="btn btn-primary btn-sm" disabled=${salvando} onClick=${salvar}>
+            ${salvando ? 'Salvando...' : 'Salvar alterações'}
+          </button>
+        `}
+      />
+
+      ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
+      ${mensagem ? html`<div class="alert alert-success">${mensagem}</div>` : null}
+      ${carregando ? html`<div class="alert alert-secondary">Carregando candidato...</div>` : null}
+
+      <${MetricGrid}
+        items=${[
+          { label: 'Status atual', value: candidato.status_visivel || candidato.status_candidato || '-' },
+          { label: 'Score do CV', value: candidato.nota_exibicao || candidato.cv_score_final || '-' },
+          { label: 'Score Conecta', value: candidato.score_conecta || candidato.score_final || candidato.nota_exibicao || '-' },
+          { label: 'Processo atual', value: candidato.processo_nome || candidato.id_processo_ref || candidato.id_processo || '-' },
+        ]}
+      />
+      ${montarTagsOperacionaisCandidato(candidato).length
+        ? html`
+            <div class="rh-chip-wrap candidate-tag-row candidate-sheet-tag-row">
+              ${montarTagsOperacionaisCandidato(candidato).map(
+                (tag) => html`
+                  <span key=${`ficha-${tag.chave}`} class=${`rh-chip ${tag.className}`}>
+                    ${tag.label}
+                  </span>
+                `,
+              )}
+            </div>
+          `
+        : null}
+
+      <${SectionCard} title="Dados pessoais e contato" className="rh-section-card--flat">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nome completo</label>
+            <input class="form-control" value=${formPerfil.nome_candidato} onInput=${(event) => atualizarCampo('nome_candidato', event.target.value)} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">E-mail</label>
+            <input class="form-control" value=${formPerfil.email} onInput=${(event) => atualizarCampo('email', event.target.value)} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Telefone</label>
+            <input class="form-control" value=${formPerfil.telefone} onInput=${(event) => atualizarCampo('telefone', event.target.value)} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">WhatsApp</label>
+            <input class="form-control" value=${formPerfil.whatsapp} onInput=${(event) => atualizarCampo('whatsapp', event.target.value)} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Cidade</label>
+            <input class="form-control" value=${formPerfil.cidade} onInput=${(event) => atualizarCampo('cidade', event.target.value)} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Bairro</label>
+            <input class="form-control" value=${formPerfil.bairro} onInput=${(event) => atualizarCampo('bairro', event.target.value)} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Status atual</label>
+            <input class="form-control" readonly value=${candidato.status_visivel || candidato.status_candidato || '-'} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Classificação do RH</label>
+            <select
+              class="form-select"
+              value=${formPerfil.classificacao_indicacao}
+              onChange=${(event) => atualizarCampo('classificacao_indicacao', event.target.value)}
+            >
+              <option value="">Não definida</option>
+              ${CLASSIFICACOES_RH_CANDIDATO.map(
+                (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+              )}
+            </select>
+          </div>
+        </div>
+      </${SectionCard}>
+
+      <${SectionCard} title="Currículo, notas e análises" className="rh-section-card--flat">
+        <div class="row g-3">
+          <div class="col-md-3"><strong>Currículo</strong><div>${candidato.cv_nome_arquivo || 'Sem CV anexado'}</div></div>
+          <div class="col-md-3"><strong>Score do CV</strong><div>${candidato.nota_exibicao || '-'}</div></div>
+          <div class="col-md-3"><strong>Balanceamento das notas</strong><div>${candidato.classificacao_exibicao || '-'}</div></div>
+          <div class="col-md-3"><strong>Decisão final</strong><div>${candidato.decisao_final || candidato.status_visivel || '-'}</div></div>
+          <div class="col-12">
+            <div class="candidate-cv-action-row">
+              ${candidato.cv_disponivel
+                ? html`
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${abrirCurriculo}>
+                      <span class="material-symbols-outlined">description</span>
+                      Ver CV
+                    </button>
+                  `
+                : html`
+                    <label class="process-cv-picker candidate-cv-picker">
+                      <input
+                        key=${arquivoCvFicha?.name || 'cv-ficha-vazio'}
+                        type="file"
+                        class="process-cv-native-input"
+                        accept=".pdf,.doc,.docx"
+                        disabled=${enviandoCvFicha || analisandoCvFicha}
+                        onChange=${(event) => setArquivoCvFicha(event.target.files?.[0] || null)}
+                      />
+                      <span class="material-symbols-outlined">upload_file</span>
+                      <span class="process-cv-picker-copy">
+                        <strong>Adicionar CV</strong>
+                        <small title=${arquivoCvFicha?.name || ''}>
+                          ${arquivoCvFicha?.name || 'Nenhum arquivo selecionado'}
+                        </small>
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary btn-sm"
+                      disabled=${!arquivoCvFicha || enviandoCvFicha || analisandoCvFicha}
+                      onClick=${enviarCvFicha}
+                    >
+                      <span class="material-symbols-outlined">upload</span>
+                      ${enviandoCvFicha ? 'Adicionando...' : 'Adicionar CV'}
+                    </button>
+                  `}
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                disabled=${analisandoCvFicha || enviandoCvFicha || (!candidato.cv_disponivel && !arquivoCvFicha)}
+                onClick=${analisarCvFicha}
+              >
+                <span class="material-symbols-outlined">auto_awesome</span>
+                ${analisandoCvFicha ? 'Analisando...' : 'Analisar CV'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </${SectionCard}>
+
+      <${SectionCard} title="Provas, redação e entrevista" className="rh-section-card--flat">
+        <div class="table-responsive">
+          <table class="table align-middle rh-modern-history-table">
+            <thead><tr><th>Tipo</th><th>Data</th><th>Processo</th><th>Resultado</th><th>Observações</th></tr></thead>
+            <tbody>
+              ${eventosAvaliacao.length
+                ? eventosAvaliacao.map(
+                    (item) => html`
+                      <tr key=${`${item.tipo}-${item.data}-${item.processo}`}>
+                        <td>${item.tipo}</td>
+                        <td>${formatarDataHora(item.data)}</td>
+                        <td>${item.processo || '-'}</td>
+                        <td>${item.resultado || '-'}</td>
+                        <td>${item.observacao || '-'}</td>
+                      </tr>
+                    `,
+                  )
+                : html`<${TabelaVazia} colunas=${5} texto="Sem provas, redações ou entrevistas registradas." />`}
+            </tbody>
+          </table>
+        </div>
+      </${SectionCard}>
+
+      <${SectionCard} title="Processos e movimentações" className="rh-section-card--flat">
+        <div class="table-responsive">
+          <table class="table align-middle rh-modern-history-table">
+            <thead><tr><th>Tipo</th><th>Data</th><th>Descrição</th></tr></thead>
+            <tbody>
+              ${dossie.historicoCompleto.length
+                ? dossie.historicoCompleto.map(
+                    (item) => html`
+                      <tr key=${`${item.tipo}-${item.data}-${item.descricao}`}>
+                        <td>${item.tipo}</td>
+                        <td>${formatarDataHora(item.data)}</td>
+                        <td>${item.descricao}</td>
+                      </tr>
+                    `,
+                  )
+                : html`<${TabelaVazia} colunas=${3} texto="Sem histórico de movimentações." />`}
+            </tbody>
+          </table>
+        </div>
+      </${SectionCard}>
+
+      <${SectionCard} title="Levantamentos, pontos e observações do RH" className="rh-section-card--flat">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <strong>Levantamentos feitos pelo Conecta</strong>
+            <div class="rh-cell-stack">${(candidato.habilidades || []).length ? candidato.habilidades.map((item) => html`<span key=${item}>${item}</span>`) : html`<span>Sem levantamentos registrados.</span>`}</div>
+          </div>
+          <div class="col-md-4">
+            <strong>Pontos fortes</strong>
+            <div class="rh-cell-stack">${(candidato.tags || []).length ? candidato.tags.map((item) => html`<span key=${item}>${item}</span>`) : html`<span>Sem pontos fortes registrados.</span>`}</div>
+          </div>
+          <div class="col-md-4">
+            <strong>Alertas críticos e pontos de atenção</strong>
+            <div class="rh-cell-stack">${dossie.alertas.map((item) => html`<span key=${item}>${item}</span>`)}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Análises feitas pelo Conecta</label>
+            <textarea class="form-control" rows="3" value=${formPerfil.habilidades} onInput=${(event) => atualizarCampo('habilidades', event.target.value)}></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Observações</label>
+            <textarea class="form-control" rows="3" value=${formPerfil.observacao_rh} onInput=${(event) => atualizarCampo('observacao_rh', event.target.value)}></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Justificativa / observações do RH</label>
+            <textarea class="form-control" rows="3" value=${formPerfil.justificativa_indicacao} onInput=${(event) => atualizarCampo('justificativa_indicacao', event.target.value)}></textarea>
+          </div>
+        </div>
+      </${SectionCard}>
+
+      <${ModalPadrao}
+        aberto=${modalVinculoAberto}
+        titulo=${`Adicionar a processo seletivo | ${candidato?.nome_candidato || 'Candidato'}`}
+        subtitulo="Selecione um processo seletivo aberto para vincular este candidato."
+        onClose=${() => {
+          setModalVinculoAberto(false);
+          setProcessoSelecionado('');
+        }}
+      >
+        <div class="rh-details-body">
+          <${MetricGrid}
+            items=${[
+              { label: 'Candidato', value: candidato?.nome_candidato || '-' },
+              { label: 'Vaga atual', value: candidato?.vaga || '-' },
+              { label: 'Origem', value: candidato?.origem_rotulo || 'Ficha do candidato' },
+            ]}
+          />
+          <div class="rh-filter-field">
+            <label>Processo seletivo</label>
+            ${processosAbertos.length
+              ? html`
+                  <${SelectProcesso}
+                    processos=${processosAbertos}
+                    valor=${processoSelecionado}
+                    disabled=${salvandoVinculo}
+                    onChange=${setProcessoSelecionado}
+                  />
+                `
+              : html`<div class="alert alert-warning mb-0">Nenhum processo seletivo aberto encontrado.</div>`}
+          </div>
+        </div>
+        <footer class="rh-modal-footer">
+          <div class="rh-modal-footer-actions">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              disabled=${salvandoVinculo}
+              onClick=${() => {
+                setModalVinculoAberto(false);
+                setProcessoSelecionado('');
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              disabled=${salvandoVinculo || !processoSelecionado}
+              onClick=${confirmarVinculoProcesso}
+            >
+              ${salvandoVinculo ? 'Salvando...' : 'Confirmar vínculo'}
+            </button>
+          </div>
+        </footer>
+      </${ModalPadrao}>
+    </${PainelRh}>
+  `;
+}
+
 export function TelaCandidatos({ controlador }) {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -835,10 +1741,16 @@ export function TelaCandidatos({ controlador }) {
     status: '',
     origem: '',
   });
+  const [paginaCandidatos, setPaginaCandidatos] = useState(1);
   const [detalhe, setDetalhe] = useState(null);
   const [candidatoEditando, setCandidatoEditando] = useState(null);
   const [formPerfil, setFormPerfil] = useState(montarFormularioPerfil(null));
+  const [camposPerfilAlterados, setCamposPerfilAlterados] = useState({});
+  const [arquivoCvDetalhe, setArquivoCvDetalhe] = useState(null);
+  const [enviandoCvDetalhe, setEnviandoCvDetalhe] = useState(false);
+  const [analisandoCvDetalhe, setAnalisandoCvDetalhe] = useState(false);
   const [candidatoParaAtrelar, setCandidatoParaAtrelar] = useState(null);
+  const [origemAtrelamento, setOrigemAtrelamento] = useState('Central de Candidatos');
   const [processoSelecionado, setProcessoSelecionado] = useState('');
   const [aprovacaoSelecionada, setAprovacaoSelecionada] = useState(null);
   const [salvandoAprovacao, setSalvandoAprovacao] = useState(false);
@@ -864,6 +1776,103 @@ export function TelaCandidatos({ controlador }) {
         error?.message || 'Não foi possível abrir o currículo do candidato.',
       );
     }
+  };
+
+  const enviarCvDetalhe = async () => {
+    if (!detalhe?.id_teste) {
+      setErro('Este candidato ainda não possui ID para anexar currículo.');
+      return;
+    }
+    if (!arquivoCvDetalhe) {
+      setErro('Selecione um CV para adicionar.');
+      return;
+    }
+
+    const extensao = `.${String(arquivoCvDetalhe.name || '').split('.').pop() || ''}`.toLowerCase();
+    if (!['.pdf', '.doc', '.docx'].includes(extensao)) {
+      setErro('Formato de currículo não suportado. Envie PDF, DOC ou DOCX.');
+      return;
+    }
+
+    setEnviandoCvDetalhe(true);
+    setErro('');
+    setMensagemSucesso('');
+    try {
+      const formData = new FormData();
+      formData.append('arquivo', arquivoCvDetalhe);
+      await uploadCvCandidato(detalhe.id_teste, formData);
+      setArquivoCvDetalhe(null);
+      setMensagemSucesso('CV adicionado à ficha do candidato.');
+      const ficha = await lerFichaCandidato(detalhe.id_teste).catch(() => null);
+      if (ficha) {
+        const atualizado = aplicarDadosFichaAoCandidato(detalhe, ficha);
+        setDetalhe(atualizado);
+        setFormPerfil(montarFormularioPerfil(atualizado));
+      }
+      await carregar();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível adicionar o CV.');
+    } finally {
+      setEnviandoCvDetalhe(false);
+    }
+  };
+
+  const analisarCvDetalhe = async () => {
+    if (!detalhe?.id_teste) {
+      setErro('Este candidato ainda não possui ID para análise de CV.');
+      return;
+    }
+    if (!detalhe?.cv_disponivel && !arquivoCvDetalhe) {
+      setErro('Adicione um CV antes de analisar.');
+      return;
+    }
+
+    setAnalisandoCvDetalhe(true);
+    setErro('');
+    setMensagemSucesso('');
+    try {
+      if (arquivoCvDetalhe) {
+        const formData = new FormData();
+        formData.append('arquivo', arquivoCvDetalhe);
+        await uploadCvCandidato(detalhe.id_teste, formData);
+        setArquivoCvDetalhe(null);
+      }
+      const resultado = await analisarCvCandidatoInscrito(detalhe.id_teste, {
+        id_processo: detalhe.id_processo_ref || detalhe.id_processo || '',
+      });
+      setMensagemSucesso(
+        `CV analisado. Classificação: ${resultado?.classificacao || '-'} | Score: ${resultado?.score ?? '-'}.`,
+      );
+      const ficha = await lerFichaCandidato(detalhe.id_teste).catch(() => null);
+      if (ficha) {
+        const atualizado = aplicarDadosFichaAoCandidato(detalhe, ficha);
+        setDetalhe(atualizado);
+        setFormPerfil(montarFormularioPerfil(atualizado));
+      }
+      await carregar();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível analisar o CV.');
+    } finally {
+      setAnalisandoCvDetalhe(false);
+    }
+  };
+
+  const abrirTelaDetalhesCandidato = async (candidato) => {
+    let candidatoDetalhe = candidato || {};
+    if (candidatoDetalhe.id_teste) {
+      const ficha = await lerFichaCandidato(candidatoDetalhe.id_teste).catch(() => null);
+      if (ficha) {
+        candidatoDetalhe = aplicarDadosFichaAoCandidato(candidatoDetalhe, ficha);
+      }
+    }
+    sessionStorage.setItem(
+      CHAVE_DETALHE_CANDIDATO_RH,
+      JSON.stringify(candidatoDetalhe || {}),
+    );
+    setDetalhe(candidatoDetalhe || null);
+    setFormPerfil(montarFormularioPerfil(candidatoDetalhe));
+    setCamposPerfilAlterados({});
+    setArquivoCvDetalhe(null);
   };
 
   const carregar = async () => {
@@ -927,9 +1936,7 @@ export function TelaCandidatos({ controlador }) {
         }
       });
 
-      const abertos = processos.filter(
-        (processo) => String(processo.status || '').trim() !== 'Encerrado',
-      );
+      const abertos = processos.filter((processo) => !isProcessClosed(processo));
 
       const mapa = new Map();
 
@@ -1005,6 +2012,8 @@ export function TelaCandidatos({ controlador }) {
           candidato.status_visivel,
           candidato.origem_rotulo,
           candidato.classificacao_exibicao,
+          candidato.classificacao_indicacao,
+          candidato.justificativa_indicacao,
           candidato.cidade,
           candidato.bairro,
         ].join(' '),
@@ -1020,6 +2029,15 @@ export function TelaCandidatos({ controlador }) {
       return bateBusca && bateStatus && bateOrigem;
     });
   }, [candidatos, filtros]);
+  const candidatosPaginados = useMemo(
+    () =>
+      obterItensPaginados(
+        candidatosFiltrados,
+        paginaCandidatos,
+        TAMANHO_PAGINA_CANDIDATOS_CENTRAL,
+      ),
+    [candidatosFiltrados, paginaCandidatos],
+  );
 
   const resumo = useMemo(
     () => resumirStatus(candidatosFiltrados),
@@ -1029,6 +2047,10 @@ export function TelaCandidatos({ controlador }) {
     () => (detalhe ? montarDossieCandidato(detalhe, fontesDossie) : null),
     [detalhe, fontesDossie],
   );
+
+  useEffect(() => {
+    setPaginaCandidatos(1);
+  }, [filtros, candidatos.length]);
 
   const aplicarStatus = async (candidato, status, dadosAprovacao = {}) => {
     if (!candidato) return;
@@ -1164,7 +2186,9 @@ export function TelaCandidatos({ controlador }) {
       await carregar();
     } catch (error) {
       setErro(
-        error?.message || 'Não foi possível atualizar o status do candidato.',
+        status === CANDIDATE_STATUS_TALENT_BANK
+          ? 'Não foi possível enviar o candidato para o Banco de Talentos. Verifique os dados do candidato e tente novamente.'
+          : error?.message || 'Não foi possível atualizar o status do candidato.',
       );
     } finally {
       setSalvando(false);
@@ -1179,6 +2203,7 @@ export function TelaCandidatos({ controlador }) {
 
     setCandidatoEditando(candidato);
     setFormPerfil(montarFormularioPerfil(candidato));
+    setCamposPerfilAlterados({});
   };
 
   const atualizarCampoPerfil = (campo, valor) => {
@@ -1186,10 +2211,15 @@ export function TelaCandidatos({ controlador }) {
       ...anterior,
       [campo]: valor,
     }));
+    setCamposPerfilAlterados((anterior) => ({
+      ...anterior,
+      [campo]: true,
+    }));
   };
 
   const salvarPerfilCandidato = async () => {
-    if (!candidatoEditando?.id_teste) return;
+    const candidatoAlvo = candidatoEditando || detalhe;
+    if (!candidatoAlvo?.id_teste) return;
 
     setSalvando(true);
     setErro('');
@@ -1198,24 +2228,28 @@ export function TelaCandidatos({ controlador }) {
     try {
       const payload = {
         nome_candidato:
-          formPerfil.nome_candidato || candidatoEditando.nome_candidato || '',
+          formPerfil.nome_candidato || candidatoAlvo.nome_candidato || '',
         email: formPerfil.email,
         telefone: formPerfil.telefone,
         whatsapp: formPerfil.whatsapp,
         cidade: formPerfil.cidade,
         bairro: formPerfil.bairro,
-        observacao_rh: formPerfil.observacao_rh,
+        classificacao_indicacao: formPerfil.classificacao_indicacao,
+        justificativa_indicacao: formPerfil.justificativa_indicacao,
         habilidades: textoParaLista(formPerfil.habilidades),
         tags: textoParaLista(formPerfil.tags),
       };
+      if (camposPerfilAlterados.observacao_rh) {
+        payload.observacao_rh = formPerfil.observacao_rh;
+      }
 
       const resultado = await atualizarPerfilCandidato(
-        candidatoEditando.id_teste,
+        candidatoAlvo.id_teste,
         payload,
       );
       const perfilAtualizado = resultado?.candidato || {};
       const atualizado = {
-        ...candidatoEditando,
+        ...candidatoAlvo,
         ...payload,
         ...perfilAtualizado,
         habilidades: perfilAtualizado.habilidades || payload.habilidades,
@@ -1230,10 +2264,14 @@ export function TelaCandidatos({ controlador }) {
           '',
       };
 
-      setCandidatoEditando(null);
+      if (candidatoEditando) {
+        setCandidatoEditando(null);
+      }
+      setFormPerfil(montarFormularioPerfil(atualizado));
+      setCamposPerfilAlterados({});
       setMensagemSucesso('Dados do candidato atualizados com sucesso.');
       setDetalhe((atual) =>
-        atual && String(atual.id_teste || '') === String(candidatoEditando.id_teste || '')
+        atual && String(atual.id_teste || '') === String(candidatoAlvo.id_teste || '')
           ? { ...atual, ...atualizado }
           : atual,
       );
@@ -1289,7 +2327,7 @@ export function TelaCandidatos({ controlador }) {
 
     try {
       const origemBanco = obterOrigemBancoTalentos(candidato);
-      await criarBancoTalentos({
+      const resultadoBanco = await criarBancoTalentos({
         id_teste: candidato.id_teste || '',
         id_processo: candidato.id_processo || '',
         id_processo_ref: candidato.id_processo_ref || '',
@@ -1307,16 +2345,18 @@ export function TelaCandidatos({ controlador }) {
         whatsapp: candidato.whatsapp || '',
         cidade: candidato.cidade || '',
         bairro: candidato.bairro || '',
+        codigo_acesso: candidato.codigo_acesso || candidato.codigo_cp || '',
       });
 
       setDetalhe(null);
-      setMensagemSucesso('Candidato enviado para o Banco de Talentos com sucesso.');
+      setMensagemSucesso(
+        resultadoBanco?.already_exists
+          ? 'Este candidato já está no Banco de Talentos.'
+          : 'Candidato enviado para o Banco de Talentos com sucesso.',
+      );
       await carregar();
     } catch (error) {
-      setErro(
-        error?.message ||
-          'Não foi possível enviar o candidato ao Banco de Talentos.',
-      );
+      setErro('Não foi possível enviar o candidato para o Banco de Talentos. Verifique os dados do candidato e tente novamente.');
     } finally {
       setSalvando(false);
     }
@@ -1358,9 +2398,14 @@ export function TelaCandidatos({ controlador }) {
     }
   };
 
-  const abrirAtrelar = (candidato) => {
+  const abrirAtrelar = (candidato, origem = 'Central de Candidatos') => {
     if (candidatoEstaAprovado(candidato)) {
       window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      return;
+    }
+
+    if (!processosAbertos.length) {
+      window.alert('Nenhum processo seletivo aberto encontrado.');
       return;
     }
 
@@ -1375,6 +2420,7 @@ export function TelaCandidatos({ controlador }) {
     }
 
     setCandidatoParaAtrelar(candidato);
+    setOrigemAtrelamento(origem);
     setProcessoSelecionado('');
   };
 
@@ -1441,12 +2487,12 @@ export function TelaCandidatos({ controlador }) {
     }
 
     if (candidatoJaVinculadoAoProcessoSelecionado()) {
-      window.alert('Este candidato ja esta vinculado a um processo seletivo.');
+      window.alert('Este candidato já está vinculado a este processo seletivo.');
       return;
     }
 
     const confirmar = window.confirm(
-      `Deseja atrelar ${candidatoParaAtrelar.nome_candidato} ao processo ${processo.id_processo || 'selecionado'}?`,
+      `Deseja adicionar ${candidatoParaAtrelar.nome_candidato} ao processo ${processo.id_processo || 'selecionado'}?`,
     );
     if (!confirmar) return;
 
@@ -1458,6 +2504,7 @@ export function TelaCandidatos({ controlador }) {
         await usarCandidatoDoBancoTalentos(candidatoParaAtrelar.id_banco, {
           id_processo: processo.id_processo || '',
           id_processo_ref: processoSelecionado,
+          origem: origemAtrelamento,
         });
       } else {
         await criarCandidatoNoProcesso({
@@ -1480,19 +2527,22 @@ export function TelaCandidatos({ controlador }) {
             candidatoParaAtrelar.data_iso ||
             new Date().toISOString(),
           origem:
-            candidatoParaAtrelar.origem_cadastro === 'historico'
-              ? 'Histórico'
-              : 'Candidatos',
+            origemAtrelamento === 'Ficha do candidato'
+              ? 'Ficha do candidato'
+              : candidatoParaAtrelar.origem_cadastro === 'historico'
+                ? 'Histórico'
+                : 'Candidatos',
         });
       }
 
       setCandidatoParaAtrelar(null);
+      setOrigemAtrelamento('Central de Candidatos');
       setProcessoSelecionado('');
       setDetalhe(null);
       await carregar();
     } catch (error) {
       setErro(
-        error?.message || 'Não foi possível atrelar o candidato ao processo.',
+        error?.message || 'Não foi possível adicionar o candidato ao processo seletivo.',
       );
     } finally {
       setSalvando(false);
@@ -1627,19 +2677,37 @@ export function TelaCandidatos({ controlador }) {
                   </thead>
                   <tbody>
                     ${candidatosFiltrados.length
-                      ? candidatosFiltrados.map(
-                          (candidato) => html`
+                      ? candidatosPaginados.itens.map(
+                          (candidato) => {
+                            const tagsOperacionais = montarTagsOperacionaisCandidato(candidato);
+                            return html`
                             <tr key=${candidato.chave}>
                               <td>
                                 <strong>${candidato.nome_candidato || '-'}</strong>
                                 <div class="text-muted small">
                                   ${candidato.id_teste || '-'}
                                 </div>
+                                ${tagsOperacionais.length
+                                  ? html`
+                                      <div class="rh-chip-wrap candidate-tag-row">
+                                        ${tagsOperacionais.map(
+                                          (tag) => html`
+                                            <span
+                                              key=${`${candidato.chave}-${tag.chave}`}
+                                              class=${`rh-chip ${tag.className}`}
+                                            >
+                                              ${tag.label}
+                                            </span>
+                                          `,
+                                        )}
+                                      </div>
+                                    `
+                                  : null}
                               </td>
                               <td>
-                                <div>${candidato.email || '-'}</div>
+                                <div>${mascararEmailContato(candidato.email)}</div>
                                 <div class="text-muted small">
-                                  ${candidato.telefone || candidato.whatsapp || '-'}
+                                  ${mascararTelefoneContato(candidato.telefone || candidato.whatsapp)}
                                 </div>
                               </td>
                               <td>${candidato.cidade || '-'}</td>
@@ -1669,7 +2737,8 @@ export function TelaCandidatos({ controlador }) {
                               <td>${candidato.origem_rotulo || '-'}</td>
                               <td>${formatarDataHora(candidato.data_exibicao)}</td>
                               <td>
-                                ${candidato.cv_disponivel
+                                ${candidato.cv_disponivel &&
+                                controlador.possuiPermissao('candidatos.baixar_curriculo')
                                   ? html`
                                       <button
                                         type="button"
@@ -1685,7 +2754,8 @@ export function TelaCandidatos({ controlador }) {
                                 ${renderizarAcoesCandidatoCentral({
                                   candidato,
                                   salvando,
-                                  onDetalhes: setDetalhe,
+                                  onDetalhes: abrirTelaDetalhesCandidato,
+                                  onEditar: abrirEdicaoCandidato,
                                   onAprovar: abrirAprovacao,
                                   onEliminar: (item) =>
                                     aplicarStatus(
@@ -1693,11 +2763,14 @@ export function TelaCandidatos({ controlador }) {
                                       CANDIDATE_STATUS_ELIMINATED,
                                     ),
                                   onBanco: enviarParaBanco,
-                                  onAtrelar: abrirAtrelar,
+                                  onAtrelar: (item) =>
+                                    abrirAtrelar(item, 'Central de Candidatos'),
+                                  controlador,
                                 })}
                               </td>
                             </tr>
-                          `,
+                          `;
+                          },
                         )
                       : html`
                           <${TabelaVazia}
@@ -1708,14 +2781,26 @@ export function TelaCandidatos({ controlador }) {
                   </tbody>
                 </table>
               </div>
+              <${PaginacaoCompacta}
+                paginaAtual=${candidatosPaginados.paginaAtual}
+                totalPaginas=${candidatosPaginados.totalPaginas}
+                totalItens=${candidatosPaginados.totalItens}
+                tamanhoPagina=${TAMANHO_PAGINA_CANDIDATOS_CENTRAL}
+                itensNaPagina=${candidatosPaginados.itens.length}
+                onChange=${setPaginaCandidatos}
+              />
             `}
       </${SectionCard}>
 
       <${ModalPadrao}
         aberto=${!!detalhe}
-        titulo=${`Detalhes | ${detalhe?.nome_candidato || 'Candidato'}`}
-        subtitulo="Resumo operacional consolidado deste candidato."
-        onClose=${() => setDetalhe(null)}
+        titulo=${`Ficha do candidato | ${detalhe?.nome_candidato || 'Candidato'}`}
+        subtitulo="Dados consolidados, avaliação do RH e ações operacionais."
+        className="candidate-sheet-dialog"
+        onClose=${() => {
+          setDetalhe(null);
+          setArquivoCvDetalhe(null);
+        }}
       >
         ${detalhe
           ? html`
@@ -1780,6 +2865,107 @@ export function TelaCandidatos({ controlador }) {
                     },
                   ]}
                 />
+                ${montarTagsOperacionaisCandidato(detalhe).length
+                  ? html`
+                      <div class="rh-chip-wrap candidate-tag-row candidate-sheet-tag-row">
+                        ${montarTagsOperacionaisCandidato(detalhe).map(
+                          (tag) => html`
+                            <span key=${`detalhe-${tag.chave}`} class=${`rh-chip ${tag.className}`}>
+                              ${tag.label}
+                            </span>
+                          `,
+                        )}
+                      </div>
+                    `
+                  : null}
+
+                <${SectionCard}
+                  title="Dados pessoais e avaliação do RH"
+                  description="Campos editáveis da ficha do candidato."
+                  className="rh-section-card--flat candidate-sheet-section"
+                >
+                  <div class="row g-2">
+                    <div class="col-md-6">
+                      <label class="form-label">Nome completo</label>
+                      <input
+                        class="form-control"
+                        value=${formPerfil.nome_candidato}
+                        onInput=${(event) => atualizarCampoPerfil('nome_candidato', event.target.value)}
+                      />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">E-mail</label>
+                      <input
+                        class="form-control"
+                        value=${formPerfil.email}
+                        onInput=${(event) => atualizarCampoPerfil('email', event.target.value)}
+                      />
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Telefone</label>
+                      <input
+                        class="form-control"
+                        value=${formPerfil.telefone}
+                        onInput=${(event) => atualizarCampoPerfil('telefone', event.target.value)}
+                      />
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">WhatsApp</label>
+                      <input
+                        class="form-control"
+                        value=${formPerfil.whatsapp}
+                        onInput=${(event) => atualizarCampoPerfil('whatsapp', event.target.value)}
+                      />
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Cidade</label>
+                      <input
+                        class="form-control"
+                        value=${formPerfil.cidade}
+                        onInput=${(event) => atualizarCampoPerfil('cidade', event.target.value)}
+                      />
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Bairro</label>
+                      <input
+                        class="form-control"
+                        value=${formPerfil.bairro}
+                        onInput=${(event) => atualizarCampoPerfil('bairro', event.target.value)}
+                      />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Classificação do RH</label>
+                      <select
+                        class="form-select"
+                        value=${formPerfil.classificacao_indicacao}
+                        onChange=${(event) => atualizarCampoPerfil('classificacao_indicacao', event.target.value)}
+                      >
+                        <option value="">Não definida</option>
+                        ${CLASSIFICACOES_RH_CANDIDATO.map(
+                          (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+                        )}
+                      </select>
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label">Justificativa / observações do RH</label>
+                      <textarea
+                        class="form-control"
+                        rows="2"
+                        value=${formPerfil.justificativa_indicacao}
+                        onInput=${(event) => atualizarCampoPerfil('justificativa_indicacao', event.target.value)}
+                      ></textarea>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label">Observações</label>
+                      <textarea
+                        class="form-control"
+                        rows="2"
+                        value=${formPerfil.observacao_rh}
+                        onInput=${(event) => atualizarCampoPerfil('observacao_rh', event.target.value)}
+                      ></textarea>
+                    </div>
+                  </div>
+                </${SectionCard}>
 
                 <${SectionCard}
                   title="Contexto complementar"
@@ -1796,7 +2982,7 @@ export function TelaCandidatos({ controlador }) {
                     <div class="col-md-6">
                       <div><strong>Tags:</strong> ${(detalhe.tags || []).join(', ') || '-'}</div>
                       <div><strong>Habilidades:</strong> ${(detalhe.habilidades || []).join(', ') || '-'}</div>
-                      <div><strong>Observacao RH:</strong> ${detalhe.observacao_rh || '-'}</div>
+                      <div><strong>Observação RH:</strong> ${detalhe.observacao_rh || '-'}</div>
                     </div>
                   </div>
                 </${SectionCard}>
@@ -1818,13 +3004,53 @@ export function TelaCandidatos({ controlador }) {
                     </div>
                   </div>
                   <div class="rh-modal-footer-actions">
+                    ${detalhe.cv_disponivel
+                      ? html`
+                          <button
+                            type="button"
+                            class="btn btn-outline-secondary"
+                            onClick=${() => abrirCurriculo(detalhe)}
+                          >
+                            <span class="material-symbols-outlined">description</span>
+                            Visualizar ou baixar CV
+                          </button>
+                        `
+                      : html`
+                          <label class="process-cv-picker candidate-cv-picker">
+                            <input
+                              key=${arquivoCvDetalhe?.name || 'cv-detalhe-vazio'}
+                              type="file"
+                              class="process-cv-native-input"
+                              accept=".pdf,.doc,.docx"
+                              disabled=${enviandoCvDetalhe || analisandoCvDetalhe}
+                              onChange=${(event) => setArquivoCvDetalhe(event.target.files?.[0] || null)}
+                            />
+                            <span class="material-symbols-outlined">upload_file</span>
+                            <span class="process-cv-picker-copy">
+                              <strong>Adicionar CV</strong>
+                              <small title=${arquivoCvDetalhe?.name || ''}>
+                                ${arquivoCvDetalhe?.name || 'Nenhum arquivo selecionado'}
+                              </small>
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            disabled=${!arquivoCvDetalhe || enviandoCvDetalhe || analisandoCvDetalhe}
+                            onClick=${enviarCvDetalhe}
+                          >
+                            <span class="material-symbols-outlined">upload</span>
+                            ${enviandoCvDetalhe ? 'Adicionando...' : 'Adicionar CV'}
+                          </button>
+                        `}
                     <button
                       type="button"
-                      class="btn btn-outline-secondary"
-                      disabled=${!detalhe.cv_disponivel}
-                      onClick=${() => abrirCurriculo(detalhe)}
+                      class="btn btn-primary"
+                      disabled=${analisandoCvDetalhe || enviandoCvDetalhe || (!detalhe.cv_disponivel && !arquivoCvDetalhe)}
+                      onClick=${analisarCvDetalhe}
                     >
-                      ${detalhe.cv_disponivel ? 'Visualizar ou baixar CV' : 'CV indisponivel'}
+                      <span class="material-symbols-outlined">auto_awesome</span>
+                      ${analisandoCvDetalhe ? 'Analisando...' : 'Analisar CV'}
                     </button>
                   </div>
                 </${SectionCard}>
@@ -1990,7 +3216,10 @@ export function TelaCandidatos({ controlador }) {
                       aplicarStatus(item, CANDIDATE_STATUS_ELIMINATED),
                     onBanco: enviarParaBanco,
                     onEditar: abrirEdicaoCandidato,
-                    onAtrelar: abrirAtrelar,
+                    onAtrelar: (item) =>
+                      abrirAtrelar(item, 'Ficha do candidato'),
+                    controlador,
+                    mostrarEditar: false,
                   })}
                 </${SectionCard}>
               </div>
@@ -1998,10 +3227,18 @@ export function TelaCandidatos({ controlador }) {
               <footer class="rh-modal-footer">
                 <button
                   type="button"
+                  class="btn btn-primary"
+                  disabled=${salvando || !detalhe?.id_teste}
+                  onClick=${salvarPerfilCandidato}
+                >
+                  ${salvando ? 'Salvando...' : 'Salvar alterações'}
+                </button>
+                <button
+                  type="button"
                   class="btn btn-outline-primary"
                   onClick=${() => abrirFichaImpressao(detalhe, dossieDetalhe)}
                 >
-                  Baixar ficha do candidato
+                  Baixar ficha
                 </button>
                 <button
                   type="button"
@@ -2074,6 +3311,20 @@ export function TelaCandidatos({ controlador }) {
                   />
                 </div>
                 <div class="col-md-6">
+                  <label class="form-label">Classificação do RH</label>
+                  <select
+                    class="form-select"
+                    value=${formPerfil.classificacao_indicacao}
+                    onChange=${(event) =>
+                      atualizarCampoPerfil('classificacao_indicacao', event.target.value)}
+                  >
+                    <option value="">Não definida</option>
+                    ${CLASSIFICACOES_RH_CANDIDATO.map(
+                      (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+                    )}
+                  </select>
+                </div>
+                <div class="col-md-6">
                   <label class="form-label">Habilidades</label>
                   <input
                     class="form-control"
@@ -2092,13 +3343,23 @@ export function TelaCandidatos({ controlador }) {
                   />
                 </div>
                 <div class="col-12">
-                  <label class="form-label">Observacao do RH</label>
+                  <label class="form-label">Observações</label>
                   <textarea
                     class="form-control"
                     rows="4"
                     value=${formPerfil.observacao_rh}
                     onInput=${(event) =>
                       atualizarCampoPerfil('observacao_rh', event.target.value)}
+                  ></textarea>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Justificativa / observações do RH</label>
+                  <textarea
+                    class="form-control"
+                    rows="3"
+                    value=${formPerfil.justificativa_indicacao}
+                    onInput=${(event) =>
+                      atualizarCampoPerfil('justificativa_indicacao', event.target.value)}
                   ></textarea>
                 </div>
               </div>
@@ -2140,12 +3401,13 @@ export function TelaCandidatos({ controlador }) {
 
       <${ModalPadrao}
         aberto=${!!candidatoParaAtrelar}
-        titulo=${`Atrelar candidato | ${
+        titulo=${`Adicionar a processo seletivo | ${
           candidatoParaAtrelar?.nome_candidato || 'Candidato'
         }`}
         subtitulo="Selecione um processo seletivo aberto para vincular este candidato."
         onClose=${() => {
           setCandidatoParaAtrelar(null);
+          setOrigemAtrelamento('Central de Candidatos');
           setProcessoSelecionado('');
         }}
       >
@@ -2169,12 +3431,16 @@ export function TelaCandidatos({ controlador }) {
 
           <div class="rh-filter-field">
             <label>Processo seletivo</label>
-            <${SelectProcesso}
-              processos=${processosAbertos}
-              valor=${processoSelecionado}
-              disabled=${salvando}
-              onChange=${setProcessoSelecionado}
-            />
+            ${processosAbertos.length
+              ? html`
+                  <${SelectProcesso}
+                    processos=${processosAbertos}
+                    valor=${processoSelecionado}
+                    disabled=${salvando}
+                    onChange=${setProcessoSelecionado}
+                  />
+                `
+              : html`<div class="alert alert-warning mb-0">Nenhum processo seletivo aberto encontrado.</div>`}
           </div>
         </div>
 
@@ -2186,6 +3452,7 @@ export function TelaCandidatos({ controlador }) {
               disabled=${salvando}
               onClick=${() => {
                 setCandidatoParaAtrelar(null);
+                setOrigemAtrelamento('Central de Candidatos');
                 setProcessoSelecionado('');
               }}
             >

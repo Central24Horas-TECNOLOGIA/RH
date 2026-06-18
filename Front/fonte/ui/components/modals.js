@@ -28,8 +28,8 @@ export function ModalPadrao({
           <div>
             <h3 class="rh-modal-title">${titulo}</h3>
             ${subtitulo
-              ? html`<p class="rh-modal-subtitle">${subtitulo}</p>`
-              : null}
+      ? html`<p class="rh-modal-subtitle">${subtitulo}</p>`
+      : null}
           </div>
           <button
             type="button"
@@ -37,7 +37,7 @@ export function ModalPadrao({
             aria-label="Fechar"
             onClick=${onClose}
           >
-            ×
+            X
           </button>
         </header>
         <div class="rh-modal-content">${children}</div>
@@ -46,7 +46,12 @@ export function ModalPadrao({
   `;
 }
 
-export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
+export function ModalDetalhesProva({
+  detalhe,
+  onClose,
+  onDownload,
+  onCandidateDetails,
+}) {
   if (!detalhe) return null;
 
   const { linha, payload, resumoEtapas, situacaoAtual } = detalhe;
@@ -55,58 +60,57 @@ export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
     <${ModalPadrao}
       aberto=${true}
       titulo=${`Detalhes da prova • ${linha.nome_candidato || 'Candidato'}`}
-      subtitulo="Informacoes registradas no historico e no gabarito salvo."
+      subtitulo="Informações registradas no histórico e no gabarito salvo."
       onClose=${onClose}
     >
       <div class="rh-details-body">
         <${MetricGrid}
           items=${[
-            {
-              label: 'Candidato',
-              value: payload?.candidate?.name || linha.nome_candidato || '-',
-            },
-            {
-              label: 'Vaga',
-              value: payload?.candidate?.role || linha.vaga || '-',
-            },
-            {
-              label: 'Nivel',
-              value: payload?.candidate?.level || linha.nivel || '-',
-            },
-            {
-              label: 'Nota final',
-              value: formatarPontuacaoDetalhada(
-                linha.pontuacao_final,
-                payload?.weightedFinalScore,
-              ),
-            },
-            {
-              label: 'Data',
-              value: linha.data_exibicao || '-',
-            },
-            {
-              label: 'Situacao',
-              value: html`
+      {
+        label: 'Candidato',
+        value: payload?.candidate?.name || linha.nome_candidato || '-',
+      },
+      {
+        label: 'Vaga',
+        value: payload?.candidate?.role || linha.vaga || '-',
+      },
+      {
+        label: 'Nível',
+        value: payload?.candidate?.level || linha.nivel || '-',
+      },
+      {
+        label: 'Nota final',
+        value: formatarPontuacaoDetalhada(
+          linha.pontuacao_final,
+          payload?.weightedFinalScore,
+        ),
+      },
+      {
+        label: 'Data',
+        value: linha.data_exibicao || '-',
+      },
+      {
+        label: 'Situação',
+        value: html`
                 <span
                   class=${`rh-status-pill ${obterClasseSituacaoAtual(situacaoAtual)}`}
                 >
                   ${situacaoAtual}
                 </span>
               `,
-            },
-          ]}
+      },
+    ]}
         />
 
         <${SectionCard}
           title="Notas por etapa"
           className="rh-section-card--flat"
         >
-          ${
-            resumoEtapas?.length
-              ? html`
+          ${resumoEtapas?.length
+      ? html`
                   <div class="rh-stage-grid">
                     ${resumoEtapas.map(
-                      (etapa, indice) => html`
+        (etapa, indice) => html`
                         <article key=${indice} class="rh-stage-card">
                           <div class="rh-stage-card-top">
                             <strong>${etapa.label || '-'}</strong>
@@ -115,42 +119,41 @@ export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
                           <div class="rh-stage-card-score">
                             ${etapa.rawScore ?? 0}/${etapa.rawMax ?? 0}
                           </div>
-                          <p>
-                            Aproveitamento:
+                          <span>
+                            Aproveitamento :
                             ${((etapa.percent || 0) * 100).toFixed(1)}%
-                          </p>
-                          <p>
-                            Nota ponderada:
+                          </span>
+                          <span>
+                            Nota ponderada: 
                             ${Number(etapa.weightedScore || 0).toFixed(1)}
-                          </p>
+                          </span>
                         </article>
                       `,
-                    )}
+      )}
                   </div>
                 `
-              : html`
+      : html`
                   <${EmptyState}
                     title="Sem detalhamento salvo"
-                    text="Esta prova possui apenas o resumo consolidado no historico."
+                    text="Esta prova possui apenas o resumo consolidado no histórico."
                   />
                 `
-          }
+    }
         </${SectionCard}>
 
         <${SectionCard}
           title="Registro completo"
           className="rh-section-card--flat"
         >
-          ${
-            payload?.textContent
-              ? html`<pre class="rh-detail-log">${payload.textContent}</pre>`
-              : html`
+          ${payload?.textContent
+      ? html`<pre class="rh-detail-log">${payload.textContent}</pre>`
+      : html`
                   <${EmptyState}
-                    title="Gabarito indisponivel"
-                    text="Nao existe texto detalhado salvo para esta prova."
+                    title="Gabarito indisponível"
+                    text="Não existe texto detalhado salvo para esta prova."
                   />
                 `
-          }
+    }
         </${SectionCard}>
       </div>
 
@@ -170,6 +173,17 @@ export function ModalDetalhesProva({ detalhe, onClose, onDownload }) {
           >
             Baixar prova
           </button>
+          ${onCandidateDetails
+      ? html`
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  onClick=${onCandidateDetails}
+                >
+                  Detalhes do candidato
+                </button>
+              `
+      : null}
         </div>
         <button type="button" class="btn btn-primary" onClick=${onClose}>
           Fechar

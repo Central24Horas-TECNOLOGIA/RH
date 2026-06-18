@@ -28,11 +28,15 @@ from ..services.cv import (
     score_cv_for_role,
     serialize_cv_problems,
 )
-from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
+from ..services.helpers import (
+    normalize_compare_text,
+    normalize_indication_type,
+    normalize_text,
+    rows_to_dicts,
+)
+from ..services.public_candidacy import validate_public_cv_upload
 from ..services.process_flow import (
-    CANDIDATE_STATUS_APPROVED,
     CANDIDATE_STATUS_TALENT_BANK,
-    build_approved_candidate_locked_message,
     build_process_closed_message,
     canonicalize_candidate_status,
     is_process_closed,
@@ -144,6 +148,67 @@ class CvAnalysisRepositoryMixin:
                 else "Ja incluido no processo"
             )
 
+    async def upload_candidate_profile_cv(self, id_teste: str, arquivo: UploadFile) -> dict:
+        safe_id_teste = normalize_text(id_teste)
+        if not safe_id_teste:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Candidato não informado.")
+
+        content = await arquivo.read()
+        upload = validate_public_cv_upload(
+            arquivo.filename or "curriculo",
+            arquivo.content_type or "",
+            content,
+        )
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_candidate_attachments_table(cursor)
+            ensure_process_reference_columns(cursor)
+            if not self._candidate_sheet_exists(cursor, safe_id_teste):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato não encontrado.")
+
+            storage_root = self._get_storage_root()
+            stored_path = storage_root / upload.stored_filename
+            stored_path.write_bytes(upload.content_bytes)
+            cursor.execute(
+                """
+                INSERT INTO candidatos_anexos
+                (
+                    id_teste,
+                    id_processo,
+                    id_processo_ref,
+                    nome_arquivo_original,
+                    nome_arquivo_armazenado,
+                    tipo_arquivo,
+                    caminho_arquivo,
+                    tamanho_bytes,
+                    criado_em,
+                    atualizado_em
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                """,
+                (
+                    safe_id_teste,
+                    "",
+                    "",
+                    upload.original_filename,
+                    upload.stored_filename,
+                    upload.mime_type,
+                    str(stored_path),
+                    upload.size_bytes,
+                ),
+            )
+            conn.commit()
+            return {
+                "success": True,
+                "filename": upload.original_filename,
+                "content_type": upload.mime_type,
+                "size_bytes": upload.size_bytes,
+            }
+        finally:
+            conn.close()
+
     def list_cv_pre_analyses(
         self,
         id_processo: str,
@@ -163,7 +228,7 @@ class CvAnalysisRepositoryMixin:
             ensure_process_reference_columns(cursor)
             processo = get_process_row(cursor, id_processo)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
             page_safe = max(1, int(page or 1))
             page_size_safe = max(1, min(int(page_size or 5), 50))
 
@@ -241,6 +306,12 @@ class CvAnalysisRepositoryMixin:
                     or normalize_compare_text(item.get("classificacao_slug")) == classificacao_filtro
                 ]
             self._annotate_pre_analysis_process_links(cursor, processo, items)
+            if not incluir_ocultos:
+                items = [
+                    item
+                    for item in items
+                    if int(item.get("ja_adicionado_ao_processo") or 0) != 1
+                ]
             items.sort(key=lambda item: int(item.get("id_pre_analise") or 0), reverse=True)
             total_items = len(items)
             offset = (page_safe - 1) * page_size_safe
@@ -265,7 +336,7 @@ class CvAnalysisRepositoryMixin:
             ensure_process_reference_columns(cursor)
             processo = get_process_row(cursor, id_processo)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
 
             cursor.execute(
                 """
@@ -282,7 +353,7 @@ class CvAnalysisRepositoryMixin:
             return {
                 "success": True,
                 "hidden": max(0, int(affected or 0)),
-                "message": "Lista limpa sem excluir curriculos, candidatos ou historico.",
+                "message": "Lista limpa sem excluir currículos, candidatos ou histórico.",
             }
         finally:
             conn.close()
@@ -302,7 +373,7 @@ class CvAnalysisRepositoryMixin:
 
             processo = get_process_row(cursor, id_processo)
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
             if is_process_closed(processo.get("status")):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -363,14 +434,19 @@ class CvAnalysisRepositoryMixin:
                     for item in rows
                 )
                 if ja_existe:
-                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ja existe uma pre-analise com este e-mail neste processo.")
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Já existe uma pré-análise com este e-mail neste processo.")
 
             education_strength = extract_education_strength(texto_normalizado)
             experience_strength = extract_experience_strength(texto_normalizado)
             competencias = extract_competencies(texto_normalizado)
             experiencias = extract_professional_experiences(texto_normalizado)
+            processo_id_analise = normalize_text(processo.get("id_processo")) if processo else normalize_text(row.get("id_processo"))
+            processo_ref_analise = normalize_text(processo.get("id_processo_ref")) if processo else normalize_text(row.get("id_processo_ref"))
+            vaga_analise = (
+                normalize_text(processo.get("vaga")) if processo else ""
+            ) or normalize_text(row.get("vaga")) or "Banco de Talentos"
             avaliacao = score_cv_for_role(
-                processo.get("vaga"),
+                vaga_analise,
                 palavras,
                 bool(email),
                 bool(telefone_base),
@@ -499,7 +575,7 @@ class CvAnalysisRepositoryMixin:
             )
             rows = rows_to_dicts(cursor, cursor.fetchall())
             if not rows:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pre-analise nao encontrada.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pré-análise não encontrada.")
             row = rows[0]
 
             processo = resolve_process_row_for_related_record(
@@ -509,11 +585,11 @@ class CvAnalysisRepositoryMixin:
                 timestamp_values=[row.get("criado_em")],
             )
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado para a pre-analise.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado para a pré-análise.")
             if is_process_closed(processo.get("status")):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=build_process_closed_message("editar pre-analise de CV", processo.get("id_processo")),
+                    detail=build_process_closed_message("editar pré-análise de CV", processo.get("id_processo")),
                 )
             novo_nome = normalize_text(data.get("nome_candidato"))
             if not novo_nome:
@@ -521,14 +597,14 @@ class CvAnalysisRepositoryMixin:
 
             novo_email = normalize_text(data.get("email")) or normalize_text(row.get("email"))
             if novo_email and not is_valid_email(novo_email):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail valido.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail válido.")
 
             novo_telefone = normalize_text(data.get("telefone")) or normalize_text(row.get("telefone"))
             novo_whatsapp = normalize_text(data.get("whatsapp")) or normalize_text(row.get("whatsapp"))
             if novo_telefone and not is_valid_phone(novo_telefone):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone valido.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone válido.")
             if novo_whatsapp and not is_valid_phone(novo_whatsapp):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um WhatsApp valido.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um WhatsApp válido.")
 
             if novo_email:
                 cursor.execute(
@@ -545,7 +621,7 @@ class CvAnalysisRepositoryMixin:
                     for item in existing_rows
                 )
                 if duplicado:
-                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ja existe outra pre-analise com este e-mail neste processo.")
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Já existe outra pré-análise com este e-mail neste processo.")
 
             cursor.execute(
                 """
@@ -608,7 +684,7 @@ class CvAnalysisRepositoryMixin:
             )
             rows = rows_to_dicts(cursor, cursor.fetchall())
             if not rows:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pre-analise nao encontrada.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pré-análise não encontrada.")
             row = rows[0]
             processo = resolve_process_row_for_related_record(
                 cursor,
@@ -619,11 +695,43 @@ class CvAnalysisRepositoryMixin:
             if processo and is_process_closed(processo.get("status")):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=build_process_closed_message("excluir pre-analise de CV", processo.get("id_processo")),
+                    detail=build_process_closed_message("excluir pré-análise de CV", processo.get("id_processo")),
                 )
             cursor.execute("DELETE FROM cv_pre_analises WHERE id_pre_analise = ?", (id_pre_analise,))
             conn.commit()
             return {"success": True}
+        finally:
+            conn.close()
+
+    def dismiss_cv_pre_analysis(self, id_pre_analise: int) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_cv_pre_analises_table(cursor)
+            cursor.execute(
+                """
+                SELECT id_pre_analise
+                FROM cv_pre_analises
+                WHERE id_pre_analise = ?
+                """,
+                (id_pre_analise,),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pré-análise não encontrada.")
+
+            cursor.execute(
+                """
+                UPDATE cv_pre_analises
+                SET oculto_na_lista = 1
+                WHERE id_pre_analise = ?
+                """,
+                (id_pre_analise,),
+            )
+            conn.commit()
+            return {
+                "success": True,
+                "message": "Pré-análise dispensada sem excluir currículo, análise ou histórico.",
+            }
         finally:
             conn.close()
 
@@ -637,7 +745,7 @@ class CvAnalysisRepositoryMixin:
 
             safe_id_teste = normalize_text(id_teste)
             if not safe_id_teste:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Candidato nao informado.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Candidato não informado.")
 
             cursor.execute(
                 """
@@ -681,26 +789,83 @@ class CvAnalysisRepositoryMixin:
             )
             rows = rows_to_dicts(cursor, cursor.fetchall())
             if not rows:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato inscrito nao encontrado.")
+                if not self._candidate_sheet_exists(cursor, safe_id_teste):
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato não encontrado.")
+
+                profile = self._get_candidate_sheet_profile(cursor, safe_id_teste)
+                cursor.execute(
+                    """
+                    SELECT TOP 1
+                        nome_arquivo_original,
+                        tipo_arquivo,
+                        caminho_arquivo
+                    FROM candidatos_anexos
+                    WHERE id_teste = ?
+                    ORDER BY criado_em DESC, id_anexo DESC
+                    """,
+                    (safe_id_teste,),
+                )
+                attachment_rows = rows_to_dicts(cursor, cursor.fetchall())
+                attachment = attachment_rows[0] if attachment_rows else {}
+                rows = [
+                    {
+                        "id_registro": None,
+                        "id_processo": "",
+                        "id_processo_ref": "",
+                        "id_teste": safe_id_teste,
+                        "nome_candidato": self._lookup_candidate_sheet_name(cursor, safe_id_teste),
+                        "vaga": "",
+                        "status_candidato": "",
+                        "pontuacao_final": "",
+                        "data_prova": "",
+                        "origem": "Ficha do candidato",
+                        "etapa_pipeline": "",
+                        "data_atualizacao_pipeline": None,
+                        "email": profile.get("email", ""),
+                        "telefone": profile.get("telefone", ""),
+                        "whatsapp": profile.get("whatsapp", ""),
+                        "nome_perfil": profile.get("nome_candidato", ""),
+                        "nome_arquivo_original": attachment.get("nome_arquivo_original", ""),
+                        "tipo_arquivo": attachment.get("tipo_arquivo", ""),
+                        "caminho_arquivo": attachment.get("caminho_arquivo", ""),
+                    }
+                ]
             row = rows[0]
 
-            processo = resolve_process_row_for_related_record(
-                cursor,
-                id_processo=row.get("id_processo"),
-                id_processo_ref=row.get("id_processo_ref", ""),
-                timestamp_values=[row.get("data_prova"), row.get("data_atualizacao_pipeline")],
+            processo = (
+                get_process_row(cursor, id_processo)
+                if normalize_text(id_processo)
+                else resolve_process_row_for_related_record(
+                    cursor,
+                    id_processo=row.get("id_processo"),
+                    id_processo_ref=row.get("id_processo_ref", ""),
+                    timestamp_values=[row.get("data_prova"), row.get("data_atualizacao_pipeline")],
+                )
             )
-            if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado para o candidato.")
-            if is_process_closed(processo.get("status")):
+            if processo and is_process_closed(processo.get("status")):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=build_process_closed_message("analisar CV neste processo", processo.get("id_processo")),
                 )
+            processo_id_analise = (
+                normalize_text(processo.get("id_processo"))
+                if processo
+                else normalize_text(row.get("id_processo"))
+            )
+            processo_ref_analise = (
+                normalize_text(processo.get("id_processo_ref"))
+                if processo
+                else normalize_text(row.get("id_processo_ref"))
+            )
+            vaga_analise = (
+                normalize_text(processo.get("vaga"))
+                if processo
+                else normalize_text(row.get("vaga"))
+            ) or "Banco de Talentos"
 
             caminho_arquivo = Path(normalize_text(row.get("caminho_arquivo")))
             if not caminho_arquivo.exists():
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Curriculo nao encontrado para este candidato.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Currículo não encontrado para este candidato.")
 
             content = caminho_arquivo.read_bytes()
             try:
@@ -716,7 +881,7 @@ class CvAnalysisRepositoryMixin:
             if not texto_normalizado:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Nao foi possivel encontrar texto selecionavel no curriculo enviado.",
+                    detail="Não foi possível encontrar texto selecionável no currículo enviado.",
                 )
 
             fallback_nome = row.get("nome_perfil") or row.get("nome_candidato")
@@ -736,7 +901,7 @@ class CvAnalysisRepositoryMixin:
             competencias = extract_competencies(texto_normalizado)
             experiencias = extract_professional_experiences(texto_normalizado)
             avaliacao = score_cv_for_role(
-                processo.get("vaga"),
+                vaga_analise,
                 palavras,
                 bool(email),
                 bool(telefone_base),
@@ -754,18 +919,20 @@ class CvAnalysisRepositoryMixin:
             avaliacao["confianca_nome"] = nome_detectado.get("confianca", "baixa")
             avaliacao["fonte_nome"] = nome_detectado.get("fonte", "")
 
-            cursor.execute(
-                """
-                SELECT TOP 1 id_pre_analise
-                FROM cv_pre_analises
-                WHERE id_processo = ?
-                  AND id_processo_ref = ?
-                  AND email = ?
-                ORDER BY id_pre_analise DESC
-                """,
-                (processo.get("id_processo"), processo.get("id_processo_ref", ""), email),
-            )
-            existing = cursor.fetchone()
+            existing = None
+            if email:
+                cursor.execute(
+                    """
+                    SELECT TOP 1 id_pre_analise
+                    FROM cv_pre_analises
+                    WHERE id_processo = ?
+                      AND id_processo_ref = ?
+                      AND email = ?
+                    ORDER BY id_pre_analise DESC
+                    """,
+                    (processo_id_analise, processo_ref_analise, email),
+                )
+                existing = cursor.fetchone()
             arquivo_original_base64 = base64.b64encode(content).decode("utf-8")
             if existing:
                 id_pre_analise = int(existing[0])
@@ -810,8 +977,8 @@ class CvAnalysisRepositoryMixin:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
                     """,
                     (
-                        processo.get("id_processo"),
-                        processo.get("id_processo_ref", ""),
+                        processo_id_analise,
+                        processo_ref_analise,
                         nome_candidato,
                         email,
                         telefone,
@@ -831,7 +998,7 @@ class CvAnalysisRepositoryMixin:
                 id_pre_analise = int(cursor.fetchone()[0])
 
             status_candidato = map_cv_classification_to_status(avaliacao["classificacao"])
-            if status_candidato == "Qualificado":
+            if status_candidato == "Qualificado" and processo and row.get("id_registro"):
                 self._apply_candidate_status_update(
                     cursor,
                     current_row=row,
@@ -871,7 +1038,7 @@ class CvAnalysisRepositoryMixin:
             )
             rows = rows_to_dicts(cursor, cursor.fetchall())
             if not rows:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pre-analise nao encontrada.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pré-análise não encontrada.")
             row = rows[0]
             processo = resolve_process_row_for_related_record(
                 cursor,
@@ -880,7 +1047,7 @@ class CvAnalysisRepositoryMixin:
                 timestamp_values=[row.get("criado_em")],
             )
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
             if is_process_closed(processo.get("status")):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -936,7 +1103,14 @@ class CvAnalysisRepositoryMixin:
             except Exception:
                 pass
 
-    def add_cv_pre_analysis_to_process(self, id_pre_analise: int, manual_override: bool = False, motivo_override: str = "") -> dict:
+    def add_cv_pre_analysis_to_process(
+        self,
+        id_pre_analise: int,
+        manual_override: bool = False,
+        motivo_override: str = "",
+        eh_indicacao: bool = False,
+        tipo_indicacao: str = "",
+    ) -> dict:
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -965,11 +1139,8 @@ class CvAnalysisRepositoryMixin:
             )
             rows = rows_to_dicts(cursor, cursor.fetchall())
             if not rows:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pre-analise nao encontrada.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pré-análise não encontrada.")
             row = rows[0]
-            if int(row.get("ja_adicionado_ao_processo") or 0) == 1:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este CV ja foi adicionado ao processo.")
-
             processo = resolve_process_row_for_related_record(
                 cursor,
                 id_processo=row.get("id_processo"),
@@ -977,12 +1148,26 @@ class CvAnalysisRepositoryMixin:
                 timestamp_values=[row.get("criado_em")],
             )
             if not processo:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo nao encontrado.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
             if is_process_closed(processo.get("status")):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=build_process_closed_message("aproveitar pre-analise de CV", processo.get("id_processo")),
+                    detail=build_process_closed_message("aproveitar pré-análise de CV", processo.get("id_processo")),
                 )
+
+            status_candidato = map_cv_classification_to_status(row.get("classificacao"))
+            if status_candidato != "Qualificado" and not manual_override:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Somente candidatos qualificados podem seguir da pré-análise para o processo seletivo.",
+                )
+            effective_status = "Qualificado" if manual_override else status_candidato
+            effective_origin = "Analise direta do CV (uso manual RH)" if manual_override else "Analise direta do CV"
+            manual_note = normalize_text(motivo_override) or "Utilizado manualmente pelo RH apesar da classificacao automatica."
+            indication_type = normalize_indication_type(tipo_indicacao)
+            is_indication = bool(eh_indicacao) or bool(indication_type)
+            if bool(eh_indicacao) and not indication_type:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selecione o tipo de indicação.")
 
             existing_candidate = self._find_process_candidate_by_identity(
                 cursor,
@@ -1004,25 +1189,78 @@ class CvAnalysisRepositoryMixin:
                 existing_status = canonicalize_candidate_status(
                     existing_candidate.get("status_candidato"),
                 )
-                if existing_status == CANDIDATE_STATUS_APPROVED:
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail=build_approved_candidate_locked_message(),
+                cursor.execute(
+                    """
+                    UPDATE candidatos_processos
+                    SET
+                        origem = CASE WHEN ? = 1 THEN ? ELSE origem END,
+                        pontuacao_final = CASE
+                            WHEN ISNULL(LTRIM(RTRIM(CONVERT(NVARCHAR(60), pontuacao_final))), '') = '' THEN ?
+                            ELSE pontuacao_final
+                        END,
+                        eh_indicacao = CASE WHEN ? = 1 THEN 1 ELSE ISNULL(eh_indicacao, 0) END,
+                        tipo_indicacao = CASE WHEN ? <> '' THEN ? ELSE tipo_indicacao END,
+                        indicacao_em = CASE WHEN ? = 1 THEN ISNULL(indicacao_em, GETDATE()) ELSE indicacao_em END
+                    WHERE id_registro = ?
+                    """,
+                    (
+                        1 if manual_override else 0,
+                        effective_origin,
+                        str(row.get("score_final") or "").replace(".", ","),
+                        1 if is_indication else 0,
+                        indication_type,
+                        indication_type,
+                        1 if is_indication else 0,
+                        existing_candidate.get("id_registro"),
+                    ),
+                )
+                if manual_override:
+                    self._upsert_candidate_profile(
+                        cursor,
+                        id_teste=existing_candidate.get("id_teste") or f"CV-{row.get('id_pre_analise')}",
+                        nome_candidato=row.get("nome_candidato"),
+                        observacao_rh=manual_note,
                     )
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Este candidato já está vinculado a este processo.",
-                )
+                observacoes_movimento = []
+                if manual_override:
+                    observacoes_movimento.append(manual_note)
+                if is_indication:
+                    observacoes_movimento.append(f"Indicação: {indication_type}")
+                if observacoes_movimento:
+                    self._record_candidate_movement(
+                        cursor,
+                        id_teste=existing_candidate.get("id_teste") or f"CV-{row.get('id_pre_analise')}",
+                        id_registro=existing_candidate.get("id_registro"),
+                        id_processo=processo.get("id_processo", ""),
+                        id_processo_ref=processo.get("id_processo_ref", ""),
+                        nome_candidato=row.get("nome_candidato"),
+                        vaga=processo.get("vaga") or "",
+                        origem_inicial=effective_origin,
+                        tipo_movimentacao=(
+                            "Candidato aproveitado manualmente"
+                            if manual_override
+                            else "Indicação registrada no processo"
+                        ),
+                        status_anterior="Pré-análise de CV",
+                        status_novo=existing_status,
+                        observacao=" | ".join(observacoes_movimento),
+                    )
+                conn.commit()
+                return {
+                    "success": True,
+                    "already_exists": True,
+                    "id_registro": existing_candidate.get("id_registro"),
+                    "status_candidato": existing_status,
+                    "message": "Este candidato já estava vinculado ao processo; a pré-análise foi marcada como utilizada.",
+                }
 
-            status_candidato = map_cv_classification_to_status(row.get("classificacao"))
-            if status_candidato != "Qualificado" and not manual_override:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Somente candidatos qualificados podem seguir da pre-analise para o processo seletivo.",
-                )
-            effective_status = "Qualificado" if manual_override else status_candidato
-            effective_origin = "Analise direta do CV (uso manual RH)" if manual_override else "Analise direta do CV"
-            manual_note = normalize_text(motivo_override) or "Utilizado manualmente pelo RH apesar da classificacao automatica."
+            if int(row.get("ja_adicionado_ao_processo") or 0) == 1:
+                conn.commit()
+                return {
+                    "success": True,
+                    "already_exists": True,
+                    "message": "Este CV já foi adicionado ao processo.",
+                }
             id_registro = insert_candidate_process_record(
                 cursor,
                 processo,
@@ -1036,6 +1274,8 @@ class CvAnalysisRepositoryMixin:
                     "origem": effective_origin,
                     "etapa_pipeline": "Prova" if effective_status == "Qualificado" else "Triagem",
                     "data_atualizacao_pipeline": datetime.now(),
+                    "eh_indicacao": is_indication,
+                    "tipo_indicacao": indication_type,
                 },
             )
             cursor.execute(
@@ -1050,7 +1290,26 @@ class CvAnalysisRepositoryMixin:
                 cursor,
                 id_teste=f"CV-{row.get('id_pre_analise')}",
                 nome_candidato=row.get("nome_candidato"),
-                observacao_rh=manual_note if manual_override else "",
+                observacao_rh=manual_note if manual_override else None,
+            )
+            observacoes_movimento = [f"Origem: {effective_origin}"]
+            if manual_override:
+                observacoes_movimento.append(manual_note)
+            if is_indication:
+                observacoes_movimento.append(f"Indicação: {indication_type}")
+            self._record_candidate_movement(
+                cursor,
+                id_teste=f"CV-{row.get('id_pre_analise')}",
+                id_registro=id_registro,
+                id_processo=processo.get("id_processo", ""),
+                id_processo_ref=processo.get("id_processo_ref", ""),
+                nome_candidato=row.get("nome_candidato"),
+                vaga=processo.get("vaga") or "",
+                origem_inicial=effective_origin,
+                tipo_movimentacao="Candidato vinculado a processo seletivo",
+                status_anterior="Pré-análise de CV",
+                status_novo=effective_status,
+                observacao=" | ".join(observacoes_movimento),
             )
             conn.commit()
             return {"success": True}

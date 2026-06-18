@@ -5,6 +5,7 @@ import re
 
 from pydantic import field_validator, model_validator
 
+from ..services.process_flow import CANDIDATE_STATUS_PENDING_CONFIRMATION
 from ..services.interviews import normalize_interview_status
 from .common import BaseSchema
 
@@ -43,7 +44,7 @@ class InterviewCreateRequest(BaseSchema):
     id_processo: str = ""
     id_processo_ref: str = ""
     data_entrevista: datetime | None = None
-    status_entrevista: str = "Agendado"
+    status_entrevista: str = CANDIDATE_STATUS_PENDING_CONFIRMATION
     link_agendamento: str = ""
     observacoes_rh: str = ""
     mensagem_personalizada: str = ""

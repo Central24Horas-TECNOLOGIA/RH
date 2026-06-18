@@ -1,0 +1,42 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+INTERVIEW_SQL_FILES = (
+    REPO_ROOT / "api" / "rh_api" / "repositories" / "bootstrap.py",
+    REPO_ROOT / "api" / "rh_api" / "repositories" / "interviews.py",
+)
+
+
+def _source_text() -> str:
+    return "\n".join(path.read_text(encoding="utf-8") for path in INTERVIEW_SQL_FILES)
+
+
+def test_interview_sql_does_not_reference_legacy_id_agendamento():
+    assert "id_agendamento" not in _source_text()
+
+
+def test_interview_sql_never_updates_interview_identity_column():
+    interview_updates = re.finditer(
+        r"UPDATE\s+(?:dbo\.)?entrevistas_agendadas\b.*?\bSET\b(?P<set_clause>.*?)\bWHERE\b",
+        _source_text(),
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    for update in interview_updates:
+        assert re.search(r"\bid_entrevista\b", update.group("set_clause"), flags=re.IGNORECASE) is None
+
+
+def test_interview_insert_does_not_include_identity_column():
+    insert_blocks = re.findall(
+        r"INSERT\s+INTO\s+(?:dbo\.)?entrevistas_agendadas\s*\((.*?)\)\s*OUTPUT",
+        _source_text(),
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    assert insert_blocks
+    for columns_block in insert_blocks:
+        assert re.search(r"\bid_entrevista\b", columns_block, flags=re.IGNORECASE) is None

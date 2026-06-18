@@ -145,10 +145,11 @@ export async function removerBancoTalentos(idBanco) {
 
 
 export async function criarBancoTalentos(dadosCandidato) {
+  const { id_banco, ...payload } = dadosCandidato || {};
   const resultado = await requisitar('/talent-bank', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(dadosCandidato),
+    body: JSON.stringify(payload),
   });
 
   invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos', 'pipeline-candidatos');
@@ -162,6 +163,39 @@ export async function atualizarPerfilCandidato(idTeste, payload) {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    },
+  );
+
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos');
+  return resultado;
+}
+
+export async function lerFichaCandidato(idTeste) {
+  return requisitar(`/candidate-profiles/${encodeURIComponent(idTeste)}/sheet`, {
+    method: 'GET',
+  });
+}
+
+export async function atualizarFichaCandidato(idTeste, payload) {
+  const resultado = await requisitar(
+    `/candidate-profiles/${encodeURIComponent(idTeste)}/sheet`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos');
+  return resultado;
+}
+
+export async function uploadCvCandidato(idTeste, formData) {
+  const resultado = await requisitar(
+    `/candidate-profiles/${encodeURIComponent(idTeste)}/cv`,
+    {
+      method: 'POST',
+      body: formData,
     },
   );
 
@@ -189,6 +223,41 @@ export async function lerDetalheProcesso(idProcesso) {
   return requisitar(`/processes/${encodeURIComponent(idProcesso)}/details`, {
     method: 'GET',
   });
+}
+
+export async function lerAnotacoesDossieProcesso(idProcesso) {
+  return requisitar(
+    `/processes/${encodeURIComponent(idProcesso)}/dossier/notes`,
+    { method: 'GET' },
+  );
+}
+
+export async function criarAnotacaoDossieProcesso(idProcesso, payload) {
+  const resultado = await requisitar(
+    `/processes/${encodeURIComponent(idProcesso)}/dossier/notes`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado;
+}
+
+export async function atualizarAnotacaoDossieProcesso(idAnotacao, payload) {
+  const resultado = await requisitar(
+    `/process-dossier-notes/${encodeURIComponent(idAnotacao)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos');
+  return resultado;
 }
 
 export async function lerPreAnalisesCv(idProcesso, pagina = 1, tamanho = 5, filtros = {}) {
@@ -260,6 +329,16 @@ export async function excluirPreAnaliseCv(idPreAnalise) {
   return requisitar(`/cv-pre-analyses/${encodeURIComponent(idPreAnalise)}`, {
     method: 'DELETE',
   });
+}
+
+export async function dispensarPreAnaliseCv(idPreAnalise) {
+  const resultado = await requisitar(
+    `/cv-pre-analyses/${encodeURIComponent(idPreAnalise)}/dismiss`,
+    { method: 'POST' },
+  );
+
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');
+  return resultado;
 }
 
 export async function enviarPreAnaliseParaBancoTalentos(idPreAnalise) {
@@ -409,6 +488,20 @@ export async function registrarWhatsappAprovacao(idRegistro, payload) {
       body: JSON.stringify(payload || {}),
     },
   );
+}
+
+export async function registrarWhatsappContatoManual(idRegistro, payload) {
+  const resultado = await requisitar(
+    `/process-candidates/${encodeURIComponent(idRegistro)}/whatsapp-contact`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('candidatos-processos', 'processos', 'pipeline-candidatos');
+  return resultado;
 }
 
 export async function enviarEmailAprovacao(idRegistro, payload) {

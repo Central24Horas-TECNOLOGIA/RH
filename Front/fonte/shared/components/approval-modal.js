@@ -239,7 +239,7 @@ export function ModalAprovacaoCandidato({
   };
 
   const confirmar = () =>
-    executarAcao(onConfirm, 'Nao foi possivel confirmar a aprovacao.');
+    executarAcao(onConfirm, 'Não foi possível confirmar a aprovação.');
 
   return html`
     <${ModalPadrao}
@@ -342,7 +342,7 @@ export function ModalAprovacaoCandidato({
                 onClick=${() =>
                   executarAcao(
                     onSendWhatsApp,
-                    'Nao foi possivel enviar a mensagem por WhatsApp.',
+                    'Não foi possível enviar a mensagem por WhatsApp.',
                   )}
               >
                 ${enviandoCanal === 'whatsapp' ? 'Enviando...' : 'Enviar por WhatsApp'}
@@ -358,7 +358,7 @@ export function ModalAprovacaoCandidato({
                 onClick=${() =>
                   executarAcao(
                     onSendEmail,
-                    'Nao foi possivel enviar a mensagem por e-mail.',
+                    'Não foi possível enviar a mensagem por e-mail.',
                   )}
               >
                 ${enviandoCanal === 'email' ? 'Enviando...' : 'Enviar por E-mail'}

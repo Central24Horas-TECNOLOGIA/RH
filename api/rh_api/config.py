@@ -11,11 +11,9 @@ from pathlib import Path
 DEFAULT_DEV_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:4173",
-    "http://127.0.0.1:5500",
     "http://127.0.0.1:8080",
     "http://localhost:3000",
     "http://localhost:4173",
-    "http://localhost:5500",
     "http://localhost:8080",
     "null",
 ]
@@ -97,6 +95,21 @@ def _ini_bool(
     return default
 
 
+def _ini_int(
+    parser: configparser.ConfigParser,
+    section: str,
+    option: str,
+    default: int,
+) -> int:
+    if not parser.has_option(section, option):
+        return default
+
+    try:
+        return parser.getint(section, option, fallback=default)
+    except (TypeError, ValueError):
+        return default
+
+
 def _split_csv(raw_value: str | None) -> list[str]:
     if not raw_value:
         return []
@@ -116,9 +129,38 @@ def _read_bool_env(name: str, default: bool) -> bool:
     return default
 
 
+def _read_int_env(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+
+    try:
+        return int(raw_value.strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _resolve_path_config(value: str, base_dir: Path) -> str:
+    raw_value = (value or "").strip()
+    if not raw_value:
+        return ""
+
+    path = Path(raw_value).expanduser()
+    if not path.is_absolute():
+        path = base_dir / path
+    return str(path)
+
+
 @dataclass(frozen=True)
 class Settings:
     app_env: str
+    server_host: str
+    server_port: int
+    server_reload: bool
+    serve_frontend: bool
+    frontend_dir: str
+    frontend_api_base_url: str
+    process_dossier_ai_endpoint: str
     sql_server: str
     sql_database: str
     sql_driver: str
@@ -188,16 +230,64 @@ def get_settings() -> Settings:
 
     project_root = Path(__file__).resolve().parents[2]
 
-    app_env = os.getenv("RH_APP_ENV", "development").strip() or "development"
+    app_env = (
+        os.getenv("RH_APP_ENV", "").strip()
+        or os.getenv("ENV", "").strip()
+        or _ini_value(runtime_ini, "APP", "environment", "development")
+        or "development"
+    )
     dev_mode = app_env.lower() != "production"
-    cors_allow_origins = _split_csv(os.getenv("RH_CORS_ALLOW_ORIGINS"))
+    server_host = (
+        os.getenv("RH_SERVER_HOST", "").strip()
+        or os.getenv("HOST", "").strip()
+        or _ini_value(runtime_ini, "SERVER", "host", "127.0.0.1")
+        or "127.0.0.1"
+    )
+    server_port = _read_int_env(
+        "RH_SERVER_PORT",
+        _read_int_env(
+            "PORT",
+            _ini_int(runtime_ini, "SERVER", "port", 8010),
+        ),
+    )
+    server_reload = _read_bool_env(
+        "RH_SERVER_RELOAD",
+        _ini_bool(runtime_ini, "SERVER", "reload", False),
+    )
+    serve_frontend = _read_bool_env(
+        "RH_SERVE_FRONTEND",
+        _ini_bool(runtime_ini, "FRONTEND", "serve", True),
+    )
+    frontend_dir = _resolve_path_config(
+        os.getenv("RH_FRONTEND_DIR", "").strip()
+        or _ini_value(runtime_ini, "FRONTEND", "dir", "Front")
+        or "Front",
+        project_root,
+    )
+    frontend_api_base_url = (
+        os.getenv("RH_FRONTEND_API_BASE_URL", "").strip()
+        or _ini_value(runtime_ini, "FRONTEND", "api_base_url", "")
+    )
+    process_dossier_ai_endpoint = (
+        os.getenv("RH_PROCESS_DOSSIER_AI_ENDPOINT", "").strip()
+        or _ini_value(runtime_ini, "FRONTEND", "process_dossier_ai_endpoint", "")
+    )
+
+    cors_allow_origins = _split_csv(
+        os.getenv("RH_CORS_ALLOW_ORIGINS", "").strip()
+        or _ini_value(runtime_ini, "CORS", "allow_origins", "")
+    )
 
     if not cors_allow_origins and dev_mode:
         cors_allow_origins = list(DEFAULT_DEV_ORIGINS)
 
-    cors_allow_origin_regex = os.getenv("RH_CORS_ALLOW_ORIGIN_REGEX", "").strip() or None
+    cors_allow_origin_regex = (
+        os.getenv("RH_CORS_ALLOW_ORIGIN_REGEX", "").strip()
+        or _ini_value(runtime_ini, "CORS", "allow_origin_regex", "")
+        or None
+    )
     if dev_mode and not cors_allow_origin_regex:
-        cors_allow_origin_regex = r"https?://(localhost|127\.0\.0\.1|192\.168\.5\.19)(:\d+)?"
+        cors_allow_origin_regex = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
 
     email_inbox_provider = (
         os.getenv("RH_EMAIL_INBOX_PROVIDER", "").strip()
@@ -249,6 +339,13 @@ def get_settings() -> Settings:
 
     return Settings(
         app_env=app_env,
+        server_host=server_host,
+        server_port=server_port,
+        server_reload=server_reload,
+        serve_frontend=serve_frontend,
+        frontend_dir=frontend_dir,
+        frontend_api_base_url=frontend_api_base_url,
+        process_dossier_ai_endpoint=process_dossier_ai_endpoint,
         sql_server=sql_server,
         sql_database=sql_database,
         sql_driver=sql_driver,
@@ -267,7 +364,10 @@ def get_settings() -> Settings:
         cors_allow_origins=cors_allow_origins,
         cors_allow_origin_regex=cors_allow_origin_regex,
         log_level=os.getenv("RH_LOG_LEVEL", "INFO").strip() or "INFO",
-        public_frontend_base_url=os.getenv("RH_PUBLIC_FRONTEND_BASE_URL", "").strip(),
+        public_frontend_base_url=(
+            os.getenv("RH_PUBLIC_FRONTEND_BASE_URL", "").strip()
+            or _ini_value(runtime_ini, "PUBLIC", "PUBLIC_FRONTEND_BASE_URL", "")
+        ),
         public_candidate_base_url=(
             os.getenv("PUBLIC_CANDIDATE_BASE_URL", "").strip()
             or os.getenv("RH_PUBLIC_CANDIDATE_BASE_URL", "").strip()
