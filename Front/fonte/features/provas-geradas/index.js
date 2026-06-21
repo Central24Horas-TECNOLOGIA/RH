@@ -137,9 +137,21 @@ function montarListaComOutro(lista = [], outro = '') {
   ].filter(Boolean);
 }
 
+function primeiroTexto(...valores) {
+  return valores.map(normalizarTexto).find(Boolean) || '';
+}
+
 function obterOpcaoVaga(vaga) {
   const chave = normalizarBusca(vaga);
-  return OPCOES_VAGAS_PROVA.find((item) => normalizarBusca(item.label) === chave) || null;
+  if (!chave) return null;
+  return (
+    OPCOES_VAGAS_PROVA.find((item) => normalizarBusca(item.label) === chave) ||
+    OPCOES_VAGAS_PROVA.find((item) => {
+      const label = normalizarBusca(item.label);
+      return label && (chave.includes(label) || label.includes(chave));
+    }) ||
+    null
+  );
 }
 
 function normalizarTrilha(valor) {
@@ -156,17 +168,46 @@ function normalizarTrilha(valor) {
 }
 
 function obterAreaInicial(candidato, processo, opcaoVaga) {
-  return normalizarTexto(
+  return primeiroTexto(
     candidato.area_prova ||
       candidato.area ||
+      candidato.area_vaga ||
+      candidato.area_cargo ||
+      candidato.area_tecnica ||
+      candidato.departamento ||
       candidato.trilha ||
       candidato.track ||
       processo.area_prova ||
       processo.area ||
+      processo.area_vaga ||
+      processo.area_cargo ||
+      processo.area_tecnica ||
+      processo.departamento ||
       processo.trilha ||
+      processo.track ||
       opcaoVaga?.track ||
       '',
   );
+}
+
+function normalizarNivelProva(valor) {
+  const texto = normalizarTexto(valor);
+  if (!texto) return '';
+  const chave = normalizarBusca(texto);
+  const numero = chave.match(/[1-5]/)?.[0];
+  if (numero) return numero;
+  if (chave.includes('basico') || chave.includes('junior') || chave.includes('aprendiz')) return '1';
+  if (chave.includes('intermediario') || chave.includes('pleno')) return '3';
+  if (chave.includes('avancado') || chave.includes('senior') || chave.includes('supervisor')) return '4';
+  return texto;
+}
+
+function montarOpcoesComValor(opcoes = [], valor = '') {
+  const atual = normalizarTexto(valor);
+  if (!atual || opcoes.some((opcao) => normalizarBusca(opcao) === normalizarBusca(atual))) {
+    return opcoes;
+  }
+  return [atual, ...opcoes];
 }
 
 function resolverTrilhaBlueprint(formulario = {}) {
@@ -204,6 +245,22 @@ function montarFormularioInicial(contexto = {}) {
   const opcaoVaga = obterOpcaoVaga(vaga);
   const area = obterAreaInicial(candidato, processo, opcaoVaga);
   const trilha = normalizarTrilha(area || opcaoVaga?.track || '');
+  const nivel = normalizarNivelProva(
+    primeiroTexto(
+      candidato.nivel,
+      candidato.level,
+      candidato.nivel_prova,
+      candidato.nivel_vaga,
+      candidato.nivel_cargo,
+      processo.nivel_prova,
+      processo.nivel,
+      processo.level,
+      processo.nivel_vaga,
+      processo.nivel_cargo,
+      SUGESTOES_NIVEL_POR_VAGA[vaga],
+      opcaoVaga?.level,
+    ),
+  );
 
   return {
     nome_candidato: normalizarTexto(candidato.nome_candidato || candidato.nome || candidato.name || ''),
@@ -234,15 +291,7 @@ function montarFormularioInicial(contexto = {}) {
         '',
     ),
     trilha,
-    nivel: normalizarTexto(
-      candidato.nivel ||
-        candidato.level ||
-        processo.nivel_prova ||
-        processo.nivel ||
-        SUGESTOES_NIVEL_POR_VAGA[vaga] ||
-        opcaoVaga?.level ||
-        '',
-    ),
+    nivel,
     tempo_total: Number(candidato.time || processo.tempo_prova || processo.tempo_minutos || 40),
     quantidade_questoes: '',
     redacao_obrigatoria: true,
@@ -510,12 +559,14 @@ export function ModalGerarProva({
   useEffect(() => {
     if (!formulario.vaga) return;
     const opcao = obterOpcaoVaga(formulario.vaga);
-    const nivelSugerido = SUGESTOES_NIVEL_POR_VAGA[formulario.vaga] || opcao?.level || '';
+    const nivelSugerido = normalizarNivelProva(
+      SUGESTOES_NIVEL_POR_VAGA[formulario.vaga] || opcao?.level || '',
+    );
     const areaSugerida = normalizarTexto(opcao?.track || '');
     const trilhaSugerida = normalizarTrilha(formulario.area_prova || areaSugerida);
     setFormulario((anterior) => ({
       ...anterior,
-      nivel: anterior.nivel || nivelSugerido,
+      nivel: normalizarNivelProva(anterior.nivel) || nivelSugerido,
       area_prova: anterior.area_prova || areaSugerida,
       trilha: anterior.trilha || trilhaSugerida,
     }));
@@ -535,6 +586,19 @@ export function ModalGerarProva({
   );
   const etapas = useMemo(() => montarEtapasBlueprint(blueprint), [blueprint]);
   const categorias = useMemo(() => obterCategoriasDasQuestoes(questoes), [questoes]);
+  const opcoesAreasFormulario = useMemo(
+    () => montarOpcoesComValor(OPCOES_AREAS_PROVA, formulario.area_prova),
+    [formulario.area_prova],
+  );
+  const opcoesNivelFormulario = useMemo(() => {
+    if (
+      !formulario.nivel ||
+      OPCOES_NIVEL.some((opcao) => normalizarBusca(opcao.value) === normalizarBusca(formulario.nivel))
+    ) {
+      return OPCOES_NIVEL;
+    }
+    return [{ value: formulario.nivel, label: formulario.nivel }, ...OPCOES_NIVEL];
+  }, [formulario.nivel]);
 
   if (!aberto) return null;
 
@@ -830,7 +894,7 @@ export function ModalGerarProva({
                 onChange=${(event) => atualizarCampo('area_prova', event.target.value)}
               >
                 <option value="">Selecione...</option>
-                ${OPCOES_AREAS_PROVA.map(
+                ${opcoesAreasFormulario.map(
                   (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
                 )}
               </select>
@@ -843,7 +907,7 @@ export function ModalGerarProva({
                 onChange=${(event) => atualizarCampo('nivel', event.target.value)}
               >
                 <option value="">Selecione...</option>
-                ${OPCOES_NIVEL.map(
+                ${opcoesNivelFormulario.map(
                   (opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`,
                 )}
               </select>

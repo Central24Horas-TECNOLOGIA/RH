@@ -1323,6 +1323,88 @@
   background: var(--color-primary-soft);
 }
 
+.compact-choice-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.compact-choice-item {
+  margin: 0;
+  padding: 0.95rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.compact-choice-item legend {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 0.65rem;
+  align-items: start;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.compact-choice-item legend span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 0.82rem;
+}
+
+.compact-choice-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.5rem;
+}
+
+.compact-choice-option {
+  display: grid;
+  grid-template-columns: auto 26px 1fr;
+  gap: 0.45rem;
+  align-items: center;
+  min-height: 42px;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(17, 34, 59, 0.12);
+  border-radius: var(--radius-sm);
+  background: #f8fbff;
+  cursor: pointer;
+}
+
+.compact-choice-option.is-selected {
+  border-color: rgba(21, 61, 138, 0.45);
+  background: var(--color-primary-soft);
+}
+
+.compact-choice-option span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.compact-choice-option strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
 .rh-cutoff-toggle {
   position: relative;
   display: inline-flex;
@@ -5128,6 +5210,20 @@
   background: #fff;
 }
 
+.candidate-action-select-field {
+  display: block;
+  width: min(100%, 240px);
+  margin: 0;
+}
+
+.candidate-action-select {
+  min-height: 36px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 8px;
+  background-color: #fff;
+}
+
 .approved-candidate-card {
   overflow: hidden;
 }
@@ -5161,6 +5257,10 @@
   .candidate-actions.process-candidate-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .candidate-action-select-field {
+    width: 100%;
   }
 
   .candidate-actions .btn-action {

@@ -98,6 +98,14 @@ export function EditorTextoRich({
     sincronizarConteudo();
   };
 
+  const alterarTamanhoFonte = (event) => {
+    const valor = event.target.value;
+    if (!valor || !editorRef.current) return;
+    editorRef.current.focus();
+    formatarDocumentoRichText('fontSize', valor);
+    sincronizarConteudo();
+  };
+
   const sincronizarConteudo = () => {
     if (!editorRef.current) return;
     const conteudo = limparHtmlVazio(editorRef.current.innerHTML);
@@ -145,6 +153,29 @@ export function EditorTextoRich({
         <button
           type="button"
           class="rh-editor-toolbar-btn"
+          title="Tachado"
+          aria-label="Aplicar tachado"
+          onMouseDown=${aplicarComando('strikeThrough')}
+        >
+          <s>S</s>
+        </button>
+        <select
+          class="rh-editor-font-size"
+          title="Tamanho da fonte"
+          aria-label="Tamanho da fonte"
+          onChange=${alterarTamanhoFonte}
+          value=""
+        >
+          <option value="">Tamanho</option>
+          <option value="2">12</option>
+          <option value="3">14</option>
+          <option value="4">16</option>
+          <option value="5">18</option>
+          <option value="6">24</option>
+        </select>
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
           title="Alinhar a esquerda"
           aria-label="Alinhar a esquerda"
           onMouseDown=${aplicarComando('justifyLeft')}
@@ -168,6 +199,15 @@ export function EditorTextoRich({
           onMouseDown=${aplicarComando('justifyRight')}
         >
           <span class="material-symbols-outlined">format_align_right</span>
+        </button>
+        <button
+          type="button"
+          class="rh-editor-toolbar-btn"
+          title="Justificar"
+          aria-label="Justificar"
+          onMouseDown=${aplicarComando('justifyFull')}
+        >
+          <span class="material-symbols-outlined">format_align_justify</span>
         </button>
         <button
           type="button"
@@ -199,6 +239,62 @@ export function EditorTextoRich({
         onInput=${sincronizarConteudo}
         onBlur=${sincronizarConteudo}
       ></div>
+    </div>
+  `;
+}
+
+export function PerguntaGrupoCompacto({ questao, resposta, onChange }) {
+  const selecoes = resposta?.selections || {};
+  const itens = Array.isArray(questao.items)
+    ? questao.items
+    : Array.isArray(questao.itens)
+      ? questao.itens
+      : [];
+
+  const selecionar = (item, indiceOpcao) => {
+    onChange({
+      type: 'compact_choice_group',
+      selections: {
+        ...selecoes,
+        [String(item.id)]: indiceOpcao,
+      },
+    });
+  };
+
+  return html`
+    <div class="compact-choice-list">
+      ${itens.map(
+    (item, indiceItem) => html`
+          <fieldset
+            key=${`${questao.questionBankId || questao.title}-${item.id || indiceItem}`}
+            class="compact-choice-item"
+          >
+            <legend>
+              <span>${indiceItem + 1}</span>
+              ${item.enunciado}
+            </legend>
+            <div class="compact-choice-options">
+              ${(item.options || []).map(
+    (opcao, indiceOpcao) => html`
+                  <label
+                    key=${`${item.id}-${indiceOpcao}`}
+                    class=${`compact-choice-option ${selecoes[String(item.id)] === indiceOpcao ? 'is-selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name=${`compact-${questao.questionBankId || questao.title}-${item.id}`}
+                      checked=${selecoes[String(item.id)] === indiceOpcao}
+                      onChange=${() => selecionar(item, indiceOpcao)}
+                    />
+                    <span>${String.fromCharCode(65 + indiceOpcao)}</span>
+                    <strong>${opcao}</strong>
+                  </label>
+                `,
+  )}
+            </div>
+          </fieldset>
+        `,
+  )}
     </div>
   `;
 }

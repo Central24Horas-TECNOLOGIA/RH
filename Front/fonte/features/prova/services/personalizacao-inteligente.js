@@ -1435,6 +1435,50 @@ export function gerarQuestaoPersonalizada(
     });
   }
 
+  if (questao.questaoReformulada) {
+    return {
+      ...clonar(questao),
+      personalizacaoInteligente: {
+        ativa: true,
+        indice,
+        status: STATUS_PERSONALIZACAO.NAO_PERSONALIZADA,
+        operacao: contexto.operacao,
+        cliente: contexto.cliente,
+        vaga: contexto.vaga,
+        trilha: contexto.trilha,
+        nivel_prova: contexto.nivelProva,
+        area: contexto.area,
+        tom_prova: contexto.tomProva,
+        situacao_pratica_operacao: contexto.situacaoPratica,
+        tipos_atendimento: contexto.tiposAtendimento,
+        perfil_atendimento: contexto.perfil.label,
+        nivel_personalizacao: contexto.nivel.label,
+        restricao_nivel: contexto.restricaoNivel?.label || '',
+        nicho_vaga: contexto.contextoVaga?.label || '',
+        nicho_vaga_resumo: contexto.contextoVaga?.resumo || '',
+        nicho_operacao: contexto.contextoOperacao?.label || '',
+        nicho_operacao_resumo: contexto.contextoOperacao?.resumo || '',
+        termos_publicos: unirTermosPublicos(
+          contexto.contextoPerfil.termos,
+          contexto.contextoVaga?.termos,
+          contexto.contextoOperacao?.termos,
+        ),
+        competencia_preservada: questao.stage || questao.stageKey,
+        nivel_preservado: true,
+        peso_preservado: true,
+        original,
+        justificativa_adaptacao:
+          'Questao reformulada preservada sem personalizacao automatica; nao havia variacao escrita aplicavel no banco importado.',
+        alertas: [],
+        validacao: { ok: true, alertas: [] },
+        visivel_ao_candidato: false,
+        gerada_em: new Date().toISOString(),
+        gerada_por: contexto.usuario,
+        mecanismo: 'banco_reformulado_neutro',
+      },
+    };
+  }
+
   const essayPersonalizado = personalizarDadosRedacao(questao, contexto);
   const descricaoPersonalizada = essayPersonalizado
     ? unirEnunciadoInstrucao(essayPersonalizado.proposal, essayPersonalizado.orientation)

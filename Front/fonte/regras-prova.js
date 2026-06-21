@@ -1527,6 +1527,69 @@ export function avaliarRespostaMultiplaEscolha(resposta, questao, pontos) {
   return resposta && resposta.selected === indiceEsperado ? pontos : 0;
 }
 
+export function avaliarRespostaGrupoCompacto(resposta, questao, pontos) {
+  const itens = Array.isArray(questao?.items)
+    ? questao.items
+    : Array.isArray(questao?.itens)
+      ? questao.itens
+      : [];
+  const selecoes = resposta?.selections || {};
+  const avaliaveis = itens.filter((item) => Number(item?.answer) >= 0);
+  const respondidos = itens.filter(
+    (item) => selecoes[String(item.id)] !== undefined && selecoes[String(item.id)] !== null,
+  );
+
+  if (!itens.length) {
+    return criarResultadoPontuacao(
+      0,
+      pontos,
+      ['Questão agrupada sem itens internos configurados.'],
+      true,
+    );
+  }
+
+  if (avaliaveis.length) {
+    const corretos = avaliaveis.filter(
+      (item) => Number(selecoes[String(item.id)]) === Number(item.answer),
+    );
+    const score = Math.round((corretos.length / avaliaveis.length) * pontos);
+    return criarResultadoPontuacao(
+      score,
+      pontos,
+      [],
+      false,
+      avaliaveis.map(
+        (item, indice) =>
+          `Item ${indice + 1}: ${
+            Number(selecoes[String(item.id)]) === Number(item.answer) ? 'correto' : 'incorreto'
+          }`,
+      ),
+      {
+        compactChoiceDetails: avaliaveis.map((item, indice) => ({
+          itemId: item.id,
+          itemNumber: indice + 1,
+          selected: selecoes[String(item.id)],
+          expected: item.answer,
+          correct: Number(selecoes[String(item.id)]) === Number(item.answer),
+        })),
+      },
+    );
+  }
+
+  const score = Math.round((respondidos.length / itens.length) * pontos);
+  return criarResultadoPontuacao(
+    score,
+    pontos,
+    ['Questão sem gabarito único; revisar coerência e maturidade das escolhas.'],
+    true,
+    itens.map((item, indice) =>
+      `Item ${indice + 1}: ${
+        selecoes[String(item.id)] !== undefined ? 'respondido' : 'sem resposta'
+      }`,
+    ),
+  );
+}
+
 export function obterCapacidadesDaTarefa(taskId) {
   const capacidades = {
     basic_exam: [
@@ -3178,6 +3241,20 @@ export function obterTextoGabaritoQuestao(questao) {
     return 'Alternativa correta definida no sistema.';
   }
 
+  if (questao.type === 'compact_choice_group') {
+    const itens = Array.isArray(questao.items) ? questao.items : [];
+    const respostas = itens
+      .map((item, indice) => {
+        if (Number(item?.answer) < 0) return null;
+        const letra = String.fromCharCode(65 + Number(item.answer));
+        return `Item ${indice + 1}: ${letra}`;
+      })
+      .filter(Boolean);
+    return respostas.length
+      ? respostas.join(' | ')
+      : 'Questão agrupada sem gabarito único; revisar por rubrica interna.';
+  }
+
   if (questao.type === 'word') {
     if (questao.gabarito?.tipo === 'rubrica' && Array.isArray(questao.gabarito.criterios)) {
       return questao.gabarito.criterios
@@ -3227,6 +3304,19 @@ export function obterTextoRespostaCandidato(questao, resposta) {
     return resposta.selected === null || resposta.selected === undefined
       ? 'Sem resposta.'
       : questao.options?.[resposta.selected] ?? `Opção ${resposta.selected}`;
+  }
+  if (questao.type === 'compact_choice_group') {
+    const selecoes = resposta.selections || {};
+    const itens = Array.isArray(questao.items) ? questao.items : [];
+    const partes = itens.map((item, indice) => {
+      const selecionado = selecoes[String(item.id)];
+      const letra = selecionado !== undefined && selecionado !== null
+        ? String.fromCharCode(65 + Number(selecionado))
+        : 'sem resposta';
+      const texto = item.options?.[selecionado] || '';
+      return `Item ${indice + 1}: ${letra}${texto ? ` - ${texto}` : ''}`;
+    });
+    return partes.length ? partes.join(' | ') : 'Sem resposta.';
   }
   if (questao.type === 'word') {
     return removerHtml(resposta.content || '') || 'Sem resposta.';
@@ -3291,6 +3381,8 @@ export function finalizarProva({ questoes, respostas, blueprint }) {
     } else if (questao.type === 'multiple') {
       const score = avaliarRespostaMultiplaEscolha(resposta, questao, questao.points);
       resultado = criarResultadoPontuacao(score, questao.points, [], false);
+    } else if (questao.type === 'compact_choice_group') {
+      resultado = avaliarRespostaGrupoCompacto(resposta, questao, questao.points);
     } else if (questao.type === 'excel_external') {
       if (!resposta || !resposta.uploaded || !resposta.validation) {
         resultado = criarResultadoPontuacao(

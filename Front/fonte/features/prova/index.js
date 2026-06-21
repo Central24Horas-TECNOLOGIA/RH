@@ -29,6 +29,7 @@ import {
   PageIntro,
   PainelRh,
   PerguntaExcel,
+  PerguntaGrupoCompacto,
   PerguntaMultipla,
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
@@ -1556,6 +1557,11 @@ export function TelaProva({ controlador }) {
     });
   };
 
+  const atualizarRespostaGrupoCompacto = (resposta) => {
+    setErroFinalizacao('');
+    controlador.atualizarResposta(indiceAtual, resposta);
+  };
+
   return html`
     <section class="active screen" id="screen-exam">
       <${ModalPadrao}
@@ -1711,6 +1717,17 @@ export function TelaProva({ controlador }) {
                       questao=${questaoAtual}
                       resposta=${respostaAtual}
                       onChange=${atualizarRespostaObjetiva}
+                    />
+                  `
+                : null
+            }
+            ${
+              questaoAtual.type === 'compact_choice_group'
+                ? html`
+                    <${PerguntaGrupoCompacto}
+                      questao=${questaoAtual}
+                      resposta=${respostaAtual}
+                      onChange=${atualizarRespostaGrupoCompacto}
                     />
                   `
                 : null

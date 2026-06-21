@@ -1,4 +1,5 @@
 const BANCO_QUESTOES_URL = '../data/bancoQuestoes.json';
+const BANCO_QUESTOES_REFORMULADAS_URL = '../data/bancoQuestoesReformuladas.json';
 
 const CAMPOS_OBRIGATORIOS = [
   'id',
@@ -51,15 +52,15 @@ function ambienteNode() {
   );
 }
 
-async function carregarJsonBancoQuestoes() {
+async function carregarJsonUrl(url) {
   if (ambienteNode()) {
     const { readFileSync } = await import('node:fs');
     return JSON.parse(
-      readFileSync(new URL(BANCO_QUESTOES_URL, import.meta.url), 'utf8'),
+      readFileSync(new URL(url, import.meta.url), 'utf8'),
     );
   }
 
-  const resposta = await fetch(BANCO_QUESTOES_URL, { cache: 'no-store' });
+  const resposta = await fetch(url, { cache: 'no-store' });
   if (!resposta.ok) {
     throw new Error(
       `Nao foi possivel carregar o banco de questoes (${resposta.status}).`,
@@ -68,7 +69,32 @@ async function carregarJsonBancoQuestoes() {
   return resposta.json();
 }
 
+async function carregarJsonBancoQuestoes() {
+  return carregarJsonUrl(BANCO_QUESTOES_URL);
+}
+
+async function carregarJsonBancoQuestoesReformuladas() {
+  const incorporado = BANCO_QUESTOES?.questoes_reformuladas;
+  if (incorporado && typeof incorporado === 'object') {
+    return {
+      questoes: Array.isArray(incorporado.questoes) ? incorporado.questoes : [],
+      questoes_personalizadas: Array.isArray(incorporado.questoes_personalizadas)
+        ? incorporado.questoes_personalizadas
+        : [],
+      origem: 'bancoQuestoes.json',
+    };
+  }
+
+  try {
+    return await carregarJsonUrl(BANCO_QUESTOES_REFORMULADAS_URL);
+  } catch (error) {
+    console.warn('Banco de questoes reformuladas indisponivel.', error);
+    return { questoes: [], questoes_personalizadas: [] };
+  }
+}
+
 const BANCO_QUESTOES = await carregarJsonBancoQuestoes();
+const BANCO_QUESTOES_REFORMULADAS = await carregarJsonBancoQuestoesReformuladas();
 const VALIDACAO_BANCO_QUESTOES = validarBancoQuestoes(BANCO_QUESTOES);
 
 if (!VALIDACAO_BANCO_QUESTOES.ok) {
@@ -374,6 +400,262 @@ function normalizarAreaBanco(area = '', vaga = '') {
   return area || 'Geral';
 }
 
+function obterQuestoesReformuladasAtivas(origem = 'neutra') {
+  const colecao = origem === 'personalizada'
+    ? BANCO_QUESTOES_REFORMULADAS.questoes_personalizadas
+    : BANCO_QUESTOES_REFORMULADAS.questoes;
+  return Array.isArray(colecao) ? colecao.filter((questao) => questao?.ativo) : [];
+}
+
+function extrairPerfilReformulado(blueprint = {}) {
+  const label = String(blueprint.label || '').replace(/^Nv\s*\d+\s*-\s*/i, '');
+  const chave = normalizarTexto(label);
+  const partes = label.split('/').map((item) => item.trim()).filter(Boolean);
+  const areaLabel = partes[1] || '';
+  const chaveArea = normalizarTexto(areaLabel || label);
+
+  if (chave.includes('jovem aprendiz') || chave.includes('aprendiz')) {
+    return { cargo: 'jovem_aprendiz', area: null };
+  }
+  if (chave.includes('operador')) {
+    return { cargo: 'operador', area: null };
+  }
+  if (chave.includes('supervisor')) {
+    return { cargo: 'supervisor', area: null };
+  }
+  if (chave.includes('estagiario')) {
+    let area = null;
+    if (chaveArea.includes('ti')) area = 'TI';
+    else if (chaveArea.includes('comercial')) area = 'Comercial';
+    else if (chaveArea.includes('financeiro')) area = 'Financeiro';
+    else if (chaveArea.includes('rh')) area = 'RH';
+    else if (chaveArea.includes('operacao')) area = 'Operacao';
+    return { cargo: 'estagiario', area };
+  }
+  return null;
+}
+
+function etapaReformuladaPorStage(stageKey = '') {
+  const chave = normalizarTexto(stageKey);
+  if (chave.includes('excel')) return null;
+  if (chave.includes('essay') || chave.includes('redacao') || chave.includes('professional')) {
+    return 'redacao';
+  }
+  if (chave.includes('general')) return 'conhecimentos_gerais';
+  if (chave.includes('tech') || chave.includes('analysis')) return 'conhecimentos_tecnicos';
+  if (chave.includes('word') || chave.includes('writing_logic')) return 'word';
+  return null;
+}
+
+function blueprintPossuiStage(blueprint = {}, stageKey = '') {
+  return Array.isArray(blueprint?.stages) &&
+    blueprint.stages.some((stage) => normalizarTexto(stage?.key) === normalizarTexto(stageKey));
+}
+
+function areaReformuladaCorresponde(areaQuestao, areaPerfil) {
+  if (!textoPreenchido(areaQuestao)) return true;
+  if (!textoPreenchido(areaPerfil)) return true;
+  const questao = normalizarTexto(areaQuestao);
+  const perfil = normalizarTexto(areaPerfil);
+  return questao === perfil || questao.includes(perfil) || perfil.includes(questao);
+}
+
+function questaoReformuladaServeAoStage(questao, { perfil, stageKey, blueprint }) {
+  if (!questao || questao.cargo !== perfil.cargo) return false;
+  const etapa = etapaReformuladaPorStage(stageKey);
+  if (!etapa || questao.etapa !== etapa) return false;
+
+  if (questao.etapa === 'conhecimentos_tecnicos') {
+    return areaReformuladaCorresponde(questao.area, perfil.area);
+  }
+
+  if (questao.cargo === 'estagiario' && questao.etapa === 'word') {
+    const numero = Number(questao.numero || 0);
+    const stageNormalizado = normalizarTexto(stageKey);
+    const temWritingLogic = blueprintPossuiStage(blueprint, 'writing_logic');
+    if (stageNormalizado.includes('writing_logic')) return numero >= 6;
+    if (temWritingLogic && stageNormalizado.includes('word')) return numero <= 5;
+  }
+
+  return true;
+}
+
+function obterQuestoesReformuladasParaStage(blueprint = {}, stage = {}) {
+  const perfil = extrairPerfilReformulado(blueprint);
+  if (!perfil) return null;
+
+  const candidatas = obterQuestoesReformuladasAtivas('neutra')
+    .filter((questao) =>
+      questaoReformuladaServeAoStage(questao, {
+        perfil,
+        stageKey: stage.key,
+        blueprint,
+      }),
+    )
+    .sort((a, b) => Number(a.numero || 0) - Number(b.numero || 0));
+
+  return candidatas.length ? candidatas : null;
+}
+
+function respostasCompactas(questao = {}) {
+  const respostas = questao.gabarito && typeof questao.gabarito === 'object'
+    ? questao.gabarito
+    : {};
+  return Object.fromEntries(
+    Object.entries(respostas)
+      .map(([id, letra]) => [String(id), String(letra || '').trim().toUpperCase()])
+      .filter(([, letra]) => letra),
+  );
+}
+
+function criteriosReformulados(questao = {}) {
+  const rubrica = String(questao.rubricaInterna || '').trim();
+  if (!rubrica) return [];
+  return [
+    {
+      nome: 'Rubrica interna',
+      descricao: rubrica,
+      peso: 100,
+    },
+  ];
+}
+
+function adaptarQuestaoReformuladaParaSistema(questao, contexto) {
+  const tipo = normalizarTexto(questao.tipo);
+  const base = {
+    stageKey: contexto.stageKey,
+    stage: contexto.stageLabel,
+    title: questao.titulo || `Questao ${questao.numero || ''}`.trim(),
+    description: questao.enunciado || '',
+    titulo: questao.titulo || `Questao ${questao.numero || ''}`.trim(),
+    categoria: contexto.stageLabel,
+    enunciadoCandidato: questao.enunciado || '',
+    contextoCandidato: '',
+    enunciadoQuestao: questao.enunciado || '',
+    instrucaoCandidato: '',
+    itensOrdenacao: [],
+    contextoInternoGeracao: '',
+    criteriosAvaliacao: criteriosReformulados(questao).map((criterio) => criterio.descricao),
+    respostaEsperadaInterna: questao.gabarito || questao.rubricaInterna || '',
+    points: contexto.points,
+    questionBankId: questao.id,
+    idQuestaoReformulada: questao.id,
+    baseNeutraId: questao.base_neutra_id || '',
+    origemBancoReformulado: questao.origemArquivo || 'bancoQuestoesReformuladas.json',
+    questaoReformulada: true,
+    tipoReformulado: questao.tipo,
+    cargoReformulado: questao.cargo,
+    etapaReformulada: questao.etapa,
+    origemReformulada: questao.origem,
+    clientePersonalizacao: questao.cliente || null,
+    clienteIdPersonalizacao: questao.cliente_id || null,
+    areaPersonalizacao: questao.area || null,
+    rubricaInterna: questao.rubricaInterna || '',
+    gabaritoInterno: questao.gabarito || null,
+    personalizacao: {
+      permitida: questao.origem === 'personalizada',
+      origem: questao.origem,
+      cliente: questao.cliente || null,
+      area: questao.area || null,
+    },
+  };
+
+  if (
+    ['multiple_choice', 'general_multiple_choice', 'technical_multiple_choice'].includes(tipo)
+  ) {
+    const alternativas = Array.isArray(questao.alternativas) ? questao.alternativas : [];
+    const correta = String(questao.gabarito || '').trim().toUpperCase();
+    const answer = Math.max(
+      0,
+      alternativas.findIndex((alternativa) => String(alternativa.id).toUpperCase() === correta),
+    );
+    return {
+      ...base,
+      type: 'multiple',
+      tipo: tipo.includes('technical')
+        ? 'technical_multiple_choice'
+        : tipo.includes('general')
+          ? 'general_multiple_choice'
+          : 'multiple_choice',
+      options: alternativas.map((alternativa) => alternativa.texto),
+      answer,
+      correctIndex: answer,
+      gabarito: {
+        tipo: 'alternativa',
+        resposta_correta: correta,
+      },
+    };
+  }
+
+  if (tipo === 'compact_choice_group') {
+    const respostas = respostasCompactas(questao);
+    const itens = (Array.isArray(questao.itens) ? questao.itens : []).map((item) => {
+      const alternativas = Array.isArray(item.alternativas) ? item.alternativas : [];
+      const letraCorreta = String(item.gabarito || respostas[String(item.id)] || '').toUpperCase();
+      return {
+        id: String(item.id || ''),
+        enunciado: item.enunciado || '',
+        options: alternativas.map((alternativa) => alternativa.texto),
+        alternativas,
+        answer:
+          letraCorreta
+            ? alternativas.findIndex(
+              (alternativa) => String(alternativa.id).toUpperCase() === letraCorreta,
+            )
+            : null,
+        gabarito: letraCorreta || null,
+      };
+    });
+    return {
+      ...base,
+      type: 'compact_choice_group',
+      tipo: 'compact_choice_group',
+      items: itens,
+      itens,
+      gabarito: {
+        tipo: 'grupo_compacto',
+        respostas,
+      },
+    };
+  }
+
+  const criterios = criteriosReformulados(questao);
+  const isEssay = tipo === 'essay';
+  const expected = {
+    minTextLength: isEssay ? 100 : 35,
+    minSentences: isEssay ? 4 : 1,
+    essay: isEssay,
+    maxCharacters: isEssay ? MAX_CARACTERES_REDACAO : undefined,
+    maxLines: isEssay ? MAX_LINHAS_REDACAO : undefined,
+    criteria: criterios.map((criterio) => criterio.descricao),
+    rubric: criterios,
+    requiresRichText: tipo === 'word_discursive',
+  };
+
+  return {
+    ...base,
+    type: 'word',
+    tipo: isEssay ? 'redacao' : 'word_discursive',
+    expected,
+    essay: isEssay
+      ? {
+        theme: questao.titulo || 'Redacao',
+        supportTexts: [],
+        motivatingTexts: [],
+        proposal: questao.enunciado || '',
+        orientation: '',
+        maxCharacters: MAX_CARACTERES_REDACAO,
+        maxLines: MAX_LINHAS_REDACAO,
+        criteria: expected.criteria,
+      }
+      : undefined,
+    gabarito: {
+      tipo: 'rubrica',
+      criterios,
+    },
+  };
+}
+
 function extrairContextoBlueprint(blueprint = {}) {
   const label = String(blueprint.label || '').replace(/^Nv\s*\d+\s*-\s*/i, '');
   const partes = label.split('/').map((item) => item.trim()).filter(Boolean);
@@ -506,6 +788,94 @@ function pontuarQuestaoPersonalizada({
   if (normalizarTexto(questao.area) === 'geral') score += 1;
 
   return score - ordem / 1000;
+}
+
+function idsBaseReformulada(questaoOriginal = {}) {
+  return normalizarLista([
+    questaoOriginal.idQuestaoReformulada,
+    questaoOriginal.questionBankId,
+    questaoOriginal.baseNeutraId,
+    questaoOriginal.questionBankIdOriginal,
+  ]);
+}
+
+function questaoPersonalizadaReformuladaCorrespondeBase(questao, idsBase = []) {
+  const ids = new Set(idsBase.map(String));
+  if (questao?.base_neutra_id && ids.has(String(questao.base_neutra_id))) return true;
+  if (questao?.id && ids.has(String(questao.id))) return true;
+  return (Array.isArray(questao?.aliases_base_neutra) ? questao.aliases_base_neutra : [])
+    .some((id) => ids.has(String(id)));
+}
+
+function pontuarQuestaoPersonalizadaReformulada({
+  questao,
+  questaoOriginal,
+  clientesConfiguracao,
+  areasConfiguracao,
+  ordem,
+}) {
+  if (!questaoOriginal?.questaoReformulada) return -1;
+  if (questao.cargo !== questaoOriginal.cargoReformulado) return -1;
+  if (questao.etapa !== questaoOriginal.etapaReformulada) return -1;
+  if (questao.tipo !== questaoOriginal.tipoReformulado) return -1;
+
+  const idsBase = idsBaseReformulada(questaoOriginal);
+  if (!questaoPersonalizadaReformuladaCorrespondeBase(questao, idsBase)) return -1;
+
+  let score = 100;
+  if (questao.cliente_id || questao.cliente) {
+    if (!clienteCorresponde(questao, clientesConfiguracao)) return -1;
+    score += 30;
+  }
+
+  const areasQuestao = areasQuestaoPersonalizada(questao);
+  if (areasQuestao.length) {
+    if (!areasConfiguracao.length) return -1;
+    if (!algumTermoCorresponde(areasQuestao, areasConfiguracao)) return -1;
+    score += 20;
+  }
+
+  return score - ordem / 1000;
+}
+
+function obterQuestaoPersonalizadaReformuladaDoBanco(
+  questaoOriginal = {},
+  configuracao = {},
+) {
+  if (!questaoOriginal?.questaoReformulada) return null;
+
+  const clientesConfiguracao = termosClienteConfiguracao(configuracao);
+  const areasConfiguracao = termosAreaConfiguracao(configuracao);
+  const candidatas = obterQuestoesReformuladasAtivas('personalizada')
+    .map((questao, ordem) => ({
+      questao,
+      score: pontuarQuestaoPersonalizadaReformulada({
+        questao,
+        questaoOriginal,
+        clientesConfiguracao,
+        areasConfiguracao,
+        ordem,
+      }),
+    }))
+    .filter((item) => item.score >= 0)
+    .sort((a, b) => b.score - a.score);
+
+  const escolhida = candidatas[0]?.questao;
+  if (!escolhida) return null;
+
+  return {
+    ...adaptarQuestaoReformuladaParaSistema(escolhida, {
+      stageKey: questaoOriginal.stageKey,
+      stageLabel: questaoOriginal.stage,
+      points: Number(questaoOriginal.points || 10) || 10,
+    }),
+    stageWeight: questaoOriginal.stageWeight,
+    questionBankIdOriginal: questaoOriginal.questionBankId || '',
+    questionBankIdPersonalizado: escolhida.id,
+    baseNeutraId: escolhida.base_neutra_id || '',
+    areasPersonalizadas: escolhida.area ? [escolhida.area] : [],
+    origemBancoPersonalizado: escolhida.origemArquivo || 'bancoQuestoesReformuladas.json',
+  };
 }
 
 function filtrarQuestoes(candidatas, filtro, usadas) {
@@ -776,6 +1146,20 @@ export function getQuestoesParaBlueprint(
   const etapa = mapearStageKeyParaEtapa(stage.key);
   if (etapa === 'excel') return Array.isArray(legado) ? legado : [];
 
+  const reformuladas = obterQuestoesReformuladasParaStage(blueprint, stage);
+  if (Array.isArray(reformuladas) && reformuladas.length) {
+    const pontosLegados = (Array.isArray(legado) ? legado : []).map((questao) =>
+      Number(questao?.points || 10),
+    );
+    return reformuladas.map((questao, indice) =>
+      adaptarQuestaoReformuladaParaSistema(questao, {
+        stageKey: stage.key || etapa,
+        stageLabel: stage.label || legado?.[0]?.stage || etapa,
+        points: Number(pontosLegados[indice] || pontosLegados[0] || 10) || 10,
+      }),
+    );
+  }
+
   const contexto = extrairContextoBlueprint(blueprint);
   const quantidade = Array.isArray(legado) && legado.length ? legado.length : 1;
   const points = (Array.isArray(legado) ? legado : []).map((questao) =>
@@ -800,6 +1184,13 @@ export function obterQuestaoPersonalizadaDoBanco(
   configuracao = {},
 ) {
   if (!questaoOriginal || questaoOriginal.type === 'excel_external') return null;
+
+  const reformulada = obterQuestaoPersonalizadaReformuladaDoBanco(
+    questaoOriginal,
+    configuracao,
+  );
+  if (reformulada) return reformulada;
+  if (questaoOriginal.questaoReformulada) return null;
 
   const clientesConfiguracao = termosClienteConfiguracao(configuracao);
   if (!clientesConfiguracao.length) return null;
@@ -870,6 +1261,17 @@ export function obterResumoBancoQuestoes() {
         nome: cliente.nome,
         areas: Array.isArray(cliente.areas) ? cliente.areas : [],
       })),
+    },
+    reformuladas: {
+      total: obterQuestoesReformuladasAtivas('neutra').length,
+      personalizadas: obterQuestoesReformuladasAtivas('personalizada').length,
+      cargos: Array.from(
+        new Set(
+          obterQuestoesReformuladasAtivas('neutra')
+            .map((questao) => questao.cargo)
+            .filter(Boolean),
+        ),
+      ).sort(),
     },
     validacao: VALIDACAO_BANCO_QUESTOES,
   };

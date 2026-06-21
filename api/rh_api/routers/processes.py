@@ -234,7 +234,7 @@ def get_talent_bank(
     return repository.list_talent_bank(search=search, skill=skill, tag=tag)
 
 
-@router.post("/talent-bank", dependencies=[Depends(require_permissions("candidatos.mover_etapa"))])
+@router.post("/talent-bank", dependencies=[Depends(require_permissions("candidatos.mover_etapa", "candidatos.eliminar"))])
 def create_talent_bank_candidate(
     payload: TalentBankCreateRequest,
     user: AuthenticatedUser = Depends(get_current_user),

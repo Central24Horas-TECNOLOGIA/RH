@@ -483,6 +483,55 @@ function obterNotaCandidato(item) {
   );
 }
 
+function tentarParseJsonCandidato(valor) {
+  if (!valor || typeof valor !== 'string') return valor;
+  const texto = valor.trim();
+  if (!/^[\[{]/.test(texto)) return valor;
+  try {
+    return JSON.parse(texto);
+  } catch (error) {
+    return valor;
+  }
+}
+
+function formatarNumeroCandidato(valor, fallback = '-') {
+  const numero = Number(String(valor ?? '').replace(',', '.'));
+  if (!Number.isFinite(numero)) return fallback;
+  return numero.toFixed(1).replace('.', ',');
+}
+
+function obterEtapasDaProvaCandidato(item = {}) {
+  const etapas = tentarParseJsonCandidato(item.etapas_json || item.resumo_etapas_json);
+  if (Array.isArray(etapas)) {
+    return etapas
+      .filter((etapa) => etapa && typeof etapa === 'object')
+      .map((etapa) => {
+        const rawScore = etapa.rawScore ?? etapa.score;
+        const rawMax = etapa.rawMax ?? etapa.max;
+        const nota = rawScore !== undefined && rawMax
+          ? `${formatarNumeroCandidato(rawScore)}/${formatarNumeroCandidato(rawMax)}`
+          : formatarNumeroCandidato(etapa.weightedScore ?? etapa.nota, obterNotaCandidato(item));
+        return {
+          etapa: etapa.label || etapa.stage || etapa.key || 'Etapa',
+          nota,
+          analise: `Resultado consolidado da etapa ${etapa.label || etapa.key || 'avaliada'}, com ${etapa.questionCount || etapa.questoes || 'as'} questão(ões) consideradas.`,
+        };
+      });
+  }
+
+  return [{
+    etapa: item.trilha || item.nivel || 'Prova',
+    nota: obterNotaCandidato(item),
+    analise: 'Resultado geral da prova registrado para consulta do RH.',
+  }];
+}
+
+function montarTextoEtapasProvaCandidato(item = {}) {
+  return obterEtapasDaProvaCandidato(item)
+    .map((etapa) => `${etapa.etapa}: ${etapa.nota}\nAnálise: ${etapa.analise}`)
+    .join('\n\n');
+}
+
 function obterContatoPrincipal(item) {
   return item?.email || item?.telefone || item?.whatsapp || '';
 }
@@ -1024,42 +1073,18 @@ function abrirFichaImpressao(candidato, dossie) {
 
         <h2>Provas</h2>
         <table>
-          <thead><tr><th>ID</th><th>Vaga</th><th>Nota</th><th>Etapas</th><th>Data</th></tr></thead>
+          <thead><tr><th>ID</th><th>Vaga</th><th>Nota geral</th><th>Análise por etapa</th><th>Data</th></tr></thead>
           <tbody>
             ${renderizarLinhasFicha(ficha.provas, [
               { valor: (item) => item.id_teste || '-' },
               { valor: (item) => item.vaga || '-' },
               { valor: (item) => obterNotaCandidato(item) },
-              { valor: (item) => item.etapas_json || item.pontuacao_bruta || '-' },
+              { valor: (item) => montarTextoEtapasProvaCandidato(item) },
               { valor: (item) => formatarDataHora(obterDataEvento(item)) },
             ])}
           </tbody>
         </table>
 
-        <h2>Entrevistas</h2>
-        <table>
-          <thead><tr><th>Data</th><th>Status</th><th>Processo</th><th>Observações</th></tr></thead>
-          <tbody>
-            ${renderizarLinhasFicha(ficha.entrevistas, [
-              { valor: (item) => formatarDataHora(item.data_entrevista) },
-              { valor: (item) => item.status_entrevista || '-' },
-              { valor: (item) => item.id_processo || '-' },
-              { valor: (item) => item.observacoes_rh || '-' },
-            ])}
-          </tbody>
-        </table>
-
-        <h2>Histórico completo</h2>
-        <table>
-          <thead><tr><th>Tipo</th><th>Data</th><th>Descrição</th></tr></thead>
-          <tbody>
-            ${renderizarLinhasFicha(ficha.historicoCompleto, [
-              { valor: (item) => item.tipo },
-              { valor: (item) => formatarDataHora(item.data) },
-              { valor: (item) => item.descricao },
-            ])}
-          </tbody>
-        </table>
       </body>
     </html>
   `;
@@ -1159,22 +1184,15 @@ export function TelaDetalhesCandidato({ controlador }) {
     () => montarDossieCandidato(candidato || {}, fontes),
     [candidato, fontes],
   );
-  const eventosAvaliacao = [
-    ...dossie.provas.map((item) => ({
+  const eventosAvaliacao = dossie.provas.flatMap((item) =>
+    obterEtapasDaProvaCandidato(item).map((etapa) => ({
       tipo: 'Prova realizada',
       data: obterDataEvento(item),
       processo: item.id_processo || item.vaga,
-      resultado: obterNotaCandidato(item),
-      observacao: item.pontuacao_bruta || item.etapas_json || 'Redação/resultado registrados quando disponíveis.',
+      resultado: etapa.etapa + ': ' + etapa.nota,
+      observacao: etapa.analise,
     })),
-    ...dossie.entrevistas.map((item) => ({
-      tipo: 'Entrevista',
-      data: item.data_entrevista,
-      processo: item.id_processo || '-',
-      resultado: item.status_entrevista || '-',
-      observacao: item.observacoes_rh || '-',
-    })),
-  ];
+  );
 
   const atualizarCampo = (campo, valor) => {
     setFormPerfil((atual) => ({ ...atual, [campo]: valor }));
@@ -1592,7 +1610,7 @@ export function TelaDetalhesCandidato({ controlador }) {
         </div>
       </${SectionCard}>
 
-      <${SectionCard} title="Provas, redação e entrevista" className="rh-section-card--flat">
+      <${SectionCard} title="Resultados da prova" className="rh-section-card--flat">
         <div class="table-responsive">
           <table class="table align-middle rh-modern-history-table">
             <thead><tr><th>Tipo</th><th>Data</th><th>Processo</th><th>Resultado</th><th>Observações</th></tr></thead>
@@ -1609,28 +1627,7 @@ export function TelaDetalhesCandidato({ controlador }) {
                       </tr>
                     `,
                   )
-                : html`<${TabelaVazia} colunas=${5} texto="Sem provas, redações ou entrevistas registradas." />`}
-            </tbody>
-          </table>
-        </div>
-      </${SectionCard}>
-
-      <${SectionCard} title="Processos e movimentações" className="rh-section-card--flat">
-        <div class="table-responsive">
-          <table class="table align-middle rh-modern-history-table">
-            <thead><tr><th>Tipo</th><th>Data</th><th>Descrição</th></tr></thead>
-            <tbody>
-              ${dossie.historicoCompleto.length
-                ? dossie.historicoCompleto.map(
-                    (item) => html`
-                      <tr key=${`${item.tipo}-${item.data}-${item.descricao}`}>
-                        <td>${item.tipo}</td>
-                        <td>${formatarDataHora(item.data)}</td>
-                        <td>${item.descricao}</td>
-                      </tr>
-                    `,
-                  )
-                : html`<${TabelaVazia} colunas=${3} texto="Sem histórico de movimentações." />`}
+                : html`<${TabelaVazia} colunas=${5} texto="Sem resultado de prova registrado." />`}
             </tbody>
           </table>
         </div>
@@ -3104,7 +3101,7 @@ export function TelaCandidatos({ controlador }) {
 
                 <${SectionCard}
                   title="Provas"
-                  description="Notas, etapas e histórico de provas encontradas."
+                  description="Notas e an�lises por etapa encontradas."
                   className="rh-section-card--flat"
                 >
                   <div class="table-responsive">
@@ -3113,8 +3110,8 @@ export function TelaCandidatos({ controlador }) {
                         <tr>
                           <th>ID</th>
                           <th>Vaga</th>
-                          <th>Nota</th>
-                          <th>Etapas</th>
+                          <th>Nota geral</th>
+                          <th>An�lise por etapa</th>
                           <th>Data</th>
                         </tr>
                       </thead>
@@ -3126,78 +3123,12 @@ export function TelaCandidatos({ controlador }) {
                                   <td>${item.id_teste || '-'}</td>
                                   <td>${item.vaga || '-'}</td>
                                   <td>${obterNotaCandidato(item)}</td>
-                                  <td>${item.etapas_json || item.pontuacao_bruta || '-'}</td>
+                                  <td>${montarTextoEtapasProvaCandidato(item)}</td>
                                   <td>${formatarDataHora(obterDataEvento(item))}</td>
                                 </tr>
                               `,
                             )
                           : html`<${TabelaVazia} colunas=${5} texto="Sem provas encontradas." />`}
-                      </tbody>
-                    </table>
-                  </div>
-                </${SectionCard}>
-
-                <${SectionCard}
-                  title="Entrevistas"
-                  description="Agenda interna, status e observações."
-                  className="rh-section-card--flat"
-                >
-                  <div class="table-responsive">
-                    <table class="table align-middle rh-modern-history-table">
-                      <thead>
-                        <tr>
-                          <th>Data</th>
-                          <th>Status</th>
-                          <th>Processo</th>
-                          <th>Agenda</th>
-                          <th>Observações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${dossieDetalhe?.entrevistas?.length
-                          ? dossieDetalhe.entrevistas.map(
-                              (item) => html`
-                                <tr key=${item.id_entrevista}>
-                                  <td>${formatarDataHora(item.data_entrevista)}</td>
-                                  <td>${item.status_entrevista || '-'}</td>
-                                  <td>${item.id_processo || '-'}</td>
-                                  <td>${item.id_slot ? 'Calendário interno' : 'Registro legado'}</td>
-                                  <td>${item.observacoes_rh || '-'}</td>
-                                </tr>
-                              `,
-                            )
-                          : html`<${TabelaVazia} colunas=${5} texto="Sem entrevistas encontradas." />`}
-                      </tbody>
-                    </table>
-                  </div>
-                </${SectionCard}>
-
-                <${SectionCard}
-                  title="Histórico completo"
-                  description="Linha do tempo consolidada de processos, provas, entrevistas e Banco de Talentos."
-                  className="rh-section-card--flat"
-                >
-                  <div class="table-responsive">
-                    <table class="table align-middle rh-modern-history-table">
-                      <thead>
-                        <tr>
-                          <th>Tipo</th>
-                          <th>Data</th>
-                          <th>Descrição</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${dossieDetalhe?.historicoCompleto?.length
-                          ? dossieDetalhe.historicoCompleto.map(
-                              (item) => html`
-                                <tr key=${`${item.tipo}-${item.data}-${item.descricao}`}>
-                                  <td>${item.tipo}</td>
-                                  <td>${formatarDataHora(item.data)}</td>
-                                  <td>${item.descricao}</td>
-                                </tr>
-                              `,
-                            )
-                          : html`<${TabelaVazia} colunas=${3} texto="Sem histórico consolidado." />`}
                       </tbody>
                     </table>
                   </div>

@@ -20,6 +20,7 @@ import {
   analisarCvProcesso,
   baixarPacoteHistorico,
   baixarCvCandidato,
+  criarBancoTalentos,
   carregarDetalhesProva,
   criarAnotacaoDossieProcesso,
   desativarLinkPublicoCandidatura,
@@ -118,7 +119,7 @@ const AVISO_URL_PUBLICA_NAO_CONFIGURADA =
 const CHAVE_DETALHE_CANDIDATO_RH = 'rh_candidate_detail';
 const EXIBIR_PAGINA_PUBLICA_CANDIDATURA = false;
 const EXIBIR_CANDIDATOS_INSCRITOS = false;
-const TAMANHO_PAGINA_CANDIDATOS_DETALHE = 5;
+const TAMANHO_PAGINA_CANDIDATOS_DETALHE = 3;
 const TAMANHO_PAGINA_APROVADOS_DETALHE = 5;
 const TAMANHO_PAGINA_BANCO_TALENTOS_DETALHE = 5;
 const TAMANHO_PAGINA_PRE_ANALISE_DETALHE = 5;
@@ -195,6 +196,24 @@ function candidatoPodeSerEliminadoNoProcesso(candidato = {}, estadoAcoes = null)
   );
 }
 
+function candidatoPodeIrParaBancoTalentos(candidato = {}, estadoAcoes = null, processoStatus = '') {
+  const estado = estadoAcoes || getCandidateActionState(candidato, processoStatus);
+  const status = canonicalizeCandidateStatus(
+    candidato?.status_fluxo ||
+    candidato?.status_candidato ||
+    estado.visibleStatus,
+  );
+
+  return (
+    !estado.processClosed &&
+    !isProcessClosed(processoStatus) &&
+    estado.isActive &&
+    status !== CANDIDATE_STATUS_TALENT_BANK &&
+    status !== CANDIDATE_STATUS_APPROVED &&
+    status !== CANDIDATE_STATUS_ELIMINATED
+  );
+}
+
 function obterMensagemOperacionalErro(error, fallback) {
   const mensagem = String(error?.message || '').trim();
   if (!mensagem) return fallback;
@@ -210,6 +229,62 @@ function obterMensagemOperacionalErro(error, fallback) {
 function formatarValorFicha(valor, fallback = 'Não informado') {
   const texto = String(valor ?? '').trim();
   return texto || fallback;
+}
+
+function tentarParseJsonFicha(valor) {
+  if (!valor || typeof valor !== 'string') return valor;
+  const texto = valor.trim();
+  if (!/^[\[{]/.test(texto)) return valor;
+  try {
+    return JSON.parse(texto);
+  } catch (error) {
+    return valor;
+  }
+}
+
+function formatarNumeroFicha(valor, fallback = 'Não informado') {
+  const numero = Number(String(valor ?? '').replace(',', '.'));
+  if (!Number.isFinite(numero)) return fallback;
+  return numero.toFixed(1).replace('.', ',');
+}
+
+function resultadoFichaEhEntrevista(item = {}) {
+  return normalizarTextoComparacao(item.etapa || item.tipo || '').includes('entrevista');
+}
+
+function formatarPontuacaoResultadoFicha(item = {}) {
+  const pontuacao = tentarParseJsonFicha(item.pontuacao);
+  if (pontuacao && typeof pontuacao === 'object') {
+    const score = pontuacao.score ?? pontuacao.rawScore ?? pontuacao.nota;
+    const max = pontuacao.max ?? pontuacao.rawMax;
+    if (score !== undefined && max !== undefined) {
+      return `${formatarNumeroFicha(score, score)}/${formatarNumeroFicha(max, max)}`;
+    }
+  }
+  return formatarValorFicha(item.pontuacao);
+}
+
+function montarAnaliseResultadoFicha(item = {}) {
+  const etapa = formatarValorFicha(item.etapa, 'Etapa');
+  const nota = formatarPontuacaoResultadoFicha(item);
+  const status = formatarValorFicha(item.status);
+  const questoes = Number(item.questoes || item.questionCount || 0);
+  const partes = [
+    `${etapa}: nota ${nota}.`,
+    status !== 'Não informado' ? `Status: ${status}.` : '',
+    questoes ? `Foram consideradas ${questoes} questão(ões) nesta etapa.` : '',
+  ].filter(Boolean);
+  if (normalizarTextoComparacao(etapa).includes('curriculo')) {
+    partes.push('Análise de currículo registrada para apoiar a decisão do RH.');
+  } else {
+    partes.push('Resultado consolidado da etapa realizada, sem exibir gabarito ou critérios internos.');
+  }
+  return partes.join(' ');
+}
+
+function resultadosFichaVisiveis(resultados = []) {
+  return (Array.isArray(resultados) ? resultados : [])
+    .filter((item) => !resultadoFichaEhEntrevista(item));
 }
 
 function escaparHtmlFicha(valor) {
@@ -289,9 +364,7 @@ function imprimirFichaCandidato(ficha, formulario) {
   const processos = Array.isArray(fichaImpressao.processos)
     ? fichaImpressao.processos
     : [];
-  const resultados = Array.isArray(fichaImpressao.resultados)
-    ? fichaImpressao.resultados
-    : [];
+  const resultados = resultadosFichaVisiveis(fichaImpressao.resultados);
   const nome = formatarValorFicha(candidato.nome_candidato, 'Candidato');
   const dataGeracao = formatarDataHora(new Date().toISOString());
   const janela = window.open('', '_blank');
@@ -441,10 +514,10 @@ function imprimirFichaCandidato(ficha, formulario) {
           <thead>
             <tr>
               <th>Etapa</th>
-              <th>Pontuação</th>
+              <th>Nota</th>
               <th>Status</th>
               <th>Processo</th>
-              <th>Data</th>
+              <th>Análise</th>
             </tr>
           </thead>
           <tbody>
@@ -452,10 +525,10 @@ function imprimirFichaCandidato(ficha, formulario) {
     resultados,
     [
       { valor: (item) => formatarValorFicha(item.etapa) },
-      { valor: (item) => formatarValorFicha(item.pontuacao) },
+      { valor: (item) => formatarPontuacaoResultadoFicha(item) },
       { valor: (item) => formatarValorFicha(item.status) },
       { valor: (item) => formatarValorFicha(item.processo) },
-      { valor: (item) => formatarDataHora(item.data) },
+      { valor: (item) => montarAnaliseResultadoFicha(item) },
     ],
     'Nenhum resultado registrado.',
   )}
@@ -979,6 +1052,26 @@ function candidatoTemProvaSalva(candidato) {
     idTeste &&
     !idTeste.toUpperCase().startsWith('CV-') &&
     nota &&
+    (origem.includes('prova') || !origem.includes('pre-analise')),
+  );
+}
+
+function candidatoTemProvaConcluida(candidato) {
+  const status = normalizarTextoComparacao(
+    candidato?.status_prova_gerada || candidato?.status_prova || '',
+  );
+  if (status.includes('finaliz') || status.includes('corrigid') || status.includes('concluid')) {
+    return true;
+  }
+
+  const nota = String(obterNotaProvaCandidato(candidato) || '').trim();
+  if (!nota) return false;
+
+  const idTeste = String(candidato?.id_teste_prova || candidato?.id_teste || '').trim();
+  const origem = normalizarTextoComparacao(candidato?.origem);
+  return Boolean(
+    idTeste &&
+    !idTeste.toUpperCase().startsWith('CV-') &&
     (origem.includes('prova') || !origem.includes('pre-analise')),
   );
 }
@@ -1517,6 +1610,7 @@ function renderizarAcoesDoCandidato({
   const podeAprovar = controlador?.possuiPermissao?.('candidatos.aprovar_final');
   const podeEliminar = controlador?.possuiPermissao?.('candidatos.eliminar');
   const podeMover = controlador?.possuiPermissao?.('candidatos.mover_etapa');
+  const podeEnviarBancoTalentos = podeMover || podeEliminar;
   const podeEditar = controlador?.possuiAlgumaPermissao?.(
     'candidatos.editar',
     'candidatos.editar_basico',
@@ -1617,7 +1711,10 @@ function renderizarAcoesDoCandidato({
     );
   }
 
-  if (estadoAcoes.canSendToTalentBank && podeMover) {
+  if (
+    candidatoPodeIrParaBancoTalentos(candidato, estadoAcoes, candidato.status_processo) &&
+    podeEnviarBancoTalentos
+  ) {
     botoes.push(
       html`
         <button
@@ -1719,15 +1816,12 @@ function renderizarAcoesCompactasDoCandidato({
   onFicha,
   onDetalheProva,
   onCurriculo,
-  onWhatsapp,
+  onEnviarBancoTalentos,
   fichaCarregandoId = '',
   carregandoDetalhe = false,
   temProvaSalva = false,
   podeBaixarCv = false,
   controlador,
-  menuAberto = false,
-  onToggleMenu,
-  onCloseMenu,
 }) {
   const estadoAcoes = candidato.acoes_fluxo || getCandidateActionState(candidato);
   const podeAgendar = controlador?.possuiPermissao?.('entrevistas.criar');
@@ -1736,36 +1830,44 @@ function renderizarAcoesCompactasDoCandidato({
   const podeAprovar = controlador?.possuiPermissao?.('candidatos.aprovar_final');
   const podeEliminar = controlador?.possuiPermissao?.('candidatos.eliminar');
   const podeMover = controlador?.possuiPermissao?.('candidatos.mover_etapa');
-  const podeRegistrarWhatsapp = controlador?.possuiAlgumaPermissao?.(
-    'candidatos.editar',
-    'candidatos.editar_basico',
-    'entrevistas.criar',
-    'emails.enviar_modelo',
+  const podeEnviarBancoTalentos = podeMover || podeEliminar;
+  const statusProva = normalizarTextoComparacao(
+    candidato?.status_prova_gerada || candidato?.status_prova || '',
   );
-  const numeroWhatsapp = normalizarNumeroWhatsAppBrasil(
-    candidato.whatsapp || candidato.telefone,
+  const statusProvaIndicaRegistro = Boolean(
+    statusProva &&
+    ![
+      'sem prova',
+      'prova nao criada',
+      'prova não criada',
+      'nao criada',
+      'não criada',
+      'nao gerada',
+      'não gerada',
+    ].some((termo) => statusProva.includes(termo)),
   );
-  const acoesPrincipais = [];
-  const acoesMenu = [];
+  const provaJaCriadaOuConcluida = Boolean(
+    temProvaSalva ||
+    candidato?.tem_prova_gerada ||
+    candidato?.prova_disponivel ||
+    candidato?.id_prova_gerada ||
+    statusProvaIndicaRegistro,
+  );
+  const acoes = [];
 
   if (
     !estadoAcoes.processClosed &&
     estadoAcoes.isActive &&
+    !provaJaCriadaOuConcluida &&
     candidatoPodeGerarProva(candidato, candidato.status_processo) &&
     typeof onGerarProva === 'function' &&
     podeGerarProva
   ) {
-    acoesPrincipais.push(html`
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-primary rh-action-btn btn-action btn-primary-soft"
-        title="Gerar prova para o candidato"
-        onClick=${() => onGerarProva(candidato)}
-      >
-        <span class="material-symbols-outlined">assignment_add</span>
-        Gerar prova
-      </button>
-    `);
+    acoes.push({
+      valor: 'gerar-prova',
+      label: 'Gerar Prova',
+      executar: () => onGerarProva(candidato),
+    });
   }
 
   if (
@@ -1774,108 +1876,74 @@ function renderizarAcoesCompactasDoCandidato({
     typeof onAgendarEntrevista === 'function' &&
     podeAgendar
   ) {
-    acoesPrincipais.push(html`
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-primary rh-action-btn btn-action btn-primary-soft"
-        title="Agendar entrevista"
-        onClick=${() => onAgendarEntrevista(candidato)}
-      >
-        <span class="material-symbols-outlined">event</span>
-        Entrevista
-      </button>
-    `);
-  }
-
-  if (estadoAcoes.canApprove && podeAprovar) {
-    acoesPrincipais.push(html`
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-success rh-action-btn btn-action btn-success-soft"
-        title="Aprovar candidato"
-        onClick=${() =>
-        typeof onAprovar === 'function'
-          ? onAprovar(candidato)
-          : onAtualizarStatus(candidato, 'Aprovado')}
-      >
-        <span class="material-symbols-outlined">check_circle</span>
-        Aprovar
-      </button>
-    `);
-  }
-
-  if (numeroWhatsapp && podeRegistrarWhatsapp && typeof onWhatsapp === 'function') {
-    acoesPrincipais.push(html`
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-success rh-action-btn btn-action btn-success-soft"
-        title="Abrir WhatsApp e registrar contato manual"
-        onClick=${() => onWhatsapp(candidato)}
-      >
-        <span class="material-symbols-outlined">chat</span>
-        WhatsApp
-      </button>
-    `);
-  }
-
-  if (temProvaSalva && typeof onDetalheProva === 'function') {
-    acoesPrincipais.push(html`
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-primary rh-action-btn btn-action btn-primary-soft"
-        disabled=${carregandoDetalhe}
-        onClick=${() => onDetalheProva(candidato)}
-      >
-        <span class="material-symbols-outlined">visibility</span>
-        Resultado
-      </button>
-    `);
-  }
-
-  if (typeof onFicha === 'function') {
-    acoesMenu.push({
-      label: fichaCarregandoId === String(candidato.id_teste || '') ? 'Abrindo...' : 'Detalhes',
-      icon: 'badge',
-      disabled: fichaCarregandoId === String(candidato.id_teste || ''),
-      onClick: () => onFicha(candidato),
+    acoes.push({
+      valor: 'entrevista',
+      label: 'Entrevista',
+      executar: () => onAgendarEntrevista(candidato),
     });
   }
 
   if (temProvaSalva && typeof onDetalheProva === 'function') {
-    acoesMenu.push({
-      label: 'Notas',
-      icon: 'analytics',
+    acoes.push({
+      valor: 'resultado',
+      label: 'Resultado',
       disabled: carregandoDetalhe,
-      onClick: () => onDetalheProva(candidato),
+      executar: () => onDetalheProva(candidato),
+    });
+  }
+
+  if (typeof onFicha === 'function') {
+    acoes.push({
+      valor: 'detalhes',
+      label: fichaCarregandoId === String(candidato.id_teste || '') ? 'Abrindo...' : 'Detalhes',
+      disabled: fichaCarregandoId === String(candidato.id_teste || ''),
+      executar: () => onFicha(candidato),
     });
   }
 
   if (podeBaixarCv && typeof onCurriculo === 'function') {
-    acoesMenu.push({
+    acoes.push({
+      valor: 'ver-cv',
       label: 'Ver CV',
-      icon: 'description',
-      onClick: () => onCurriculo(candidato),
+      executar: () => onCurriculo(candidato),
     });
   }
 
-  if (estadoAcoes.canSendToTalentBank && podeMover) {
-    acoesMenu.push({
-      label: 'Banco',
-      icon: 'inventory_2',
-      onClick: () => onAtualizarStatus(candidato, 'Banco de Talentos'),
+  if (estadoAcoes.canApprove && podeAprovar) {
+    acoes.push({
+      valor: 'aprovar',
+      label: 'Aprovar candidato',
+      executar: () =>
+        typeof onAprovar === 'function'
+          ? onAprovar(candidato)
+          : onAtualizarStatus(candidato, 'Aprovado'),
+    });
+  }
+
+  if (
+    candidatoPodeIrParaBancoTalentos(candidato, estadoAcoes, candidato.status_processo) &&
+    podeEnviarBancoTalentos
+  ) {
+    acoes.push({
+      valor: 'banco-talentos',
+      label: 'Enviar para Banco de Talentos',
+      executar: () =>
+        typeof onEnviarBancoTalentos === 'function'
+          ? onEnviarBancoTalentos(candidato)
+          : onAtualizarStatus(candidato, 'Banco de Talentos'),
     });
   }
 
   if (candidatoPodeSerEliminadoNoProcesso(candidato, estadoAcoes) && podeEliminar) {
-    acoesMenu.push({
+    acoes.push({
+      valor: 'eliminar',
       label: 'Eliminar candidato',
-      icon: 'cancel',
       danger: true,
-      onClick: () => onAtualizarStatus(candidato, 'Eliminado'),
+      executar: () => onAtualizarStatus(candidato, 'Eliminado'),
     });
   }
 
-  if (!acoesPrincipais.length && !acoesMenu.length) {
+  if (!acoes.length) {
     return html`
       <span class="text-muted">
         ${estadoAcoes.processClosed
@@ -1885,53 +1953,34 @@ function renderizarAcoesCompactasDoCandidato({
     `;
   }
 
+  const executarAcao = (event) => {
+    const valor = event.currentTarget.value;
+    event.currentTarget.value = '';
+    const acao = acoes.find((item) => item.valor === valor);
+    if (!acao || acao.disabled) return;
+    acao.executar?.();
+  };
+
   return html`
-    ${acoesPrincipais}
-    ${acoesMenu.length
-      ? html`
-          <div
-            class=${`candidate-actions-menu ${menuAberto ? 'is-open' : ''}`}
-            onClick=${(event) => event.stopPropagation()}
+    <label class="candidate-action-select-field">
+      <span class="visually-hidden">Selecionar ação para ${candidato.nome_candidato || 'candidato'}</span>
+      <select
+        class="form-select form-select-sm candidate-action-select"
+        value=""
+        onChange=${executarAcao}
+      >
+        <option value="">Selecionar ação</option>
+        ${acoes.map((acao) => html`
+          <option
+            key=${acao.valor}
+            value=${acao.valor}
+            disabled=${!!acao.disabled}
           >
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-secondary rh-action-btn btn-action btn-neutral candidate-actions-menu-toggle"
-              aria-haspopup="menu"
-              aria-expanded=${menuAberto}
-              onClick=${(event) => {
-          event.stopPropagation();
-          onToggleMenu?.();
-        }}
-            >
-              <span class="material-symbols-outlined">more_vert</span>
-              Mais ações
-            </button>
-            ${menuAberto
-          ? html`
-                  <div class="candidate-actions-menu-list" role="menu">
-                    ${acoesMenu.map(
-            (acao) => html`
-                        <button
-                          type="button"
-                          role="menuitem"
-                          class=${`candidate-actions-menu-item ${acao.danger ? 'is-danger' : ''}`}
-                          disabled=${!!acao.disabled}
-                          onClick=${() => {
-                onCloseMenu?.();
-                acao.onClick?.();
-              }}
-                        >
-                          <span class="material-symbols-outlined">${acao.icon}</span>
-                          ${acao.label}
-                        </button>
-                      `,
-          )}
-                  </div>
-                `
-          : null}
-          </div>
-        `
-      : null}
+            ${acao.label}
+          </option>
+        `)}
+      </select>
+    </label>
   `;
 }
 
@@ -2022,7 +2071,7 @@ function ModalFichaCandidato({
   const candidato = ficha.candidato || {};
   const curriculo = candidato.curriculo || {};
   const processos = Array.isArray(ficha.processos) ? ficha.processos : [];
-  const resultados = Array.isArray(ficha.resultados) ? ficha.resultados : [];
+  const resultados = resultadosFichaVisiveis(ficha.resultados);
   const tagsOperacionaisFicha = montarTagsOperacionaisFicha(ficha);
 
   return html`
@@ -2226,7 +2275,7 @@ function ModalFichaCandidato({
         </${SectionCard}>
 
         <${SectionCard}
-          title="Resultados resumidos"
+          title="Resultados da prova e currículo"
           className="rh-section-card--flat candidate-sheet-section"
         >
           <div class="table-responsive">
@@ -2234,7 +2283,8 @@ function ModalFichaCandidato({
               <thead>
                 <tr>
                   <th>Etapa</th>
-                  <th>Pontuação</th>
+                  <th>Nota</th>
+                  <th>Análise</th>
                   <th>Status</th>
                   <th>Processo</th>
                   <th>Data</th>
@@ -2245,7 +2295,8 @@ function ModalFichaCandidato({
       ? resultados.map((item, indice) => html`
                       <tr key=${`${item.etapa || 'resultado'}-${indice}`}>
                         <td>${item.etapa || '-'}</td>
-                        <td>${item.pontuacao || 'Não informado'}</td>
+                        <td>${formatarPontuacaoResultadoFicha(item)}</td>
+                        <td>${montarAnaliseResultadoFicha(item)}</td>
                         <td>${item.status || '-'}</td>
                         <td>${item.processo || '-'}</td>
                         <td>${formatarDataHora(item.data)}</td>
@@ -2253,8 +2304,8 @@ function ModalFichaCandidato({
                     `)
       : html`
                       <${TabelaVazia}
-                        colunas=${5}
-                        texto="Nenhum resultado de prova, CV ou entrevista registrado."
+                        colunas=${6}
+                        texto="Nenhum resultado de prova ou CV registrado."
                       />
                     `}
               </tbody>
@@ -4822,7 +4873,6 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [buscaCandidatosProcesso, setBuscaCandidatosProcesso] = useState('');
   const [paginaCandidatosProcesso, setPaginaCandidatosProcesso] = useState(1);
   const [paginaCandidatosAprovados, setPaginaCandidatosAprovados] = useState(1);
-  const [menuAcoesCandidatoAberto, setMenuAcoesCandidatoAberto] = useState('');
   const [modoDossieProcessoAberto, setModoDossieProcessoAberto] = useState(false);
   const [modalPreAnaliseAberto, setModalPreAnaliseAberto] = useState(false);
   const [whatsappSelecionado, setWhatsappSelecionado] = useState(null);
@@ -4867,22 +4917,6 @@ export function TelaDetalhesProcesso({ controlador }) {
     const timeout = window.setTimeout(() => setMensagemDossie(''), 3600);
     return () => window.clearTimeout(timeout);
   }, [mensagemDossie]);
-
-  useEffect(() => {
-    if (!menuAcoesCandidatoAberto) return undefined;
-
-    const fecharMenu = () => setMenuAcoesCandidatoAberto('');
-    const fecharNoEscape = (event) => {
-      if (event.key === 'Escape') fecharMenu();
-    };
-
-    document.addEventListener('click', fecharMenu);
-    document.addEventListener('keydown', fecharNoEscape);
-    return () => {
-      document.removeEventListener('click', fecharMenu);
-      document.removeEventListener('keydown', fecharNoEscape);
-    };
-  }, [menuAcoesCandidatoAberto]);
 
   const carregarEmailsDoProcesso = async () => {
     if (!idProcesso) return;
@@ -6076,6 +6110,61 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
   };
 
+  const enviarCandidatoBancoTalentos = async (candidato) => {
+    if (!candidato?.id_teste) {
+      setErro('Candidato sem identificador de prova para envio ao Banco de Talentos.');
+      return false;
+    }
+    if (processoEncerrado) {
+      setErro('O processo seletivo está encerrado e não permite novas movimentações.');
+      return false;
+    }
+    const confirmar = window.confirm(
+      `Deseja enviar ${candidato.nome_candidato || 'este candidato'} para o Banco de Talentos e removê-lo deste processo?`,
+    );
+    if (!confirmar) return false;
+
+    try {
+      const resultado = await criarBancoTalentos({
+        id_processo: processo?.id_processo || candidato.id_processo || '',
+        id_processo_ref:
+          obterReferenciaProcesso(processo) ||
+          candidato.id_processo_ref ||
+          candidato.id_processo ||
+          '',
+        id_teste: candidato.id_teste,
+        nome_candidato: candidato.nome_candidato || '',
+        email: candidato.email || '',
+        telefone: candidato.telefone || '',
+        whatsapp: candidato.whatsapp || candidato.telefone || '',
+        cidade: candidato.cidade || '',
+        bairro: candidato.bairro || '',
+        vaga: candidato.vaga || processo?.vaga || '',
+        pontuacao_final:
+          candidato.pontuacao_final ||
+          candidato.nota_prova ||
+          candidato.nota_final ||
+          candidato.nota_exibicao ||
+          '',
+        data_movimentacao: new Date().toISOString(),
+        origem: candidato.origem || processo?.vaga || 'Processo seletivo',
+        eh_indicacao: Boolean(candidato.eh_indicacao),
+        tipo_indicacao: candidato.tipo_indicacao || '',
+      });
+      await carregar(paginaPreAnalises, filtrosPreAnalises, paginaCvsNaoQualificados);
+      window.alert(resultado?.message || 'Candidato enviado para o Banco de Talentos.');
+      return true;
+    } catch (error) {
+      setErro(
+        obterMensagemOperacionalErro(
+          error,
+          'Não foi possível enviar o candidato para o Banco de Talentos. Verifique os dados do candidato e tente novamente.',
+        ),
+      );
+      return false;
+    }
+  };
+
   const confirmarEliminacao = async () => {
     if (!eliminacaoSelecionada?.id_registro) return;
 
@@ -6124,11 +6213,25 @@ export function TelaDetalhesProcesso({ controlador }) {
 
     setSalvandoAprovacao(true);
     try {
-      await atualizarStatus(
+      const idTesteAprovado = String(aprovacaoSelecionada.id_teste || '').trim();
+      const aprovado = await atualizarStatus(
         aprovacaoSelecionada.id_registro,
         CANDIDATE_STATUS_APPROVED,
         dadosAprovacao,
       );
+      if (!aprovado) return;
+      const idTesteFichaAberta = String(
+        fichaCandidatoSelecionada?.candidato?.id_teste ||
+        fichaCandidatoSelecionada?.candidato?.id ||
+        '',
+      ).trim();
+      if (idTesteAprovado && idTesteFichaAberta === idTesteAprovado) {
+        const fichaAtualizada = await lerFichaCandidato(idTesteAprovado).catch(() => null);
+        if (fichaAtualizada) {
+          setFichaCandidatoSelecionada(fichaAtualizada);
+          setFormularioFichaCandidato(montarFormularioFichaCandidato(fichaAtualizada));
+        }
+      }
       setAprovacaoSelecionada(null);
     } finally {
       setSalvandoAprovacao(false);
@@ -6727,20 +6830,12 @@ export function TelaDetalhesProcesso({ controlador }) {
       processo?.vaga ||
       agendamentoSelecionado?.vaga ||
       'a vaga em andamento';
-    const processoMensagem =
-      processo?.id_processo ||
-      agendamentoSelecionado?.id_processo ||
-      formularioEntrevista.id_processo ||
-      '';
-    const contextoProcesso = processoMensagem
-      ? `${vagaMensagem} (processo ${processoMensagem})`
-      : vagaMensagem;
     const slot = slotsDisponiveisEntrevista.find(
       (item) => Number(obterIdSlotEntrevista(item)) === Number(idSlot),
     );
     if (!slot) {
       return atualizarDocumentosNaMensagem(
-        `Olá ${nome}! Gostaríamos de convocá-lo para o nosso processo seletivo para a vaga de: ${contextoProcesso} no dia _data_ às _horário_.
+        `Olá ${nome}! Gostaríamos de convocá-lo para o nosso processo seletivo para a vaga de: ${vagaMensagem} no dia _data_ às _horário_.
 
 Compareça levando os seguintes documentos:
 
@@ -6758,7 +6853,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       minute: '2-digit',
     });
     return atualizarDocumentosNaMensagem(
-      `Olá ${nome}! Gostaríamos de convocá-lo para o nosso processo seletivo para a vaga de: ${contextoProcesso} no dia ${data} às ${hora}.
+      `Olá ${nome}! Gostaríamos de convocá-lo para o nosso processo seletivo para a vaga de: ${vagaMensagem} no dia ${data} às ${hora}.
 
 Compareça levando os seguintes documentos:
 
@@ -7907,6 +8002,14 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         </div>
         ${candidatosOperacionaisFiltrados.length
       ? html`
+            <${PaginacaoCompacta}
+              paginaAtual=${candidatosProcessoPaginados.paginaAtual}
+              totalPaginas=${candidatosProcessoPaginados.totalPaginas}
+              totalItens=${candidatosProcessoPaginados.totalItens}
+              tamanhoPagina=${TAMANHO_PAGINA_CANDIDATOS_DETALHE}
+              itensNaPagina=${candidatosProcessoPaginados.itens.length}
+              onChange=${setPaginaCandidatosProcesso}
+            />
             <div class="candidate-list process-candidate-list">
               ${candidatosProcessoPaginados.itens.map((candidato) => {
         const tagsCandidato = Array.isArray(candidato?.tags)
@@ -7930,7 +8033,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         const tagsMeta = manualmenteQualificado
           ? tagsOperacionais
           : tagsOperacionais.filter((tag) => tag.chave !== 'manualmente-qualificado');
-        const temProvaSalva = candidatoTemProvaSalva(candidato);
+        const temProvaConcluida = candidatoTemProvaConcluida(candidato);
         const carregandoDetalhe =
           carregandoDetalheProva ===
           String(candidato.id_registro || candidato.id_teste || '');
@@ -8007,7 +8110,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                       </span>
                       <span class="candidate-meta-chip">
                         Prova
-                        <strong>${temProvaSalva ? obterNotaProvaCandidato(candidato) : 'Sem prova'}</strong>
+                        <strong>${temProvaConcluida ? obterNotaProvaCandidato(candidato) : 'Sem prova'}</strong>
                       </span>
                       <span class="candidate-meta-chip">
                       ${candidato.cv_disponivel ? 'CV disponível' : 'Sem CV'}
@@ -8024,20 +8127,14 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
               onFicha: abrirDetalhesCandidatoCompleto,
               onDetalheProva: abrirDetalheProva,
               onCurriculo: abrirCurriculo,
-              onWhatsapp: abrirWhatsappCandidato,
+              onEnviarBancoTalentos: enviarCandidatoBancoTalentos,
               fichaCarregandoId: carregandoFichaCandidato,
               carregandoDetalhe,
-              temProvaSalva,
+              temProvaSalva: temProvaConcluida,
               podeBaixarCv,
               onAtualizarStatus: (item, status) =>
                 atualizarStatus(item.id_registro, status),
               controlador,
-              menuAberto: menuAcoesCandidatoAberto === idMenuCandidato,
-              onToggleMenu: () =>
-                setMenuAcoesCandidatoAberto((atual) =>
-                  atual === idMenuCandidato ? '' : idMenuCandidato,
-                ),
-              onCloseMenu: () => setMenuAcoesCandidatoAberto(''),
             })}
                     </div>
                   </article>

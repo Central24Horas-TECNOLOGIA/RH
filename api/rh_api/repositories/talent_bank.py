@@ -154,11 +154,9 @@ class TalentBankRepositoryMixin:
             codigo_acesso = normalize_text(
                 data.get("codigo_acesso") or data.get("codigo_cp") or data.get("codigo_prova"),
             )
-            bank_indication_type = normalize_indication_type(row.get("tipo_indicacao"))
-            indication_type = normalize_indication_type(data.get("tipo_indicacao")) or bank_indication_type
+            indication_type = normalize_indication_type(data.get("tipo_indicacao"))
             is_indication = (
                 bool(data.get("eh_indicacao"))
-                or bool(row.get("eh_indicacao"))
                 or bool(indication_type)
             )
             if bool(data.get("eh_indicacao")) and not indication_type:

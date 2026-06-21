@@ -277,7 +277,7 @@ def _fallback_candidate_fields(question: dict[str, Any]) -> tuple[str, str]:
     ):
         return (
             "Você trabalha em uma central de agendamento. Um paciente informou que está com dúvida sobre o horário e a unidade da consulta. A equipe precisa registrar a situação com atenção para evitar informações incorretas.",
-            "Escreva um e-mail curto para a equipe explicando o ocorrido e orientando que os dados da consulta sejam conferidos antes do atendimento.",
+            "Escreva um registro curto de atendimento explicando o ocorrido e indicando que os dados da consulta devem ser conferidos antes do atendimento.",
         )
     if "comunicado" in title:
         return (
@@ -361,6 +361,18 @@ def _public_question_payload(question: dict[str, Any]) -> dict[str, Any]:
         item.pop(key, None)
     item.pop("gabarito", None)
     item.pop("expected", None)
+    for collection_key in ("items", "itens"):
+        if isinstance(item.get(collection_key), list):
+            sanitized_items = []
+            for raw_item in item[collection_key]:
+                if not isinstance(raw_item, dict):
+                    sanitized_items.append(raw_item)
+                    continue
+                visible_item = dict(raw_item)
+                visible_item.pop("answer", None)
+                visible_item.pop("gabarito", None)
+                sanitized_items.append(visible_item)
+            item[collection_key] = sanitized_items
     if isinstance(item.get("essay"), dict):
         essay = dict(item["essay"])
         essay.pop("criteria", None)
@@ -402,6 +414,20 @@ def _is_public_answer_complete(question: dict, answer: Any) -> bool:
         if isinstance(answer, dict):
             return answer.get("selected") not in (None, "")
         return answer not in (None, "")
+
+    if question_type == "compact_choice_group":
+        if not isinstance(answer, dict):
+            return False
+        selections = answer.get("selections")
+        if not isinstance(selections, dict):
+            return False
+        items = question.get("items") if isinstance(question.get("items"), list) else question.get("itens")
+        required_items = items if isinstance(items, list) else []
+        return bool(required_items) and all(
+            selections.get(str(item.get("id") or "")) not in (None, "")
+            for item in required_items
+            if isinstance(item, dict)
+        )
 
     if question_type == "excel_external":
         if not isinstance(answer, dict):
@@ -1315,6 +1341,38 @@ class GeneratedExamRepositoryMixin:
                 expected = question.get("answer", question.get("correctIndex"))
                 correct = selected is not None and str(selected) == str(expected)
                 score = points if correct else 0.0
+                objective_score += score
+                objective_max += points
+            elif q_type == "compact_choice_group":
+                selections = answer.get("selections") if isinstance(answer, dict) else {}
+                items = question.get("items") if isinstance(question.get("items"), list) else question.get("itens")
+                valid_items = [item for item in (items or []) if isinstance(item, dict)]
+                item_points = points / len(valid_items) if valid_items else points
+                answered = 0
+                correct_items = 0
+                for item in valid_items:
+                    key = str(item.get("id") or "")
+                    selected = selections.get(key) if isinstance(selections, dict) else None
+                    expected = item.get("answer")
+                    if expected is None and item.get("gabarito"):
+                        alternatives = item.get("alternativas") if isinstance(item.get("alternativas"), list) else []
+                        expected = next(
+                            (
+                                idx
+                                for idx, alt in enumerate(alternatives)
+                                if normalize_text(alt.get("id")) == normalize_text(item.get("gabarito"))
+                            ),
+                            None,
+                        )
+                    if selected not in (None, ""):
+                        answered += 1
+                    if expected is not None and selected is not None and str(selected) == str(expected):
+                        correct_items += 1
+                        score += item_points
+                correct = bool(valid_items) and correct_items == len(valid_items)
+                if answered < len(valid_items):
+                    manual = True
+                    pending_manual = True
                 objective_score += score
                 objective_max += points
             elif q_type == "excel_external":

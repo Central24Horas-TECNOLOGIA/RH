@@ -14,6 +14,7 @@ import { formatarTempoRestante } from '../../shared/helpers-visuais.js';
 import {
   EditorTextoRich,
   PerguntaExcel,
+  PerguntaGrupoCompacto,
   PerguntaMultipla,
 } from '../../ui/componentes-compartilhados.js';
 
@@ -187,6 +188,18 @@ function respostaQuestaoPreenchida(questao, resposta) {
   if (questao?.type === 'multiple') {
     return resposta?.selected !== null && resposta?.selected !== undefined;
   }
+  if (questao?.type === 'compact_choice_group') {
+    const itens = Array.isArray(questao.items)
+      ? questao.items
+      : Array.isArray(questao.itens)
+        ? questao.itens
+        : [];
+    const selecoes = resposta?.selections || {};
+    return itens.length > 0 && itens.every((item) => {
+      const chave = String(item.id || '');
+      return selecoes[chave] !== null && selecoes[chave] !== undefined;
+    });
+  }
   if (questao?.type === 'excel_external') {
     return Boolean(
       resposta?.uploaded &&
@@ -341,7 +354,7 @@ function obterFallbackQuestaoVisivel(questao = {}) {
       enunciado:
         'Você trabalha em uma central de agendamento. Um paciente informou que está com dúvida sobre o horário e a unidade da consulta. A equipe precisa registrar a situação com atenção para evitar informações incorretas.',
       instrucao:
-        'Escreva um e-mail curto para a equipe explicando o ocorrido e orientando que os dados da consulta sejam conferidos antes do atendimento.',
+        'Escreva um registro curto de atendimento explicando o ocorrido e indicando que os dados da consulta devem ser conferidos antes do atendimento.',
     };
   }
 
@@ -414,6 +427,14 @@ function descreverRespostaRevisao(questao, resposta) {
     const indice = Number(resposta?.selected);
     return questao.options?.[indice] || `Alternativa ${indice + 1}`;
   }
+  if (questao.type === 'compact_choice_group') {
+    const selecoes = resposta?.selections || {};
+    const total = (Array.isArray(questao.items) ? questao.items : questao.itens || []).length;
+    const respondidas = Object.values(selecoes)
+      .filter((valor) => valor !== null && valor !== undefined && valor !== '')
+      .length;
+    return `${respondidas}/${total || respondidas} itens respondidos`;
+  }
   if (questao.type === 'excel_external') {
     return resposta?.filename || 'Arquivo anexado';
   }
@@ -422,6 +443,9 @@ function descreverRespostaRevisao(questao, resposta) {
 
 function obterRespostaInicial(questao) {
   if (questao?.type === 'multiple') return { type: 'multiple', selected: null };
+  if (questao?.type === 'compact_choice_group') {
+    return { type: 'compact_choice_group', selections: {} };
+  }
   if (questao?.type === 'excel_external') {
     return { type: 'excel_external', filename: '', contentBase64: '', validation: null };
   }
@@ -812,6 +836,14 @@ function QuestaoProva({
               onChange=${(selected) => onResposta({ type: 'multiple', selected })}
             />
           `
+      : tipo === 'compact_choice_group'
+        ? html`
+              <${PerguntaGrupoCompacto}
+                questao=${questao}
+                resposta=${resposta}
+                onChange=${(respostaGrupo) => onResposta(respostaGrupo)}
+              />
+            `
       : tipo === 'excel_external'
         ? html`
               <div class="conecta-provas-excel-rules">

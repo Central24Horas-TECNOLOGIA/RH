@@ -9,5 +9,6 @@ export { ModalDetalhesProva, ModalPadrao } from './components/modals.js';
 export {
   EditorTextoRich,
   PerguntaExcel,
+  PerguntaGrupoCompacto,
   PerguntaMultipla,
 } from './components/exam-fields.js';
