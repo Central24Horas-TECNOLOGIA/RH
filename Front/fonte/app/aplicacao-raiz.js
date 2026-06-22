@@ -1,43 +1,44 @@
-import { html, useEffect } from '../infraestrutura-react.js';
+import { html, lazy, Suspense, useEffect } from '../infraestrutura-react.js';
 "Teste de commit - Aplicação Raiz";
 import {
   navegarParaTela,
   usarTelaAtual,
   useControladorAplicacao,
 } from './controlador-aplicacao.js';
-import {
-  TelaAnaliseCandidatos,
-  TelaBancoTalentos,
-  TelaCriarProcesso,
-  TelaCaixaEmail,
-  TelaHistorico,
-  TelaInicio,
-  TelaLogin,
-} from '../features/telas-gestao.js';
-import {
-  TelaDetalhesProcesso,
-  TelaProcessosAbertos,
-  TelaProcessosDecisoesPendentes,
-  TelaProcessosEncerrados,
-  TelaProcessos,
-} from '../features/telas-processos.js';
-import {
-  TelaCandidatos,
-  TelaDetalhesCandidato,
-} from '../features/candidatos/index.js';
-import { TelaPipelineCandidatos } from '../features/tela-pipeline.js';
-import { TelaEntrevistas } from '../features/tela-entrevistas.js';
-import { TelaCandidaturaPublica } from '../features/public-candidacy/index.js';
-import { TelaConectaProvas } from '../features/conecta-provas/index.js';
-import { TelaProvasResultados } from '../features/provas-geradas/index.js';
-import { TelaConfiguracoesSistema } from '../features/configuracoes/index.js';
-import {
-  TelaCandidato,
-  TelaConfiguracao,
-  TelaConclusao,
-  TelaProva,
-  TelaResultado,
-} from '../features/telas-prova.js';
+
+function carregarTela(importador, nomeExportado) {
+  return lazy(() => importador().then((modulo) => ({ default: modulo[nomeExportado] })));
+}
+
+const importarGestao = () => import('../features/telas-gestao.js');
+const importarProcessos = () => import('../features/telas-processos.js');
+const importarProva = () => import('../features/telas-prova.js');
+
+const TelaAnaliseCandidatos = carregarTela(importarGestao, 'TelaAnaliseCandidatos');
+const TelaBancoTalentos = carregarTela(importarGestao, 'TelaBancoTalentos');
+const TelaCriarProcesso = carregarTela(importarGestao, 'TelaCriarProcesso');
+const TelaCaixaEmail = carregarTela(importarGestao, 'TelaCaixaEmail');
+const TelaHistorico = carregarTela(importarGestao, 'TelaHistorico');
+const TelaInicio = carregarTela(importarGestao, 'TelaInicio');
+const TelaLogin = carregarTela(importarGestao, 'TelaLogin');
+const TelaDetalhesProcesso = carregarTela(importarProcessos, 'TelaDetalhesProcesso');
+const TelaProcessosAbertos = carregarTela(importarProcessos, 'TelaProcessosAbertos');
+const TelaProcessosDecisoesPendentes = carregarTela(importarProcessos, 'TelaProcessosDecisoesPendentes');
+const TelaProcessosEncerrados = carregarTela(importarProcessos, 'TelaProcessosEncerrados');
+const TelaProcessos = carregarTela(importarProcessos, 'TelaProcessos');
+const TelaCandidatos = carregarTela(() => import('../features/candidatos/index.js'), 'TelaCandidatos');
+const TelaDetalhesCandidato = carregarTela(() => import('../features/candidatos/index.js'), 'TelaDetalhesCandidato');
+const TelaPipelineCandidatos = carregarTela(() => import('../features/tela-pipeline.js'), 'TelaPipelineCandidatos');
+const TelaEntrevistas = carregarTela(() => import('../features/tela-entrevistas.js'), 'TelaEntrevistas');
+const TelaCandidaturaPublica = carregarTela(() => import('../features/public-candidacy/index.js'), 'TelaCandidaturaPublica');
+const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js'), 'TelaConectaProvas');
+const TelaProvasResultados = carregarTela(() => import('../features/provas-geradas/index.js'), 'TelaProvasResultados');
+const TelaConfiguracoesSistema = carregarTela(() => import('../features/configuracoes/index.js'), 'TelaConfiguracoesSistema');
+const TelaCandidato = carregarTela(importarProva, 'TelaCandidato');
+const TelaConfiguracao = carregarTela(importarProva, 'TelaConfiguracao');
+const TelaConclusao = carregarTela(importarProva, 'TelaConclusao');
+const TelaProva = carregarTela(importarProva, 'TelaProva');
+const TelaResultado = carregarTela(importarProva, 'TelaResultado');
 
 function resolverTelaProtegida(telaAtual, controlador) {
   const { estado, blueprint } = controlador;
@@ -91,7 +92,7 @@ function resolverTelaProtegida(telaAtual, controlador) {
   return telaAtual;
 }
 
-export function Aplicacao() {
+function ConteudoAplicacao() {
   const controlador = useControladorAplicacao();
   const telaAtual = usarTelaAtual(controlador.estado.autenticado);
   const telaResolvida = resolverTelaProtegida(telaAtual, controlador);
@@ -244,4 +245,12 @@ export function Aplicacao() {
   }
 
   return html`<${TelaResultado} controlador=${controlador} />`;
+}
+
+export function Aplicacao() {
+  return html`
+    <${Suspense} fallback=${html`<section class="active screen" id="screen-loading"><div class="container py-5"><div class="alert alert-secondary mb-0">Carregando tela...</div></div></section>`}>
+      <${ConteudoAplicacao} />
+    </${Suspense}>
+  `;
 }

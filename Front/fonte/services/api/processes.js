@@ -219,10 +219,18 @@ export async function usarCandidatoDoBancoTalentos(idBanco, dadosUso) {
   return resultado;
 }
 
-export async function lerDetalheProcesso(idProcesso) {
-  return requisitar(`/processes/${encodeURIComponent(idProcesso)}/details`, {
+export async function lerDetalheProcesso(idProcesso, forcar = false) {
+  const chaveCache = `processos:detalhe:${idProcesso}`;
+  if (!forcar) {
+    const emCache = lerCache(chaveCache);
+    if (emCache) return emCache;
+  }
+
+  const detalhe = await requisitar(`/processes/${encodeURIComponent(idProcesso)}/details`, {
     method: 'GET',
   });
+  gravarCache(chaveCache, detalhe);
+  return detalhe;
 }
 
 export async function lerAnotacoesDossieProcesso(idProcesso) {
@@ -323,6 +331,37 @@ export async function analisarCvCandidatoInscrito(idTeste, payload = {}) {
 
   invalidarCacheApi('processos', 'candidatos-processos');
   return resultado;
+}
+
+export async function lerConfiguracaoAnaliseCurriculoIa() {
+  return requisitar('/curriculos-ia/configuracao', { method: 'GET' });
+}
+
+export async function lerUltimaAnaliseCurriculoIa(idCandidato, idProcesso = '') {
+  const params = new URLSearchParams();
+  if (idProcesso) params.set('id_processo', idProcesso);
+  const sufixo = params.toString() ? `?${params.toString()}` : '';
+  return requisitar(
+    `/curriculos/${encodeURIComponent(idCandidato)}/analises-ia/ultima${sufixo}`,
+    { method: 'GET' },
+  );
+}
+
+export async function analisarCurriculoIa(idCandidato, idProcesso = '') {
+  const params = new URLSearchParams();
+  if (idProcesso) params.set('id_processo', idProcesso);
+  const sufixo = params.toString() ? `?${params.toString()}` : '';
+  return requisitar(
+    `/curriculos/${encodeURIComponent(idCandidato)}/analisar-ia${sufixo}`,
+    { method: 'POST' },
+  );
+}
+
+export async function marcarAnaliseCurriculoIaRevisada(idAnalise) {
+  return requisitar(
+    `/analises-curriculo-ia/${encodeURIComponent(idAnalise)}/marcar-revisada`,
+    { method: 'POST' },
+  );
 }
 
 export async function excluirPreAnaliseCv(idPreAnalise) {

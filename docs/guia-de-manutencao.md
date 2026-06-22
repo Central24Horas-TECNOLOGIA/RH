@@ -105,7 +105,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Abra `http://127.0.0.1:8010`.
+Abra `http://127.0.0.1:8000`.
 
 O backend FastAPI serve a API e o frontend `Front/` no mesmo processo.
 

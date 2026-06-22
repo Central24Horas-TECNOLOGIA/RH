@@ -12,6 +12,7 @@ if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
 
 from rh_api.routers.processes import get_candidate_sheet, update_candidate_sheet
+from rh_api.repositories.candidate_sheet import _format_score
 from rh_api.schemas.processes import CandidateSheetUpdateRequest
 
 
@@ -77,3 +78,7 @@ def test_update_candidate_sheet_sends_only_provided_fields():
 def test_candidate_sheet_rejects_invalid_recommendation():
     with pytest.raises(ValidationError):
         CandidateSheetUpdateRequest(classificacao="Talvez indicar")
+
+
+def test_candidate_sheet_preserves_zero_cv_score():
+    assert _format_score(0) == "0"

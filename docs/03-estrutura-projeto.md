@@ -64,7 +64,7 @@ RH/
 | --- | --- |
 | `api/app.py` | Entry point do Uvicorn |
 | `api/rh_api/main.py` | Criação da aplicação FastAPI e registro de routers |
-| `api/rh_api/config.py` | Leitura de `.env`, `config.ini` e variáveis de ambiente |
+| `api/rh_api/config.py` | Leitura centralizada de `.env` e variáveis de ambiente |
 | `api/rh_api/db.py` | Conexão SQL Server via ODBC |
 | `api/rh_api/auth.py` | Tokens e autenticação |
 | `api/rh_api/routers/` | Endpoints HTTP |

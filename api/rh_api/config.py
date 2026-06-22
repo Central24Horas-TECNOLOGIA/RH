@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import configparser
 import os
 import secrets
 from dataclasses import dataclass
@@ -8,106 +7,64 @@ from functools import lru_cache
 from pathlib import Path
 
 
-DEFAULT_DEV_ORIGINS = [
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:4173",
-    "http://127.0.0.1:8080",
-    "http://localhost:3000",
-    "http://localhost:4173",
-    "http://localhost:8080",
-    "null",
-]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_dotenv() -> None:
-    api_dir = Path(__file__).resolve().parents[1]
-    project_root = api_dir.parent
-    candidates = [api_dir / ".env", project_root / ".env"]
-
-    for dotenv_path in candidates:
-        if not dotenv_path.exists():
+    """Carrega .env sem sobrescrever variáveis já definidas pelo processo."""
+    for dotenv_path in (PROJECT_ROOT / "api" / ".env", PROJECT_ROOT / ".env"):
+        if not dotenv_path.is_file():
             continue
 
-        for line in dotenv_path.read_text(encoding="utf-8").splitlines():
+        for line in dotenv_path.read_text(encoding="utf-8-sig").splitlines():
             item = line.strip()
             if not item or item.startswith("#") or "=" not in item:
                 continue
 
             key, raw_value = item.split("=", 1)
             key = key.strip()
+            if not key:
+                continue
             value = raw_value.strip().strip('"').strip("'")
             os.environ.setdefault(key, value)
 
-def _load_runtime_ini() -> configparser.ConfigParser:
-    """
-    Lê o config.ini central da pasta da Interface.
 
-    Ordem de procura:
-    1. Caminho informado em RH_CONFIG_INI
-    2. config.ini na pasta pai do projeto RH
-       Exemplo:
-       central_servicos_c24h/
-         config.ini
-         RH/
-           api/
-    """
-    parser = configparser.ConfigParser()
-
-    api_dir = Path(__file__).resolve().parents[1]
-    project_root = api_dir.parent
-
-    candidates = []
-
-    env_path = os.getenv("RH_CONFIG_INI", "").strip()
-    if env_path:
-        candidates.append(Path(env_path))
-
-    candidates.append(project_root / "config.ini")
-    candidates.append(project_root.parent / "config.ini")
-
-    for ini_path in candidates:
-        if ini_path.exists():
-            parser.read(ini_path, encoding="utf-8-sig")
-            break
-
-    return parser
-
-
-def _ini_value(
-    parser: configparser.ConfigParser,
-    section: str,
-    option: str,
-    default: str = "",
-) -> str:
-    if parser.has_option(section, option):
-        return parser.get(section, option, fallback=default).strip()
+def _env(*names: str, default: str = "") -> str:
+    for name in names:
+        value = os.getenv(name)
+        if value is not None and value.strip():
+            return value.strip()
     return default
 
 
-def _ini_bool(
-    parser: configparser.ConfigParser,
-    section: str,
-    option: str,
-    default: bool,
-) -> bool:
-    if parser.has_option(section, option):
-        return parser.getboolean(section, option, fallback=default)
+def _read_bool_env(*names: str, default: bool = False) -> bool:
+    raw_value = _env(*names)
+    if not raw_value:
+        return default
+    normalized = raw_value.lower()
+    if normalized in {"1", "true", "yes", "y", "on", "sim", "s"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off", "nao", "não"}:
+        return False
     return default
 
 
-def _ini_int(
-    parser: configparser.ConfigParser,
-    section: str,
-    option: str,
+def _read_int_env(
+    *names: str,
     default: int,
+    minimum: int | None = None,
+    maximum: int | None = None,
 ) -> int:
-    if not parser.has_option(section, option):
-        return default
-
+    raw_value = _env(*names)
     try:
-        return parser.getint(section, option, fallback=default)
+        value = int(raw_value) if raw_value else default
     except (TypeError, ValueError):
-        return default
+        value = default
+    if minimum is not None:
+        value = max(minimum, value)
+    if maximum is not None:
+        value = min(maximum, value)
+    return value
 
 
 def _split_csv(raw_value: str | None) -> list[str]:
@@ -116,39 +73,11 @@ def _split_csv(raw_value: str | None) -> list[str]:
     return [item.strip() for item in raw_value.split(",") if item.strip()]
 
 
-def _read_bool_env(name: str, default: bool) -> bool:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    normalized = raw_value.strip().lower()
-    if normalized in {"1", "true", "yes", "y", "on"}:
-        return True
-    if normalized in {"0", "false", "no", "n", "off"}:
-        return False
-    return default
-
-
-def _read_int_env(name: str, default: int) -> int:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    try:
-        return int(raw_value.strip())
-    except (TypeError, ValueError):
-        return default
-
-
-def _resolve_path_config(value: str, base_dir: Path) -> str:
-    raw_value = (value or "").strip()
-    if not raw_value:
-        return ""
-
-    path = Path(raw_value).expanduser()
+def _resolve_project_path(value: str, default_relative: str) -> str:
+    path = Path(value or default_relative).expanduser()
     if not path.is_absolute():
-        path = base_dir / path
-    return str(path)
+        path = PROJECT_ROOT / path
+    return str(path.resolve())
 
 
 @dataclass(frozen=True)
@@ -216,327 +145,158 @@ class Settings:
     email_smtp_from: str
     email_smtp_use_tls: bool
     email_smtp_use_ssl: bool
+    ai_enabled: bool
+    ai_provider: str
+    ai_model: str
+    openai_api_key: str
+    openai_base_url: str
+    ai_timeout_seconds: int
+    ai_max_curriculo_chars: int
+    ai_duplicate_window_seconds: int
 
     @property
     def is_development(self) -> bool:
         return self.app_env.lower() != "production"
 
+    @property
+    def ai_available(self) -> bool:
+        return (
+            self.ai_enabled
+            and self.ai_provider.lower() == "openai"
+            and bool(self.openai_api_key)
+            and bool(self.ai_model)
+        )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     _load_dotenv()
-    runtime_ini = _load_runtime_ini()
-    has_ini_db = runtime_ini.has_section("RH_DATABASE")
-
-    project_root = Path(__file__).resolve().parents[2]
-
-    app_env = (
-        os.getenv("RH_APP_ENV", "").strip()
-        or os.getenv("ENV", "").strip()
-        or _ini_value(runtime_ini, "APP", "environment", "development")
-        or "development"
-    )
-    dev_mode = app_env.lower() != "production"
-    server_host = (
-        os.getenv("RH_SERVER_HOST", "").strip()
-        or os.getenv("HOST", "").strip()
-        or _ini_value(runtime_ini, "SERVER", "host", "127.0.0.1")
-        or "127.0.0.1"
-    )
-    server_port = _read_int_env(
-        "RH_SERVER_PORT",
-        _read_int_env(
-            "PORT",
-            _ini_int(runtime_ini, "SERVER", "port", 8010),
-        ),
-    )
-    server_reload = _read_bool_env(
-        "RH_SERVER_RELOAD",
-        _ini_bool(runtime_ini, "SERVER", "reload", False),
-    )
-    serve_frontend = _read_bool_env(
-        "RH_SERVE_FRONTEND",
-        _ini_bool(runtime_ini, "FRONTEND", "serve", True),
-    )
-    frontend_dir = _resolve_path_config(
-        os.getenv("RH_FRONTEND_DIR", "").strip()
-        or _ini_value(runtime_ini, "FRONTEND", "dir", "Front")
-        or "Front",
-        project_root,
-    )
-    frontend_api_base_url = (
-        os.getenv("RH_FRONTEND_API_BASE_URL", "").strip()
-        or _ini_value(runtime_ini, "FRONTEND", "api_base_url", "")
-    )
-    process_dossier_ai_endpoint = (
-        os.getenv("RH_PROCESS_DOSSIER_AI_ENDPOINT", "").strip()
-        or _ini_value(runtime_ini, "FRONTEND", "process_dossier_ai_endpoint", "")
-    )
-
-    cors_allow_origins = _split_csv(
-        os.getenv("RH_CORS_ALLOW_ORIGINS", "").strip()
-        or _ini_value(runtime_ini, "CORS", "allow_origins", "")
-    )
-
-    if not cors_allow_origins and dev_mode:
-        cors_allow_origins = list(DEFAULT_DEV_ORIGINS)
-
-    cors_allow_origin_regex = (
-        os.getenv("RH_CORS_ALLOW_ORIGIN_REGEX", "").strip()
-        or _ini_value(runtime_ini, "CORS", "allow_origin_regex", "")
-        or None
-    )
-    if dev_mode and not cors_allow_origin_regex:
-        cors_allow_origin_regex = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
-
-    email_inbox_provider = (
-        os.getenv("RH_EMAIL_INBOX_PROVIDER", "").strip()
-        or _ini_value(runtime_ini, "EMAIL_INBOX", "PROVIDER", "microsoft365")
-        or "microsoft365"
-    )
-    email_inbox_protocol = (
-        os.getenv("RH_EMAIL_INBOX_PROTOCOL", "").strip()
-        or _ini_value(runtime_ini, "EMAIL_INBOX", "PROTOCOL", "imap")
-        or "imap"
-    )
-    email_inbox_mode = (
-        os.getenv("RH_EMAIL_INBOX_MODE", "").strip()
-        or _ini_value(runtime_ini, "EMAIL_INBOX", "MODE", "")
-        or email_inbox_protocol
-        or "imap"
-    )
-
-    if has_ini_db:
-        sql_server = _ini_value(runtime_ini, "RH_DATABASE", "server", r"PAULO_TI\SQLEXPRESS")
-        sql_database = _ini_value(runtime_ini, "RH_DATABASE", "database", "RH_Provas")
-        sql_driver = _ini_value(runtime_ini, "RH_DATABASE", "driver", "ODBC Driver 17 for SQL Server")
-        sql_connection_string = _ini_value(runtime_ini, "RH_DATABASE", "connection_string", "") or None
-        sql_username = _ini_value(runtime_ini, "RH_DATABASE", "username", "")
-        sql_password = _ini_value(runtime_ini, "RH_DATABASE", "password", "")
-        sql_trusted_connection = _ini_bool(runtime_ini, "RH_DATABASE", "trusted_connection", True)
-        sql_encrypt = _ini_value(runtime_ini, "RH_DATABASE", "encrypt", "no") or "no"
-        sql_trust_server_certificate = _ini_bool(
-            runtime_ini,
-            "RH_DATABASE",
-            "trust_server_certificate",
-            True,
-        )
-        sql_timeout_seconds = max(
-            1,
-            int(_ini_value(runtime_ini, "RH_DATABASE", "timeout_seconds", "5")),
-        )
-    else:
-        sql_server = os.getenv("RH_SQL_SERVER", r"PAULO_TI\SQLEXPRESS").strip()
-        sql_database = os.getenv("RH_SQL_DATABASE", "RH_Provas").strip()
-        sql_driver = os.getenv("RH_SQL_DRIVER", "ODBC Driver 17 for SQL Server").strip()
-        sql_connection_string = os.getenv("RH_SQL_CONNECTION_STRING", "").strip() or None
-        sql_username = os.getenv("RH_SQL_USERNAME", "").strip()
-        sql_password = os.getenv("RH_SQL_PASSWORD", "")
-        sql_trusted_connection = _read_bool_env("RH_SQL_TRUSTED_CONNECTION", True)
-        sql_encrypt = os.getenv("RH_SQL_ENCRYPT", "no").strip() or "no"
-        sql_trust_server_certificate = _read_bool_env("RH_SQL_TRUST_SERVER_CERTIFICATE", True)
-        sql_timeout_seconds = max(1, int(os.getenv("RH_SQL_TIMEOUT_SECONDS", "5")))
+    email_inbox_protocol = _env("RH_EMAIL_INBOX_PROTOCOL", default="imap")
 
     return Settings(
-        app_env=app_env,
-        server_host=server_host,
-        server_port=server_port,
-        server_reload=server_reload,
-        serve_frontend=serve_frontend,
-        frontend_dir=frontend_dir,
-        frontend_api_base_url=frontend_api_base_url,
-        process_dossier_ai_endpoint=process_dossier_ai_endpoint,
-        sql_server=sql_server,
-        sql_database=sql_database,
-        sql_driver=sql_driver,
-        sql_connection_string=sql_connection_string,
-        sql_username=sql_username,
-        sql_password=sql_password,
-        sql_trusted_connection=sql_trusted_connection,
-        sql_encrypt=sql_encrypt,
-        sql_trust_server_certificate=sql_trust_server_certificate,
-        sql_timeout_seconds=sql_timeout_seconds,
-        auth_user=os.getenv("RH_AUTH_USER", "rh").strip(),
-        auth_password=os.getenv("RH_AUTH_PASSWORD", "1234").strip(),
-        auth_token_secret=os.getenv("RH_AUTH_TOKEN_SECRET", "").strip()
-        or secrets.token_urlsafe(32),
-        auth_token_ttl_minutes=int(os.getenv("RH_AUTH_TOKEN_TTL_MINUTES", "480")),
-        cors_allow_origins=cors_allow_origins,
-        cors_allow_origin_regex=cors_allow_origin_regex,
-        log_level=os.getenv("RH_LOG_LEVEL", "INFO").strip() or "INFO",
-        public_frontend_base_url=(
-            os.getenv("RH_PUBLIC_FRONTEND_BASE_URL", "").strip()
-            or _ini_value(runtime_ini, "PUBLIC", "PUBLIC_FRONTEND_BASE_URL", "")
+        app_env=_env("RH_APP_ENV", "ENV", default="development"),
+        server_host=_env("RH_API_HOST", "RH_SERVER_HOST", "HOST", default="127.0.0.1"),
+        server_port=_read_int_env(
+            "RH_API_PORT", "RH_SERVER_PORT", "PORT", default=8000, minimum=1, maximum=65535
         ),
-        public_candidate_base_url=(
-            os.getenv("PUBLIC_CANDIDATE_BASE_URL", "").strip()
-            or os.getenv("RH_PUBLIC_CANDIDATE_BASE_URL", "").strip()
-            or _ini_value(runtime_ini, "PUBLIC", "PUBLIC_CANDIDATE_BASE_URL", "")
+        server_reload=_read_bool_env("RH_SERVER_RELOAD", default=False),
+        serve_frontend=_read_bool_env(
+            "RH_FRONT_SERVE_STATIC", "RH_SERVE_FRONTEND", default=True
         ),
-        public_cv_upload_dir=os.getenv(
-            "RH_PUBLIC_CV_UPLOAD_DIR",
-            str(project_root / "data" / "private" / "public-cvs"),
-        ).strip(),
-        doc_converter=(
-            os.getenv("DOC_CONVERTER", "").strip()
-            or os.getenv("RH_CV_DOC_CONVERTER", "").strip()
-            or _ini_value(runtime_ini, "CV", "DOC_CONVERTER", "auto")
-            or "auto"
+        frontend_dir=_resolve_project_path(_env("RH_FRONTEND_DIR"), "Front"),
+        frontend_api_base_url=_env("RH_FRONTEND_API_BASE_URL"),
+        process_dossier_ai_endpoint=_env("RH_PROCESS_DOSSIER_AI_ENDPOINT"),
+        sql_server=_env("RH_SQL_SERVER"),
+        sql_database=_env("RH_SQL_DATABASE", default="RH_Provas"),
+        sql_driver=_env("RH_SQL_DRIVER", default="ODBC Driver 18 for SQL Server"),
+        sql_connection_string=_env("RH_SQL_CONNECTION_STRING") or None,
+        sql_username=_env("RH_SQL_USERNAME"),
+        sql_password=os.getenv("RH_SQL_PASSWORD", ""),
+        sql_trusted_connection=_read_bool_env("RH_SQL_TRUSTED_CONNECTION", default=True),
+        sql_encrypt=_env("RH_SQL_ENCRYPT", default="no"),
+        sql_trust_server_certificate=_read_bool_env(
+            "RH_SQL_TRUST_SERVER_CERTIFICATE", default=True
         ),
-        libreoffice_path=(
-            os.getenv("LIBREOFFICE_PATH", "").strip()
-            or os.getenv("RH_LIBREOFFICE_PATH", "").strip()
-            or _ini_value(runtime_ini, "CV", "LIBREOFFICE_PATH", "")
+        sql_timeout_seconds=_read_int_env(
+            "RH_SQL_TIMEOUT_SECONDS", default=5, minimum=1, maximum=120
         ),
-        email_inbox_enabled=_read_bool_env(
-            "RH_EMAIL_INBOX_ENABLED",
-            _ini_bool(runtime_ini, "EMAIL_INBOX", "ENABLED", False),
+        auth_user=_env("RH_AUTH_USER", default="rh"),
+        auth_password=os.getenv("RH_AUTH_PASSWORD", ""),
+        auth_token_secret=_env("RH_AUTH_TOKEN_SECRET") or secrets.token_urlsafe(32),
+        auth_token_ttl_minutes=_read_int_env(
+            "RH_AUTH_TOKEN_TTL_MINUTES", default=480, minimum=1
         ),
-        email_inbox_mode=email_inbox_mode,
-        email_inbox_path=(
-            os.getenv("RH_EMAIL_INBOX_PATH", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "INBOX_PATH", "")
+        cors_allow_origins=_split_csv(_env("RH_CORS_ALLOW_ORIGINS")),
+        cors_allow_origin_regex=_env("RH_CORS_ALLOW_ORIGIN_REGEX") or None,
+        log_level=_env("RH_LOG_LEVEL", default="INFO"),
+        public_frontend_base_url=_env("RH_PUBLIC_FRONTEND_BASE_URL"),
+        public_candidate_base_url=_env(
+            "RH_PUBLIC_CANDIDATE_BASE_URL", "PUBLIC_CANDIDATE_BASE_URL"
         ),
-        email_inbox_provider=email_inbox_provider,
+        public_cv_upload_dir=_resolve_project_path(
+            _env("RH_PUBLIC_CV_UPLOAD_DIR"), "data/private/public-cvs"
+        ),
+        doc_converter=_env("DOC_CONVERTER", "RH_CV_DOC_CONVERTER", default="auto"),
+        libreoffice_path=_env("LIBREOFFICE_PATH", "RH_LIBREOFFICE_PATH"),
+        email_inbox_enabled=_read_bool_env("RH_EMAIL_INBOX_ENABLED", default=False),
+        email_inbox_mode=_env("RH_EMAIL_INBOX_MODE", default=email_inbox_protocol),
+        email_inbox_path=_env("RH_EMAIL_INBOX_PATH"),
+        email_inbox_provider=_env("RH_EMAIL_INBOX_PROVIDER", default="microsoft365"),
         email_inbox_protocol=email_inbox_protocol,
-        email_inbox_address=(
-            os.getenv("RH_EMAIL_INBOX_ADDRESS", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "EMAIL_ADDRESS", "")
+        email_inbox_address=_env("RH_EMAIL_INBOX_ADDRESS"),
+        email_inbox_imap_host=_env(
+            "RH_EMAIL_INBOX_IMAP_HOST", default="outlook.office365.com"
         ),
-        email_inbox_imap_host=(
-            os.getenv("RH_EMAIL_INBOX_IMAP_HOST", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "IMAP_HOST", "outlook.office365.com")
-            or "outlook.office365.com"
+        email_inbox_imap_port=_read_int_env(
+            "RH_EMAIL_INBOX_IMAP_PORT", default=993, minimum=1, maximum=65535
         ),
-        email_inbox_imap_port=int(
-            os.getenv("RH_EMAIL_INBOX_IMAP_PORT", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "IMAP_PORT", "993")
-            or "993"
+        email_inbox_username=_env("RH_EMAIL_INBOX_USERNAME"),
+        email_inbox_auth_mode=_env("RH_EMAIL_INBOX_AUTH_MODE", default="oauth2"),
+        email_inbox_password_env=_env(
+            "RH_EMAIL_INBOX_PASSWORD_ENV", default="RH_EMAIL_PASSWORD"
         ),
-        email_inbox_username=(
-            os.getenv("RH_EMAIL_INBOX_USERNAME", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "USERNAME", "")
+        email_inbox_mailbox=_env("RH_EMAIL_INBOX_MAILBOX", default="INBOX"),
+        email_inbox_tenant_id=_env(
+            "RH_EMAIL_INBOX_TENANT_ID", "RH_EMAIL_GRAPH_TENANT_ID"
         ),
-        email_inbox_auth_mode=(
-            os.getenv("RH_EMAIL_INBOX_AUTH_MODE", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "AUTH_MODE", "oauth2")
-            or "oauth2"
+        email_inbox_client_id=_env(
+            "RH_EMAIL_INBOX_CLIENT_ID", "RH_EMAIL_GRAPH_CLIENT_ID"
         ),
-        email_inbox_password_env=(
-            os.getenv("RH_EMAIL_INBOX_PASSWORD_ENV", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "EMAIL_PASSWORD_ENV", "")
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "PASSWORD_ENV", "RH_EMAIL_PASSWORD")
-            or "RH_EMAIL_PASSWORD"
+        email_inbox_client_secret_env=_env(
+            "RH_EMAIL_INBOX_CLIENT_SECRET_ENV", default="RH_EMAIL_CLIENT_SECRET"
         ),
-        email_inbox_mailbox=(
-            os.getenv("RH_EMAIL_INBOX_MAILBOX", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "MAILBOX", "INBOX")
-            or "INBOX"
+        email_inbox_oauth_scope=_env(
+            "RH_EMAIL_INBOX_SCOPES",
+            "RH_EMAIL_INBOX_OAUTH_SCOPE",
+            default="https://outlook.office365.com/.default",
         ),
-        email_inbox_tenant_id=(
-            os.getenv("RH_EMAIL_INBOX_TENANT_ID", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "TENANT_ID", "")
-            or os.getenv("RH_EMAIL_GRAPH_TENANT_ID", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_GRAPH", "TENANT_ID", "")
+        email_inbox_attachments_dir=_resolve_project_path(
+            _env("RH_EMAIL_INBOX_ATTACHMENTS_DIR"), "data/private/email_attachments"
         ),
-        email_inbox_client_id=(
-            os.getenv("RH_EMAIL_INBOX_CLIENT_ID", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "CLIENT_ID", "")
-            or os.getenv("RH_EMAIL_GRAPH_CLIENT_ID", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_GRAPH", "CLIENT_ID", "")
+        email_inbox_max_messages=_read_int_env(
+            "RH_EMAIL_INBOX_MAX_MESSAGES", default=50, minimum=1, maximum=500
         ),
-        email_inbox_client_secret_env=(
-            os.getenv("RH_EMAIL_INBOX_CLIENT_SECRET_ENV", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "CLIENT_SECRET_ENV", "RH_EMAIL_CLIENT_SECRET")
-            or "RH_EMAIL_CLIENT_SECRET"
+        email_inbox_max_attachment_mb=_read_int_env(
+            "RH_EMAIL_INBOX_MAX_ATTACHMENT_MB", default=10, minimum=1, maximum=100
         ),
-        email_inbox_oauth_scope=(
-            os.getenv("RH_EMAIL_INBOX_OAUTH_SCOPE", "").strip()
-            or os.getenv("RH_EMAIL_INBOX_SCOPES", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "SCOPES", "")
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "OAUTH_SCOPE", "https://outlook.office365.com/.default")
-            or "https://outlook.office365.com/.default"
+        email_graph_tenant_id=_env("RH_EMAIL_GRAPH_TENANT_ID"),
+        email_graph_client_id=_env("RH_EMAIL_GRAPH_CLIENT_ID"),
+        email_graph_client_secret_env=_env(
+            "RH_EMAIL_GRAPH_CLIENT_SECRET_ENV", default="RH_EMAIL_GRAPH_CLIENT_SECRET"
         ),
-        email_inbox_attachments_dir=(
-            os.getenv("RH_EMAIL_INBOX_ATTACHMENTS_DIR", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_INBOX", "ATTACHMENTS_DIR", "")
-            or str(project_root / "data" / "private" / "email_attachments")
+        email_graph_mailbox=_env("RH_EMAIL_GRAPH_MAILBOX"),
+        email_graph_scope=_env(
+            "RH_EMAIL_GRAPH_SCOPE", default="https://graph.microsoft.com/.default"
         ),
-        email_inbox_max_messages=max(
-            1,
-            int(
-                os.getenv("RH_EMAIL_INBOX_MAX_MESSAGES", "").strip()
-                or _ini_value(runtime_ini, "EMAIL_INBOX", "MAX_MESSAGES", "50")
-                or "50"
-            ),
+        email_graph_base_url=_env(
+            "RH_EMAIL_GRAPH_BASE_URL", default="https://graph.microsoft.com/v1.0"
         ),
-        email_inbox_max_attachment_mb=max(
-            1,
-            int(
-                os.getenv("RH_EMAIL_INBOX_MAX_ATTACHMENT_MB", "").strip()
-                or _ini_value(runtime_ini, "EMAIL_INBOX", "MAX_ATTACHMENT_MB", "10")
-                or "10"
-            ),
+        email_smtp_enabled=_read_bool_env("RH_EMAIL_SMTP_ENABLED", default=False),
+        email_smtp_host=_env("RH_EMAIL_SMTP_HOST"),
+        email_smtp_port=_read_int_env(
+            "RH_EMAIL_SMTP_PORT", default=587, minimum=1, maximum=65535
         ),
-        email_graph_tenant_id=(
-            os.getenv("RH_EMAIL_GRAPH_TENANT_ID", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_GRAPH", "TENANT_ID", "")
+        email_smtp_username=_env("RH_EMAIL_SMTP_USERNAME"),
+        email_smtp_password_env=_env(
+            "RH_EMAIL_SMTP_PASSWORD_ENV", default="RH_EMAIL_APP_PASSWORD"
         ),
-        email_graph_client_id=(
-            os.getenv("RH_EMAIL_GRAPH_CLIENT_ID", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_GRAPH", "CLIENT_ID", "")
+        email_smtp_from=_env("RH_EMAIL_SMTP_FROM"),
+        email_smtp_use_tls=_read_bool_env("RH_EMAIL_SMTP_USE_TLS", default=True),
+        email_smtp_use_ssl=_read_bool_env("RH_EMAIL_SMTP_USE_SSL", default=False),
+        ai_enabled=_read_bool_env("AI_ENABLED", default=False),
+        ai_provider=_env("AI_PROVIDER", default="openai").lower(),
+        ai_model=_env("AI_MODEL"),
+        openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
+        openai_base_url=_env(
+            "OPENAI_BASE_URL", default="https://api.openai.com/v1"
+        ).rstrip("/"),
+        ai_timeout_seconds=_read_int_env(
+            "AI_TIMEOUT_SECONDS", default=60, minimum=5, maximum=300
         ),
-        email_graph_client_secret_env=(
-            os.getenv("RH_EMAIL_GRAPH_CLIENT_SECRET_ENV", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_GRAPH", "CLIENT_SECRET_ENV", "RH_EMAIL_GRAPH_CLIENT_SECRET")
-            or "RH_EMAIL_GRAPH_CLIENT_SECRET"
+        ai_max_curriculo_chars=_read_int_env(
+            "AI_MAX_CURRICULO_CHARS", default=30000, minimum=1000, maximum=100000
         ),
-        email_graph_mailbox=(
-            os.getenv("RH_EMAIL_GRAPH_MAILBOX", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_GRAPH", "MAILBOX", "")
-        ),
-        email_graph_scope=(
-            os.getenv("RH_EMAIL_GRAPH_SCOPE", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_GRAPH", "SCOPE", "https://graph.microsoft.com/.default")
-            or "https://graph.microsoft.com/.default"
-        ),
-        email_graph_base_url=(
-            os.getenv("RH_EMAIL_GRAPH_BASE_URL", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_GRAPH", "BASE_URL", "https://graph.microsoft.com/v1.0")
-            or "https://graph.microsoft.com/v1.0"
-        ),
-        email_smtp_enabled=_read_bool_env(
-            "RH_EMAIL_SMTP_ENABLED",
-            _ini_bool(runtime_ini, "EMAIL_SMTP", "ENABLED", False),
-        ),
-        email_smtp_host=(
-            os.getenv("RH_EMAIL_SMTP_HOST", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_SMTP", "SMTP_HOST", "")
-        ),
-        email_smtp_port=int(
-            os.getenv("RH_EMAIL_SMTP_PORT", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_SMTP", "SMTP_PORT", "587")
-            or "587"
-        ),
-        email_smtp_username=(
-            os.getenv("RH_EMAIL_SMTP_USERNAME", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_SMTP", "USERNAME", "")
-        ),
-        email_smtp_password_env=(
-            os.getenv("RH_EMAIL_SMTP_PASSWORD_ENV", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_SMTP", "PASSWORD_ENV", "RH_EMAIL_APP_PASSWORD")
-            or "RH_EMAIL_APP_PASSWORD"
-        ),
-        email_smtp_from=(
-            os.getenv("RH_EMAIL_SMTP_FROM", "").strip()
-            or _ini_value(runtime_ini, "EMAIL_SMTP", "FROM", "")
-        ),
-        email_smtp_use_tls=_read_bool_env(
-            "RH_EMAIL_SMTP_USE_TLS",
-            _ini_bool(runtime_ini, "EMAIL_SMTP", "USE_TLS", True),
-        ),
-        email_smtp_use_ssl=_read_bool_env(
-            "RH_EMAIL_SMTP_USE_SSL",
-            _ini_bool(runtime_ini, "EMAIL_SMTP", "USE_SSL", False),
+        ai_duplicate_window_seconds=_read_int_env(
+            "AI_DUPLICATE_WINDOW_SECONDS", default=30, minimum=0, maximum=600
         ),
     )

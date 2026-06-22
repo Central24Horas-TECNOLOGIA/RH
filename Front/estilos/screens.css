@@ -438,6 +438,61 @@
   line-height: 1.56;
 }
 
+.conecta-provas-registration { max-width: 980px; }
+.conecta-provas-registration .conecta-provas-primary { margin-top: 20px; min-width: 210px; }
+.conecta-provas-cep-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.conecta-provas-cep-field .btn { min-width: 82px; }
+
+.conecta-provas-essay-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.conecta-provas-essay-keywords span {
+  border: 1px solid #b9cff7;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: #edf4ff;
+  color: #0758d8;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.conecta-provas-essay-orientation {
+  display: block;
+  margin-top: 12px;
+  color: #172033 !important;
+  line-height: 1.5;
+}
+
+.conecta-provas-good-luck {
+  margin: 12px 0 0 !important;
+  color: #172033 !important;
+  text-transform: none !important;
+  font-size: 0.92rem !important;
+}
+
+.conecta-provas-copy-text {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  border: 1px solid #bdd2f7;
+  border-left: 4px solid #0758d8;
+  border-radius: 8px;
+  padding: 13px 15px;
+  background: #f5f9ff;
+}
+
+.conecta-provas-copy-text span { color: #0758d8; font-size: 0.76rem; font-weight: 700; text-transform: uppercase; }
+.conecta-provas-copy-text strong { color: #111827; line-height: 1.55; }
+
+@media (max-width: 700px) {
+  .conecta-provas-cep-field { grid-template-columns: 1fr; }
+  .conecta-provas-motivators { grid-template-columns: 1fr; }
+}
+
 .conecta-provas-criteria {
   display: flex;
   flex-wrap: wrap;
@@ -2884,7 +2939,7 @@
 }
 
 .candidate-sheet-dialog {
-  width: min(1080px, 100%);
+      width: fit-content;
 }
 
 .candidate-sheet-dialog .rh-modal-content {

@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--port",
         type=int,
         default=settings.server_port,
-        help="Porta HTTP do servidor. Padrao: configuracao RH_SERVER_PORT ou 8010.",
+        help="Porta HTTP do servidor. Padrao: configuracao RH_API_PORT ou 8000.",
     )
     parser.add_argument(
         "--reload",

@@ -607,12 +607,40 @@ function TelaAcesso({
 }
 
 function TelaConfirmacao({ sessao, formulario, erro, salvando, onChange, onConfirmar }) {
+  const [consultandoCep, setConsultandoCep] = useState(false);
+  const [erroCep, setErroCep] = useState('');
+  const buscarCep = async () => {
+    const cep = String(formulario.cep || '').replace(/\D/g, '');
+    if (cep.length !== 8) {
+      setErroCep('Informe um CEP com 8 dígitos.');
+      return;
+    }
+    setConsultandoCep(true);
+    setErroCep('');
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const dados = await response.json();
+      if (!response.ok || dados.erro) throw new Error('CEP não encontrado.');
+      onChange({
+        ...formulario,
+        cep,
+        endereco: dados.logradouro || formulario.endereco,
+        bairro: dados.bairro || formulario.bairro,
+        cidade: dados.localidade || formulario.cidade,
+      });
+    } catch (error) {
+      setErroCep(error?.message || 'Não foi possível consultar o CEP. Preencha o endereço manualmente.');
+    } finally {
+      setConsultandoCep(false);
+    }
+  };
   return html`
-    <section class="conecta-provas-card">
-      <div class="conecta-provas-step">Comfirmação</div>
+    <section class="conecta-provas-card conecta-provas-card-wide conecta-provas-registration">
+      <div class="conecta-provas-step">Etapa 1 · Cadastro</div>
       <h1>Confirme seus dados</h1>
-      <p>Verifique se as informações abaixo estão corretas antes de iniciar a avaliação.</p>
+      <p>Complete seu cadastro. Após a confirmação, as avaliações serão desbloqueadas.</p>
       ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
+      ${erroCep ? html`<div class="alert alert-info">${erroCep}</div>` : null}
       <div class="row g-3">
         <div class="col-md-12">
           <label class="form-label">Nome completo</label>
@@ -624,19 +652,56 @@ function TelaConfirmacao({ sessao, formulario, erro, salvando, onChange, onConfi
         </div>
         <div class="col-md-6">
           <label class="form-label">E-mail</label>
-          <input
-            class="form-control"
+          <input type="email" class="form-control"
             value=${formulario.email}
             onInput=${(event) => onChange({ ...formulario, email: event.target.value })}
           />
         </div>
         <div class="col-md-6">
+          <label class="form-label">Confirmar e-mail</label>
+          <input type="email" class="form-control" value=${formulario.confirmar_email} onInput=${(event) => onChange({ ...formulario, confirmar_email: event.target.value })} />
+        </div>
+        <div class="col-md-4">
           <label class="form-label">Telefone</label>
-          <input
-            class="form-control"
+          <input class="form-control" inputmode="tel"
             value=${formulario.telefone}
             onInput=${(event) => onChange({ ...formulario, telefone: event.target.value })}
           />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">WhatsApp</label>
+          <input class="form-control" inputmode="tel" value=${formulario.whatsapp} onInput=${(event) => onChange({ ...formulario, whatsapp: event.target.value })} />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Idade</label>
+          <input type="number" min="14" max="100" class="form-control" value=${formulario.idade ?? ''} onInput=${(event) => onChange({ ...formulario, idade: event.target.value })} />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">CEP</label>
+          <div class="conecta-provas-cep-field"><input class="form-control" inputmode="numeric" maxlength="9" value=${formulario.cep} onInput=${(event) => onChange({ ...formulario, cep: event.target.value })} onBlur=${buscarCep} /><button type="button" class="btn btn-outline-primary" disabled=${consultandoCep} onClick=${buscarCep}>${consultandoCep ? 'Buscando...' : 'Buscar'}</button></div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Rua / endereço</label>
+          <input class="form-control" value=${formulario.endereco} onInput=${(event) => onChange({ ...formulario, endereco: event.target.value })} />
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Número</label>
+          <input class="form-control" value=${formulario.numero} onInput=${(event) => onChange({ ...formulario, numero: event.target.value })} />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Bairro</label>
+          <input class="form-control" value=${formulario.bairro} onInput=${(event) => onChange({ ...formulario, bairro: event.target.value })} />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Cidade</label>
+          <input class="form-control" value=${formulario.cidade} onInput=${(event) => onChange({ ...formulario, cidade: event.target.value })} />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Escolaridade</label>
+          <select class="form-select" value=${formulario.escolaridade} onChange=${(event) => onChange({ ...formulario, escolaridade: event.target.value })}>
+            <option value="">Selecione...</option>
+            ${['Ensino Fundamental incompleto', 'Ensino Fundamental completo', 'Ensino Médio incompleto', 'Ensino Médio completo', 'Ensino Superior incompleto', 'Ensino Superior completo', 'Pós-graduação'].map((item) => html`<option key=${item} value=${item}>${item}</option>`)}
+          </select>
         </div>
       </div>
       <button type="button" class="btn btn-primary conecta-provas-primary" disabled=${salvando} onClick=${onConfirmar}>
@@ -739,6 +804,205 @@ function TelaRegras({ sessao, onIniciar, carregando, erro }) {
   `;
 }
 
+function obterGrupoJornadaQuestao(questao = {}, indice = 0) {
+  const chave = normalizarChaveEtapa(questao.stageKey || obterLabelEtapa(questao));
+  if (etapaEhRedacao(questao)) {
+    return { key: 'redacao', label: 'Redação', icon: 'edit_note', description: 'Produção de texto com tema orientado' };
+  }
+  if (questao.type === 'excel_external' || chave.includes('excel')) {
+    return { key: 'excel', label: 'Prova de Excel', icon: 'table_view', description: 'Atividades em planilha e interpretação de dados' };
+  }
+  if (etapaEhWord(questao) || chave.includes('word')) {
+    return { key: 'word', label: 'Prova de Word', icon: 'description', description: 'Questões práticas de formatação e edição' };
+  }
+  if (chave.includes('general') || chave.includes('tech') || chave.includes('conhecimento')) {
+    return { key: 'conhecimentos', label: 'Conhecimentos gerais e técnicos', icon: 'psychology', description: 'Questões objetivas sobre rotina, lógica e conhecimentos da vaga' };
+  }
+  return {
+    key: chave || `etapa-${indice + 1}`,
+    label: formatarLabelResumoEtapa(obterLabelEtapa(questao)),
+    icon: 'task_alt',
+    description: questao.description || 'Avaliação configurada para esta vaga',
+  };
+}
+
+function montarEtapasJornada(prova = {}, respostas = [], cadastroConcluido = false) {
+  const questoes = Array.isArray(prova.questoes) ? prova.questoes : [];
+  const mapa = new Map();
+  questoes.forEach((questao, indice) => {
+    const grupo = obterGrupoJornadaQuestao(questao, indice);
+    const atual = mapa.get(grupo.key) || { ...grupo, indices: [] };
+    atual.indices.push(indice);
+    mapa.set(grupo.key, atual);
+  });
+  const avaliativas = Array.from(mapa.values()).map((etapa) => {
+    const respondidas = etapa.indices.filter((indice) =>
+      respostaQuestaoPreenchida(questoes[indice], respostas[indice]),
+    ).length;
+    return {
+      ...etapa,
+      respondidas,
+      total: etapa.indices.length,
+      status: respondidas === etapa.indices.length && etapa.indices.length
+        ? 'concluida'
+        : respondidas > 0
+          ? 'andamento'
+          : 'nao-iniciada',
+    };
+  });
+  return [
+    {
+      key: 'cadastro',
+      label: 'Cadastro',
+      icon: 'person',
+      description: 'Confirme seus dados antes de começar',
+      indices: [],
+      respondidas: cadastroConcluido ? 1 : 0,
+      total: 1,
+      status: cadastroConcluido ? 'concluida' : 'nao-iniciada',
+      obrigatoria: true,
+    },
+    ...avaliativas,
+  ];
+}
+
+function TelaEtapasProva({
+  sessao,
+  respostas,
+  carregando,
+  erro,
+  confirmacao = false,
+  cadastroConcluido = false,
+  onIniciar,
+  onCadastro,
+  onVoltar,
+  onFinalizar,
+}) {
+  const etapas = montarEtapasJornada(sessao?.prova || {}, respostas, cadastroConcluido);
+  const etapasAvaliativas = etapas.filter((item) => item.key !== 'cadastro');
+  const concluidas = etapas.filter((item) => item.status === 'concluida').length;
+  const pendentes = etapasAvaliativas.filter((item) => item.status !== 'concluida');
+  const todasConcluidas = cadastroConcluido && pendentes.length === 0 && etapasAvaliativas.length > 0;
+  const progresso = etapas.length ? Math.round((concluidas / etapas.length) * 100) : 0;
+
+  return html`
+    <section class="exam-steps-page">
+      <header class="exam-steps-header">
+        <button type="button" class="exam-steps-back" aria-label="Voltar" onClick=${onVoltar}>
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <div>
+          <h1>Etapas da prova</h1>
+          <p>Acompanhe sua jornada e conclua cada etapa para avançar no processo.</p>
+        </div>
+      </header>
+
+      ${erro ? html`<div class="alert alert-warning exam-steps-alert">${erro}</div>` : null}
+      ${confirmacao ? html`
+        <div class=${`exam-steps-notice ${todasConcluidas ? 'is-complete' : 'is-pending'}`}>
+          <span class="material-symbols-outlined">${todasConcluidas ? 'check_circle' : 'info'}</span>
+          <div><strong>${todasConcluidas ? 'Todas as etapas foram concluídas' : `Ainda ${pendentes.length === 1 ? 'falta' : 'faltam'} ${pendentes.length} etapa(s)`}</strong><span>${todasConcluidas ? 'Revise o resumo e finalize o envio quando estiver pronto.' : 'Continue pelas etapas pendentes antes de finalizar o envio.'}</span></div>
+        </div>
+      ` : null}
+
+      <div class="exam-steps-layout">
+        <div class="exam-steps-list">
+          ${etapas.map((etapa, indice) => {
+            const concluida = etapa.status === 'concluida';
+            const emAndamento = etapa.status === 'andamento';
+            const somenteCadastro = etapa.key === 'cadastro';
+            const bloqueada = !somenteCadastro && !cadastroConcluido;
+            return html`
+              <article class=${`exam-step-card is-${etapa.status} ${bloqueada ? 'is-locked' : ''}`.trim()} key=${etapa.key}>
+                <div class="exam-step-timeline" aria-hidden="true">
+                  <span>${indice + 1}</span>${indice < etapas.length - 1 ? html`<i></i>` : null}
+                </div>
+                <span class="exam-step-icon"><i class="material-symbols-outlined">${etapa.icon}</i></span>
+                <div class="exam-step-copy">
+                  <small>Etapa ${indice + 1}${etapa.obrigatoria ? ' · Obrigatório' : ''}</small>
+                  <h2>${etapa.label}</h2>
+                  <p>${etapa.description}</p>
+                  ${confirmacao && !somenteCadastro ? html`<span class=${`exam-step-state is-${etapa.status}`}>${concluida ? 'Concluída' : emAndamento ? 'Em andamento' : 'Não iniciada'}</span>` : null}
+                  ${bloqueada ? html`<span class="exam-step-state is-locked"><i class="material-symbols-outlined">lock</i>Conclua o Cadastro para desbloquear</span>` : null}
+                </div>
+                <div class="exam-step-action">
+                  ${somenteCadastro
+                    ? cadastroConcluido
+                      ? html`<span class="exam-step-complete-tag"><i class="material-symbols-outlined">check</i>Etapa concluída</span>`
+                      : html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${onCadastro}>Começar</button>`
+                    : html`<button type="button" class=${concluida ? 'btn btn-outline-primary' : 'btn btn-primary'} disabled=${carregando || bloqueada} onClick=${() => !bloqueada && onIniciar(etapa)}><span class="material-symbols-outlined">${bloqueada ? 'lock' : concluida ? 'check_circle' : 'play_arrow'}</span>${bloqueada ? 'Bloqueada' : concluida ? 'Revisar' : emAndamento ? 'Continuar' : 'Iniciar prova'}</button>`}
+                </div>
+              </article>
+            `;
+          })}
+        </div>
+
+        <aside class="exam-summary-column">
+          <section class="exam-summary-panel">
+            <h2>Resumo</h2>
+            <div class="exam-summary-total"><span class="material-symbols-outlined">checklist</span><strong>${etapas.length} etapas</strong></div>
+            <p><span>•</span>${etapasAvaliativas.length} ${etapasAvaliativas.length === 1 ? 'avaliação' : 'avaliações'}</p>
+            <div class="exam-summary-progress"><div><span>Progresso</span><strong>${progresso}%</strong></div><i><b style=${{ width: `${progresso}%` }}></b></i><small>${concluidas} de ${etapas.length} etapas concluídas</small></div>
+            <span class=${`exam-summary-status ${todasConcluidas ? 'is-complete' : 'is-progress'}`}>${todasConcluidas ? 'Pronta para envio' : 'Em andamento'}</span>
+          </section>
+          <section class="exam-info-panel">
+            <span class="exam-info-icon material-symbols-outlined">sentiment_satisfied</span>
+            <div><h2>Seu processo está pronto</h2><p>Conclua as etapas na ordem indicada. Cada prova poderá ser iniciada individualmente e seu progresso será salvo.</p><a href="#entenda-etapas" onClick=${(event) => { event.preventDefault(); window.alert('Inicie uma etapa por vez. Suas respostas são salvas ao concluir cada bloco e você poderá continuar as etapas pendentes antes do envio final.'); }}><span class="material-symbols-outlined">open_in_new</span>Entenda mais</a></div>
+          </section>
+          ${confirmacao && todasConcluidas ? html`<button type="button" class="btn btn-primary exam-final-submit" disabled=${carregando} onClick=${onFinalizar}>${carregando ? 'Finalizando...' : 'Finalizar envio'}</button>` : null}
+        </aside>
+      </div>
+    </section>
+  `;
+}
+
+
+function obterTemaAtualRedacao(questao = {}, proposta = '') {
+  const dados = questao.essay || {};
+  const temaConfigurado = limparTextoVisivelCandidato(
+    dados.theme || dados.tema || questao.theme || questao.tema || '',
+  );
+  if (temaConfigurado && !/^reda[cç][aã]o$/i.test(temaConfigurado)) return temaConfigurado;
+  if (/tema\s+livre/i.test(proposta)) return 'Tema Livre';
+  const temaNaProposta = proposta.match(/tema\s*[:\-]\s*([^.!\n]{4,120})/i)?.[1];
+  return limparTextoVisivelCandidato(temaNaProposta) || 'Tema Livre';
+}
+
+function organizarPropostaRedacao(texto = '') {
+  const original = limparTextoVisivelCandidato(texto);
+  const boaSorte = /boa\s+sorte\s*!?/i.test(original);
+  let proposta = original.replace(/boa\s+sorte\s*!?/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+  const marcador = proposta.match(/palavras?\s+(?:citadas?|indicadas?|obrigat[oó]rias?)\s+(?:a\s+seguir|abaixo)\s*[.:\-]?/i);
+  let palavras = [];
+  let orientacaoExtra = '';
+  if (marcador?.index !== undefined) {
+    const inicio = marcador.index + marcador[0].length;
+    const cauda = proposta.slice(inicio).trim();
+    const limite = cauda.search(/(?:seu texto deve|escreva uma reda[cç][aã]o|orienta[cç][aã]o)\b/i);
+    const trechoPalavras = (limite >= 0 ? cauda.slice(0, limite) : cauda)
+      .replace(/[.;:]+$/g, '')
+      .trim();
+    palavras = trechoPalavras
+      .split(/[\s,;|/]+/)
+      .map((item) => item.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}-]+$/gu, '').trim())
+      .filter((item) => item.length >= 3)
+      .slice(0, 16);
+    orientacaoExtra = limite >= 0 ? cauda.slice(limite).trim() : '';
+    proposta = proposta.slice(0, inicio).trim();
+  }
+  return { proposta, palavras: Array.from(new Set(palavras)), boaSorte, orientacaoExtra };
+}
+
+function separarTextoParaCopiarWord(texto = '') {
+  const enunciado = limparTextoVisivelCandidato(texto);
+  const citacoes = Array.from(enunciado.matchAll(/[“"]([^”"]{20,})[”"]/g));
+  const ultima = citacoes.at(-1);
+  if (!ultima) return { enunciado, textoCopia: '' };
+  return {
+    enunciado: enunciado.replace(ultima[0], '').replace(/\s+([,.?!;:])/g, '$1').trim(),
+    textoCopia: ultima[1].trim(),
+  };
+}
 
 function BlocoRedacao({ questao }) {
   if (!etapaEhRedacao(questao)) return null;
@@ -754,7 +1018,9 @@ function BlocoRedacao({ questao }) {
   const proposta =
     limparTextoVisivelCandidato(dados.proposal || questao.enunciadoCandidato) ||
     'Com base nos textos-base e em seus conhecimentos, escreva um texto explicando a importância de agir com organização, clareza e responsabilidade em situações profissionais.';
-  const orientacao = limparTextoVisivelCandidato(dados.orientation) || ORIENTACAO_REDACAO;
+  const propostaOrganizada = organizarPropostaRedacao(proposta);
+  const orientacao = limparTextoVisivelCandidato(dados.orientation || propostaOrganizada.orientacaoExtra) || ORIENTACAO_REDACAO;
+  const temaAtual = obterTemaAtualRedacao(questao, proposta);
   const textosFallback = [
     'O início da vida profissional costuma ser marcado por descobertas, dúvidas e aprendizados. Para muitos jovens, esse período representa o primeiro contato com regras, horários, responsabilidades e formas de comunicação próprias do ambiente de trabalho. Atitudes simples, como ouvir com atenção, anotar orientações, confirmar informações e cumprir combinados, ajudam a construir confiança e demonstram disposição para aprender. Elas também tornam a rotina mais segura para a pessoa e para a equipe.',
     'Em uma situação cotidiana, uma pessoa recebeu uma lista curta de tarefas e percebeu que uma orientação estava incompleta. Antes de seguir adiante, ela decidiu conferir a informação com a pessoa responsável, evitando retrabalho e reduzindo o risco de repassar dados incorretos. Essa postura mostra que responsabilidade não depende apenas de experiência, mas também de cuidado, comunicação respeitosa e organização. Mesmo uma atividade simples pode exigir atenção aos detalhes.',
@@ -764,7 +1030,7 @@ function BlocoRedacao({ questao }) {
     <div class="conecta-provas-essay-panel">
       <div class="conecta-provas-essay-theme">
         <strong>Tema da redação</strong>
-        <span>${dados.theme || questao.title || 'Tema da redação'}</span>
+        <span>${temaAtual}</span>
       </div>
       <div class="conecta-provas-motivators">
         ${(textosVisiveis.length >= 2
@@ -781,8 +1047,10 @@ function BlocoRedacao({ questao }) {
       </div>
       <div class="conecta-provas-essay-proposal">
         <strong>Proposta de redação</strong>
-        <p>${proposta}</p>
-        <span>${orientacao}</span>
+        <p>${propostaOrganizada.proposta}</p>
+        ${propostaOrganizada.palavras.length ? html`<div class="conecta-provas-essay-keywords" aria-label="Palavras obrigatórias">${propostaOrganizada.palavras.map((palavra) => html`<span key=${palavra}>${palavra}</span>`)}</div>` : null}
+        <span class="conecta-provas-essay-orientation">${orientacao}</span>
+        ${propostaOrganizada.boaSorte ? html`<strong class="conecta-provas-good-luck">Boa sorte!</strong>` : null}
       </div>
     </div>
   `;
@@ -802,6 +1070,9 @@ function QuestaoProva({
   const limiteCaracteres = obterLimiteCaracteresRedacao(questao);
   const ehRedacao = etapaEhRedacao(questao);
   const camposVisiveis = obterCamposQuestaoVisivel(questao);
+  const textoWord = tipo === 'word' && !ehRedacao
+    ? separarTextoParaCopiarWord(camposVisiveis.enunciado)
+    : { enunciado: camposVisiveis.enunciado, textoCopia: '' };
   return html`
     <section class="conecta-provas-card conecta-provas-card-wide">
       <div class="conecta-provas-exam-head">
@@ -821,10 +1092,11 @@ function QuestaoProva({
       ? html`<${BlocoRedacao} questao=${questao} />`
       : html`
             <div class="conecta-provas-question-text">
-              <p>${camposVisiveis.enunciado}</p>
+              <p>${textoWord.enunciado}</p>
               ${camposVisiveis.instrucao
           ? html`<p><strong>Instrução:</strong> ${camposVisiveis.instrucao}</p>`
-          : null}
+              : null}
+              ${textoWord.textoCopia ? html`<div class="conecta-provas-copy-text"><span>Texto para copiar</span><strong>${textoWord.textoCopia}</strong></div>` : null}
             </div>
           `}
 
@@ -1040,16 +1312,26 @@ export function TelaConectaProvas() {
   const [formularioDados, setFormularioDados] = useState({
     nome_candidato: '',
     email: '',
+    confirmar_email: '',
     telefone: '',
+    whatsapp: '',
+    cep: '',
+    endereco: '',
+    numero: '',
+    bairro: '',
+    cidade: '',
+    idade: '',
+    escolaridade: '',
   });
   const [respostas, setRespostas] = useState([]);
   const [indiceAtual, setIndiceAtual] = useState(0);
+  const [etapaSelecionadaKey, setEtapaSelecionadaKey] = useState('');
   const [timestampTermino, setTimestampTermino] = useState(null);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
   const [pendenciasFinalizacao, setPendenciasFinalizacao] = useState([]);
 
   useEffect(() => {
-    const salvo = sessionStorage.getItem(CHAVE_TOKEN_PUBLICO) || '';
+    const salvo = sessionStorage.getItem(CHAVE_TOKEN_PUBLICO) || localStorage.getItem(CHAVE_TOKEN_PUBLICO) || '';
     if (!salvo) return;
     selecionarToken(salvo, { silencioso: true });
   }, []);
@@ -1067,6 +1349,13 @@ export function TelaConectaProvas() {
 
   const questoes = sessao?.prova?.questoes || [];
   const questaoAtual = questoes[indiceAtual] || null;
+  const etapasJornada = useMemo(
+    () => montarEtapasJornada(sessao?.prova || {}, respostas, Boolean(sessao?.candidato?.dados_confirmados)),
+    [sessao?.prova, sessao?.candidato?.dados_confirmados, respostas],
+  );
+  const etapaJornadaAtiva = etapasJornada.find((item) => item.key === etapaSelecionadaKey) || null;
+  const indicesEtapaAtiva = etapaJornadaAtiva?.indices || [];
+  const posicaoNaEtapa = indicesEtapaAtiva.indexOf(indiceAtual);
   const progresso = useMemo(
     () => (questoes.length ? Math.round(((indiceAtual + 1) / questoes.length) * 100) : 0),
     [indiceAtual, questoes.length],
@@ -1080,23 +1369,41 @@ export function TelaConectaProvas() {
       const dados = await lerSessaoConectaProvas(tokenSelecionado);
       setToken(tokenSelecionado);
       sessionStorage.setItem(CHAVE_TOKEN_PUBLICO, tokenSelecionado);
+      localStorage.setItem(CHAVE_TOKEN_PUBLICO, tokenSelecionado);
       setSessao(dados);
       setFormularioDados({
         nome_candidato: dados?.candidato?.nome_candidato || '',
         email: dados?.candidato?.email || '',
+        confirmar_email: dados?.candidato?.dados_confirmados ? dados?.candidato?.email || '' : '',
         telefone: dados?.candidato?.telefone || '',
+        whatsapp: dados?.candidato?.whatsapp || dados?.candidato?.telefone || '',
+        cep: dados?.candidato?.cep || '',
+        endereco: dados?.candidato?.endereco || '',
+        numero: dados?.candidato?.numero || '',
+        bairro: dados?.candidato?.bairro || '',
+        cidade: dados?.candidato?.cidade || '',
+        idade: dados?.candidato?.idade ?? '',
+        escolaridade: dados?.candidato?.escolaridade || '',
       });
       const listaQuestoes = dados?.prova?.questoes || [];
-      setRespostas(listaQuestoes.map(obterRespostaInicial));
+      const respostasSalvas = Array.isArray(dados?.respostas)
+        ? dados.respostas
+        : Array.isArray(dados?.prova?.respostas)
+          ? dados.prova.respostas
+          : [];
+      setRespostas(listaQuestoes.map((questao, indice) => respostasSalvas[indice] || obterRespostaInicial(questao)));
       setSegundosRestantes(obterTempoTotalSegundos(dados));
       setTimestampTermino(null);
       if (dados?.prova?.finalizada) {
         setEtapa('finalizacao');
       } else {
-        setEtapa('confirmacao');
+        setEtapa('etapas');
       }
     } catch (error) {
-      sessionStorage.removeItem(CHAVE_TOKEN_PUBLICO);
+      if (!opcoes.silencioso) {
+        sessionStorage.removeItem(CHAVE_TOKEN_PUBLICO);
+        localStorage.removeItem(CHAVE_TOKEN_PUBLICO);
+      }
       if (!opcoes.silencioso) {
         setErro(error?.message || ERRO_GENERICO);
       }
@@ -1168,19 +1475,32 @@ export function TelaConectaProvas() {
       setErro('Informe um e-mail vÃ¡lido.');
       return;
     }
+    if (normalizarTexto(formularioDados.confirmar_email).toLowerCase() !== normalizarTexto(formularioDados.email).toLowerCase()) {
+      setErro('A confirmação do e-mail deve ser igual ao e-mail informado.');
+      return;
+    }
     if (!validarTelefone(formularioDados.telefone)) {
       setErro('Informe um telefone vÃ¡lido.');
+      return;
+    }
+    if (!validarTelefone(formularioDados.whatsapp)) {
+      setErro('Informe um WhatsApp válido.');
+      return;
+    }
+    const camposObrigatorios = ['cep', 'endereco', 'numero', 'bairro', 'cidade', 'idade', 'escolaridade'];
+    if (camposObrigatorios.some((campo) => !normalizarTexto(formularioDados[campo]))) {
+      setErro('Preencha todos os dados pessoais e de endereço antes de continuar.');
       return;
     }
     setCarregando(true);
     setErro('');
     try {
-      await confirmarDadosConectaProvas({ token, ...formularioDados });
+      await confirmarDadosConectaProvas({ token, ...formularioDados, idade: Number(formularioDados.idade) });
       setSessao((anterior) => ({
         ...anterior,
-        candidato: { ...formularioDados },
+        candidato: { ...formularioDados, idade: Number(formularioDados.idade), dados_confirmados: true },
       }));
-      setEtapa('regras');
+      setEtapa('etapas');
     } catch (error) {
       setErro(error?.message || 'Não foi possível confirmar seus dados.');
     } finally {
@@ -1188,11 +1508,12 @@ export function TelaConectaProvas() {
     }
   };
 
-  const iniciar = async () => {
+  const iniciar = async (etapaJornada = null) => {
     setCarregando(true);
     setErro('');
     try {
-      const inicio = await iniciarConectaProvas(token);
+      const provaJaIniciada = Boolean(sessao?.prova?.iniciada_em);
+      const inicio = provaJaIniciada ? {} : await iniciarConectaProvas(token);
       const sessaoAtualizada = {
         ...sessao,
         prova: {
@@ -1206,7 +1527,9 @@ export function TelaConectaProvas() {
       salvarTimestampTimer(token, timestamp);
       setTimestampTermino(timestamp);
       setSegundosRestantes(Math.max(1, Math.floor((timestamp - Date.now()) / 1000)));
-      setIndiceAtual(0);
+      const primeiroIndice = etapaJornada?.indices?.[0] ?? 0;
+      setEtapaSelecionadaKey(etapaJornada?.key || obterGrupoJornadaQuestao(questoes[primeiroIndice], primeiroIndice).key);
+      setIndiceAtual(primeiroIndice);
       setEtapa('prova');
     } catch (error) {
       setErro(error?.message || 'Não foi possível iniciar a prova.');
@@ -1228,6 +1551,19 @@ export function TelaConectaProvas() {
     await salvarRespostasConectaProvas(token, respostas);
     setIndiceAtual(Math.max(0, Math.min(questoes.length - 1, proximIndice)));
     setErro('');
+  };
+
+  const concluirEtapaAtual = async () => {
+    setCarregando(true);
+    setErro('');
+    try {
+      await salvarRespostasConectaProvas(token, respostas);
+      setEtapa('confirmacao-etapas');
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível salvar esta etapa agora.');
+    } finally {
+      setCarregando(false);
+    }
   };
 
   const irParaRevisao = async () => {
@@ -1264,6 +1600,7 @@ export function TelaConectaProvas() {
         finalizarMesmoAssim: finalizarMesmoComPendencias,
       });
       sessionStorage.removeItem(CHAVE_TOKEN_PUBLICO);
+      localStorage.removeItem(CHAVE_TOKEN_PUBLICO);
       limparTimestampTimer(token);
       setPendenciasFinalizacao([]);
       setEtapa('finalizacao');
@@ -1304,6 +1641,7 @@ export function TelaConectaProvas() {
 
   const voltarInicio = () => {
     sessionStorage.removeItem(CHAVE_TOKEN_PUBLICO);
+    localStorage.removeItem(CHAVE_TOKEN_PUBLICO);
     limparTimestampTimer(token);
     setEtapa('acesso');
     setMetodo('email');
@@ -1313,13 +1651,14 @@ export function TelaConectaProvas() {
     setSessao(null);
     setRespostas([]);
     setIndiceAtual(0);
+    setEtapaSelecionadaKey('');
     setTentativasEmail(0);
     setTentativasTelefone(0);
     window.history.replaceState(null, '', '/conecta-provas');
   };
 
   return html`
-    <main class="conecta-provas-shell">
+    <main class=${`conecta-provas-shell ${etapa === 'etapas' || etapa === 'confirmacao-etapas' ? 'is-steps-view' : ''}`.trim()}>
       ${etapa === 'acesso'
       ? html`
             <${TelaAcesso}
@@ -1350,6 +1689,22 @@ export function TelaConectaProvas() {
               salvando=${carregando}
               onChange=${setFormularioDados}
               onConfirmar=${confirmarDados}
+            />
+          `
+      : null}
+      ${etapa === 'etapas' || etapa === 'confirmacao-etapas'
+      ? html`
+            <${TelaEtapasProva}
+              sessao=${sessao}
+              respostas=${respostas}
+              carregando=${carregando}
+              erro=${erro}
+              confirmacao=${etapa === 'confirmacao-etapas'}
+              cadastroConcluido=${Boolean(sessao?.candidato?.dados_confirmados)}
+              onIniciar=${iniciar}
+              onCadastro=${() => setEtapa('confirmacao')}
+              onVoltar=${voltarInicio}
+              onFinalizar=${solicitarFinalizacao}
             />
           `
       : null}
@@ -1388,34 +1743,17 @@ export function TelaConectaProvas() {
               <button
                 type="button"
                 class="btn btn-outline-secondary-avr"
-                disabled=${indiceAtual <= 0 || carregando}
-                onClick=${() => salvarParcial(indiceAtual - 1)}
+                disabled=${posicaoNaEtapa <= 0 || carregando}
+                onClick=${() => salvarParcial(indicesEtapaAtiva[posicaoNaEtapa - 1])}
               >
                 Anterior
               </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary-avr"
-                disabled=${carregando}
-                onClick=${() =>
-          indiceAtual === questoes.length - 1
-            ? salvarParcial(indiceAtual)
-            : salvarParcial(Math.min(questoes.length - 1, indiceAtual + 1))}
-              >
-                ${indiceAtual === questoes.length - 1 ? 'Salvar' : 'Avançar'}
+              <button type="button" class="btn btn-outline-secondary" disabled=${carregando} onClick=${() => setEtapa('confirmacao-etapas')}>
+                Ver etapas
               </button>
-              ${indiceAtual === questoes.length - 1
-          ? html`
-                    <button
-                      type="button"
-                      class="btn btn-primary"
-                      disabled=${carregando}
-                      onClick=${solicitarFinalizacao}
-                    >
-                      ${carregando ? 'Finalizando...' : 'Finalizar prova'}
-                    </button>
-                  `
-          : null}
+              ${posicaoNaEtapa >= 0 && posicaoNaEtapa < indicesEtapaAtiva.length - 1
+                ? html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${() => salvarParcial(indicesEtapaAtiva[posicaoNaEtapa + 1])}>Avançar</button>`
+                : html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${concluirEtapaAtual}>${carregando ? 'Salvando...' : 'Concluir etapa'}</button>`}
             </div>
           `
       : null}

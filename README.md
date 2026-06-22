@@ -75,7 +75,7 @@ python run.py
 Abra:
 
 ```text
-http://127.0.0.1:8010
+http://127.0.0.1:8000
 ```
 
 O FastAPI serve a API e o frontend da pasta `Front/` no mesmo processo. O fluxo antigo com `python -m http.server` nao e mais necessario.
@@ -91,8 +91,8 @@ python run.py --reload
 Configure o ambiente e rode sem `--reload`:
 
 ```powershell
-$env:RH_SERVER_HOST="0.0.0.0"
-$env:RH_SERVER_PORT="8010"
+$env:RH_API_HOST="0.0.0.0"
+$env:RH_API_PORT="8000"
 $env:RH_APP_ENV="server"
 python run.py --no-reload
 ```
@@ -117,6 +117,9 @@ O `pytest.ini` desabilita o cache do pytest para evitar ruido em ambientes com O
 
 Use `.env.example` como base para o `.env`.
 
+O Conecta não usa mais `config.ini`. Toda configuração é centralizada por
+`api/rh_api/config.py` e fornecida por variáveis de ambiente/`.env`.
+
 Variaveis principais:
 
 - `RH_SQL_SERVER`
@@ -126,6 +129,14 @@ Variaveis principais:
 - `RH_AUTH_PASSWORD`
 - `RH_AUTH_TOKEN_SECRET`
 - `RH_AUTH_TOKEN_TTL_MINUTES`
+- `RH_API_HOST` / `RH_API_PORT`
+- `RH_FRONT_SERVE_STATIC`
+- `AI_ENABLED` / `AI_PROVIDER` / `AI_MODEL`
+- `OPENAI_API_KEY`
+
+A análise de currículo com IA é opcional, executada somente pelo backend e
+desativada por padrão. Consulte
+[`docs/COMO_RODAR_CONECTA.md`](docs/COMO_RODAR_CONECTA.md).
 
 ## Onde alterar cada coisa
 

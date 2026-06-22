@@ -644,8 +644,13 @@ def ensure_candidate_metadata_table(cursor) -> None:
                 email NVARCHAR(255) NULL,
                 telefone NVARCHAR(50) NULL,
                 whatsapp NVARCHAR(50) NULL,
+                cep NVARCHAR(12) NULL,
+                endereco NVARCHAR(255) NULL,
+                numero NVARCHAR(30) NULL,
                 cidade NVARCHAR(120) NULL,
                 bairro NVARCHAR(120) NULL,
+                idade INT NULL,
+                escolaridade NVARCHAR(160) NULL,
                 criado_em DATETIME NOT NULL DEFAULT GETDATE(),
                 atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
             )
@@ -665,8 +670,13 @@ def ensure_candidate_metadata_columns(cursor) -> None:
         ("email", "NVARCHAR(255)"),
         ("telefone", "NVARCHAR(50)"),
         ("whatsapp", "NVARCHAR(50)"),
+        ("cep", "NVARCHAR(12)"),
+        ("endereco", "NVARCHAR(255)"),
+        ("numero", "NVARCHAR(30)"),
         ("cidade", "NVARCHAR(120)"),
         ("bairro", "NVARCHAR(120)"),
+        ("idade", "INT"),
+        ("escolaridade", "NVARCHAR(160)"),
         ("criado_em", "DATETIME"),
         ("atualizado_em", "DATETIME"),
     ):
@@ -753,6 +763,72 @@ def ensure_candidate_attachments_table(cursor) -> None:
         UPDATE dbo.candidatos_anexos
         SET atualizado_em = GETDATE()
         WHERE atualizado_em IS NULL
+        """
+    )
+
+
+def ensure_curriculo_ia_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.analises_curriculo_ia', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.analises_curriculo_ia (
+                id_analise INT IDENTITY(1,1) PRIMARY KEY,
+                id_candidato NVARCHAR(120) NOT NULL,
+                id_processo NVARCHAR(60) NULL,
+                provedor_ia NVARCHAR(50) NULL,
+                modelo_ia NVARCHAR(100) NULL,
+                versao_prompt NVARCHAR(50) NULL,
+                nota_aderencia DECIMAL(5,2) NULL,
+                parecer NVARCHAR(50) NULL,
+                resumo NVARCHAR(MAX) NULL,
+                pontos_fortes NVARCHAR(MAX) NULL,
+                pontos_atencao NVARCHAR(MAX) NULL,
+                riscos NVARCHAR(MAX) NULL,
+                justificativa NVARCHAR(MAX) NULL,
+                perguntas_sugeridas_entrevista NVARCHAR(MAX) NULL,
+                json_resultado NVARCHAR(MAX) NULL,
+                status_analise NVARCHAR(30) NOT NULL
+                    CONSTRAINT DF_analises_curriculo_ia_status DEFAULT 'CONCLUIDA',
+                erro_analise NVARCHAR(MAX) NULL,
+                tokens_entrada INT NULL,
+                tokens_saida INT NULL,
+                custo_estimado DECIMAL(10,4) NULL,
+                revisado_por_humano BIT NOT NULL
+                    CONSTRAINT DF_analises_curriculo_ia_revisada DEFAULT 0,
+                id_usuario_revisao INT NULL,
+                criado_em DATETIME NOT NULL
+                    CONSTRAINT DF_analises_curriculo_ia_criado DEFAULT GETDATE(),
+                revisado_em DATETIME NULL
+            )
+        END
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'IX_analises_curriculo_ia_candidato'
+              AND object_id = OBJECT_ID('dbo.analises_curriculo_ia')
+        )
+            CREATE INDEX IX_analises_curriculo_ia_candidato
+                ON dbo.analises_curriculo_ia (id_candidato)
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'IX_analises_curriculo_ia_processo'
+              AND object_id = OBJECT_ID('dbo.analises_curriculo_ia')
+        )
+            CREATE INDEX IX_analises_curriculo_ia_processo
+                ON dbo.analises_curriculo_ia (id_processo)
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE name = 'IX_analises_curriculo_ia_criado_em'
+              AND object_id = OBJECT_ID('dbo.analises_curriculo_ia')
+        )
+            CREATE INDEX IX_analises_curriculo_ia_criado_em
+                ON dbo.analises_curriculo_ia (criado_em DESC)
         """
     )
 
@@ -1188,6 +1264,7 @@ def ensure_conecta_exams_tables(cursor) -> None:
                 cancelada_em DATETIME NULL,
                 cancelada_por NVARCHAR(180) NULL,
                 motivo_cancelamento NVARCHAR(MAX) NULL,
+                dados_confirmados_em DATETIME NULL,
                 atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
             )
         END
@@ -1233,6 +1310,7 @@ def ensure_conecta_exams_tables(cursor) -> None:
         ("cancelada_em", "DATETIME"),
         ("cancelada_por", "NVARCHAR(180)"),
         ("motivo_cancelamento", "NVARCHAR(MAX)"),
+        ("dados_confirmados_em", "DATETIME"),
         ("atualizado_em", "DATETIME"),
     ):
         cursor.execute(
@@ -1746,6 +1824,7 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_candidate_metadata_table(cursor)
             ensure_candidate_metadata_columns(cursor)
             ensure_candidate_attachments_table(cursor)
+            ensure_curriculo_ia_table(cursor)
             ensure_talent_bank_table(cursor)
             ensure_email_inbox_items_table(cursor)
             ensure_cv_pre_analises_table(cursor)

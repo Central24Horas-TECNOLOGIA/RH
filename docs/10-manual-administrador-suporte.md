@@ -69,7 +69,7 @@ Com reload apenas em desenvolvimento:
 Acesse:
 
 ```text
-http://127.0.0.1:8010
+http://127.0.0.1:8000
 ```
 
 ## Subir no servidor interno
@@ -116,11 +116,11 @@ http://192.168.5.62:8010
 
 ### Frontend nao chama API
 
-1. Conferir `http://127.0.0.1:8010/runtime-config.js`.
+1. Conferir `http://127.0.0.1:8000/runtime-config.js`.
 2. Conferir console do navegador.
 3. Conferir `RH_FRONTEND_API_BASE_URL`; para mesma origem deve ficar vazio.
 4. Conferir CORS apenas se houver frontend externo.
-5. Testar `http://127.0.0.1:8010/api/status`.
+5. Testar `http://127.0.0.1:8000/api/status`.
 
 ## Backup
 
@@ -128,7 +128,7 @@ Fazer backup de:
 
 - banco SQL Server;
 - pasta `data/private/`;
-- `.env`/`config.ini` em cofre interno;
+- segredos do `.env` em cofre interno;
 - anexos de e-mail;
 - arquivos de prova se forem alterados.
 

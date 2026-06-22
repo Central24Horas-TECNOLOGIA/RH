@@ -36,7 +36,7 @@ RH/
 |---|---|
 | `api/rh_api/__init__.py` | arquivo de apoio/configuração |
 | `api/rh_api/auth.py` | classe `AuthenticatedUser`, função `_b64encode`, função `_b64decode`, função `_sign`, função `authenticate_credentials`, função `validate_access_token` |
-| `api/rh_api/config.py` | função `_load_dotenv`, função `_load_runtime_ini`, função `_ini_value`, função `_ini_bool`, função `_split_csv`, função `_read_bool_env`, classe `Settings`, função `get_settings` |
+| `api/rh_api/config.py` | função `_load_dotenv`, leitores tipados de ambiente, classe `Settings` e função `get_settings` |
 | `api/rh_api/db.py` | função `_bool_to_connection_value`, função `build_connection_string`, função `get_connection` |
 | `api/rh_api/dependencies.py` | função `get_repository`, função `get_current_user` |
 | `api/rh_api/logging_config.py` | função `configure_logging` |
@@ -341,6 +341,6 @@ RH/
 - `Front/fonte/app/controlador-aplicacao.js`: estado e orquestração do frontend.
 - `Front/fonte/servico-api.js`: fachada de compatibilidade da API no frontend.
 - `api/rh_api/main.py`: configuração da FastAPI, CORS, handlers e routers.
-- `api/rh_api/config.py`: leitura de `.env`, `config.ini` e variáveis.
+- `api/rh_api/config.py`: leitura centralizada de `.env` e variáveis.
 - `api/rh_api/repositories/bootstrap.py`: evolução de schema.
 - `api/rh_api/repositories/db_repository.py`: fachada legada; evitar colocar regra nova nela quando existir repository específico.

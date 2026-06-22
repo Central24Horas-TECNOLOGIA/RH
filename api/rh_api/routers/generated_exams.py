@@ -73,6 +73,59 @@ def get_generated_exam(id_prova: int, repository: DatabaseRepository = Depends(g
     return repository.get_generated_exam(id_prova)
 
 
+@router.put(
+    "/generated-exams/{id_prova}",
+    dependencies=[Depends(get_current_user), Depends(require_permissions("provas.editar"))],
+)
+def update_generated_exam(
+    id_prova: int,
+    payload: GeneratedExamCreateRequest,
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.update_generated_exam(
+        id_prova,
+        payload.model_dump(),
+        updated_by=_user_label(user),
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Conecta Provas",
+        acao="editar_prova",
+        entidade="provas_geradas",
+        entidade_id=str(id_prova),
+        valor_novo={"id_prova": id_prova, "status": result.get("status")},
+        request=request,
+    )
+    return result
+
+
+@router.delete(
+    "/generated-exams/{id_prova}",
+    dependencies=[Depends(get_current_user), Depends(require_permissions("provas.excluir"))],
+)
+def delete_generated_exam(
+    id_prova: int,
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.delete_generated_exam(id_prova)
+    audit_action(
+        repository,
+        user,
+        modulo="Conecta Provas",
+        acao="excluir_prova",
+        entidade="provas_geradas",
+        entidade_id=str(id_prova),
+        valor_anterior={"id_prova": id_prova},
+        request=request,
+    )
+    return result
+
+
 @router.post(
     "/generated-exams/{id_prova}/manual-evaluation",
     dependencies=[Depends(get_current_user), Depends(require_permissions("provas.corrigir"))],

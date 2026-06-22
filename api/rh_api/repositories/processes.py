@@ -51,6 +51,12 @@ logger = logging.getLogger(__name__)
 
 class ProcessRepositoryMixin:
     @staticmethod
+    def _candidate_matches_process_reference(candidate: dict, process: dict) -> bool:
+        candidate_reference = normalize_text(candidate.get("id_processo_ref"))
+        process_reference = normalize_text(process.get("id_processo_ref"))
+        return not candidate_reference or candidate_reference == process_reference
+
+    @staticmethod
     def _preserve_existing_process_status(current_status: str, requested_status: str) -> str:
         current = canonicalize_candidate_status(current_status)
         requested = canonicalize_candidate_status(requested_status)
@@ -927,8 +933,7 @@ class ProcessRepositoryMixin:
                 candidatos = [
                     item
                     for item in candidatos
-                    if normalize_text(item.get("id_processo_ref"))
-                    == normalize_text(processo.get("id_processo_ref"))
+                    if self._candidate_matches_process_reference(item, processo)
                 ]
                 cursor.execute(
                     """
@@ -950,8 +955,16 @@ class ProcessRepositoryMixin:
                     for item in analises_cv
                     if normalize_compare_text(item.get("email"))
                 }
+                analises_por_id = {
+                    f"CV-{item.get('id_pre_analise')}": item
+                    for item in analises_cv
+                    if item.get("id_pre_analise") is not None
+                }
                 for candidato in candidatos:
-                    analise = analises_por_email.get(normalize_compare_text(candidato.get("email")))
+                    analise = (
+                        analises_por_id.get(normalize_text(candidato.get("id_teste")))
+                        or analises_por_email.get(normalize_compare_text(candidato.get("email")))
+                    )
                     if not analise:
                         continue
                     candidato["cv_id_pre_analise"] = analise.get("id_pre_analise")

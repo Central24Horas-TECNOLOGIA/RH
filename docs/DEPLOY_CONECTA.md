@@ -25,26 +25,26 @@ Alternativa Windows:
 Acesse:
 
 ```text
-http://127.0.0.1:8010
+http://127.0.0.1:8000
 ```
 
 Nao e necessario iniciar `python -m http.server` para o frontend.
 
 ## 2. Servidor interno
 
-Para publicar na rede interna, configure host e porta por variaveis de ambiente, `.env` ou `config.ini`:
+Para publicar na rede interna, configure host e porta por variáveis de ambiente ou `.env`:
 
 ```powershell
 $env:RH_APP_ENV="server"
-$env:RH_SERVER_HOST="0.0.0.0"
-$env:RH_SERVER_PORT="8010"
+$env:RH_API_HOST="0.0.0.0"
+$env:RH_API_PORT="8000"
 .\.venv\Scripts\python.exe run.py --no-reload
 ```
 
 Com o servidor e firewall liberados, acesse pelo IP ou DNS interno, por exemplo:
 
 ```text
-http://192.168.5.62:8010
+http://192.168.5.62:8000
 ```
 
 ## 3. Configuracao de ambiente
@@ -54,17 +54,17 @@ Use `.env.example` como base para `.env`. O `.env` real nao deve ser versionado.
 Variaveis principais:
 
 - `RH_APP_ENV`: `development`, `server`, `test` ou `production`.
-- `RH_SERVER_HOST`: host de bind, como `127.0.0.1` local ou `0.0.0.0` no servidor.
-- `RH_SERVER_PORT`: porta HTTP, padrao `8010`.
+- `RH_API_HOST`: host de bind, como `127.0.0.1` local ou `0.0.0.0` no servidor.
+- `RH_API_PORT`: porta HTTP, padrão `8000`.
 - `RH_SERVER_RELOAD`: `true` apenas em desenvolvimento.
-- `RH_SERVE_FRONTEND`: `true` para servir `Front/` pelo FastAPI.
+- `RH_FRONT_SERVE_STATIC`: `true` para servir `Front/` pelo FastAPI.
 - `RH_FRONTEND_DIR`: caminho da pasta do frontend, relativo a raiz ou absoluto.
 - `RH_FRONTEND_API_BASE_URL`: vazio para mesma origem; preencha somente se a API estiver em outro host.
 - `RH_PUBLIC_CANDIDATE_BASE_URL`: URL publica para links de candidatura externos.
 
 ## 4. Banco de dados
 
-Configure SQL Server por `.env` ou `config.ini`:
+Configure SQL Server por `.env` ou variáveis de ambiente:
 
 - `RH_SQL_SERVER`
 - `RH_SQL_DATABASE`
@@ -78,21 +78,17 @@ Configure SQL Server por `.env` ou `config.ini`:
 
 Nao coloque senha real em documentacao, prints, commits ou mensagens de suporte.
 
-## 5. Arquivo INI
+## 5. Configuração
 
-O sistema continua lendo `config.ini` quando existir:
-
-1. Caminho em `RH_CONFIG_INI`.
-2. `config.ini` na raiz do projeto.
-3. `config.ini` na pasta acima da raiz.
-
-Use `config.ini.example` como referencia. O `config.ini` real foi adicionado ao `.gitignore`.
+`config.ini` não é mais lido pelo sistema. Migre todos os valores para `.env`,
+usando `.env.example` como referência sem credenciais reais.
 
 ## 6. CORS
 
 Com frontend e API na mesma origem, CORS quase sempre pode ficar vazio.
 
-Em desenvolvimento, o backend ainda aceita origens locais comuns quando nenhuma origem for configurada. Em servidor ou producao, prefira definir explicitamente `RH_CORS_ALLOW_ORIGINS` apenas com dominios autorizados.
+Quando uma origem externa realmente for necessária, defina
+`RH_CORS_ALLOW_ORIGINS` apenas com domínios autorizados.
 
 Nao use `allow_origins=["*"]` em producao.
 
@@ -106,9 +102,9 @@ Se estiver como servico Windows, pare pelo gerenciador escolhido, como NSSM, Age
 
 Depois de iniciar:
 
-- Abra `http://127.0.0.1:8010`.
+- Abra `http://127.0.0.1:8000`.
 - Verifique se a tela de login aparece.
-- Abra `http://127.0.0.1:8010/api/status`.
+- Abra `http://127.0.0.1:8000/api/status`.
 - Confirme que `runtime-config.js`, `estilos/` e `fonte/` respondem sem 404.
 - Faca login, navegue pelo menu lateral e teste logout.
 - Verifique o console do navegador para erros de CORS ou assets ausentes.
@@ -124,7 +120,7 @@ Se a porta estiver ocupada, use outra porta:
 Ou encontre o processo no Windows:
 
 ```powershell
-netstat -ano | findstr :8010
+netstat -ano | findstr :8000
 ```
 
 ## 10. Servico Windows

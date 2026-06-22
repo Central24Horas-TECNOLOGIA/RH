@@ -60,7 +60,16 @@ class PublicExamTokenRequest(BaseSchema):
 class PublicCandidateDataRequest(PublicExamTokenRequest):
     nome_candidato: str
     email: str
+    confirmar_email: str = ""
     telefone: str
+    whatsapp: str = ""
+    cep: str = ""
+    endereco: str = ""
+    numero: str = ""
+    bairro: str = ""
+    cidade: str = ""
+    idade: int | None = Field(default=None, ge=14, le=100)
+    escolaridade: str = ""
 
 
 class PublicExamAnswersRequest(PublicExamTokenRequest):

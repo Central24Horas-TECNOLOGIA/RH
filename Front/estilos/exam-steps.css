@@ -1,0 +1,261 @@
+.conecta-provas-shell.is-steps-view {
+  display: block;
+  min-height: 100vh;
+  padding: clamp(24px, 4vw, 58px);
+  background: #f8fafc;
+}
+
+.exam-steps-page {
+  width: min(100%, 1500px);
+  margin: 0 auto;
+  color: #111827;
+}
+
+.exam-steps-header {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(20px, 3vw, 46px);
+  margin-bottom: 24px;
+}
+
+.exam-steps-back {
+  display: grid;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid #dce3ed;
+  border-radius: 11px;
+  background: #fff;
+  color: #111827;
+}
+
+.exam-steps-header h1 {
+  margin: 4px 0 8px;
+  color: #111827;
+  font-size: clamp(1.65rem, 2.5vw, 2.25rem);
+  font-weight: 720;
+  letter-spacing: -0.025em;
+}
+
+.exam-steps-header p {
+  margin: 0;
+  color: #445575;
+  font-size: clamp(0.93rem, 1.25vw, 1.08rem);
+}
+
+.exam-steps-alert,
+.exam-steps-notice {
+  width: min(calc(100% - 360px), 1080px);
+  margin: 0 0 18px 98px;
+}
+
+.exam-steps-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #f2d092;
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: #fff8e9;
+  color: #7a4a00;
+}
+
+.exam-steps-notice.is-complete {
+  border-color: #bfe2c7;
+  background: #effaf2;
+  color: #176b2d;
+}
+
+.exam-steps-notice > div { display: grid; gap: 2px; }
+.exam-steps-notice span:last-child { color: #53627c; }
+
+.exam-steps-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(290px, 360px);
+  gap: clamp(24px, 3vw, 44px);
+  align-items: start;
+}
+
+.exam-steps-list {
+  display: grid;
+  gap: 14px;
+  padding-left: 98px;
+}
+
+.exam-step-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  min-height: 134px;
+  border: 1px solid #dce3ed;
+  border-radius: 11px;
+  padding: 22px 34px 22px 28px;
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(28, 48, 83, 0.06);
+}
+
+.exam-step-card.is-concluida { border-color: #c6d9ff; }
+.exam-step-card.is-andamento { border-color: #82abff; box-shadow: 0 5px 18px rgba(7, 88, 240, 0.1); }
+.exam-step-card.is-locked {
+  border-color: #e3e8f0;
+  background: #f8fafc;
+  box-shadow: none;
+}
+.exam-step-card.is-locked .exam-step-icon { color: #8994a7; background: #f1f4f8; border-color: #e1e6ee; }
+.exam-step-card.is-locked .exam-step-copy { opacity: 0.72; }
+.exam-step-card.is-locked .btn { border-color: #d7dde7; background: #e9edf3; color: #758196; box-shadow: none; }
+
+.exam-step-timeline {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 54px);
+  display: grid;
+  justify-items: center;
+  transform: translateY(-50%);
+}
+
+.exam-step-timeline span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: #0a58d8;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 5px #f8fafc;
+}
+
+.exam-step-timeline i {
+  position: absolute;
+  top: 30px;
+  width: 3px;
+  height: 148px;
+  background: #0a58d8;
+}
+
+.exam-step-icon {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  border: 1px solid #d7e3f8;
+  border-radius: 14px;
+  background: #f0f5ff;
+  color: #0758f0;
+}
+
+.exam-step-icon i { font-size: 2rem; font-variation-settings: 'wght' 350; }
+.exam-step-copy small { display: block; margin-bottom: 7px; color: #334463; font-size: 0.78rem; }
+.exam-step-copy h2 { margin: 0 0 7px; color: #0d1423; font-size: clamp(1.1rem, 1.5vw, 1.35rem); font-weight: 700; }
+.exam-step-copy p { margin: 0; color: #53627c; }
+
+.exam-step-action {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.exam-step-action .btn {
+  min-width: 142px;
+  min-height: 46px;
+  border-radius: 9px;
+  font-weight: 650;
+}
+
+.exam-step-complete-tag,
+.exam-step-state,
+.exam-summary-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.exam-step-complete-tag,
+.exam-step-state.is-concluida,
+.exam-summary-status.is-complete { color: #157432; background: #eaf7ed; }
+.exam-step-state.is-andamento,
+.exam-summary-status.is-progress { color: #0758f0; background: #eaf1ff; }
+.exam-step-state.is-nao-iniciada { color: #58667d; background: #eef1f5; }
+.exam-step-state.is-locked { color: #657187; background: #edf0f4; }
+
+.exam-summary-column { display: grid; gap: 16px; }
+.exam-summary-panel,
+.exam-info-panel {
+  border: 1px solid #dce3ed;
+  border-radius: 11px;
+  padding: 24px;
+  background: #fff;
+  box-shadow: 0 5px 14px rgba(28, 48, 83, 0.05);
+}
+
+.exam-summary-panel h2,
+.exam-info-panel h2 { margin: 0 0 24px; color: #111827; font-size: 1.15rem; font-weight: 700; }
+.exam-summary-total { display: flex; align-items: center; gap: 18px; margin-bottom: 24px; }
+.exam-summary-total .material-symbols-outlined { color: #0758f0; font-size: 2rem; }
+.exam-summary-total strong { font-size: 1.45rem; }
+.exam-summary-panel > p { display: flex; gap: 13px; margin: 0 0 20px 8px; color: #1f2b40; font-size: 1rem; }
+
+.exam-summary-progress { display: grid; gap: 7px; margin: 4px 0 18px; }
+.exam-summary-progress > div { display: flex; justify-content: space-between; color: #53627c; }
+.exam-summary-progress i { overflow: hidden; height: 7px; border-radius: 999px; background: #e7edf5; }
+.exam-summary-progress b { display: block; height: 100%; border-radius: inherit; background: #0758f0; }
+.exam-summary-progress small { color: #6a768b; }
+
+.exam-info-panel {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  border-color: #9dbdff;
+  background: #f7faff;
+}
+
+.exam-info-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 2px solid #0758f0;
+  border-radius: 50%;
+  color: #0758f0;
+}
+
+.exam-info-panel h2 { margin-bottom: 10px; color: #0646ba; }
+.exam-info-panel p { margin: 0 0 20px; color: #455675; line-height: 1.55; }
+.exam-info-panel a { display: inline-flex; align-items: center; gap: 7px; color: #0758f0; font-weight: 650; text-decoration: none; }
+.exam-info-panel a .material-symbols-outlined { font-size: 1.1rem; }
+.exam-final-submit { min-height: 50px; border-radius: 9px; font-weight: 700; }
+
+@media (max-width: 980px) {
+  .exam-steps-layout { grid-template-columns: 1fr; }
+  .exam-summary-column { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-left: 98px; }
+  .exam-final-submit { grid-column: 1 / -1; }
+  .exam-steps-alert,
+  .exam-steps-notice { width: auto; margin-right: 0; }
+}
+
+@media (max-width: 700px) {
+  .conecta-provas-shell.is-steps-view { padding: 18px 14px 30px; }
+  .exam-steps-header { gap: 12px; }
+  .exam-steps-back { flex-basis: 44px; width: 44px; height: 44px; }
+  .exam-steps-list,
+  .exam-summary-column { padding-left: 0; }
+  .exam-step-card { grid-template-columns: auto minmax(0, 1fr); gap: 14px; padding: 18px; }
+  .exam-step-timeline { display: none; }
+  .exam-step-icon { width: 52px; height: 52px; }
+  .exam-step-action { grid-column: 1 / -1; width: 100%; }
+  .exam-step-action .btn { width: 100%; }
+  .exam-summary-column { grid-template-columns: 1fr; }
+  .exam-steps-alert,
+  .exam-steps-notice { margin-left: 0; }
+}

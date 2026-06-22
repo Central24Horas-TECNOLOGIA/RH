@@ -40,3 +40,12 @@ def test_interview_insert_does_not_include_identity_column():
     assert insert_blocks
     for columns_block in insert_blocks:
         assert re.search(r"\bid_entrevista\b", columns_block, flags=re.IGNORECASE) is None
+
+
+def test_withdrawn_candidates_are_eliminated_and_hidden_from_operational_interviews():
+    source = (REPO_ROOT / "api" / "rh_api" / "repositories" / "interviews.py").read_text(encoding="utf-8")
+
+    assert "cp.status_candidato AS status_candidato_processo" in source
+    assert "CANDIDATE_STATUS_ELIMINATED" in source
+    assert "CANDIDATE_STATUS_WITHDREW" in source
+    assert '"motivo_eliminacao": "Desistência do candidato"' in source

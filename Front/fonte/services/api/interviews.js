@@ -1,4 +1,4 @@
-import { invalidarCacheApi, requisitar } from './core.js';
+import { gravarCache, invalidarCacheApi, lerCache, requisitar } from './core.js';
 
 export async function lerEntrevistas({
   idProcesso = '',
@@ -11,7 +11,12 @@ export async function lerEntrevistas({
   if (search) params.set('search', search);
 
   const sufixo = params.toString() ? `?${params.toString()}` : '';
-  return requisitar(`/interviews${sufixo}`, { method: 'GET' });
+  const chaveCache = `entrevistas:${params.toString()}`;
+  const emCache = lerCache(chaveCache);
+  if (emCache) return emCache;
+  const dados = await requisitar(`/interviews${sufixo}`, { method: 'GET' });
+  gravarCache(chaveCache, dados);
+  return dados;
 }
 
 export async function lerSlotsEntrevista({
@@ -25,7 +30,12 @@ export async function lerSlotsEntrevista({
   if (statusSlot) params.set('status_slot', statusSlot);
 
   const sufixo = params.toString() ? `?${params.toString()}` : '';
-  return requisitar(`/interview-slots${sufixo}`, { method: 'GET' });
+  const chaveCache = `slots-entrevista:${params.toString()}`;
+  const emCache = lerCache(chaveCache);
+  if (emCache) return emCache;
+  const dados = await requisitar(`/interview-slots${sufixo}`, { method: 'GET' });
+  gravarCache(chaveCache, dados);
+  return dados;
 }
 
 export async function criarSlotsEntrevista(payload) {
@@ -35,7 +45,7 @@ export async function criarSlotsEntrevista(payload) {
     body: JSON.stringify(payload),
   });
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
   return resultado;
 }
 
@@ -49,7 +59,7 @@ export async function atualizarSlotEntrevista(idSlot, payload) {
     },
   );
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
   return resultado;
 }
 
@@ -59,7 +69,7 @@ export async function excluirSlotEntrevista(idSlot) {
     { method: 'DELETE' },
   );
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
   return resultado;
 }
 
@@ -70,7 +80,7 @@ export async function agendarEntrevista(payload) {
     body: JSON.stringify(payload),
   });
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
   return resultado;
 }
 
@@ -84,6 +94,6 @@ export async function atualizarEntrevista(idEntrevista, payload) {
     },
   );
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
   return resultado;
 }

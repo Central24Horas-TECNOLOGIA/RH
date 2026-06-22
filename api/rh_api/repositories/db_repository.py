@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .analytics import AnalyticsRepositoryMixin
+from .analises_curriculo_ia_repository import AnalisesCurriculoIaRepositoryMixin
 from .base import BaseRepository
 from .candidate_sheet import CandidateSheetRepositoryMixin
 from .bootstrap import (
@@ -24,6 +25,7 @@ from .talent_bank import TalentBankRepositoryMixin
 
 class DatabaseRepository(
     SecurityRepositoryMixin,
+    AnalisesCurriculoIaRepositoryMixin,
     HistoryRepositoryMixin,
     ProcessRepositoryMixin,
     TalentBankRepositoryMixin,

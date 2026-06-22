@@ -115,7 +115,11 @@ def _user_from_record(record: dict | None) -> AuthenticatedUser:
 def authenticate_credentials(usuario: str, senha: str) -> str:
     settings = get_settings()
     safe_user = normalize_text(usuario)
-    if safe_user != settings.auth_user or senha != settings.auth_password:
+    if (
+        not settings.auth_password
+        or safe_user != settings.auth_user
+        or senha != settings.auth_password
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário ou senha inválidos.",
@@ -143,7 +147,11 @@ def authenticate_session(
             return _build_token(user), user
         except HTTPException:
             settings = get_settings()
-            if safe_user != settings.auth_user or senha != settings.auth_password:
+            if (
+                not settings.auth_password
+                or safe_user != settings.auth_user
+                or senha != settings.auth_password
+            ):
                 raise
         except Exception:
             # Fallback intencional para manter compatibilidade quando o banco ainda

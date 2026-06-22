@@ -45,7 +45,7 @@ def normalize_sheet_recommendation(value) -> str:
 
 
 def _format_value(value) -> str:
-    return normalize_text(value) if value is not None else ""
+    return str(value).strip() if value is not None else ""
 
 
 def _format_score(value) -> str:
@@ -69,8 +69,14 @@ class CandidateSheetRepositoryMixin:
                 email,
                 telefone,
                 whatsapp,
+                cep,
+                endereco,
+                numero,
                 cidade,
-                bairro
+                bairro,
+                idade,
+                escolaridade,
+                atualizado_em
             FROM candidatos_metadata
             WHERE id_teste = ?
             """,
@@ -289,6 +295,8 @@ class CandidateSheetRepositoryMixin:
                     score_final,
                     classificacao,
                     classificacao_slug,
+                    palavras_chave,
+                    problemas,
                     nome_arquivo,
                     mime_type,
                     criado_em
@@ -318,6 +326,8 @@ class CandidateSheetRepositoryMixin:
                 score_final,
                 classificacao,
                 classificacao_slug,
+                palavras_chave,
+                problemas,
                 nome_arquivo,
                 mime_type,
                 criado_em
@@ -525,6 +535,33 @@ class CandidateSheetRepositoryMixin:
             )
 
             recommendation = normalize_text(profile.get("classificacao_indicacao"))
+            cv_details = safe_json_loads(cv_pre_analysis.get("problemas"), {})
+            if not isinstance(cv_details, dict):
+                cv_details = {}
+            qualities = cv_details.get("pontos_fortes") or []
+            if not isinstance(qualities, list):
+                qualities = []
+            competencies = cv_details.get("competencias") or {}
+            competency_items = []
+            if isinstance(competencies, dict):
+                for values in competencies.values():
+                    if isinstance(values, list):
+                        competency_items.extend(values)
+            keywords = safe_json_loads(cv_pre_analysis.get("palavras_chave"), [])
+            if not isinstance(keywords, list):
+                keywords = []
+            skills = []
+            for value in [*(profile.get("habilidades") or []), *keywords, *competency_items]:
+                label = normalize_text(value)
+                if label and label.lower() not in {item.lower() for item in skills}:
+                    skills.append(label)
+            raw_cv_score = cv_pre_analysis.get("score_final")
+            try:
+                numeric_cv_score = float(str(raw_cv_score).replace(",", "."))
+                adherence_percent = round(numeric_cv_score * 10 if numeric_cv_score <= 10 else numeric_cv_score)
+                adherence_percent = max(0, min(100, adherence_percent))
+            except (TypeError, ValueError):
+                adherence_percent = None
             return {
                 "success": True,
                 "gerado_em": datetime.now().isoformat(timespec="seconds"),
@@ -535,8 +572,17 @@ class CandidateSheetRepositoryMixin:
                     "email": normalize_text(profile.get("email") or primary_process.get("email")),
                     "telefone": normalize_text(profile.get("telefone") or primary_process.get("telefone")),
                     "whatsapp": normalize_text(profile.get("whatsapp") or primary_process.get("whatsapp")),
+                    "cep": normalize_text(profile.get("cep")),
+                    "endereco": normalize_text(profile.get("endereco")),
+                    "numero": normalize_text(profile.get("numero")),
                     "cidade": normalize_text(profile.get("cidade") or primary_process.get("cidade")),
                     "bairro": normalize_text(profile.get("bairro") or primary_process.get("bairro")),
+                    "idade": profile.get("idade"),
+                    "escolaridade": normalize_text(profile.get("escolaridade")),
+                    "skills": skills,
+                    "qualidades_cv": [normalize_text(item) for item in qualities if normalize_text(item)],
+                    "aderencia_percentual": adherence_percent,
+                    "ultima_atualizacao": profile.get("atualizado_em"),
                     "curriculo": cv_summary,
                     "nota_curriculo": cv_pre_analysis.get("score_final"),
                     "status_curriculo": normalize_text(cv_pre_analysis.get("classificacao")) or cv_summary.get("status"),

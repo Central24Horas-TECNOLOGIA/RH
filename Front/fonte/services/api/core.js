@@ -4,17 +4,11 @@ const CONFIG_RUNTIME = window.RUNTIME_CONFIG || {};
 
 function detectarApiLocalPadrao() {
   const local = window.location || {};
-  const host = local.hostname || '';
-  const porta = local.port || '';
-  const ehHostLocal = ['localhost', '127.0.0.1', '::1'].includes(host);
 
   if (local.protocol === 'file:') {
     return 'http://127.0.0.1:8000';
   }
-if (ehHostLocal) {
-  return `${local.protocol || 'http:'}//${host}:8081`;
-}
-  return '';
+  return local.origin && local.origin !== 'null' ? local.origin : '';
 }
 
 const URL_API_BASE =
@@ -23,7 +17,9 @@ export const URL_PUBLICA_BASE_CANDIDATURA =
   CONFIG_RUNTIME.PUBLIC_CANDIDATE_BASE_URL ||
   window.__RH_PUBLIC_CANDIDATE_BASE_URL__ ||
   '';
-const TEMPO_CACHE_MS = 15000;
+const TEMPO_CACHE_MS = 30000;
+const PREFIXO_CACHE_SESSAO = 'rh_api_cache_v2:';
+const LIMITE_CACHE_SESSAO_CARACTERES = 1500000;
 const CHAVE_TOKEN_AUTENTICACAO = 'rh_api_access_token';
 const CHAVE_USUARIO_AUTENTICADO = 'rh_api_authenticated_user';
 const CHAVE_SESSAO_AUTENTICACAO = 'rh_api_session_payload';
@@ -33,23 +29,60 @@ export const EVENTO_AUTENTICACAO_EXPIRADA = 'rh-auth-expired';
 const cacheMemoria = new Map();
 const logger = criarLogger('api');
 
+function chaveCacheSessao(chave) {
+  return `${PREFIXO_CACHE_SESSAO}${chave}`;
+}
+
+function removerCacheSessaoPorPrefixo(...chaves) {
+  try {
+    for (let indice = sessionStorage.length - 1; indice >= 0; indice -= 1) {
+      const chaveArmazenada = sessionStorage.key(indice) || '';
+      if (!chaveArmazenada.startsWith(PREFIXO_CACHE_SESSAO)) continue;
+      const chaveApi = chaveArmazenada.slice(PREFIXO_CACHE_SESSAO.length);
+      if (!chaves.length || chaves.some((chave) => chaveApi === chave || chaveApi.startsWith(`${chave}:`))) {
+        sessionStorage.removeItem(chaveArmazenada);
+      }
+    }
+  } catch (error) {
+    logger.debug?.('Não foi possível limpar o cache temporário da sessão.', error);
+  }
+}
+
 function lerCache(chave) {
   const entrada = cacheMemoria.get(chave);
-  if (!entrada) return null;
-
-  if (Date.now() - entrada.timestamp > TEMPO_CACHE_MS) {
+  if (entrada) {
+    if (Date.now() - entrada.timestamp <= TEMPO_CACHE_MS) return entrada.data;
     cacheMemoria.delete(chave);
-    return null;
   }
 
-  return entrada.data;
+  try {
+    const persistido = JSON.parse(sessionStorage.getItem(chaveCacheSessao(chave)) || 'null');
+    if (!persistido || Date.now() - Number(persistido.timestamp || 0) > TEMPO_CACHE_MS) {
+      sessionStorage.removeItem(chaveCacheSessao(chave));
+      return null;
+    }
+    cacheMemoria.set(chave, persistido);
+    return persistido.data;
+  } catch (error) {
+    sessionStorage.removeItem(chaveCacheSessao(chave));
+    return null;
+  }
 }
 
 function gravarCache(chave, data) {
-  cacheMemoria.set(chave, {
+  const entrada = {
     data,
     timestamp: Date.now(),
-  });
+  };
+  cacheMemoria.set(chave, entrada);
+  try {
+    const serializado = JSON.stringify(entrada);
+    if (serializado.length <= LIMITE_CACHE_SESSAO_CARACTERES) {
+      sessionStorage.setItem(chaveCacheSessao(chave), serializado);
+    }
+  } catch (error) {
+    logger.debug?.('Não foi possível persistir o cache temporário da API.', error);
+  }
 }
 
 export function lerSessaoAutenticacao() {
@@ -104,6 +137,7 @@ export function limparSessaoAutenticacao() {
     }
   });
   cacheMemoria.clear();
+  removerCacheSessaoPorPrefixo();
 }
 
 export function possuiSessaoAutenticada() {
@@ -224,6 +258,7 @@ export function invalidarCacheApi(...chaves) {
       .filter((cacheKey) => cacheKey.startsWith(`${chave}:`))
       .forEach((cacheKey) => cacheMemoria.delete(cacheKey));
   });
+  removerCacheSessaoPorPrefixo(...chaves);
 }
 
 export { gravarCache, lerCache };

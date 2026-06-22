@@ -51,7 +51,7 @@ class FakePublicRouterRepository:
             "success": True,
             "status": "Ativa",
             "slug": "vaga-operador-k7d92a9p",
-            "url": "http://127.0.0.1:8010/#/candidatar/vaga-operador-k7d92a9p",
+            "url": "http://127.0.0.1:8000/#/candidatar/vaga-operador-k7d92a9p",
         }
 
     def get_public_application(self, slug: str):
@@ -78,22 +78,22 @@ class PublicCandidacyTests(unittest.TestCase):
     def test_build_public_application_url_uses_single_backend_entrypoint(self):
         base_url = resolve_public_frontend_base_url(
             "",
-            referrer_url="http://127.0.0.1:8010/#/detalhes-processo",
+            referrer_url="http://127.0.0.1:8000/#/detalhes-processo",
         )
 
-        self.assertEqual(base_url, "http://127.0.0.1:8010/")
+        self.assertEqual(base_url, "http://127.0.0.1:8000/")
         self.assertEqual(
             build_public_application_url(base_url, "vaga-operador-k7d92a9p"),
-            "http://127.0.0.1:8010/#/candidatar/vaga-operador-k7d92a9p",
+            "http://127.0.0.1:8000/#/candidatar/vaga-operador-k7d92a9p",
         )
 
     def test_build_public_application_url_preserves_legacy_front_index_path(self):
         base_url = resolve_public_frontend_base_url(
             "",
-            referrer_url="http://127.0.0.1:8010/Front/index.html#/detalhes-processo",
+            referrer_url="http://127.0.0.1:8000/Front/index.html#/detalhes-processo",
         )
 
-        self.assertEqual(base_url, "http://127.0.0.1:8010/Front/index.html")
+        self.assertEqual(base_url, "http://127.0.0.1:8000/Front/index.html")
 
     def test_validate_public_cv_upload_accepts_pdf_and_sanitizes_storage_name(self):
         upload = validate_public_cv_upload(
@@ -163,8 +163,8 @@ class PublicCandidacyTests(unittest.TestCase):
                 "type": "http",
                 "method": "POST",
                 "headers": [
-                    (b"origin", b"http://127.0.0.1:8010"),
-                    (b"referer", b"http://127.0.0.1:8010/#/detalhes-processo"),
+                    (b"origin", b"http://127.0.0.1:8000"),
+                    (b"referer", b"http://127.0.0.1:8000/#/detalhes-processo"),
                 ],
             }
         )
@@ -176,7 +176,7 @@ class PublicCandidacyTests(unittest.TestCase):
         )
 
         self.assertTrue(payload["success"])
-        self.assertEqual(repository.generate_calls[0]["origin_url"], "http://127.0.0.1:8010")
+        self.assertEqual(repository.generate_calls[0]["origin_url"], "http://127.0.0.1:8000")
         self.assertIn("detalhes-processo", repository.generate_calls[0]["referrer_url"])
 
     def test_public_submit_router_forwards_form_and_file_to_repository(self):

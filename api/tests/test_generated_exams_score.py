@@ -11,9 +11,11 @@ if str(API_DIR) not in sys.path:
 
 from rh_api.routers.generated_exams import (
     create_generated_exam,
+    delete_generated_exam,
     public_access_code,
     public_access_email,
     public_finalize_exam,
+    update_generated_exam,
 )
 from rh_api.repositories.generated_exams import _is_public_answer_complete, _map_rh_decision_to_candidate_status
 from rh_api.schemas.generated_exams import (
@@ -36,6 +38,8 @@ class FakeGeneratedExamRepository:
         self.created_payloads: list[dict] = []
         self.generated_by = ""
         self.finalized_payloads: list[dict] = []
+        self.updated_payloads: list[dict] = []
+        self.deleted_ids: list[int] = []
 
     def create_generated_exam(self, data: dict, *, generated_by: str = ""):
         self.created_payloads.append(data)
@@ -75,6 +79,14 @@ class FakeGeneratedExamRepository:
             "status": "Finalizada",
             "pendente_avaliacao_manual": False,
         }
+
+    def update_generated_exam(self, id_prova: int, data: dict, *, updated_by: str = ""):
+        self.updated_payloads.append({"id_prova": id_prova, "data": data, "updated_by": updated_by})
+        return {"success": True, "id_prova": id_prova, "status": "Disponível"}
+
+    def delete_generated_exam(self, id_prova: int):
+        self.deleted_ids.append(id_prova)
+        return {"success": True}
 
 
 class GeneratedExamsAndScoreTests(unittest.TestCase):
@@ -196,6 +208,28 @@ class GeneratedExamsAndScoreTests(unittest.TestCase):
                 },
             )
         )
+
+    def test_generated_exam_router_forwards_update_and_delete(self):
+        repository = FakeGeneratedExamRepository()
+        payload = GeneratedExamCreateRequest(
+            nome_candidato="Ana Souza",
+            email="ana@example.com",
+            telefone="21999999999",
+            vaga="Analista",
+            area_prova="ADM / Gestão",
+            nivel="4",
+            questoes_snapshot=[{"type": "multiple", "title": "Q1", "options": ["A", "B"], "answer": 0}],
+        )
+        user = type("User", (), {"nome": "RH Local", "usuario": "rh", "email": "", "has_permission": lambda *_: True})()
+        request = type("Request", (), {"client": None, "headers": {}, "method": "PUT", "url": type("Url", (), {"path": "/generated-exams/7"})()})()
+
+        updated = update_generated_exam(7, payload, request=request, user=user, repository=repository)
+        deleted = delete_generated_exam(7, request=request, user=user, repository=repository)
+
+        self.assertTrue(updated["success"])
+        self.assertEqual(repository.updated_payloads[0]["updated_by"], "RH Local")
+        self.assertTrue(deleted["success"])
+        self.assertEqual(repository.deleted_ids, [7])
 
     def test_public_access_and_finalize_do_not_require_rh_user(self):
         repository = FakeGeneratedExamRepository()

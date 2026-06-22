@@ -478,6 +478,8 @@ class GeneratedExamRepositoryMixin:
                 "nome_candidato": normalize_text(row.get("nome_candidato")),
                 "email": normalize_text(row.get("email_acesso")),
                 "telefone": normalize_text(row.get("telefone_acesso")),
+                "whatsapp": normalize_text(row.get("telefone_acesso")),
+                "dados_confirmados": bool(row.get("dados_confirmados_em")),
             },
             "prova": {
                 "vaga": normalize_text(row.get("vaga")),
@@ -1008,6 +1010,110 @@ class GeneratedExamRepositoryMixin:
         finally:
             conn.close()
 
+    def update_generated_exam(self, id_prova: int, data: dict, *, updated_by: str = "") -> dict:
+        name = normalize_text(data.get("nome_candidato"))
+        email = normalize_text(data.get("email"))
+        phone = normalize_text(data.get("telefone") or data.get("whatsapp"))
+        vaga = normalize_text(data.get("vaga") or data.get("cargo"))
+        area_prova = normalize_text(
+            data.get("area") or data.get("area_prova") or data.get("area_atuacao") or data.get("trilha")
+        )
+        nivel = normalize_text(data.get("nivel"))
+        questions = _sanitize_questions_for_storage(data.get("questoes_snapshot") or [])
+        if not name:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe o nome do candidato.")
+        if not email or not is_valid_email(email):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail válido para acesso do candidato.")
+        if not phone or not is_valid_phone(phone):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone válido para acesso do candidato.")
+        if not vaga or not area_prova or not nivel or not questions:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe vaga, área, nível e questões válidas.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            cursor.execute(
+                """
+                SELECT id_prova, id_teste, iniciada_em,
+                       (SELECT COUNT(*) FROM dbo.respostas_provas resposta WHERE resposta.id_prova = prova.id_prova) AS respostas
+                FROM dbo.provas_geradas prova
+                WHERE id_prova = ?
+                """,
+                (int(id_prova or 0),),
+            )
+            rows = rows_to_dicts(cursor, cursor.fetchall())
+            if not rows:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prova não encontrada.")
+            current = rows[0]
+            if current.get("iniciada_em") or int(current.get("respostas") or 0) > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="A prova já foi iniciada e seus parâmetros não podem mais ser editados.",
+                )
+
+            configuracao = data.get("configuracao") if isinstance(data.get("configuracao"), dict) else {}
+            personalizacao = data.get("personalizacao") if isinstance(data.get("personalizacao"), dict) else {}
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET nome_candidato = ?, email_acesso = ?, telefone_acesso = ?, cpf = ?,
+                    vaga = ?, operacao = ?, trilha = ?, nivel = ?, tempo_total = ?,
+                    quantidade_questoes = ?, etapas_json = ?, categorias_json = ?,
+                    configuracao_json = ?, questoes_json = ?, instrucoes_operacao = ?,
+                    expira_em = ?, atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (
+                    name,
+                    email,
+                    phone,
+                    normalize_text(data.get("cpf")),
+                    vaga,
+                    normalize_text(data.get("operacao")),
+                    normalize_text(data.get("trilha")) or area_prova,
+                    nivel,
+                    _safe_exam_minutes(data.get("tempo_total") or data.get("tempo_minutos")),
+                    int(data.get("quantidade_questoes") or len(questions)),
+                    _json_dumps(data.get("etapas") or []),
+                    _json_dumps(data.get("categorias") or []),
+                    _json_dumps({**configuracao, "personalizacao": personalizacao}),
+                    _json_dumps(questions),
+                    normalize_text(data.get("instrucoes_operacao")),
+                    _parse_datetime(data.get("expira_em")),
+                    int(id_prova or 0),
+                ),
+            )
+            self._upsert_candidate_profile(
+                cursor,
+                id_teste=normalize_text(current.get("id_teste")),
+                nome_candidato=name,
+                email=email,
+                telefone=phone,
+                whatsapp=normalize_text(data.get("whatsapp")) or phone,
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return self.get_generated_exam(id_prova)
+
+    def delete_generated_exam(self, id_prova: int) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            cursor.execute("SELECT id_prova FROM dbo.provas_geradas WHERE id_prova = ?", (int(id_prova or 0),))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prova não encontrada.")
+            cursor.execute("DELETE FROM dbo.scores_conecta WHERE id_prova = ?", (int(id_prova or 0),))
+            cursor.execute("DELETE FROM dbo.resultados_provas WHERE id_prova = ?", (int(id_prova or 0),))
+            cursor.execute("DELETE FROM dbo.respostas_provas WHERE id_prova = ?", (int(id_prova or 0),))
+            cursor.execute("DELETE FROM dbo.provas_geradas WHERE id_prova = ?", (int(id_prova or 0),))
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()
+
     def get_generated_exam(self, id_prova: int) -> dict:
         conn = self._connect()
         try:
@@ -1158,7 +1264,29 @@ class GeneratedExamRepositoryMixin:
             cursor = conn.cursor()
             ensure_conecta_exams_tables(cursor)
             row = self._get_exam_row_by_token(cursor, token)
-            return self._exam_public_payload(row)
+            payload = self._exam_public_payload(row)
+            profile = self._get_candidate_profile_map(cursor).get(normalize_text(row.get("id_teste")), {})
+            payload["candidato"].update(
+                {
+                    "nome_candidato": profile.get("nome_candidato") or payload["candidato"].get("nome_candidato", ""),
+                    "email": profile.get("email") or payload["candidato"].get("email", ""),
+                    "telefone": profile.get("telefone") or payload["candidato"].get("telefone", ""),
+                    "whatsapp": profile.get("whatsapp") or payload["candidato"].get("whatsapp", ""),
+                    "cep": profile.get("cep", ""),
+                    "endereco": profile.get("endereco", ""),
+                    "numero": profile.get("numero", ""),
+                    "bairro": profile.get("bairro", ""),
+                    "cidade": profile.get("cidade", ""),
+                    "idade": profile.get("idade"),
+                    "escolaridade": profile.get("escolaridade", ""),
+                    "dados_confirmados": bool(row.get("dados_confirmados_em")),
+                }
+            )
+            payload["respostas"] = [
+                item.get("resposta")
+                for item in self._get_exam_answers(cursor, int(row.get("id_prova") or 0))
+            ]
+            return payload
         finally:
             conn.close()
 
@@ -1166,12 +1294,30 @@ class GeneratedExamRepositoryMixin:
         name = normalize_text(data.get("nome_candidato"))
         email = normalize_text(data.get("email"))
         phone = normalize_text(data.get("telefone"))
+        whatsapp = normalize_text(data.get("whatsapp"))
+        confirmation_email = normalize_text(data.get("confirmar_email"))
         if not name:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe o nome completo.")
         if not is_valid_email(email):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um e-mail válido.")
+        if confirmation_email.lower() != email.lower():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A confirmação do e-mail não corresponde ao e-mail informado.")
         if not is_valid_phone(phone):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um telefone válido.")
+        if not is_valid_phone(whatsapp):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe um WhatsApp válido.")
+        required_fields = {
+            "CEP": normalize_text(data.get("cep")),
+            "endereço": normalize_text(data.get("endereco")),
+            "número": normalize_text(data.get("numero")),
+            "bairro": normalize_text(data.get("bairro")),
+            "cidade": normalize_text(data.get("cidade")),
+            "escolaridade": normalize_text(data.get("escolaridade")),
+        }
+        missing = [label for label, value in required_fields.items() if not value]
+        if missing or data.get("idade") is None:
+            fields = ", ".join([*missing, *(["idade"] if data.get("idade") is None else [])])
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Preencha os campos obrigatórios: {fields}.")
 
         conn = self._connect()
         try:
@@ -1188,6 +1334,7 @@ class GeneratedExamRepositoryMixin:
                     nome_candidato = ?,
                     email_acesso = ?,
                     telefone_acesso = ?,
+                    dados_confirmados_em = ISNULL(dados_confirmados_em, GETDATE()),
                     atualizado_em = GETDATE()
                 WHERE id_prova = ?
                 """,
@@ -1199,13 +1346,21 @@ class GeneratedExamRepositoryMixin:
                 nome_candidato=name,
                 email=email,
                 telefone=phone,
-                whatsapp=phone,
+                whatsapp=whatsapp,
+                cep=data.get("cep"),
+                endereco=data.get("endereco"),
+                numero=data.get("numero"),
+                bairro=data.get("bairro"),
+                cidade=data.get("cidade"),
+                idade=data.get("idade"),
+                escolaridade=data.get("escolaridade"),
             )
             conn.commit()
             return {
                 "success": True,
                 "tempo_total": _safe_exam_minutes(row.get("tempo_total")),
                 "iniciada_em": _format_datetime(row.get("iniciada_em") or started_at),
+                "dados_confirmados": True,
             }
         finally:
             conn.close()

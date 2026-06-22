@@ -165,6 +165,26 @@ class HistoryAndProcessRulesTests(unittest.TestCase):
             "Eliminado",
         )
 
+    def test_process_detail_keeps_manual_candidate_without_reference(self):
+        processo = {"id_processo_ref": "PROC-01@@42"}
+        self.assertTrue(
+            ProcessRepositoryMixin._candidate_matches_process_reference(
+                {"id_processo": "PROC-01", "id_processo_ref": ""},
+                processo,
+            )
+        )
+        self.assertTrue(
+            ProcessRepositoryMixin._candidate_matches_process_reference(
+                {"id_processo_ref": "PROC-01@@42"},
+                processo,
+            )
+        )
+        self.assertFalse(
+            ProcessRepositoryMixin._candidate_matches_process_reference(
+                {"id_processo_ref": "PROC-01@@99"},
+                processo,
+            )
+        )
     def test_interview_update_schema_accepts_final_statuses(self):
         payload = InterviewUpdateRequest(status_entrevista="Banco de talentos")
         self.assertEqual(payload.status_entrevista, "Banco de talentos")

@@ -50,6 +50,7 @@ import {
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
 import { obterReferenciaProcesso } from '../../shared/process-reference.js';
+import { PainelAnaliseCurriculoIa } from './analise-curriculo-ia.js';
 
 function normalizarTexto(valor) {
   return String(valor || '')
@@ -1609,6 +1610,11 @@ export function TelaDetalhesCandidato({ controlador }) {
           </div>
         </div>
       </${SectionCard}>
+
+      <${PainelAnaliseCurriculoIa}
+        candidato=${candidato}
+        podeAnalisar=${controlador?.possuiPermissao?.('candidatos.avaliar_curriculo')}
+      />
 
       <${SectionCard} title="Resultados da prova" className="rh-section-card--flat">
         <div class="table-responsive">

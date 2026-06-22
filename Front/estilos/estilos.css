@@ -2,4 +2,6 @@
 @import url('./base.css');
 @import url('./layout.css');
 @import url('./screens.css');
+@import url('./process-details.css');
+@import url('./exam-steps.css');
 @import url('./print.css');

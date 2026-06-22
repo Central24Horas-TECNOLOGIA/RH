@@ -2,7 +2,7 @@
 
 ## Banco esperado
 
-O projeto usa SQL Server/SQL Server Express. As configurações são lidas por `.env`, `config.ini` ou variáveis de ambiente.
+O projeto usa SQL Server/SQL Server Express. As configurações são lidas por `.env` ou variáveis de ambiente.
 
 Variáveis principais:
 

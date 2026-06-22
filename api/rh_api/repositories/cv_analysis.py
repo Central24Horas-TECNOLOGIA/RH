@@ -863,16 +863,64 @@ class CvAnalysisRepositoryMixin:
                 else normalize_text(row.get("vaga"))
             ) or "Banco de Talentos"
 
-            caminho_arquivo = Path(normalize_text(row.get("caminho_arquivo")))
-            if not caminho_arquivo.exists():
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Currículo não encontrado para este candidato.")
+            caminho_texto = normalize_text(row.get("caminho_arquivo"))
+            caminho_arquivo = Path(caminho_texto) if caminho_texto else None
+            nome_arquivo_cv = normalize_text(row.get("nome_arquivo_original"))
+            tipo_arquivo_cv = normalize_text(row.get("tipo_arquivo"))
+            content = b""
 
-            content = caminho_arquivo.read_bytes()
+            if caminho_arquivo and caminho_arquivo.is_file():
+                try:
+                    content = caminho_arquivo.read_bytes()
+                except OSError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Não foi possível ler o currículo anexado.",
+                    ) from exc
+            else:
+                id_pre_analise_arquivo = (
+                    int(safe_id_teste[3:])
+                    if safe_id_teste.upper().startswith("CV-") and safe_id_teste[3:].isdigit()
+                    else 0
+                )
+                cursor.execute(
+                    """
+                    SELECT TOP 1 nome_arquivo, mime_type, arquivo_original_base64
+                    FROM cv_pre_analises
+                    WHERE id_pre_analise = ?
+                       OR (? <> '' AND LOWER(LTRIM(RTRIM(ISNULL(email, '')))) = LOWER(?))
+                    ORDER BY id_pre_analise DESC
+                    """,
+                    (
+                        id_pre_analise_arquivo,
+                        normalize_text(row.get("email")),
+                        normalize_text(row.get("email")),
+                    ),
+                )
+                pre_rows = rows_to_dicts(cursor, cursor.fetchall())
+                pre_analysis = pre_rows[0] if pre_rows else {}
+                encoded = normalize_text(pre_analysis.get("arquivo_original_base64"))
+                if encoded:
+                    try:
+                        content = base64.b64decode(encoded, validate=True)
+                    except Exception as exc:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="O currículo armazenado está corrompido e precisa ser reenviado.",
+                        ) from exc
+                    nome_arquivo_cv = normalize_text(pre_analysis.get("nome_arquivo")) or nome_arquivo_cv
+                    tipo_arquivo_cv = normalize_text(pre_analysis.get("mime_type")) or tipo_arquivo_cv
+
+            if not content:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Currículo não encontrado para este candidato. Reenvie o arquivo e tente novamente.",
+                )
             try:
                 texto_extraido = extract_text_from_uploaded_file(
-                    row.get("nome_arquivo_original") or caminho_arquivo.name,
+                    nome_arquivo_cv or "curriculo.pdf",
                     content,
-                    row.get("tipo_arquivo") or "",
+                    tipo_arquivo_cv,
                 )
             except CvTextExtractionError as exc:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.user_message) from exc
@@ -888,7 +936,7 @@ class CvAnalysisRepositoryMixin:
             nome_detectado = extract_candidate_name_details(
                 texto_normalizado,
                 fallback_name=fallback_nome,
-                filename=row.get("nome_arquivo_original") or caminho_arquivo.name,
+                filename=nome_arquivo_cv or "curriculo.pdf",
             )
             nome_candidato = nome_detectado.get("nome") or fallback_nome
             email = normalize_text(row.get("email")) or extract_email(texto_normalizado)
@@ -955,8 +1003,8 @@ class CvAnalysisRepositoryMixin:
                         avaliacao["slug"],
                         serialize_cv_problems(avaliacao),
                         texto_normalizado,
-                        row.get("nome_arquivo_original") or caminho_arquivo.name,
-                        row.get("tipo_arquivo") or "application/octet-stream",
+                        nome_arquivo_cv or "curriculo.pdf",
+                        tipo_arquivo_cv or "application/octet-stream",
                         arquivo_original_base64,
                         id_pre_analise,
                     ),
@@ -989,8 +1037,8 @@ class CvAnalysisRepositoryMixin:
                         avaliacao["slug"],
                         serialize_cv_problems(avaliacao),
                         texto_normalizado,
-                        row.get("nome_arquivo_original") or caminho_arquivo.name,
-                        row.get("tipo_arquivo") or "application/octet-stream",
+                        nome_arquivo_cv or "curriculo.pdf",
+                        tipo_arquivo_cv or "application/octet-stream",
                         arquivo_original_base64,
                         normalize_text(row.get("origem")) or "Pagina de inscricao",
                     ),
@@ -1206,7 +1254,7 @@ class CvAnalysisRepositoryMixin:
                     (
                         1 if manual_override else 0,
                         effective_origin,
-                        str(row.get("score_final") or "").replace(".", ","),
+                        (str(row.get("score_final")).replace(".", ",") if row.get("score_final") is not None else ""),
                         1 if is_indication else 0,
                         indication_type,
                         indication_type,
@@ -1269,7 +1317,11 @@ class CvAnalysisRepositoryMixin:
                     "nome_candidato": row.get("nome_candidato"),
                     "vaga": processo.get("vaga") or "",
                     "status_candidato": effective_status,
-                    "pontuacao_final": str(row.get("score_final") or "").replace(".", ","),
+                    "pontuacao_final": (
+                        str(row.get("score_final")).replace(".", ",")
+                        if row.get("score_final") is not None
+                        else ""
+                    ),
                     "data_prova": datetime.now().isoformat(),
                     "origem": effective_origin,
                     "etapa_pipeline": "Prova" if effective_status == "Qualificado" else "Triagem",

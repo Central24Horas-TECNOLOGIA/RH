@@ -52,6 +52,6 @@ Recomendações:
 |---|---|
 | API fora | Verificar serviço, venv, porta e logs. |
 | SQL fora | Testar ODBC, rede, usuário e permissões. |
-| E-mail falha | Validar config.ini, secret, permissões e protocolo. |
+| E-mail falha | Validar `.env`, segredo, permissões e protocolo. |
 | Anexo falha | Conferir caminho e permissões de pasta. |
 | Prova não salva | Preservar tela e coletar logs/console. |

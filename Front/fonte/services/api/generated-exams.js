@@ -21,6 +21,24 @@ export async function criarProvaGerada(payload) {
   return resultado;
 }
 
+export async function atualizarProvaGerada(idProva, payload) {
+  const resultado = await requisitar(`/generated-exams/${encodeURIComponent(idProva)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos');
+  return resultado;
+}
+
+export async function deletarProvaGerada(idProva) {
+  const resultado = await requisitar(`/generated-exams/${encodeURIComponent(idProva)}`, {
+    method: 'DELETE',
+  });
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos');
+  return resultado;
+}
+
 export async function lerProvaGerada(idProva) {
   return requisitar(`/generated-exams/${encodeURIComponent(idProva)}`);
 }

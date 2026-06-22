@@ -10,9 +10,11 @@ from ..services.interviews import build_interview_message, normalize_interview_s
 from ..services.pipeline import infer_pipeline_stage
 from ..services.process_flow import (
     CANDIDATE_STATUS_CONFIRMED,
+    CANDIDATE_STATUS_ELIMINATED,
     CANDIDATE_STATUS_PENDING_CONFIRMATION,
     CANDIDATE_STATUS_RESCHEDULED,
     CANDIDATE_STATUS_SCHEDULED,
+    CANDIDATE_STATUS_WITHDREW,
     build_process_closed_message,
     canonicalize_candidate_status,
     is_process_closed,
@@ -565,9 +567,11 @@ class InterviewRepositoryMixin:
                         s.inicio AS slot_inicio,
                         s.fim AS slot_fim,
                         s.status_slot,
-                        s.capacidade_total AS slot_capacidade_total
+                        s.capacidade_total AS slot_capacidade_total,
+                        cp.status_candidato AS status_candidato_processo
                     FROM entrevistas_agendadas e
                     LEFT JOIN entrevista_slots s ON s.id_slot = e.id_slot
+                    LEFT JOIN candidatos_processos cp ON cp.id_registro = e.id_registro
                     ORDER BY CASE WHEN e.data_entrevista IS NULL THEN 1 ELSE 0 END, e.data_entrevista ASC, e.id_entrevista DESC
                     """
                 )
@@ -600,6 +604,14 @@ class InterviewRepositoryMixin:
                     ):
                         continue
                     if status_filter and status_filter != normalize_compare_text(enriched.get("status_entrevista")):
+                        continue
+                    if canonicalize_candidate_status(enriched.get("status_entrevista")) in {
+                        CANDIDATE_STATUS_ELIMINATED,
+                        CANDIDATE_STATUS_WITHDREW,
+                    } or canonicalize_candidate_status(enriched.get("status_candidato_processo")) in {
+                        CANDIDATE_STATUS_ELIMINATED,
+                        CANDIDATE_STATUS_WITHDREW,
+                    }:
                         continue
 
                     if search_filter:
@@ -771,19 +783,33 @@ class InterviewRepositoryMixin:
                 id_entrevista = int(row[0])
                 self._occupy_slot(cursor, id_slot, id_entrevista)
 
+                candidate_target_status = (
+                    CANDIDATE_STATUS_ELIMINATED
+                    if canonicalize_candidate_status(interview_status) == CANDIDATE_STATUS_WITHDREW
+                    else interview_status
+                )
                 self._apply_candidate_status_update(
                     cursor,
                     current_row=candidate_row,
-                    new_status=interview_status,
+                    new_status=candidate_target_status,
                     new_stage=infer_pipeline_stage(
-                        interview_status,
+                        candidate_target_status,
                         candidate_row.get("origem"),
                         current_stage=candidate_row.get("etapa_pipeline"),
                     ),
                     data_movimentacao=interview_date.isoformat()
                     if isinstance(interview_date, datetime)
                     else datetime.now().isoformat(),
+                    approval_payload=(
+                        {
+                            "motivo_eliminacao": "Desistência do candidato",
+                            "etapa_eliminacao": "Entrevista",
+                        }
+                        if canonicalize_candidate_status(interview_status) == CANDIDATE_STATUS_WITHDREW
+                        else None
+                    ),
                 )
+                self._refresh_slot_status(cursor, id_slot)
 
                 self._upsert_candidate_profile(
                     cursor,
@@ -990,17 +1016,31 @@ class InterviewRepositoryMixin:
                     )
                     candidate_rows = rows_to_dicts(cursor, cursor.fetchall())
                     candidate_row = candidate_rows[0] if candidate_rows else None
-                    if candidate_row and canonicalize_candidate_status(candidate_row.get("status_candidato")) != canonicalize_candidate_status(interview_status):
+                    candidate_target_status = (
+                        CANDIDATE_STATUS_ELIMINATED
+                        if canonicalize_candidate_status(interview_status) == CANDIDATE_STATUS_WITHDREW
+                        else interview_status
+                    )
+                    if candidate_row and canonicalize_candidate_status(candidate_row.get("status_candidato")) != canonicalize_candidate_status(candidate_target_status):
                         self._apply_candidate_status_update(
                             cursor,
                             current_row=candidate_row,
-                            new_status=interview_status,
+                            new_status=candidate_target_status,
                             new_stage=infer_pipeline_stage(
-                                interview_status,
+                                candidate_target_status,
                                 candidate_row.get("origem"),
                                 current_stage=candidate_row.get("etapa_pipeline"),
                             ),
                             data_movimentacao=interview_date.isoformat() if isinstance(interview_date, datetime) else str(interview_date),
+                            approval_payload=(
+                                {
+                                    "motivo_eliminacao": "Desistência do candidato",
+                                    "etapa_eliminacao": "Entrevista",
+                                }
+                                if candidate_target_status == CANDIDATE_STATUS_ELIMINATED
+                                and canonicalize_candidate_status(interview_status) == CANDIDATE_STATUS_WITHDREW
+                                else None
+                            ),
                         )
                 conn.commit()
                 logger.info("Entrevista %s atualizada para o status '%s'.", id_entrevista, interview_status)

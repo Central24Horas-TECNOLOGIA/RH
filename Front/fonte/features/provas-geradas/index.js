@@ -14,6 +14,7 @@ import {
   registrarHistoricoPersonalizacao,
 } from '../prova/services/personalizacao-inteligente.js';
 import {
+  atualizarProvaGerada,
   cancelarProvaGerada,
   criarProvaGerada,
   lerProvaGerada,
@@ -45,6 +46,7 @@ const STATUS_APTOS_GERAR_PROVA = new Set([
   'Em avaliacao',
   'Pendente de prova',
   'Confirmado',
+  'Reagendado',
 ]);
 
 const OPCOES_NIVEL = [
@@ -239,7 +241,8 @@ function inferirPerfilOperacao(formulario = {}) {
 }
 
 function montarFormularioInicial(contexto = {}) {
-  const candidato = contexto.candidato || {};
+  const provaEditar = contexto.provaEditar || {};
+  const candidato = { ...(contexto.candidato || {}), ...provaEditar };
   const processo = contexto.processo || {};
   const vaga = normalizarTexto(candidato.vaga || processo.vaga || '');
   const opcaoVaga = obterOpcaoVaga(vaga);
@@ -264,8 +267,8 @@ function montarFormularioInicial(contexto = {}) {
 
   return {
     nome_candidato: normalizarTexto(candidato.nome_candidato || candidato.nome || candidato.name || ''),
-    email: normalizarTexto(candidato.email || candidato.email_candidato || ''),
-    telefone: normalizarTexto(candidato.telefone || candidato.whatsapp || candidato.celular || ''),
+    email: normalizarTexto(candidato.email || candidato.email_acesso || candidato.email_candidato || ''),
+    telefone: normalizarTexto(candidato.telefone || candidato.telefone_acesso || candidato.whatsapp || candidato.celular || ''),
     cpf: normalizarTexto(candidato.cpf || ''),
     id_teste: normalizarTexto(candidato.id_teste || ''),
     id_registro: candidato.id_registro || null,
@@ -292,7 +295,7 @@ function montarFormularioInicial(contexto = {}) {
     ),
     trilha,
     nivel,
-    tempo_total: Number(candidato.time || processo.tempo_prova || processo.tempo_minutos || 40),
+    tempo_total: Number(candidato.tempo_total || candidato.time || processo.tempo_prova || processo.tempo_minutos || 40),
     quantidade_questoes: '',
     redacao_obrigatoria: true,
     excel_obrigatorio: false,
@@ -302,15 +305,15 @@ function montarFormularioInicial(contexto = {}) {
     tipos_atendimento: [],
     tipo_atendimento_outro: '',
     nivel_personalizacao: 'situacional',
-    observacoes_internas_rh: normalizarTexto(processo.observacoes_internas_rh || ''),
-    tom_prova: 'Humanizado',
+    observacoes_internas_rh: normalizarTexto(candidato.configuracao?.observacoes_internas_rh || processo.observacoes_internas_rh || ''),
+    tom_prova: normalizarTexto(candidato.configuracao?.personalizacao?.tom_prova || 'Humanizado'),
     situacao_pratica_operacao: normalizarTexto(
       candidato.situacao_pratica_operacao ||
         processo.situacao_pratica_operacao ||
         processo.contexto_vaga ||
         '',
     ),
-    expira_em: '',
+    expira_em: normalizarTexto(candidato.expira_em || ''),
   };
 }
 
@@ -547,6 +550,9 @@ export function ModalGerarProva({
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const candidatosElegiveis = Array.isArray(contexto.candidatosElegiveis)
+    ? contexto.candidatosElegiveis
+    : [];
 
   useEffect(() => {
     if (!aberto) return;
@@ -609,6 +615,15 @@ export function ModalGerarProva({
       ...(campo === 'area_prova' ? { trilha: normalizarTrilha(valor) } : {}),
     }));
     setErro('');
+  };
+
+  const selecionarCandidato = (identificador) => {
+    const candidato = candidatosElegiveis.find(
+      (item) => String(item.id_registro || item.id_teste || '') === String(identificador || ''),
+    );
+    setFormulario(montarFormularioInicial({ ...contexto, candidato: candidato || {} }));
+    setErro('');
+    setResultado(null);
   };
 
   const montarDadosPersonalizacao = () => {
@@ -683,7 +698,14 @@ export function ModalGerarProva({
       setErro('Selecione cargo/vaga, área, nível e tempo com uma configuração de prova válida.');
       return;
     }
-    if (contexto.candidato && !statusPermiteGerarProva(contexto.candidato)) {
+    const candidatoSelecionado = contexto.candidato || candidatosElegiveis.find(
+      (item) => String(item.id_registro || item.id_teste || '') === String(formulario.id_registro || formulario.id_teste || ''),
+    );
+    if (candidatosElegiveis.length && !candidatoSelecionado) {
+      setErro('Selecione o candidato que receberá a prova.');
+      return;
+    }
+    if (!contexto.provaEditar && candidatoSelecionado && !statusPermiteGerarProva(candidatoSelecionado)) {
       setErro('O status atual do candidato não está apto para gerar prova.');
       return;
     }
@@ -783,7 +805,9 @@ export function ModalGerarProva({
     setSalvando(true);
     setErro('');
     try {
-      const resposta = await criarProvaGerada(payload);
+      const resposta = contexto.provaEditar?.id_prova
+        ? await atualizarProvaGerada(contexto.provaEditar.id_prova, payload)
+        : await criarProvaGerada(payload);
       if (resultadoPersonalizacao?.historico) {
         registrarHistoricoPersonalizacao(resultadoPersonalizacao.historico);
       }
@@ -799,8 +823,8 @@ export function ModalGerarProva({
   return html`
     <${ModalPadrao}
       aberto=${aberto}
-      titulo="Gerar prova"
-      subtitulo="Crie uma prova rastreável para execução exclusiva no Conecta Provas."
+      titulo=${contexto.provaEditar ? 'Editar prova' : 'Gerar prova'}
+      subtitulo=${contexto.provaEditar ? 'Ajuste os parâmetros antes de o candidato iniciar.' : 'Crie uma prova rastreável para execução exclusiva no Conecta Provas.'}
       className="generated-exam-modal-dialog"
       onClose=${onClose}
     >
@@ -809,15 +833,15 @@ export function ModalGerarProva({
         ${resultado
           ? html`
               <div class="alert alert-success">
-                Prova gerada com sucesso. Código de acesso:
+                ${contexto.provaEditar ? 'Prova atualizada com sucesso.' : 'Prova gerada com sucesso. Código de acesso:'}
                 <strong>${resultado.codigo_acesso}</strong>
-                <button
+                ${!contexto.provaEditar ? html`<button
                   type="button"
                   class="btn btn-sm btn-outline-success ms-2"
                   onClick=${() => copiarTexto(resultado.codigo_acesso)}
                 >
                   Copiar código
-                </button>
+                </button>` : null}
               </div>
             `
           : null}
@@ -828,6 +852,26 @@ export function ModalGerarProva({
           className="rh-section-card--flat"
         >
           <div class="row g-3">
+            ${candidatosElegiveis.length ? html`
+              <div class="col-md-12">
+                <label class="form-label">Selecionar candidato apto</label>
+                <select
+                  class="form-select"
+                  value=${formulario.id_registro || formulario.id_teste || ''}
+                  onChange=${(event) => selecionarCandidato(event.target.value)}
+                >
+                  <option value="">Selecione o candidato...</option>
+                  ${candidatosElegiveis.map((candidato) => html`
+                    <option
+                      key=${candidato.id_registro || candidato.id_teste}
+                      value=${candidato.id_registro || candidato.id_teste}
+                    >
+                      ${candidato.nome_candidato || '-'} — ${candidato.status_entrevista || candidato.status_fluxo || candidato.status_candidato || '-'}
+                    </option>
+                  `)}
+                </select>
+              </div>
+            ` : null}
             <div class="col-md-6">
               <label class="form-label">Nome completo</label>
               <input
@@ -874,7 +918,7 @@ export function ModalGerarProva({
               <input
                 class="form-control"
                 readonly
-                value=${contexto.candidato?.status_fluxo || contexto.candidato?.status_candidato || contexto.candidato?.status_entrevista || 'Prova avulsa'}
+                value=${candidatosElegiveis.find((item) => String(item.id_registro || item.id_teste || '') === String(formulario.id_registro || formulario.id_teste || ''))?.status_entrevista || contexto.candidato?.status_fluxo || contexto.candidato?.status_candidato || contexto.candidato?.status_entrevista || (contexto.provaEditar ? 'Prova não iniciada' : 'Prova avulsa')}
               />
             </div>
           </div>
@@ -1124,7 +1168,11 @@ export function ModalGerarProva({
           Cancelar
         </button>
         <button type="button" class="btn btn-primary" disabled=${salvando || !!resultado} onClick=${gerar}>
-          ${salvando ? 'Gerando...' : resultado ? 'Prova gerada' : 'Gerar prova'}
+          ${salvando
+            ? contexto.provaEditar ? 'Salvando...' : 'Gerando...'
+            : resultado
+              ? contexto.provaEditar ? 'Prova atualizada' : 'Prova gerada'
+              : contexto.provaEditar ? 'Salvar alterações' : 'Gerar prova'}
         </button>
       </footer>
     </${ModalPadrao}>

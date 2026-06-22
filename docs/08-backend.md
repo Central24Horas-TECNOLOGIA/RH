@@ -49,9 +49,7 @@ O carregamento segue esta prioridade:
 
 1. Variáveis de ambiente já existentes.
 2. `.env` em `api/` ou na raiz do projeto.
-3. `config.ini` indicado por `RH_CONFIG_INI`.
-4. `config.ini` na raiz do projeto ou pasta superior.
-5. Defaults internos de desenvolvimento.
+3. Defaults internos seguros.
 
 ## E-mail Microsoft 365
 

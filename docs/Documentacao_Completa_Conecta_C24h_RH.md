@@ -235,7 +235,7 @@ SQL Server + armazenamento local de arquivos
 | `RH_AUTH_USER` / `RH_AUTH_PASSWORD` | Login local do RH. |
 | `RH_AUTH_TOKEN_SECRET` | Segredo do token. |
 | `RH_CORS_ALLOW_ORIGINS` | Origens permitidas. |
-| `RH_CONFIG_INI` | Caminho opcional para config central. |
+| `RH_API_HOST` / `RH_API_PORT` | Host e porta do servidor unificado. |
 | `RH_EMAIL_CLIENT_SECRET` | Segredo da integração de e-mail, idealmente fora do arquivo. |
 
 ## Como rodar
@@ -258,13 +258,13 @@ python -m http.server 5500
 Acesso:
 
 ```text
-http://127.0.0.1:5500/Front/index.html#/login
+http://127.0.0.1:8000/#/login
 ```
 
 ## Implantação recomendada
 
 1. Separar pasta de código de pasta de anexos/CVs.
-2. Configurar `.env`/`config.ini` no servidor.
+2. Configurar `.env` no servidor.
 3. Criar venv e instalar dependências.
 4. Validar conexão ODBC com SQL Server.
 5. Subir API com Uvicorn/serviço.
@@ -936,7 +936,7 @@ RH/
 |---|---|
 | `api/rh_api/__init__.py` | arquivo de apoio/configuração |
 | `api/rh_api/auth.py` | classe `AuthenticatedUser`, função `_b64encode`, função `_b64decode`, função `_sign`, função `authenticate_credentials`, função `validate_access_token` |
-| `api/rh_api/config.py` | função `_load_dotenv`, função `_load_runtime_ini`, função `_ini_value`, função `_ini_bool`, função `_split_csv`, função `_read_bool_env`, classe `Settings`, função `get_settings` |
+| `api/rh_api/config.py` | leitura de `.env`, leitores tipados, classe `Settings` e função `get_settings` |
 | `api/rh_api/db.py` | função `_bool_to_connection_value`, função `build_connection_string`, função `get_connection` |
 | `api/rh_api/dependencies.py` | função `get_repository`, função `get_current_user` |
 | `api/rh_api/logging_config.py` | função `configure_logging` |
@@ -1241,7 +1241,7 @@ RH/
 - `Front/fonte/app/controlador-aplicacao.js`: estado e orquestração do frontend.
 - `Front/fonte/servico-api.js`: fachada de compatibilidade da API no frontend.
 - `api/rh_api/main.py`: configuração da FastAPI, CORS, handlers e routers.
-- `api/rh_api/config.py`: leitura de `.env`, `config.ini` e variáveis.
+- `api/rh_api/config.py`: leitura centralizada de `.env` e variáveis.
 - `api/rh_api/repositories/bootstrap.py`: evolução de schema.
 - `api/rh_api/repositories/db_repository.py`: fachada legada; evitar colocar regra nova nela quando existir repository específico.
 
@@ -1354,7 +1354,7 @@ Recomendações:
 |---|---|
 | API fora | Verificar serviço, venv, porta e logs. |
 | SQL fora | Testar ODBC, rede, usuário e permissões. |
-| E-mail falha | Validar config.ini, secret, permissões e protocolo. |
+| E-mail falha | Validar `.env`, segredo, permissões e protocolo. |
 | Anexo falha | Conferir caminho e permissões de pasta. |
 | Prova não salva | Preservar tela e coletar logs/console. |
 

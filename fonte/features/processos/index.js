@@ -108,6 +108,9 @@ const MOTIVOS_ELIMINACAO = [
   'Eliminado na entrevista',
   'Candidato não compareceu',
   'Optou por não prosseguir',
+  'Baixa aderência a vaga',
+  'Não atendeu aos requisitos',
+  'Elimado pela baixa nota nas provas'
 ];
 const ETAPAS_ELIMINACAO_ENTREVISTA = [
   'Com o Gestor do RH',
@@ -220,11 +223,11 @@ function obterDataFimSlotEntrevista(slot) {
 function obterVagasDisponiveisSlotEntrevista(slot) {
   return Number(
     slot?.disponiveis ??
-      slot?.vagas_restantes ??
-      slot?.available_slots ??
-      slot?.capacity ??
-      slot?.capacidade ??
-      1,
+    slot?.vagas_restantes ??
+    slot?.available_slots ??
+    slot?.capacity ??
+    slot?.capacidade ??
+    1,
   );
 }
 
@@ -2584,48 +2587,48 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       >
         <div class="process-summary-grid">
           ${[
-            {
-              icon: 'flag',
-              label: 'Status',
-              value: processo?.status || '-',
-            },
-            {
-              icon: 'work',
-              label: 'Cargo/Vaga',
-              value: processo?.vaga || '-',
-            },
-            {
-              icon: 'groups',
-              label: 'Vagas',
-              value: processo?.quantidade_vagas || 0,
-            },
-            {
-              icon: 'person_search',
-              label: 'Candidatos no processo',
-              value: candidatosOperacionais.length || 0,
-            },
-            {
-              icon: 'verified',
-              label: 'Aprovados',
-              value: candidatosAprovados.length || 0,
-            },
-            {
-              icon: 'event_available',
-              label: 'Entrevistas agendadas',
-              value: entrevistas.length || resumo?.entrevistas || 0,
-            },
-            {
-              icon: 'calendar_month',
-              label: 'Abertura',
-              value: formatarDataCurta(processo?.data_criacao),
-            },
-            {
-              icon: 'event_busy',
-              label: 'Encerramento',
-              value: formatarDataCurta(processo?.data_encerramento),
-            },
-          ].map(
-            (item) => html`
+      {
+        icon: 'flag',
+        label: 'Status',
+        value: processo?.status || '-',
+      },
+      {
+        icon: 'work',
+        label: 'Cargo/Vaga',
+        value: processo?.vaga || '-',
+      },
+      {
+        icon: 'groups',
+        label: 'Vagas',
+        value: processo?.quantidade_vagas || 0,
+      },
+      {
+        icon: 'person_search',
+        label: 'Candidatos no processo',
+        value: candidatosOperacionais.length || 0,
+      },
+      {
+        icon: 'verified',
+        label: 'Aprovados',
+        value: candidatosAprovados.length || 0,
+      },
+      {
+        icon: 'event_available',
+        label: 'Entrevistas agendadas',
+        value: entrevistas.length || resumo?.entrevistas || 0,
+      },
+      {
+        icon: 'calendar_month',
+        label: 'Abertura',
+        value: formatarDataCurta(processo?.data_criacao),
+      },
+      {
+        icon: 'event_busy',
+        label: 'Encerramento',
+        value: formatarDataCurta(processo?.data_encerramento),
+      },
+    ].map(
+      (item) => html`
               <article class="process-summary-card summary-metric-card" key=${item.label}>
                 <span class="material-symbols-outlined summary-metric-icon">
                   ${item.icon}
@@ -2636,7 +2639,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                 </div>
               </article>
             `,
-          )}
+    )}
         </div>
 
         <div class="process-summary-secondary process-meta-row">
@@ -2652,12 +2655,12 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             <span>Nota de corte</span>
             <strong>
               ${Number(processo?.usa_nota_corte || 0)
-                ? processo?.nota_corte || '-'
-                : 'Não'}
+      ? processo?.nota_corte || '-'
+      : 'Não'}
             </strong>
           </span>
           ${processo?.link_agendamento
-            ? html`
+      ? html`
                 <a
                   href=${processo.link_agendamento}
                   target="_blank"
@@ -2668,7 +2671,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                   <strong>Abrir link</strong>
                 </a>
               `
-            : html`
+      : html`
                 <span class="process-meta-chip">
                   <span>Link legado</span>
                   <strong>Não informado</strong>
@@ -3006,9 +3009,9 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             </thead>
             <tbody>
               ${candidatosInscritos.length
-      ? candidatosInscritos.map((candidato) => {
-        const analise = encontrarAnaliseDoInscrito(candidato);
-        return html`
+        ? candidatosInscritos.map((candidato) => {
+          const analise = encontrarAnaliseDoInscrito(candidato);
+          return html`
                       <tr key=${candidato.id_registro}>
                         <td>
                           <strong>${candidato.nome_candidato || '-'}</strong>
@@ -3032,8 +3035,8 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                             ${analise?.classificacao || candidato.status_fluxo || '-'}
                           </span>
                           ${analise?.classificacao
-            ? html`<div class="small text-muted mt-1">CV analisado</div>`
-            : html`<div class="small text-muted mt-1">Aguardando análise</div>`}
+              ? html`<div class="small text-muted mt-1">CV analisado</div>`
+              : html`<div class="small text-muted mt-1">Aguardando análise</div>`}
                         </td>
                         <td>${analise?.score_final ?? '-'}</td>
                         <td class="text-end">
@@ -3054,7 +3057,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                               ${processoEncerrado ? 'Processo encerrado' : 'Analisar CV'}
                             </button>
                             ${analise
-            ? html`
+              ? html`
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-dark"
@@ -3063,12 +3066,12 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                                     Resultado
                                   </button>
                                 `
-            : null}
+              : null}
                             ${analise &&
-            isPreAnaliseNaoQualificada(analise) &&
-            Number(analise.ja_adicionado_ao_processo || 1) !== 1 &&
-            !processoEncerrado
-            ? html`
+              isPreAnaliseNaoQualificada(analise) &&
+              Number(analise.ja_adicionado_ao_processo || 1) !== 1 &&
+              !processoEncerrado
+              ? html`
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-warning"
@@ -3084,13 +3087,13 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                                     Banco de Talentos
                                   </button>
                                 `
-            : null}
+              : null}
                           </div>
                         </td>
                       </tr>
                     `;
-      })
-      : html`
+        })
+        : html`
                     <${TabelaVazia}
                       colunas=${7}
                       texto="Nenhum candidato inscrito pela página pública."
@@ -3672,8 +3675,8 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                             <td>
                               <strong>${entrevista.nome_candidato || '-'}</strong>
                               ${entrevista.observacoes_rh
-                                ? html`<small>${entrevista.observacoes_rh}</small>`
-                                : null}
+              ? html`<small>${entrevista.observacoes_rh}</small>`
+              : null}
                             </td>
                             <td>${formatarDataCurta(entrevista.data_entrevista)}</td>
                             <td>${formatarHoraCurta(entrevista.data_entrevista)}</td>
@@ -3691,13 +3694,13 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                                   type="button"
                                   class="btn btn-sm btn-outline-secondary rh-action-btn"
                                   onClick=${() =>
-                                    copiarTexto(entrevista.mensagem_base || '')
-                                      .then(() =>
-                                        window.alert('Mensagem copiada para a area de transferencia.'),
-                                      )
-                                      .catch(() =>
-                                        window.alert('Nao foi possivel copiar a mensagem automaticamente.'),
-                                      )}
+              copiarTexto(entrevista.mensagem_base || '')
+                .then(() =>
+                  window.alert('Mensagem copiada para a area de transferencia.'),
+                )
+                .catch(() =>
+                  window.alert('Nao foi possivel copiar a mensagem automaticamente.'),
+                )}
                                   >
                                     <span class="material-symbols-outlined">content_copy</span>
                                   Copiar
@@ -3800,7 +3803,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           : 'Selecione um slot'}
                       </option>
                       ${slotsDisponiveisEntrevista.map(
-          (slot) => html`
+            (slot) => html`
                           <option
                             key=${obterIdSlotEntrevista(slot)}
                             value=${obterIdSlotEntrevista(slot)}
@@ -3808,10 +3811,10 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                             ${formatarHorarioSlotEntrevista(slot)}
                           </option>
                         `,
-        )}
+          )}
                     </select>
                     ${!carregandoSlotsEntrevista &&
-        !slotsDisponiveisEntrevista.length
+          !slotsDisponiveisEntrevista.length
           ? html`
                             <div class="form-text">
                               Nenhum horário disponível para este processo.
@@ -3842,29 +3845,29 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           setFormularioEntrevista({
             ...formularioEntrevista,
             email: event.target.value,
-                      })}
+          })}
                     />
                   </div>
                   <div class="col-md-12">
                     <label class="form-label">Documentos solicitados</label>
                     <div class="row g-2">
                       ${DOCUMENTOS_APROVACAO_PADRAO.map(
-                        (documento) => html`
+            (documento) => html`
                           <label class="form-check col-md-6" key=${documento}>
                             <input
                               class="form-check-input"
                               type="checkbox"
                               checked=${documentosEntrevista.includes(documento)}
                               onChange=${(event) =>
-                                alternarDocumentoEntrevista(
-                                  documento,
-                                  event.target.checked,
-                                )}
+                alternarDocumentoEntrevista(
+                  documento,
+                  event.target.checked,
+                )}
                             />
                             <span class="form-check-label">${documento}</span>
                           </label>
                         `,
-                      )}
+          )}
                     </div>
                   </div>
                   <div class="col-md-12">
@@ -3960,7 +3963,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         onClose=${() => setEliminacaoSelecionada(null)}
       >
         ${eliminacaoSelecionada
-          ? html`
+      ? html`
               <div class="rh-details-body">
                 <div class="row g-3">
                   <div class="col-md-12">
@@ -3977,49 +3980,49 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                       class="form-select"
                       value=${formularioEliminacao.motivo_eliminacao}
                       onChange=${(event) =>
-                        setFormularioEliminacao({
-                          motivo_eliminacao: event.target.value,
-                          etapa_eliminacao:
-                            event.target.value === 'Eliminado na entrevista'
-                              ? formularioEliminacao.etapa_eliminacao
-                              : '',
-                        })}
+          setFormularioEliminacao({
+            motivo_eliminacao: event.target.value,
+            etapa_eliminacao:
+              event.target.value === 'Eliminado na entrevista'
+                ? formularioEliminacao.etapa_eliminacao
+                : '',
+          })}
                     >
                       <option value="">Selecione...</option>
                       ${MOTIVOS_ELIMINACAO.map(
-                        (motivo) => html`
+            (motivo) => html`
                           <option key=${motivo} value=${motivo}>${motivo}</option>
                         `,
-                      )}
+          )}
                     </select>
                   </div>
                   ${formularioEliminacao.motivo_eliminacao === 'Eliminado na entrevista'
-                    ? html`
+          ? html`
                         <div class="col-md-12">
                           <label class="form-label">Em qual entrevista?</label>
                           <select
                             class="form-select"
                             value=${formularioEliminacao.etapa_eliminacao}
                             onChange=${(event) =>
-                              setFormularioEliminacao({
-                                ...formularioEliminacao,
-                                etapa_eliminacao: event.target.value,
-                              })}
+              setFormularioEliminacao({
+                ...formularioEliminacao,
+                etapa_eliminacao: event.target.value,
+              })}
                           >
                             <option value="">Selecione...</option>
                             ${ETAPAS_ELIMINACAO_ENTREVISTA.map(
-                              (etapa) => html`
+                (etapa) => html`
                                 <option key=${etapa} value=${etapa}>${etapa}</option>
                               `,
-                            )}
+              )}
                           </select>
                         </div>
                       `
-                    : null}
+          : null}
                 </div>
                 ${erroEliminacao
-                  ? html`<div class="alert alert-warning mt-3 mb-0">${erroEliminacao}</div>`
-                  : null}
+          ? html`<div class="alert alert-warning mt-3 mb-0">${erroEliminacao}</div>`
+          : null}
               </div>
               <footer class="rh-modal-footer">
                 <button
@@ -4038,7 +4041,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                 </button>
               </footer>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
 
       <${ModalEdicaoEntrevista}
@@ -4084,25 +4087,25 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           },
           ...(canonicalizeCandidateStatus(
             detalheCandidatoSelecionado.status_fluxo ||
-              detalheCandidatoSelecionado.status_candidato,
+            detalheCandidatoSelecionado.status_candidato,
           ) === CANDIDATE_STATUS_ELIMINATED
             ? [
-                {
-                  label: 'Motivo da eliminação',
-                  value: obterMotivoEliminacao(detalheCandidatoSelecionado),
-                },
-                {
-                  label: 'Etapa da eliminação',
-                  value: detalheCandidatoSelecionado.etapa_eliminacao || '-',
-                },
-                {
-                  label: 'Data da eliminação',
-                  value: formatarDataHora(
-                    detalheCandidatoSelecionado.data_eliminacao ||
-                      detalheCandidatoSelecionado.eliminado_em,
-                  ),
-                },
-              ]
+              {
+                label: 'Motivo da eliminação',
+                value: obterMotivoEliminacao(detalheCandidatoSelecionado),
+              },
+              {
+                label: 'Etapa da eliminação',
+                value: detalheCandidatoSelecionado.etapa_eliminacao || '-',
+              },
+              {
+                label: 'Data da eliminação',
+                value: formatarDataHora(
+                  detalheCandidatoSelecionado.data_eliminacao ||
+                  detalheCandidatoSelecionado.eliminado_em,
+                ),
+              },
+            ]
             : []),
           {
             label: 'Nota',

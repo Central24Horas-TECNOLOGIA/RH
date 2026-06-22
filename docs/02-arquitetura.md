@@ -50,7 +50,7 @@ A API usa SQL Server via `pyodbc`. No startup, `bootstrap_runtime_schema(setting
 
 ## Integração com e-mail
 
-A caixa de currículos é configurável por variáveis de ambiente ou `config.ini`. O código prevê:
+A caixa de currículos é configurável por variáveis de ambiente/`.env`. O código prevê:
 
 - Microsoft 365;
 - IMAP;
