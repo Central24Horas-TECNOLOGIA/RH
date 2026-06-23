@@ -899,8 +899,19 @@ def ensure_talent_bank_table(cursor) -> None:
 
     cursor.execute(
         """
-        IF COLUMNPROPERTY(OBJECT_ID('dbo.banco_talentos'), 'id_banco', 'IsIdentity') = 0
-        BEGIN
+        SELECT COLUMNPROPERTY(
+            OBJECT_ID('dbo.banco_talentos'),
+            'id_banco',
+            'IsIdentity'
+        )
+        """
+    )
+    identity_row = cursor.fetchone()
+    id_banco_is_identity = bool(identity_row and int(identity_row[0] or 0) == 1)
+
+    if not id_banco_is_identity:
+        cursor.execute(
+            """
             DECLARE @max_id_banco INT;
             SELECT @max_id_banco = ISNULL(MAX(id_banco), 0)
             FROM dbo.banco_talentos
@@ -936,9 +947,8 @@ def ensure_talent_bank_table(cursor) -> None:
                 ALTER TABLE dbo.banco_talentos
                 ALTER COLUMN id_banco INT NOT NULL
             END
-        END
-        """
-    )
+            """
+        )
 
     cursor.execute(
         """

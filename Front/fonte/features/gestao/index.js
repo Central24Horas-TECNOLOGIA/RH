@@ -206,6 +206,16 @@ function obterClasseAlertaEmail(payload) {
   return 'alert-info';
 }
 
+function formatarPartesDataHoraEmail(valor) {
+  if (!valor) return { data: '-', hora: '' };
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return { data: String(valor), hora: '' };
+  return {
+    data: data.toLocaleDateString('pt-BR'),
+    hora: data.toLocaleTimeString('pt-BR'),
+  };
+}
+
 function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } = {}) {
   const compacto = modo !== 'completo';
   const [aberta, setAberta] = useState(true);
@@ -220,10 +230,25 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [tamanhoPagina, setTamanhoPagina] = useState(compacto ? 2 : 10);
   const [filtroTexto, setFiltroTexto] = useState('');
+  const [idsSelecionados, setIdsSelecionados] = useState([]);
 
   const paginacaoEmails = useMemo(
     () => obterItensPaginados(emails, paginaAtual, tamanhoPagina),
     [emails, paginaAtual, tamanhoPagina],
+  );
+
+  const itensSelecionados = useMemo(() => {
+    const selecionados = new Set(idsSelecionados.map(String));
+    return emails.filter((item) => selecionados.has(String(item.id)));
+  }, [emails, idsSelecionados]);
+
+  const idsPaginaAtual = useMemo(
+    () => paginacaoEmails.itens.map((item) => String(item.id)),
+    [paginacaoEmails.itens],
+  );
+
+  const todosDaPaginaSelecionados = idsPaginaAtual.length > 0 && idsPaginaAtual.every(
+    (id) => idsSelecionados.includes(id),
   );
 
   const carregarEmails = async () => {
@@ -272,6 +297,11 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
     setPaginaAtual(1);
     carregarEmails();
   }, [mostrarIgnorados, tamanhoPagina]);
+
+  useEffect(() => {
+    const idsDisponiveis = new Set(emails.map((item) => String(item.id)));
+    setIdsSelecionados((atuais) => atuais.filter((id) => idsDisponiveis.has(id)));
+  }, [emails]);
 
   const registrarErroAcao = (error, fallback) => {
     setPayloadEmail((atual) => ({
@@ -379,6 +409,54 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
     }
   };
 
+  const alternarSelecaoEmail = (item) => {
+    const id = String(item.id);
+    setIdsSelecionados((atuais) => (
+      atuais.includes(id)
+        ? atuais.filter((itemId) => itemId !== id)
+        : [...atuais, id]
+    ));
+  };
+
+  const alternarSelecaoPagina = () => {
+    setIdsSelecionados((atuais) => {
+      if (todosDaPaginaSelecionados) {
+        return atuais.filter((id) => !idsPaginaAtual.includes(id));
+      }
+      return [...new Set([...atuais, ...idsPaginaAtual])];
+    });
+  };
+
+  const ignorarEmailsSelecionados = async () => {
+    if (!itensSelecionados.length) return;
+    try {
+      await executarAcao('ignorar:massa', () => Promise.all(
+        itensSelecionados.map((item) => ignorarEmailRecebido(item.id)),
+      ));
+      setIdsSelecionados([]);
+    } catch (error) {
+      registrarErroAcao(error, 'Não foi possível ignorar os e-mails selecionados.');
+    }
+  };
+
+  const excluirEmailsSelecionados = async () => {
+    if (!itensSelecionados.length) return;
+    const quantidade = itensSelecionados.length;
+    const confirmar = window.confirm(
+      `Deseja excluir ${quantidade === 1 ? 'este e-mail' : `os ${quantidade} e-mails selecionados`}?\n\nEsta ação remove os e-mails da caixa configurada quando o IMAP permitir e também oculta os itens no sistema.`,
+    );
+    if (!confirmar) return;
+
+    try {
+      await executarAcao('excluir:massa', () => Promise.all(
+        itensSelecionados.map((item) => excluirEmailRecebido(item.id)),
+      ));
+      setIdsSelecionados([]);
+    } catch (error) {
+      registrarErroAcao(error, 'Não foi possível excluir os e-mails selecionados.');
+    }
+  };
+
   const abrirDetalhesEmail = async (item) => {
     try {
       const resposta = await lerDetalheEmailRecebido(item.id);
@@ -395,330 +473,354 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
     carregarEmails();
   };
 
+  const itemSelecionado = itensSelecionados.length === 1 ? itensSelecionados[0] : null;
+
   return html`
-    <${SectionCard}
-      className=${`mailbox-card ${compacto ? 'mailbox-card-compact' : 'mailbox-card-full'}`}
-      title=${compacto ? 'Caixa de E-mail' : ''}
-      description=${compacto
-      ? ''
-      : ''}
-      actions=${html`
-        <div class=${`mailbox-toolbar rh-email-panel-actions ${compacto ? 'mailbox-toolbar-compact' : 'mailbox-toolbar-full'}`}>
-          ${!compacto
-        ? html`
-                <form class="mailbox-filter-form d-flex gap-2 flex-wrap" onSubmit=${enviarFiltro}>
-                  <input
-  class="form-control form-control-sm rh-email-filter-input email-filter-input"
-  placeholder="Filtrar por assunto, remetente, nome ou vaga"
-  value=${filtroTexto}
-  onInput=${(event) => setFiltroTexto(event.target.value)}
-/>
-                  <button
-                    type="submit"
-                    class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
-                    disabled=${carregando}
-                  >
-                    <span class="material-symbols-outlined">search</span>
-                    Filtrar
-                  </button>
-                </form>
-              `
-        : controlador
-          ? html`
-                  <button
-                    type="button"
-                    class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
-                    onClick=${() => controlador.irParaTelaProtegida('screen-email-inbox')}
-                  >
-                    <span class="material-symbols-outlined">mail</span>
-                    Abrir caixa completa
-                  </button>
+    <div class=${`mailbox-layout ${compacto ? 'is-compact' : 'is-full'} ${itensSelecionados.length ? 'has-selection' : ''}`}>
+      <${SectionCard}
+        className=${`mailbox-card ${compacto ? 'mailbox-card-compact' : 'mailbox-card-full'}`}
+        title=${compacto ? 'Caixa de E-mail' : ''}
+        actions=${html`
+          <div class=${`mailbox-toolbar rh-email-panel-actions ${compacto ? 'mailbox-toolbar-compact' : 'mailbox-toolbar-full'}`}>
+            ${!compacto
+              ? html`
+                  <form class="mailbox-filter-form" onSubmit=${enviarFiltro}>
+                    <label class="email-search-control">
+                      <span class="material-symbols-outlined">search</span>
+                      <input
+                        class="form-control form-control-sm rh-email-filter-input email-filter-input"
+                        aria-label="Filtrar e-mails"
+                        placeholder="Filtrar por assunto, remetente, nome ou vaga"
+                        value=${filtroTexto}
+                        onInput=${(event) => setFiltroTexto(event.target.value)}
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
+                      disabled=${carregando}
+                    >
+                      <span class="material-symbols-outlined">filter_alt</span>
+                      Filtrar
+                    </button>
+                  </form>
                 `
-          : null}
+              : controlador
+                ? html`
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
+                      onClick=${() => controlador.irParaTelaProtegida('screen-email-inbox')}
+                    >
+                      <span class="material-symbols-outlined">mail</span>
+                      Abrir caixa completa
+                    </button>
+                  `
+                : null}
 
-          <label class="form-check rh-email-toggle-ignored">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              checked=${mostrarIgnorados}
-              onChange=${(event) => setMostrarIgnorados(event.target.checked)}
-            />
-            <span class="form-check-label">Mostrar ignorados/excluídos</span>
-          </label>
+            <div class="mailbox-toolbar-options">
+              <label class="form-check rh-email-toggle-ignored">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  checked=${mostrarIgnorados}
+                  onChange=${(event) => setMostrarIgnorados(event.target.checked)}
+                />
+                <span class="form-check-label">Mostrar ignorados/excluídos</span>
+              </label>
 
-          <select
-  class="form-select form-select-sm rh-email-page-size email-page-size"
-  value=${String(tamanhoPagina)}
-  onChange=${(event) => setTamanhoPagina(Number(event.target.value) || 5)}
->
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="5">5</option>
-            <option value="10">10</option>
-          </select>
-
-          <button
-            type="button"
-            class="btn btn-outline-secondary btn-sm rh-action-btn email-toolbar-btn"
-            disabled=${carregando}
-            onClick=${carregarEmails}
-          >
-            <span class="material-symbols-outlined">refresh</span>
-            ${carregando ? 'Atualizando...' : 'Atualizar'}
-          </button>
-
-          ${compacto
-        ? html`
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary btn-sm rh-action-btn email-toolbar-btn"
-                  onClick=${() => setAberta((valor) => !valor)}
+              <label class="email-page-size-label">
+                <span class="visually-hidden">Itens por página</span>
+                <select
+                  class="form-select form-select-sm rh-email-page-size email-page-size"
+                  value=${String(tamanhoPagina)}
+                  onChange=${(event) => setTamanhoPagina(Number(event.target.value) || 5)}
                 >
-                  <span class="material-symbols-outlined">
-                    ${aberta ? 'expand_less' : 'expand_more'}
-                  </span>
-                  ${aberta ? 'Recolher' : 'Expandir'}
-                </button>
-              `
-        : null}
-        </div>
-      `}
-      tourId="home-email-inbox"
-    >
-      ${aberta
-      ? html`
-            ${payloadEmail && !payloadEmail.configured
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                </select>
+              </label>
+
+              <button
+                type="button"
+                class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
+                disabled=${carregando}
+                onClick=${carregarEmails}
+              >
+                <span class="material-symbols-outlined">refresh</span>
+                ${carregando ? 'Atualizando...' : 'Atualizar'}
+              </button>
+
+              ${compacto
+                ? html`
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm rh-action-btn email-toolbar-btn"
+                      onClick=${() => setAberta((valor) => !valor)}
+                    >
+                      <span class="material-symbols-outlined">${aberta ? 'expand_less' : 'expand_more'}</span>
+                      ${aberta ? 'Recolher' : 'Expandir'}
+                    </button>
+                  `
+                : null}
+            </div>
+          </div>
+        `}
+        tourId="home-email-inbox"
+      >
+        ${aberta
           ? html`
-                  <div class="alert alert-warning mailbox-config-alert">
-                    <span class="material-symbols-outlined">error</span>
-                    <div>
-                      <strong>Caixa de e-mail corporativa ainda não configurada.</strong>
-                      <span>Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor.</span>
+              ${payloadEmail && !payloadEmail.configured
+                ? html`
+                    <div class="alert alert-warning mailbox-config-alert">
+                      <span class="material-symbols-outlined">error</span>
+                      <div>
+                        <strong>Caixa de e-mail corporativa ainda não configurada.</strong>
+                        <span>Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor.</span>
+                      </div>
                     </div>
-                  </div>
-                `
-          : payloadEmail?.message
-            ? html`<div class=${`alert ${obterClasseAlertaEmail(payloadEmail)}`}>
-                    ${payloadEmail.message}
-                  </div>`
-            : null}
+                  `
+                : payloadEmail?.message
+                  ? html`<div class=${`alert ${obterClasseAlertaEmail(payloadEmail)}`}>${payloadEmail.message}</div>`
+                  : null}
 
-            <div class="table-responsive">
-              <table class="table align-middle rh-modern-history-table rh-email-inbox-table email-table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Remetente</th>
-                    <th>Assunto</th>
-                    ${compacto
-          ? null
-          : html`
-                          <th>Nome detectado</th>
-                          <th>Vaga detectada</th>
-                          <th>Contato detectado</th>
-                        `}
-                    <th>Anexo/CV</th>
-                    <th>Status</th>
-                    <th class="text-end">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${paginacaoEmails.itens.length
-          ? paginacaoEmails.itens.map(
-            (item) => html`
-                          <tr key=${item.id} class="email-row">
-                            <td class="email-date-cell">${formatarDataHora(item.data_recebimento)}</td>
-                            <td class="email-sender-cell">
-                              <strong>${item.remetente || 'Remetente não informado'}</strong>
-                            </td>
-                            <td class="email-subject-cell">
-                              <div>${item.assunto || 'Sem assunto'}</div>
-                            </td>
-
-                            ${compacto
-                ? null
-                : html`
-                                  <td>${item.nome_detectado || '-'}</td>
-                                  <td>${item.vaga_detectada || '-'}</td>
-                                  <td>
-                                    <div>${item.telefone_detectado || '-'}</div>
-                                    <div class="small text-muted">${item.email_detectado || '-'}</div>
-                                  </td>
-                                `}
-
-                            <td class="email-attachment-cell">${item.possui_anexo ? item.nome_anexo || 'Anexo recebido' : 'Sem anexo'}</td>
-                            <td class="email-status-cell">
-                              <span class=${`process-candidate-status-badge email-status-pill ${obterClasseStatusEmail(item.status)}`}>
-                                ${item.status || 'Recebido'}
-                              </span>
-                            </td>
-                            <td class="text-end email-actions-cell">
-                              <div class="email-actions">
-                                <div class="email-actions-group email-actions-group-main">
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-dark rh-action-btn email-action-btn"
-                                    onClick=${() => abrirDetalhesEmail(item)}
-                                  >
-                                    <span class="material-symbols-outlined">visibility</span>
-                                    Ver
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-dark rh-action-btn email-action-btn"
-                                    disabled=${!item.possui_anexo ||
-                                    acaoEmAndamento === `cv:${item.id}` ||
-                                    !controlador?.possuiPermissao?.('candidatos.baixar_curriculo')}
-                                    onClick=${() => abrirCvEmail(item)}
-                                  >
-                                    <span class="material-symbols-outlined">description</span>
-                                    CV
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-primary rh-action-btn email-action-btn"
-                                    disabled=${!item.possui_anexo ||
-                                    acaoEmAndamento === `analisar:${item.id}` ||
-                                    !controlador?.possuiPermissao?.('candidatos.avaliar_curriculo')}
-                                    onClick=${() => analisarEmail(item)}
-                                  >
-                                    <span class="material-symbols-outlined">auto_awesome</span>
-                                    Analisar
-                                  </button>
-                                </div>
-
-                                ${!compacto
-                ? html`
-                                    <div class="email-actions-group email-actions-group-process">
-                                      <select
-                                        class="form-select form-select-sm rh-email-process-select email-process-select"
-                                        value=${selecoesProcesso[item.id] || ''}
-                                        onChange=${(event) =>
-                    setSelecoesProcesso((anteriores) => ({
-                      ...anteriores,
-                      [item.id]: event.target.value,
-                    }))}
-                                      >
-                                        <option value="">Processo aberto</option>
-                                        ${processosAbertos.map(
-                      (processo) => html`
-                                            <option
-                                              key=${obterChaveProcesso(processo)}
-                                              value=${obterReferenciaProcesso(processo)}
-                                            >
-                                              ${processo.id_processo || processo.vaga || 'Processo'}
-                                            </option>
-                                          `,
-                    )}
-                                      </select>
-
-                                      <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-primary rh-action-btn email-action-btn"
-                                        disabled=${!selecoesProcesso[item.id] ||
-                    acaoEmAndamento === `vincular:${item.id}` ||
-                    !controlador?.possuiPermissao?.('candidatos.criar')}
-                                        onClick=${() => vincularEmail(item)}
-                                      >
-                                        <span class="material-symbols-outlined">link</span>
-                                        Vincular
-                                      </button>
-                                    </div>
-                                    `
-                : null}
-
-                                <div class="email-actions-group email-actions-group-secondary">
-                                  ${!compacto &&
-                controlador?.possuiPermissao?.('candidatos.mover_etapa')
-                ? html`
-                                      <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-secondary rh-action-btn email-action-btn"
-                                        disabled=${acaoEmAndamento === `banco:${item.id}`}
-                                        onClick=${() => enviarParaBanco(item)}
-                                      >
-                                        <span class="material-symbols-outlined">group</span>
-                                        Banco
-                                      </button>
-                                    `
-                : null}
-
-                                  ${controlador?.possuiPermissao?.('candidatos.mover_etapa')
-                ? html`
-                                      <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-danger rh-action-btn email-action-btn"
-                                        disabled=${acaoEmAndamento === `ignorar:${item.id}`}
-                                        onClick=${() => ignorarEmail(item)}
-                                      >
-                                        <span class="material-symbols-outlined">visibility_off</span>
-                                        Ignorar
-                                      </button>
-                                    `
-                : null}
-
-                                  ${controlador?.possuiPermissao?.('candidatos.excluir')
-                ? html`
-                                      <button
-                                        type="button"
-                                        class="btn btn-sm btn-danger rh-action-btn email-action-btn"
-                                        disabled=${acaoEmAndamento === `excluir:${item.id}`}
-                                        onClick=${() => excluirEmail(item)}
-                                      >
-                                        <span class="material-symbols-outlined">delete</span>
-                                        Excluir
-                                      </button>
-                                    `
-                : null}
-                                </div>
-                              </div>
+              <div class="table-responsive email-table-shell">
+                <table class="table align-middle rh-modern-history-table rh-email-inbox-table email-table">
+                  <thead>
+                    <tr>
+                      ${compacto
+                        ? null
+                        : html`
+                            <th class="email-select-cell">
+                              <input
+                                class="form-check-input"
+                                type="checkbox"
+                                aria-label="Selecionar e-mails desta página"
+                                checked=${todosDaPaginaSelecionados}
+                                onChange=${alternarSelecaoPagina}
+                              />
+                            </th>
+                          `}
+                      <th>Data</th>
+                      <th>Remetente</th>
+                      <th>Assunto</th>
+                      ${compacto
+                        ? null
+                        : html`
+                            <th>Nome detectado</th>
+                            <th>Vaga detectada</th>
+                            <th>Contato detectado</th>
+                          `}
+                      <th>Anexo/CV</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${paginacaoEmails.itens.length
+                      ? paginacaoEmails.itens.map((item) => {
+                          const dataHora = formatarPartesDataHoraEmail(item.data_recebimento);
+                          const selecionado = idsSelecionados.includes(String(item.id));
+                          return html`
+                            <tr key=${item.id} class=${`email-row ${selecionado ? 'is-selected' : ''}`}>
+                              ${compacto
+                                ? null
+                                : html`
+                                    <td class="email-select-cell" data-label="Selecionar">
+                                      <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        aria-label=${`Selecionar e-mail ${item.assunto || 'sem assunto'}`}
+                                        checked=${selecionado}
+                                        onChange=${() => alternarSelecaoEmail(item)}
+                                      />
+                                    </td>
+                                  `}
+                              <td class="email-date-cell" data-label="Data">
+                                <span>${dataHora.data}</span>
+                                <small>${dataHora.hora}</small>
+                              </td>
+                              <td class="email-sender-cell" data-label="Remetente">
+                                <strong>${item.remetente_nome || item.remetente || 'Remetente não informado'}</strong>
+                                ${item.remetente_email
+                                  ? html`<small>${item.remetente_email}</small>`
+                                  : null}
+                              </td>
+                              <td class="email-subject-cell" data-label="Assunto">
+                                <div>${item.assunto || 'Sem assunto'}</div>
+                              </td>
+                              ${compacto
+                                ? null
+                                : html`
+                                    <td data-label="Nome detectado">${item.nome_detectado || '-'}</td>
+                                    <td data-label="Vaga detectada">${item.vaga_detectada || 'Não identificado'}</td>
+                                    <td class="email-contact-cell" data-label="Contato detectado">
+                                      <div>${item.telefone_detectado || 'Não identificado'}</div>
+                                      <small>${item.email_detectado || '-'}</small>
+                                    </td>
+                                  `}
+                              <td class="email-attachment-cell" data-label="Anexo/CV">
+                                ${item.possui_anexo ? item.nome_anexo || 'Anexo recebido' : 'Sem anexo'}
+                              </td>
+                              <td class="email-status-cell" data-label="Status">
+                                <span class=${`process-candidate-status-badge email-status-pill ${obterClasseStatusEmail(item.status)}`}>
+                                  ${item.status || 'Recebido'}
+                                </span>
+                              </td>
+                            </tr>
+                          `;
+                        })
+                      : html`
+                          <tr class="email-empty-row">
+                            <td class="text-center text-muted py-4" colSpan=${compacto ? 5 : 9}>
+                              <span class="material-symbols-outlined">inbox</span>
+                              <span>${carregando ? 'Carregando currículos recebidos.' : 'Nenhum currículo recebido por e-mail para listar.'}</span>
                             </td>
                           </tr>
-                        `,
-          )
-          : html`
-                        <tr class="email-empty-row">
-                          <td class="text-center text-muted py-4" colSpan=${compacto ? 6 : 9}>
-                            <span class="material-symbols-outlined">inbox</span>
-                            <span>
-                              ${carregando
-                                ? 'Carregando currículos recebidos.'
-                                : 'Nenhum currículo recebido por e-mail para listar.'}
-                            </span>
-                          </td>
-                        </tr>
-                      `}
-                </tbody>
-              </table>
-            </div>
+                        `}
+                  </tbody>
+                </table>
+              </div>
 
-            ${compacto
-              ? html`
-                  <${PaginacaoCompacta}
-                    paginacao=${{ ...paginacaoEmails, tamanhoPagina }}
-                    onChange=${setPaginaAtual}
-                    label=${`Mostrando ${obterIntervaloPaginacao({
-                      ...paginacaoEmails,
-                      tamanhoPagina,
-                    })} de ${paginacaoEmails.totalItens} e-mail(s)`}
-                  />
-                `
-              : html`
-                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
-                    <small class="text-muted">
-                      Exibindo ${paginacaoEmails.itens.length} de ${paginacaoEmails.totalItens} e-mail(s).
-                    </small>
-                    <${GrupoPaginacao}
-                      paginaAtual=${paginacaoEmails.paginaAtual}
-                      totalPaginas=${paginacaoEmails.totalPaginas}
+              ${compacto
+                ? html`
+                    <${PaginacaoCompacta}
+                      paginacao=${{ ...paginacaoEmails, tamanhoPagina }}
                       onChange=${setPaginaAtual}
+                      label=${`Mostrando ${obterIntervaloPaginacao({ ...paginacaoEmails, tamanhoPagina })} de ${paginacaoEmails.totalItens} e-mail(s)`}
                     />
-                  </div>
-                `}
+                  `
+                : html`
+                    <div class="email-pagination-row">
+                      <small>Exibindo ${paginacaoEmails.itens.length} de ${paginacaoEmails.totalItens} e-mail(s).</small>
+                      <${GrupoPaginacao}
+                        paginaAtual=${paginacaoEmails.paginaAtual}
+                        totalPaginas=${paginacaoEmails.totalPaginas}
+                        onChange=${setPaginaAtual}
+                      />
+                    </div>
+                  `}
+            `
+          : null}
+      </${SectionCard}>
+
+      ${!compacto && itensSelecionados.length
+        ? html`
+            <aside class="email-quick-actions" aria-live="polite">
+              <header>
+                <div>
+                  <h3>Ações rápidas</h3>
+                  <span>${itensSelecionados.length} ${itensSelecionados.length === 1 ? 'item selecionado' : 'itens selecionados'}</span>
+                </div>
+                <button
+                  type="button"
+                  class="email-quick-actions-close"
+                  aria-label="Fechar ações rápidas"
+                  onClick=${() => setIdsSelecionados([])}
+                >
+                  <span class="material-symbols-outlined">close</span>
+                </button>
+              </header>
+
+              ${itemSelecionado
+                ? html`
+                    <div class="email-quick-actions-list">
+                      <button type="button" onClick=${() => abrirDetalhesEmail(itemSelecionado)}>
+                        <span class="material-symbols-outlined">mail</span>
+                        Ver e-mail
+                      </button>
+                      <button
+                        type="button"
+                        disabled=${!itemSelecionado.possui_anexo || acaoEmAndamento === `cv:${itemSelecionado.id}` || !controlador?.possuiPermissao?.('candidatos.baixar_curriculo')}
+                        onClick=${() => abrirCvEmail(itemSelecionado)}
+                      >
+                        <span class="material-symbols-outlined">description</span>
+                        Ver CV
+                      </button>
+                      <button
+                        type="button"
+                        disabled=${!itemSelecionado.possui_anexo || acaoEmAndamento === `analisar:${itemSelecionado.id}` || !controlador?.possuiPermissao?.('candidatos.avaliar_curriculo')}
+                        onClick=${() => analisarEmail(itemSelecionado)}
+                      >
+                        <span class="material-symbols-outlined">auto_awesome</span>
+                        Analisar CV
+                      </button>
+
+                      <div class="email-quick-process-action">
+                        <select
+                          class="form-select form-select-sm"
+                          aria-label="Processo para vínculo"
+                          value=${selecoesProcesso[itemSelecionado.id] || ''}
+                          onChange=${(event) => setSelecoesProcesso((anteriores) => ({
+                            ...anteriores,
+                            [itemSelecionado.id]: event.target.value,
+                          }))}
+                        >
+                          <option value="">Selecione o processo</option>
+                          ${processosAbertos.map((processo) => html`
+                            <option key=${obterChaveProcesso(processo)} value=${obterReferenciaProcesso(processo)}>
+                              ${processo.id_processo || processo.vaga || 'Processo'}
+                            </option>
+                          `)}
+                        </select>
+                        <button
+                          type="button"
+                          disabled=${!selecoesProcesso[itemSelecionado.id] || acaoEmAndamento === `vincular:${itemSelecionado.id}` || !controlador?.possuiPermissao?.('candidatos.criar')}
+                          onClick=${() => vincularEmail(itemSelecionado)}
+                        >
+                          <span class="material-symbols-outlined">link</span>
+                          Vincular ao processo
+                        </button>
+                      </div>
+
+                      ${controlador?.possuiPermissao?.('candidatos.mover_etapa')
+                        ? html`
+                            <button
+                              type="button"
+                              disabled=${acaoEmAndamento === `banco:${itemSelecionado.id}`}
+                              onClick=${() => enviarParaBanco(itemSelecionado)}
+                            >
+                              <span class="material-symbols-outlined">group</span>
+                              Banco de Talentos
+                            </button>
+                          `
+                        : null}
+                    </div>
+                  `
+                : null}
+
+              <div class="email-quick-actions-danger">
+                ${controlador?.possuiPermissao?.('candidatos.mover_etapa')
+                  ? html`
+                      <button
+                        type="button"
+                        class="is-danger"
+                        disabled=${!!acaoEmAndamento}
+                        onClick=${itemSelecionado ? () => ignorarEmail(itemSelecionado) : ignorarEmailsSelecionados}
+                      >
+                        <span class="material-symbols-outlined">visibility_off</span>
+                        Ignorar
+                      </button>
+                    `
+                  : null}
+                ${controlador?.possuiPermissao?.('candidatos.excluir')
+                  ? html`
+                      <button
+                        type="button"
+                        class="is-danger"
+                        disabled=${!!acaoEmAndamento}
+                        onClick=${itemSelecionado ? () => excluirEmail(itemSelecionado) : excluirEmailsSelecionados}
+                      >
+                        <span class="material-symbols-outlined">delete</span>
+                        Excluir
+                      </button>
+                    `
+                  : null}
+              </div>
+            </aside>
           `
-      : null}
+        : null}
 
       <${ModalPadrao}
         aberto=${!!detalheEmail}
@@ -764,7 +866,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
           </button>
         </footer>
       </${ModalPadrao}>
-    </${SectionCard}>
+    </div>
   `;
 }
 
