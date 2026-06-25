@@ -1,0 +1,39 @@
+{
+  admin off
+}
+
+{$CONECTA_HOST:localhost} {
+  encode zstd gzip
+
+  header {
+    -Server
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh https://cdn.jsdelivr.net https://cdn.sheetjs.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'"
+  }
+
+  @backend path \
+    /runtime-config.js /Front/runtime-config.js \
+    /api/* /auth/* /health /ready /version /debug/* \
+    /candidate-* /process-* /processes* /processos* /cv-* \
+    /email-inbox* /history* /answer-files* /interviews* /interview-slots* \
+    /talent-bank* /reports* /public/* /settings/* \
+    /generated-exams* /conecta-provas-api/* /curriculos-ia* \
+    /docs /docs/* /openapi.json
+
+  reverse_proxy @backend backend:8000 {
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Request-ID {http.request.id}
+  }
+
+  root * /srv
+  try_files {path} /index.html
+  file_server
+
+  log {
+    output stdout
+    format json
+  }
+}

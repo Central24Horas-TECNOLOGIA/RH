@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 
 import uvicorn
 
-from api.rh_api.config import get_settings
+BACKEND_DIR = Path(__file__).resolve().parent / "apps" / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+from rh_api.config import get_settings
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -40,7 +46,7 @@ def main() -> None:
     settings = get_settings()
     args = build_parser().parse_args()
     uvicorn.run(
-        "api.app:app",
+        "conecta.interfaces.http.main:app",
         host=args.host,
         port=args.port,
         reload=args.reload,

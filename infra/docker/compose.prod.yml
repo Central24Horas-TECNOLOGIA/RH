@@ -1,0 +1,54 @@
+name: conecta-prod
+
+services:
+  backend:
+    image: ${CONECTA_BACKEND_IMAGE:?Defina CONECTA_BACKEND_IMAGE}:${APP_VERSION:?Defina APP_VERSION}
+    env_file:
+      - env/prod.env
+    environment:
+      RH_APP_ENV: prod
+      RH_FRONT_SERVE_STATIC: "false"
+      RH_SCHEMA_BOOTSTRAP_ENABLED: "false"
+    volumes:
+      - conecta-prod-private:/app/data/private
+    networks:
+      - conecta-prod-net
+      - conecta-ops-net
+    restart: always
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  frontend:
+    image: ${CONECTA_FRONTEND_IMAGE:?Defina CONECTA_FRONTEND_IMAGE}:${APP_VERSION:?Defina APP_VERSION}
+    environment:
+      CONECTA_HOST: ${CONECTA_HOST:?Defina CONECTA_HOST}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - conecta-prod-caddy-data:/data
+      - conecta-prod-caddy-config:/config
+    networks:
+      - conecta-prod-net
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  conecta-prod-private:
+  conecta-prod-caddy-data:
+  conecta-prod-caddy-config:
+
+networks:
+  conecta-prod-net:
+    name: conecta-prod-net
+  conecta-ops-net:
+    name: conecta-ops-net

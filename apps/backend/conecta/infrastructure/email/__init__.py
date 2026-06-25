@@ -1,0 +1,1 @@
+"""Adapters de e-mail."""

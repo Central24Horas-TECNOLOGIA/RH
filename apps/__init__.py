@@ -1,0 +1,1 @@
+"""Aplicações do monorepo Conecta."""

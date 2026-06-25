@@ -1,15 +1,20 @@
-# Documentacao Conecta C24h
+# Documentação Conecta C24h
 
-Este diretorio concentra a documentacao pratica da estrutura atual do projeto.
+Este diretório concentra a documentação técnica, operacional e histórica do
+projeto.
 
-## Indice principal
+## Índice atual
 
-- [estrutura-do-projeto.md](estrutura-do-projeto.md): mapa de pastas e funcao de cada modulo.
-- [arquitetura.md](arquitetura.md): como frontend, backend e persistencia se conversam.
-- [guia-de-manutencao.md](guia-de-manutencao.md): onde alterar cada parte do sistema.
-- [guia-para-novo-mantenedor.md](guia-para-novo-mantenedor.md): leitura rapida para quem esta entrando agora.
-- [testes.md](testes.md): como validar o projeto sem depender do banco real.
+- [arquitetura/](arquitetura/): decisões e evolução arquitetural;
+- [adr/](adr/): registros de decisão;
+- [api/](api/): operação e contratos da API;
+- [deploy/](deploy/): release e rollback;
+- [seguranca/](seguranca/): perfis, permissões e controles;
+- [operacao/](operacao/): incidentes, backup e restauração;
+- [RELATORIO_ORGANIZACAO_CONECTA.md](RELATORIO_ORGANIZACAO_CONECTA.md):
+  auditoria e resultado da consolidação de 24/06/2026;
+- [legacy/](legacy/): documentação histórica que não define caminhos atuais.
 
-## Historico
-
-Os documentos anteriores foram preservados em [legacy](legacy) para consulta historica.
+A estrutura executável oficial está descrita no [README da raiz](../README.md).
+Documentos históricos podem citar `api/`, `Front/` ou `fonte/`; os caminhos
+atuais equivalentes são `apps/backend/` e `apps/frontend/`.

@@ -15,11 +15,15 @@ pytest-cache-files-*/
 
 # Ambientes e segredos
 .env
+*.env
+!.env.example
+!*.env.example
 !.env.example
 api/.env
 config.ini
 *.local
 .venv/
+.venv.zip
 venv/
 env/
 
@@ -54,5 +58,7 @@ node_modules/
 dist/
 build/
 
-# Frontend local
-Front/src/
+# Volumes e estado Docker
+infra/docker/volumes/
+caddy_data/
+caddy_config/

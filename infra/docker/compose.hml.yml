@@ -1,0 +1,44 @@
+name: conecta-hml
+
+services:
+  backend:
+    image: ${CONECTA_BACKEND_IMAGE:-ghcr.io/empresa/conecta-backend}:${APP_VERSION:-0.1.0}
+    env_file:
+      - env/hml.env
+    environment:
+      RH_APP_ENV: hml
+      RH_FRONT_SERVE_STATIC: "false"
+    volumes:
+      - conecta-hml-private:/app/data/private
+    networks:
+      - conecta-hml-net
+      - conecta-ops-net
+    restart: unless-stopped
+
+  frontend:
+    image: ${CONECTA_FRONTEND_IMAGE:-ghcr.io/empresa/conecta-frontend}:${APP_VERSION:-0.1.0}
+    environment:
+      CONECTA_HOST: ${CONECTA_HOST:-hml.conecta.local}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - conecta-hml-caddy-data:/data
+      - conecta-hml-caddy-config:/config
+    networks:
+      - conecta-hml-net
+    restart: unless-stopped
+
+volumes:
+  conecta-hml-private:
+  conecta-hml-caddy-data:
+  conecta-hml-caddy-config:
+
+networks:
+  conecta-hml-net:
+    name: conecta-hml-net
+  conecta-ops-net:
+    name: conecta-ops-net

@@ -1,0 +1,77 @@
+import { html } from '../../infraestrutura-react.js';
+import { GrupoPaginacao } from './feedback.js';
+import { ModalPadrao } from './modals.js';
+
+
+export function Button({ label = '', icon = '', variant = 'primary', className = '', children, ...props }) {
+  return html`
+    <button class=${`btn btn-${variant} ${className}`.trim()} ...${props}>
+      ${icon ? html`<span class="material-symbols-outlined" aria-hidden="true">${icon}</span>` : null}
+      ${children || label}
+    </button>
+  `;
+}
+
+export function Badge({ label, tone = 'secondary', className = '' }) {
+  return html`<span class=${`badge text-bg-${tone} ${className}`.trim()}>${label}</span>`;
+}
+
+export function FormField({ label, help = '', error = '', required = false, children }) {
+  return html`
+    <label class="form-field">
+      <span class="form-label">${label}${required ? ' *' : ''}</span>
+      ${children}
+      ${error
+        ? html`<small class="text-danger" role="alert">${error}</small>`
+        : help
+          ? html`<small class="form-text">${help}</small>`
+          : null}
+    </label>
+  `;
+}
+
+export function Table({ columns = [], rows = [], rowKey = 'id', renderCell = null, emptyText = 'Nenhum registro.' }) {
+  return html`
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr>${columns.map((column) => html`<th key=${column.key}>${column.label}</th>`)}</tr></thead>
+        <tbody>
+          ${rows.length
+            ? rows.map((row, index) => html`
+                <tr key=${row?.[rowKey] ?? index}>
+                  ${columns.map((column) => html`
+                    <td key=${column.key}>${renderCell ? renderCell(row, column) : row?.[column.key]}</td>
+                  `)}
+                </tr>
+              `)
+            : html`<tr><td colspan=${Math.max(1, columns.length)}>${emptyText}</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+export function ConfirmDialog({ open, title, message, confirmLabel = 'Confirmar', onConfirm, onCancel }) {
+  if (!open) return null;
+  return html`
+    <${ModalPadrao} titulo=${title} onClose=${onCancel}>
+      <p>${message}</p>
+      <footer class="d-flex justify-content-end gap-2">
+        <${Button} label="Cancelar" variant="outline-secondary" onClick=${onCancel} />
+        <${Button} label=${confirmLabel} variant="danger" onClick=${onConfirm} />
+      </footer>
+    </${ModalPadrao}>
+  `;
+}
+
+export function ToastAlert({ message, tone = 'info', onClose = null }) {
+  return html`
+    <div class=${`alert alert-${tone} d-flex align-items-center justify-content-between`.trim()} role="alert">
+      <span>${message}</span>
+      ${onClose ? html`<button class="btn-close" aria-label="Fechar" onClick=${onClose}></button>` : null}
+    </div>
+  `;
+}
+
+export const Modal = ModalPadrao;
+export const Pagination = GrupoPaginacao;

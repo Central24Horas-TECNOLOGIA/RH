@@ -729,7 +729,7 @@ def main():
     parser.add_argument("zip", help="Caminho do arquivo Provas Reformuladas.zip")
     parser.add_argument(
         "--out",
-        default="Front/data/bancoQuestoesReformuladas.json",
+        default="apps/frontend/data/bancoQuestoesReformuladas.json",
         help="Arquivo JSON de saída",
     )
     args = parser.parse_args()

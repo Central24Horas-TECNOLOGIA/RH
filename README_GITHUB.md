@@ -1,6 +1,6 @@
-# Conecta C24h — Documentação Atualizada
+# Conecta C24h — Guia de documentação
 
-Documentação gerada a partir da análise do projeto `RH(21).zip`, em **14/05/2026**.
+Documentação consolidada e revisada em **24/06/2026**.
 
 Este pacote consolida a visão técnica, funcional e operacional do sistema Conecta C24h/Conecta RH. A documentação foi organizada para servir tanto a apresentação interna quanto manutenção por outro desenvolvedor.
 
@@ -30,7 +30,8 @@ Este pacote consolida a visão técnica, funcional e operacional do sistema Cone
 - A documentação **não replica segredos** do `.env` real. Só usa nomes de variáveis e exemplos seguros.
 - O projeto tem dados/artefatos privados em `data/private/`; essa pasta deve ser tratada como sensível.
 - A tela pública de candidatura existe no código, mas a operação atual descrita no projeto prioriza a **caixa de e-mail de currículos** como entrada principal.
-- Os testes não puderam ser executados neste ambiente porque faltou o pacote `pyodbc`, que é dependência obrigatória do backend.
+- A suíte Python foi executada após a consolidação: 73 testes aprovados.
+- Os cinco smoke tests JavaScript foram aprovados no runtime Node disponível; o CI usa Node.js 22.
 
 
 ## Documentação técnica

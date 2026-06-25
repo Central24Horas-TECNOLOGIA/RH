@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+.venv.zip
+__pycache__
+*.pyc
+.pytest_cache
+.env
+*.env
+!*.env.example
+data/private
+data/email-inbox-test-runtime
+docs/*.pdf
+docs/*.docx
+docs/dossies
+_quarentena_limpeza
+_legacy

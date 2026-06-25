@@ -1,0 +1,2 @@
+SERVICE_NAME = "conecta-api"
+DEFAULT_VERSION = "0.1.0"

@@ -1,69 +1,60 @@
 # Conecta C24h
 
-Sistema local para RH com frontend web, backend FastAPI e persistencia em SQL Server. A arquitetura foi reorganizada para deixar cada responsabilidade mais facil de localizar, manter e evoluir sem perder o comportamento existente.
+Sistema de RH com frontend estático em JavaScript, backend FastAPI e persistência
+em SQL Server.
 
-## Visao geral
-
-- `Front/`: frontend em JavaScript modular com ESM, HTM e runtime React.
-- `api/`: backend FastAPI com rotas, servicos, schemas e repositorios separados por dominio.
-- `data/`: dados legados e artefatos locais que nao fazem parte do codigo ativo.
-- `docs/`: guias de arquitetura, manutencao, leitura e testes.
-
-## Estrutura principal
+## Estrutura oficial
 
 ```text
-RH/
-|-- Front/
-|   |-- estilos/
-|   |-- Exames/
-|   |-- fonte/
-|   |   |-- app/
-|   |   |-- dados-excel/
-|   |   |-- features/
-|   |   |   |-- entrevistas/
-|   |   |   |-- gestao/
-|   |   |   |-- pipeline/
-|   |   |   |-- processos/
-|   |   |   |-- prova/
-|   |   |-- services/
-|   |   |-- shared/
-|   |   |-- types/
-|   |   |-- ui/
-|   |-- index.html
-|-- api/
-|   |-- app.py
-|   |-- rh_api/
-|   |   |-- repositories/
-|   |   |-- routers/
-|   |   |-- schemas/
-|   |   |-- services/
-|   |-- tests/
-|-- data/
-|   |-- legacy/
-|-- docs/
-|   |-- arquitetura.md
-|   |-- estrutura-do-projeto.md
-|   |-- guia-de-manutencao.md
-|   |-- guia-para-novo-mantenedor.md
-|   |-- testes.md
-|   |-- legacy/
-|-- .env.example
-|-- .gitignore
-|-- pytest.ini
-|-- requirements.txt
+.
+├── apps/
+│   ├── backend/
+│   │   ├── conecta/        # arquitetura canônica e entrypoint HTTP
+│   │   ├── rh_api/         # implementação funcional compatível
+│   │   └── tests/
+│   └── frontend/
+│       ├── fonte/          # JavaScript ESM
+│       ├── estilos/
+│       ├── data/
+│       ├── Exames/
+│       └── tests/
+├── infra/
+│   ├── docker/
+│   ├── scripts/
+│   └── sql/
+├── docs/
+├── tools/
+├── _legacy/                # material preservado, fora do runtime
+├── run.py
+└── start_conecta.ps1
 ```
 
-## Decisoes arquiteturais
+O backend oficial fica em `apps/backend`; o frontend oficial fica em
+`apps/frontend`. As antigas árvores de raiz `api/`, `Front/` e `fonte/` não
+fazem mais parte do runtime.
 
-- Frontend padronizado em JavaScript modular. A base atual ja funcionava assim, entao a refatoracao consolidou esse caminho em vez de iniciar uma migracao parcial para React + TypeScript.
-- Backend mantido em FastAPI com separacao clara entre rotas, servicos, schemas e persistencia.
-- `db_repository.py` virou uma fachada de compatibilidade. As queries e regras de persistencia agora ficam em repositorios menores por dominio.
-- Dados pesados do frontend deixaram de ser carregados de forma eager no fluxo principal da prova.
-- Testes do backend usam fake repository e nao dependem do banco real.
+## Pré-requisitos
 
-## Como rodar
+- Python 3.13;
+- Microsoft ODBC Driver 18 para SQL Server;
+- Docker Compose v2, quando a execução for em contêiner;
+- Node.js 22 apenas para os smoke tests JavaScript.
 
-### Comando unico recomendado
+## Configuração segura
+
+Copie `.env.example` para `.env` e preencha somente no ambiente local:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+O `.env` real, ambientes virtuais, dados privados, caches e artefatos de build
+são ignorados pelo Git. Exemplos específicos também estão em
+`apps/backend/.env.example` e `apps/frontend/.env.example`.
+
+## Executar pela raiz
+
+Este é o modo mais simples: FastAPI e frontend usam a mesma origem.
 
 ```powershell
 python -m venv .venv
@@ -72,87 +63,90 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Abra:
-
-```text
-http://127.0.0.1:8000
-```
-
-O FastAPI serve a API e o frontend da pasta `Front/` no mesmo processo. O fluxo antigo com `python -m http.server` nao e mais necessario.
-
-### Desenvolvimento com reload
+Abra `http://127.0.0.1:8000`. Para desenvolvimento:
 
 ```powershell
 python run.py --reload
+# ou
+.\start_conecta.ps1 -Reload
 ```
 
-### Servidor interno
-
-Configure o ambiente e rode sem `--reload`:
+## Executar o backend
 
 ```powershell
-$env:RH_API_HOST="0.0.0.0"
-$env:RH_API_PORT="8000"
-$env:RH_APP_ENV="server"
-python run.py --no-reload
+cd apps/backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn conecta.interfaces.http.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-No Windows, tambem e possivel iniciar com:
+Endpoints operacionais:
+
+- `/health`: processo ativo;
+- `/ready`: dependências prontas;
+- `/version`: versão implantada;
+- `/docs`: OpenAPI interativa.
+
+## Executar o frontend isoladamente
+
+O frontend atual é estático e não exige `npm install`:
 
 ```powershell
-.\start_conecta.ps1
+cd apps/frontend
+python -m http.server 5500
 ```
 
-Mais detalhes: [docs/DEPLOY_CONECTA.md](docs/DEPLOY_CONECTA.md).
+Abra `http://127.0.0.1:5500`. Para usar a API, ajuste
+`apps/frontend/runtime-config.js` ou as variáveis documentadas no arquivo
+`.env.example`.
+
+## Executar com Docker
+
+```powershell
+Copy-Item infra/docker/env/dev.env.example infra/docker/env/dev.env
+cd infra/docker
+docker compose -f compose.dev.yml up --build
+```
+
+Acesse `http://localhost:8080`.
 
 ## Testes
+
+Da raiz:
 
 ```powershell
 python -m pytest
 ```
 
-O `pytest.ini` desabilita o cache do pytest para evitar ruido em ambientes com OneDrive.
+Smoke tests do frontend, quando o Node.js estiver disponível:
 
-## Configuracao
+```powershell
+node apps/frontend/tests/run-rh-business-rules-smoke.cjs
+node apps/frontend/tests/run-process-details-rules-smoke.cjs
+node apps/frontend/tests/run-excel-correction-smoke.cjs
+node apps/frontend/tests/run-conecta-provas-flow-smoke.cjs
+node apps/frontend/tests/run-refresh-performance-smoke.cjs
+```
 
-Use `.env.example` como base para o `.env`.
+## Onde alterar
 
-O Conecta não usa mais `config.ini`. Toda configuração é centralizada por
-`api/rh_api/config.py` e fornecida por variáveis de ambiente/`.env`.
+- entrada FastAPI: `apps/backend/conecta/interfaces/http/main.py`;
+- configuração: `apps/backend/rh_api/config.py`;
+- rotas: `apps/backend/rh_api/routers/`;
+- persistência: `apps/backend/rh_api/repositories/`;
+- entrada web: `apps/frontend/index.html`;
+- telas: `apps/frontend/fonte/features/`;
+- cliente HTTP: `apps/frontend/fonte/services/api/`;
+- estilos: `apps/frontend/estilos/`.
 
-Variaveis principais:
+## Dados e legado
 
-- `RH_SQL_SERVER`
-- `RH_SQL_DATABASE`
-- `RH_SQL_DRIVER`
-- `RH_AUTH_USER`
-- `RH_AUTH_PASSWORD`
-- `RH_AUTH_TOKEN_SECRET`
-- `RH_AUTH_TOKEN_TTL_MINUTES`
-- `RH_API_HOST` / `RH_API_PORT`
-- `RH_FRONT_SERVE_STATIC`
-- `AI_ENABLED` / `AI_PROVIDER` / `AI_MODEL`
-- `OPENAI_API_KEY`
+`data/private/` contém dados locais potencialmente pessoais e nunca deve ser
+versionado. Dados de teste controlados permanecem em `data/email-inbox-test/`.
+A pasta `_legacy/` é uma área de preservação: nenhum arquivo nela participa da
+execução ou do deploy sem revisão explícita.
 
-A análise de currículo com IA é opcional, executada somente pelo backend e
-desativada por padrão. Consulte
-[`docs/COMO_RODAR_CONECTA.md`](docs/COMO_RODAR_CONECTA.md).
-
-## Onde alterar cada coisa
-
-- Menu lateral e logo: [Front/fonte/ui/components/layout.js](Front/fonte/ui/components/layout.js)
-- Estilos do layout: [Front/estilos/layout.css](Front/estilos/layout.css)
-- Telas de gestao: [Front/fonte/features/gestao/index.js](Front/fonte/features/gestao/index.js)
-- Telas de processos: [Front/fonte/features/processos/index.js](Front/fonte/features/processos/index.js)
-- Telas de prova: [Front/fonte/features/prova/index.js](Front/fonte/features/prova/index.js)
-- Rotas da API: [api/rh_api/routers](api/rh_api/routers)
-- Queries e persistencia: [api/rh_api/repositories](api/rh_api/repositories)
-
-## Documentacao
-
-- [docs/README.md](docs/README.md)
-- [docs/estrutura-do-projeto.md](docs/estrutura-do-projeto.md)
-- [docs/arquitetura.md](docs/arquitetura.md)
-- [docs/guia-de-manutencao.md](docs/guia-de-manutencao.md)
-- [docs/guia-para-novo-mantenedor.md](docs/guia-para-novo-mantenedor.md)
-- [docs/testes.md](docs/testes.md)
+A documentação técnica e operacional começa em
+[`docs/README.md`](docs/README.md). O relatório desta reorganização está em
+[`docs/RELATORIO_ORGANIZACAO_CONECTA.md`](docs/RELATORIO_ORGANIZACAO_CONECTA.md).
