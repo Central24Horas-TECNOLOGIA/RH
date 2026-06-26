@@ -51,13 +51,6 @@ function BarraLateral({
       permissao: 'vagas.visualizar',
     },
     {
-      tela: 'screen-processes-open',
-      icone: 'radio_button_checked',
-      label: 'Processos abertos',
-      status: 'is-open',
-      permissao: 'vagas.visualizar',
-    },
-    {
       tela: 'screen-processes-closed',
       icone: 'radio_button_checked',
       label: 'Processos encerrados',
@@ -115,7 +108,6 @@ function BarraLateral({
   const telasRelacionadasProcessos = [
     'screen-process-create',
     'screen-processes',
-    'screen-processes-open',
     'screen-processes-closed',
     'screen-process-decisions',
     'screen-process-details',

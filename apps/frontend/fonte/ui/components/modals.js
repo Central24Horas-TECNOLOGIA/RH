@@ -1,7 +1,7 @@
 import { html } from '../../infraestrutura-react.js';
 import { formatarPontuacaoDetalhada } from '../../utilitarios.js';
 import { obterClasseSituacaoAtual } from '../../app/controlador-aplicacao.js';
-import { EmptyState, MetricGrid } from './feedback.js';
+import { EmptyState } from './feedback.js';
 import { SectionCard } from './layout.js';
 
 export function ModalPadrao({
@@ -55,78 +55,61 @@ export function ModalDetalhesProva({
   if (!detalhe) return null;
 
   const { linha, payload, resumoEtapas, situacaoAtual } = detalhe;
+  const candidato = payload?.candidate || {};
+  const nomeCandidato = candidato.name || linha.nome_candidato || 'Candidato';
+  const notaFinal = formatarPontuacaoDetalhada(
+    linha.pontuacao_final,
+    payload?.weightedFinalScore,
+  );
+  const dataProva = linha.data_exibicao || payload?.finishedAt || payload?.startedAt || '-';
 
   return html`
     <${ModalPadrao}
       aberto=${true}
-      titulo=${`Detalhes da prova • ${linha.nome_candidato || 'Candidato'}`}
-      subtitulo="Informações registradas no histórico e no gabarito salvo."
+      titulo=${`Prova | ${nomeCandidato}`}
+      subtitulo="Detalhes da prova e gabarito registrado no sistema."
+      className="recent-exam-detail-dialog"
       onClose=${onClose}
     >
-      <div class="rh-details-body">
-        <${MetricGrid}
-          items=${[
-      {
-        label: 'Candidato',
-        value: payload?.candidate?.name || linha.nome_candidato || '-',
-      },
-      {
-        label: 'Vaga',
-        value: payload?.candidate?.role || linha.vaga || '-',
-      },
-      {
-        label: 'Nível',
-        value: payload?.candidate?.level || linha.nivel || '-',
-      },
-      {
-        label: 'Nota final',
-        value: formatarPontuacaoDetalhada(
-          linha.pontuacao_final,
-          payload?.weightedFinalScore,
-        ),
-      },
-      {
-        label: 'Data',
-        value: linha.data_exibicao || '-',
-      },
-      {
-        label: 'Situação',
-        value: html`
-                <span
-                  class=${`rh-status-pill ${obterClasseSituacaoAtual(situacaoAtual)}`}
-                >
-                  ${situacaoAtual}
-                </span>
-              `,
-      },
-    ]}
-        />
+      <div class="rh-details-body recent-exam-detail-body">
+        <section class="recent-exam-kpi-grid">
+          ${[
+      ['Nota Final', notaFinal, '/10'],
+      ['Vaga', candidato.role || linha.vaga || '-', candidato.level || linha.nivel || ''],
+      ['Data da Prova', dataProva, payload?.startedAt ? `Início: ${payload.startedAt}` : ''],
+      ['Status do Processo', situacaoAtual || '-', ''],
+    ].map(
+      ([label, value, helper]) => html`
+              <article class="recent-exam-kpi" key=${label}>
+                <span>${label}</span>
+                <strong>${value}</strong>
+                ${helper ? html`<small>${helper}</small>` : null}
+              </article>
+            `,
+    )}
+        </section>
 
         <${SectionCard}
-          title="Notas por etapa"
-          className="rh-section-card--flat"
+          title="Desempenho por Etapa"
+          className="rh-section-card--flat recent-exam-section"
         >
           ${resumoEtapas?.length
       ? html`
-                  <div class="rh-stage-grid">
+                  <div class="recent-exam-stage-grid">
                     ${resumoEtapas.map(
         (etapa, indice) => html`
-                        <article key=${indice} class="rh-stage-card">
-                          <div class="rh-stage-card-top">
-                            <strong>${etapa.label || '-'}</strong>
-                            <span>Peso ${etapa.weight ?? '-'}%</span>
+                        <article key=${indice} class="recent-exam-stage-card">
+                          <div class="recent-exam-stage-head">
+                            <div>
+                              <strong>${etapa.label || '-'}</strong>
+                              <small>Peso ${etapa.weight ?? '-'}%</small>
+                            </div>
+                            <span>${etapa.rawScore ?? 0}/${etapa.rawMax ?? 0}</span>
                           </div>
-                          <div class="rh-stage-card-score">
-                            ${etapa.rawScore ?? 0}/${etapa.rawMax ?? 0}
+                          <div class="recent-exam-progress" aria-hidden="true">
+                            <span style=${{ width: `${Math.max(0, Math.min(100, (etapa.percent || 0) * 100))}%` }}></span>
                           </div>
-                          <span>
-                            Aproveitamento :
-                            ${((etapa.percent || 0) * 100).toFixed(1)}%
-                          </span>
-                          <span>
-                            Nota ponderada: 
-                            ${Number(etapa.weightedScore || 0).toFixed(1)}
-                          </span>
+                          <small>Nota ponderada: ${Number(etapa.weightedScore || 0).toFixed(1)}</small>
                         </article>
                       `,
       )}
@@ -143,7 +126,7 @@ export function ModalDetalhesProva({
 
         <${SectionCard}
           title="Registro completo"
-          className="rh-section-card--flat"
+          className="rh-section-card--flat recent-exam-section"
         >
           ${payload?.textContent
       ? html`<pre class="rh-detail-log">${payload.textContent}</pre>`

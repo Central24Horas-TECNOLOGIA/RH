@@ -102,6 +102,7 @@ import {
 import { CHAVE_PROCESSO_DETALHE } from './state.js';
 import { gerarAnaliseInteligenteProcesso } from '../../services/process-dossier-ai.js';
 import {
+  criarProvaGerada,
   cancelarProvaGerada,
   deletarProvaGerada,
   lerProvaGerada,
@@ -592,6 +593,107 @@ function normalizarDigitosContato(valor) {
     return digitos.slice(2);
   }
   return digitos;
+}
+
+function parseJsonProcessoSeguro(valor, fallback = null) {
+  if (valor === null || valor === undefined || valor === '') return fallback;
+  if (typeof valor === 'object') return valor;
+  try {
+    return JSON.parse(valor);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function obterConfiguracoesProvaDoProcesso(processo = {}) {
+  const dados = parseJsonProcessoSeguro(processo.configuracao_prova_json, null);
+  const lista = Array.isArray(dados) ? dados : dados ? [dados] : [];
+  return lista
+    .filter((item) => item && typeof item === 'object')
+    .map((item, indice) => ({
+      ...item,
+      id_configuracao: item.id_configuracao || item.id || `prova-processo-${indice + 1}`,
+      nome: item.nome || item.configuracao?.blueprint_label || item.tipo_prova || `Prova ${indice + 1}`,
+    }));
+}
+
+function validarContatoLiberacaoProva({ nome, email, telefone }) {
+  if (!String(nome || '').trim()) return 'Informe o nome do candidato.';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(email || '').trim())) {
+    return 'Informe um e-mail válido para acesso do candidato.';
+  }
+  const digitos = normalizarDigitosContato(telefone);
+  if (digitos.length < 10 || digitos.length > 13) {
+    return 'Informe um telefone válido para acesso do candidato.';
+  }
+  return '';
+}
+
+function obterChaveCandidatoLiberacao(candidato = {}) {
+  return String(
+    candidato.id_registro ||
+      candidato.id_teste ||
+      candidato.email ||
+      candidato.nome_candidato ||
+      candidato.nome ||
+      '',
+  );
+}
+
+function montarPayloadLiberacaoProva({ candidato = {}, processo = {}, configuracao = {}, email = '', telefone = '' }) {
+  const config = configuracao || {};
+  const configInterna = config.configuracao || {};
+  const processoRef = obterReferenciaProcesso(processo) || processo.id_processo || candidato.id_processo_ref || candidato.id_processo || '';
+  const processoBase = processo.id_processo || String(processoRef).split('@@', 1)[0] || candidato.id_processo || '';
+  const questoes = Array.isArray(config.questoes_snapshot) ? config.questoes_snapshot : [];
+  const etapas = Array.isArray(config.etapas) ? config.etapas : [];
+  const categorias = Array.isArray(config.categorias) ? config.categorias : [];
+  const vaga = config.vaga || processo.vaga || candidato.vaga || '';
+  const areaProva = config.area_prova || config.area || configInterna.area_prova || processo.trilha || '';
+  const operacao = configInterna.operacao || config.operacao || processo.operacao || candidato.operacao || '';
+
+  return {
+    candidato_id: candidato.id_teste || '',
+    id_teste: candidato.id_teste || '',
+    id_registro: candidato.id_registro || null,
+    id_entrevista: candidato.id_entrevista || null,
+    id_processo: processoBase,
+    id_processo_ref: processoRef,
+    nome_candidato: candidato.nome_candidato || candidato.nome || '',
+    email,
+    telefone,
+    whatsapp: candidato.whatsapp || telefone,
+    cpf: candidato.cpf || '',
+    cargo: vaga,
+    vaga,
+    area: areaProva,
+    area_prova: areaProva,
+    operacao,
+    trilha: config.trilha || areaProva || processo.trilha || '',
+    nivel: config.nivel || config.nivel_prova || '',
+    tempo_total: Number(config.tempo_total || config.tempo_minutos || 40),
+    tempo_minutos: Number(config.tempo_minutos || config.tempo_total || 40),
+    quantidade_questoes: Number(config.quantidade_questoes || questoes.length),
+    etapas,
+    categorias,
+    questoes_snapshot: questoes,
+    personalizacao: config.personalizacao || configInterna.personalizacao || {},
+    observacoes_internas_rh: config.observacoes_internas_rh || '',
+    tom_prova: config.tom_prova || configInterna.personalizacao?.tom_prova || '',
+    situacao_pratica_operacao:
+      config.situacao_pratica_operacao ||
+      configInterna.personalizacao?.situacao_pratica_operacao ||
+      '',
+    configuracao: {
+      ...configInterna,
+      origem_liberacao: 'processo_seletivo',
+      configuracao_processo_id: config.id_configuracao,
+      prova_processo_configurada_em: config.configurada_em || '',
+      id_processo_ref: processoRef,
+      tempo_total: Number(config.tempo_total || config.tempo_minutos || 40),
+      tempo_minutos: Number(config.tempo_minutos || config.tempo_total || 40),
+    },
+  };
 }
 
 function candidatoBancoJaEstaNoProcesso(candidatoBanco, candidatosProcesso) {
@@ -1528,28 +1630,52 @@ function obterTempoPendente(candidato) {
 function renderizarResumoProcessoAberto({ processo, candidatosProcesso, entrevistasProcesso, onDetalhes }) {
   const progresso = calcularProgressoProcesso(processo, candidatosProcesso);
   const codigo = obterCodigoProcessoUsuario(processo);
+  const vagasPreenchidas = Number(processo?.vagas_preenchidas || 0);
+  const totalVagas = Number(processo?.quantidade_vagas || 0);
   return html`
-    <article class="active-process-card process-highlight-card" key=${obterChaveProcesso(processo)}>
-      <div class="active-process-info">
-        <strong title=${processo.vaga || codigo}>${processo.vaga || codigo}</strong>
-        <span title=${obterTooltipProcessoUsuario(processo)}>${codigo}</span>
-        <div class="active-process-meta">
-          <span>${processo.vaga || '-'}</span>
-          <span class=${`rh-status-pill ${obterStatusProcessoClasse(processo.status)}`}>
-            ${processo.status || 'Aberto'}
+    <article class="process-feature-card" key=${obterChaveProcesso(processo)}>
+      <div class="process-feature-main">
+        <div class="process-feature-heading">
+          <h3 title=${processo.vaga || codigo}>${processo.vaga || codigo}</h3>
+          <span class="process-feature-code" title=${obterTooltipProcessoUsuario(processo)}>
+            ${codigo}
           </span>
-          <span>${candidatosProcesso.length} candidato(s)</span>
-          <span>Abertura: ${formatarDataCurta(processo.data_criacao)}</span>
-          <span>Resp.: ${obterResponsavelProcesso(processo)}</span>
+          <span class="process-feature-status">${processo.status || 'Aberto'}</span>
         </div>
-        <div class="active-process-progress" aria-label=${`Progresso ${progresso}%`}>
-          <i style=${{ width: `${progresso}%` }}></i>
-          <span>${progresso}%</span>
+        <div class="process-feature-meta-grid">
+          <span>
+            <small>Candidatos</small>
+            <strong><i class="material-symbols-outlined">groups</i>${candidatosProcesso.length}</strong>
+          </span>
+          <span>
+            <small>Vagas</small>
+            <strong><i class="material-symbols-outlined">tag</i>${vagasPreenchidas}/${totalVagas}</strong>
+          </span>
+          <span>
+            <small>Abertura</small>
+            <strong><i class="material-symbols-outlined">calendar_month</i>${formatarDataCurta(processo.data_criacao)}</strong>
+          </span>
+          <span>
+            <small>Operação</small>
+            <strong><i class="material-symbols-outlined">business_center</i>${processo.operacao || '-'}</strong>
+          </span>
+          <span>
+            <small>Responsável</small>
+            <strong class="is-primary"><i class="material-symbols-outlined">person</i>${obterResponsavelProcesso(processo)}</strong>
+          </span>
+        </div>
+        <div class="process-feature-progress" aria-label=${`Progresso do preenchimento ${progresso}%`}>
+          <div>
+            <span>Progresso do preenchimento</span>
+            <strong>${progresso}%</strong>
+          </div>
+          <i><span style=${{ width: `${progresso}%` }}></span></i>
         </div>
       </div>
-      <div class="active-process-actions">
-        <button type="button" class="btn-soft-primary" onClick=${() => onDetalhes(processo)}>
+      <div class="process-feature-actions">
+        <button type="button" class="process-feature-detail-btn" onClick=${() => onDetalhes(processo)}>
           Ver Detalhes
+          <span class="material-symbols-outlined">arrow_forward</span>
         </button>
       </div>
     </article>
@@ -1808,11 +1934,11 @@ function renderizarAcoesDoCandidato({
       <button
         type="button"
         class="btn btn-sm btn-outline-primary rh-action-btn btn-action btn-primary-soft"
-        title="Gerar prova para o candidato"
+        title="Liberar prova para o candidato"
         onClick=${() => onGerarProva(candidato)}
       >
         <span class="material-symbols-outlined">assignment_add</span>
-        Gerar prova
+        Liberar prova
       </button>
     `);
   }
@@ -1969,6 +2095,234 @@ function PaginacaoCompacta({
   `;
 }
 
+function ModalLiberarProva({
+  aberto,
+  candidato,
+  candidatosElegiveis = [],
+  processo,
+  onClose,
+  onLiberar,
+}) {
+  const configuracoes = useMemo(
+    () => obterConfiguracoesProvaDoProcesso(processo),
+    [processo],
+  );
+  const [configuracaoSelecionadaId, setConfiguracaoSelecionadaId] = useState('');
+  const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [candidatoSelecionadoId, setCandidatoSelecionadoId] = useState('');
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const opcoesCandidatos = useMemo(() => {
+    const mapa = new Map();
+    [candidato, ...(Array.isArray(candidatosElegiveis) ? candidatosElegiveis : [])]
+      .filter(Boolean)
+      .forEach((item) => {
+        const chave = obterChaveCandidatoLiberacao(item);
+        if (chave && !mapa.has(chave)) mapa.set(chave, item);
+      });
+    return Array.from(mapa.entries()).map(([id, item]) => ({ id, item }));
+  }, [candidato, candidatosElegiveis]);
+
+  useEffect(() => {
+    if (!aberto) return;
+    const candidatoInicial = opcoesCandidatos[0]?.item || candidato || null;
+    setConfiguracaoSelecionadaId(configuracoes[0]?.id_configuracao || '');
+    setCandidatoSelecionadoId(obterChaveCandidatoLiberacao(candidatoInicial));
+    setEmail(candidatoInicial?.email || '');
+    setTelefone(candidatoInicial?.telefone || candidatoInicial?.whatsapp || '');
+    setErro('');
+    setResultado(null);
+    setSalvando(false);
+  }, [aberto, candidato, configuracoes.length, opcoesCandidatos.length]);
+
+  if (!aberto) return null;
+
+  const configuracao = configuracoes.find(
+    (item) => item.id_configuracao === configuracaoSelecionadaId,
+  ) || configuracoes[0];
+  const candidatoAtual =
+    opcoesCandidatos.find((item) => item.id === candidatoSelecionadoId)?.item ||
+    candidato ||
+    {};
+  const nome = candidatoAtual?.nome_candidato || candidatoAtual?.nome || '';
+  const questoes = Array.isArray(configuracao?.questoes_snapshot)
+    ? configuracao.questoes_snapshot
+    : [];
+
+  const selecionarCandidato = (event) => {
+    const id = event.target.value;
+    const selecionado = opcoesCandidatos.find((item) => item.id === id)?.item || {};
+    setCandidatoSelecionadoId(id);
+    setEmail(selecionado.email || '');
+    setTelefone(selecionado.telefone || selecionado.whatsapp || '');
+    setErro('');
+  };
+
+  const confirmar = async () => {
+    if (!configuracao) {
+      setErro('Este processo ainda não possui prova configurada.');
+      return;
+    }
+    if (!questoes.length) {
+      setErro('A prova configurada para este processo não possui questões válidas.');
+      return;
+    }
+    const mensagemContato = validarContatoLiberacaoProva({ nome, email, telefone });
+    if (mensagemContato) {
+      setErro(mensagemContato);
+      return;
+    }
+
+    setSalvando(true);
+    setErro('');
+    try {
+      const payload = montarPayloadLiberacaoProva({
+        candidato: candidatoAtual,
+        processo,
+        configuracao,
+        email,
+        telefone,
+      });
+      const resposta = await onLiberar(payload);
+      setResultado(resposta);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível liberar a prova para o candidato.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return html`
+    <${ModalPadrao}
+      aberto=${aberto}
+      titulo=${`Liberar prova | ${nome || 'Candidato'}`}
+      subtitulo="Selecione uma prova já configurada neste processo e confirme a liberação ao candidato."
+      className="process-release-exam-dialog"
+      onClose=${onClose}
+    >
+      <div class="rh-details-body process-release-exam-body">
+        ${!configuracoes.length
+          ? html`
+              <div class="process-release-empty">
+                <span class="material-symbols-outlined">assignment_late</span>
+                <h3>Nenhuma prova configurada para este processo</h3>
+                <p>Configure a prova no fluxo de criação do processo seletivo antes de liberar para candidatos.</p>
+              </div>
+            `
+          : html`
+              <div class="process-release-grid">
+                <section class="process-release-card">
+                  <h3>Prova do processo</h3>
+                  <label class="process-release-field">
+                    <span>Configuração disponível</span>
+                    <select
+                      value=${configuracaoSelecionadaId}
+                      disabled=${salvando || !!resultado}
+                      onChange=${(event) => setConfiguracaoSelecionadaId(event.target.value)}
+                    >
+                      ${configuracoes.map(
+                        (item) => html`
+                          <option key=${item.id_configuracao} value=${item.id_configuracao}>
+                            ${item.nome}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  </label>
+                  <div class="process-release-metrics">
+                    ${[
+                      ['Vaga', configuracao?.vaga || processo?.vaga || '-'],
+                      ['Área', configuracao?.area_prova || configuracao?.area || processo?.trilha || '-'],
+                      ['Nível', configuracao?.nivel || '-'],
+                      ['Tempo', `${configuracao?.tempo_total || configuracao?.tempo_minutos || 40} min`],
+                      ['Questões', questoes.length || configuracao?.quantidade_questoes || '-'],
+                      ['Personalização', configuracao?.personalizacao?.enabled ? 'Ativada' : 'Padrão'],
+                    ].map(
+                      ([label, value]) => html`
+                        <span key=${label}>
+                          <strong>${label}</strong>
+                          ${value}
+                        </span>
+                      `,
+                    )}
+                  </div>
+                </section>
+
+                <section class="process-release-card">
+                  <h3>Candidato e acesso</h3>
+                  ${opcoesCandidatos.length > 1
+                    ? html`
+                        <label class="process-release-field">
+                          <span>Selecionar candidato</span>
+                          <select
+                            value=${candidatoSelecionadoId}
+                            disabled=${salvando || !!resultado}
+                            onChange=${selecionarCandidato}
+                          >
+                            ${opcoesCandidatos.map(
+                              ({ id, item }) => html`
+                                <option key=${id} value=${id}>
+                                  ${item.nome_candidato || item.nome || item.email || id}
+                                </option>
+                              `,
+                            )}
+                          </select>
+                        </label>
+                      `
+                    : null}
+                  <label class="process-release-field">
+                    <span>Candidato</span>
+                    <input readonly value=${nome || '-'} />
+                  </label>
+                  <label class="process-release-field">
+                    <span>E-mail de acesso</span>
+                    <input
+                      value=${email}
+                      disabled=${salvando || !!resultado}
+                      onInput=${(event) => setEmail(event.target.value)}
+                    />
+                  </label>
+                  <label class="process-release-field">
+                    <span>Telefone de acesso</span>
+                    <input
+                      value=${telefone}
+                      disabled=${salvando || !!resultado}
+                      onInput=${(event) => setTelefone(event.target.value)}
+                    />
+                  </label>
+                </section>
+              </div>
+            `}
+
+        ${erro ? html`<div class="alert alert-danger">${erro}</div>` : null}
+        ${resultado
+          ? html`
+              <div class="alert alert-success process-release-success">
+                Prova liberada com sucesso. Código de acesso:
+                <strong>${resultado.codigo_acesso || '-'}</strong>
+              </div>
+            `
+          : null}
+      </div>
+      <footer class="rh-modal-footer">
+        <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${onClose}>
+          Fechar
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          disabled=${salvando || !!resultado || !configuracoes.length}
+          onClick=${confirmar}
+        >
+          ${salvando ? 'Liberando...' : 'Confirmar liberação'}
+        </button>
+      </footer>
+    </${ModalPadrao}>
+  `;
+}
+
 function renderizarAcoesCompactasDoCandidato({
   candidato,
   onAtualizarStatus,
@@ -2027,7 +2381,7 @@ function renderizarAcoesCompactasDoCandidato({
   ) {
     acoes.push({
       valor: 'gerar-prova',
-      label: 'Gerar Prova',
+      label: 'Liberar prova',
       executar: () => onGerarProva(candidato),
     });
   }
@@ -3395,17 +3749,25 @@ export function TelaProcessos({ controlador }) {
       subtituloMarca="Processos seletivos"
       placeholderBusca="Gerenciamento de processos e candidatos"
       controlador=${controlador}
-      acaoPrimaria=${{
-      label: 'Novo processo',
-      permissao: 'vagas.criar',
-      onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
-    }}
+      acaoPrimaria=${null}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Processos"
+        kicker="RecruitPro"
         title="Processos Seletivos"
         description="Gerencie processos, etapas, candidatos, entrevistas e decisões finais."
+        actions=${controlador.possuiPermissao('vagas.criar')
+          ? html`
+              <button
+                type="button"
+                class="process-create-primary-btn"
+                onClick=${() => controlador.irParaTelaProtegida('screen-process-create')}
+              >
+                <span class="material-symbols-outlined">add</span>
+                Criar Processo
+              </button>
+            `
+          : null}
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
@@ -3414,29 +3776,27 @@ export function TelaProcessos({ controlador }) {
         <${MetricGrid}
           items=${[
       {
-        label: 'Processos abertos',
+        label: 'Abertos',
         value: resumo.abertos,
         icon: 'folder_open',
         variant: 'is-approved',
-        onClick: () => controlador.irParaTelaProtegida('screen-processes-open'),
       },
       {
-        label: 'Processos encerrados',
+        label: 'Encerrados',
         value: resumo.encerrados,
         icon: 'inventory_2',
         variant: 'is-eliminated',
         onClick: () => controlador.irParaTelaProtegida('screen-processes-closed'),
       },
       {
-        label: 'Decisões pendentes',
+        label: 'Pendentes',
         value: resumo.candidatosComDecisaoPendente,
         icon: 'rule',
         variant: 'is-analysis',
-        onClick: () => controlador.irParaTelaProtegida('screen-process-decisions'),
       },
       resumo.entrevistasVinculadas !== null
         ? {
-          label: 'Entrevistas agendadas',
+          label: 'Agendadas',
           value: resumo.entrevistasVinculadas,
           icon: 'event_available',
           onClick: () => controlador.irParaTelaProtegida('screen-interviews'),
@@ -3447,8 +3807,6 @@ export function TelaProcessos({ controlador }) {
       </${SectionCard}>
 
       <${SectionCard}
-        title="Filtros"
-        description="Aplicados somente na lista de processos abertos."
         className="process-filter-panel"
         tourId="process-filters"
       >
@@ -3461,7 +3819,7 @@ export function TelaProcessos({ controlador }) {
               onChange=${(event) =>
       setFiltros({ ...filtros, vaga: event.target.value })}
             >
-              ${renderizarOpcoesFiltro(opcoesVagaProcessos)}
+              ${renderizarOpcoesFiltro(opcoesVagaProcessos, 'Filtrar vaga')}
             </select>
           </div>
           <div class="rh-filter-field">
@@ -3472,7 +3830,7 @@ export function TelaProcessos({ controlador }) {
               onChange=${(event) =>
       setFiltros({ ...filtros, operacao: event.target.value })}
             >
-              ${renderizarOpcoesFiltro(opcoesOperacaoProcessos, 'Todas')}
+              ${renderizarOpcoesFiltro(opcoesOperacaoProcessos, 'Operação / Cliente')}
             </select>
           </div>
           <div class="rh-filter-field">
@@ -3483,7 +3841,7 @@ export function TelaProcessos({ controlador }) {
               onChange=${(event) =>
       setFiltros({ ...filtros, notaCorte: event.target.value })}
             >
-              <option value="">Todos</option>
+              <option value="">Nota de corte</option>
               <option value="sim">Sim</option>
               <option value="nao">Não</option>
             </select>
@@ -3496,10 +3854,16 @@ export function TelaProcessos({ controlador }) {
               onChange=${(event) =>
       setFiltros({ ...filtros, status: event.target.value })}
             >
-              <option value="">Todos</option>
+              <option value="">Status</option>
               <option value="aberto">Aberto</option>
               <option value="encerrado">Encerrado</option>
             </select>
+          </div>
+          <div class="process-dashboard-filter-action">
+            <button type="button" class="process-filter-apply-btn">
+              <span class="material-symbols-outlined">filter_alt</span>
+              Filtrar
+            </button>
           </div>
         </div>
       </${SectionCard}>
@@ -3508,6 +3872,7 @@ export function TelaProcessos({ controlador }) {
         title="Processos Abertos em Destaque"
         description="Acompanhamento compacto dos processos ativos com candidatos, progresso e responsável."
         className="process-progress-card"
+        tourId="process-open-highlights"
       >
         ${processosAbertos.length
       ? html`
@@ -3535,9 +3900,54 @@ export function TelaProcessos({ controlador }) {
             `}
       </${SectionCard}>
 
+      <section class="process-dashboard-section process-dashboard-decisions-section">
+        <div class="process-dashboard-section-title">
+          <h3>Decisões Finais Pendentes</h3>
+        </div>
+        ${candidatosComDecisaoPendente.length
+          ? html`
+              <div class="process-decision-card-list">
+                ${candidatosComDecisaoPendente.map(
+                  (candidato) => html`
+                    <article class="process-decision-card" key=${candidato.id_registro}>
+                      <div>
+                        <strong>${candidato.nome_candidato || '-'}</strong>
+                        <span>${candidato.vaga || candidato.id_processo || '-'}</span>
+                      </div>
+                      <span class=${`process-candidate-status-badge ${obterClasseStatusProcesso(candidato.status_fluxo)}`}>
+                        ${candidato.status_fluxo || '-'}
+                      </span>
+                      <div class="process-decision-actions">
+                        ${renderizarAcoesDoCandidato({
+                          candidato,
+                          onAprovar: abrirAprovacao,
+                          onAtualizarStatus: (item, status) =>
+                            atualizarStatus(
+                              item.id_registro,
+                              status,
+                              obterReferenciaProcessoDoCandidato(item),
+                            ),
+                          controlador,
+                        })}
+                      </div>
+                    </article>
+                  `,
+                )}
+              </div>
+            `
+          : html`
+              <div class="process-dashboard-empty">
+                <span class="material-symbols-outlined">assignment_turned_in</span>
+                <strong>Tudo em dia!</strong>
+                <p>Nenhum candidato com decisão final pendente.</p>
+              </div>
+            `}
+      </section>
+
       <${SectionCard}
         title="Gestão de Processos Seletivos"
         description="Funcionalidade existente preservada, com ações alinhadas e foco nos processos ativos."
+        className="process-open-table-card"
         tourId="process-open-table"
       >
         <div class="table-responsive">
@@ -4085,7 +4495,7 @@ export function TelaProcessosAbertos({ controlador }) {
       />
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
 
-      <${SectionCard} title="Indicadores">
+      <${SectionCard} title="Indicadores" className="open-processes-dashboard-card">
         <${MetricGrid}
           items=${[
       { label: 'Total de Processos Abertos', value: processosAbertos.length, icon: 'folder_open', variant: 'is-approved' },
@@ -4102,6 +4512,7 @@ export function TelaProcessosAbertos({ controlador }) {
       <${SectionCard}
         title="Lista Principal"
         description="Processos ativos com etapa, candidatos, entrevistas e última movimentação."
+        className="open-processes-list-card"
       >
         <div class="table-responsive">
           <table class="table align-middle rh-modern-history-table process-wide-table">
@@ -4201,6 +4612,7 @@ export function TelaProcessosAbertos({ controlador }) {
       <${SectionCard}
         title="Registros Recentes"
         description="Eventos reais vindos de movimentações de candidatos e entrevistas dos processos abertos."
+        className="open-processes-recent-card"
       >
         ${registrosRecentes.length
       ? html`
@@ -5057,7 +5469,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
           <label><span>Status</span><select value=${filtrosProvas.status} onChange=${(event) => actions.setFiltrosProvas({ ...filtrosProvas, status: event.target.value })}><option value="">Todos os status</option><option>Prova disponível</option><option>Prova concluída</option><option>Prova em andamento</option><option>Prova pendente</option><option>Prova cancelada</option></select></label>
           <label><span>Nota</span><select value=${filtrosProvas.nota} onChange=${(event) => actions.setFiltrosProvas({ ...filtrosProvas, nota: event.target.value })}><option value="">Todas as notas</option><option value="com-nota">Com resultado</option><option value="aprovacao">7,0 ou mais</option><option value="abaixo">Abaixo de 7,0</option></select></label>
           <button type="button" class="btn btn-outline-primary" onClick=${actions.aplicarFiltrosProvas}><span class="material-symbols-outlined">filter_alt</span>Filtros</button>
-          <button type="button" class="btn btn-primary" disabled=${model.processoEncerrado} onClick=${actions.abrirGeracaoProvaGeral}><span class="material-symbols-outlined">assignment_add</span>Gerar prova</button>
+          <button type="button" class="btn btn-primary" disabled=${model.processoEncerrado} onClick=${actions.abrirGeracaoProvaGeral}><span class="material-symbols-outlined">assignment_add</span>Liberar prova</button>
         </section>
       ` : null}
 
@@ -5312,6 +5724,7 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [detalheProvaSelecionado, setDetalheProvaSelecionado] = useState(null);
   const [carregandoDetalheProva, setCarregandoDetalheProva] = useState('');
   const [contextoGeracaoProva, setContextoGeracaoProva] = useState(null);
+  const [liberacaoProvaSelecionada, setLiberacaoProvaSelecionada] = useState(null);
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState(null);
   const [documentosEntrevista, setDocumentosEntrevista] = useState([]);
   const [aprovacaoSelecionada, setAprovacaoSelecionada] = useState(null);
@@ -6621,15 +7034,15 @@ export function TelaDetalhesProcesso({ controlador }) {
 
   const abrirGeracaoProva = (candidato) => {
     if (processoEncerrado) {
-      setErro('O processo seletivo está encerrado e não permite gerar novas provas.');
+      setErro('O processo seletivo está encerrado e não permite liberar novas provas.');
       return;
     }
     if (!candidatoPodeGerarProva(candidato, processo?.status || '')) {
-      setErro('A prova pode ser gerada apenas para candidatos agendados, aptos ou pendentes de prova.');
+      setErro('A prova pode ser liberada apenas para candidatos agendados, aptos ou pendentes de prova.');
       return;
     }
     setErro('');
-    setContextoGeracaoProva({
+    setLiberacaoProvaSelecionada({
       candidato,
       processo,
     });
@@ -6646,7 +7059,7 @@ export function TelaDetalhesProcesso({ controlador }) {
 
   const abrirGeracaoProvaGeral = () => {
     if (processoEncerrado) {
-      setErro('O processo seletivo está encerrado e não permite gerar novas provas.');
+      setErro('O processo seletivo está encerrado e não permite liberar novas provas.');
       return;
     }
     if (!candidatosElegiveisParaProva.length) {
@@ -6654,10 +7067,17 @@ export function TelaDetalhesProcesso({ controlador }) {
       return;
     }
     setErro('');
-    setContextoGeracaoProva({
+    setLiberacaoProvaSelecionada({
+      candidato: candidatosElegiveisParaProva[0],
       processo,
       candidatosElegiveis: candidatosElegiveisParaProva,
     });
+  };
+
+  const liberarProvaDoProcesso = async (payload) => {
+    const resposta = await criarProvaGerada(payload);
+    await carregar(paginaPreAnalises, filtrosPreAnalises, paginaCvsNaoQualificados);
+    return resposta;
   };
 
   const cancelarProvaDoCandidato = async (candidato) => {
@@ -8030,7 +8450,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       } : null,
       estadoAcoes.isActive && candidatoPodeGerarProva(candidato, processo?.status || '') &&
         !candidato?.tem_prova_gerada && !candidatoTemProvaSalva(candidato) ? {
-        label: 'Gerar prova',
+        label: 'Liberar prova',
         icon: 'assignment_add',
         onClick: () => abrirGeracaoProva(candidato),
       } : null,
@@ -9841,6 +10261,15 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         await carregar(paginaPreAnalises);
       }}
       />` : null}
+
+      <${ModalLiberarProva}
+        aberto=${!!liberacaoProvaSelecionada}
+        candidato=${liberacaoProvaSelecionada?.candidato || null}
+        candidatosElegiveis=${liberacaoProvaSelecionada?.candidatosElegiveis || []}
+        processo=${liberacaoProvaSelecionada?.processo || processo}
+        onClose=${() => setLiberacaoProvaSelecionada(null)}
+        onLiberar=${liberarProvaDoProcesso}
+      />
 
       <${ModalPadrao}
         aberto=${!!edicaoProcesso}

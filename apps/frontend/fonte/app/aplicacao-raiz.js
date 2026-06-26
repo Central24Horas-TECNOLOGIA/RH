@@ -22,7 +22,6 @@ const TelaHistorico = carregarTela(importarGestao, 'TelaHistorico');
 const TelaInicio = carregarTela(importarGestao, 'TelaInicio');
 const TelaLogin = carregarTela(importarGestao, 'TelaLogin');
 const TelaDetalhesProcesso = carregarTela(importarProcessos, 'TelaDetalhesProcesso');
-const TelaProcessosAbertos = carregarTela(importarProcessos, 'TelaProcessosAbertos');
 const TelaProcessosDecisoesPendentes = carregarTela(importarProcessos, 'TelaProcessosDecisoesPendentes');
 const TelaProcessosEncerrados = carregarTela(importarProcessos, 'TelaProcessosEncerrados');
 const TelaProcessos = carregarTela(importarProcessos, 'TelaProcessos');
@@ -53,6 +52,10 @@ function resolverTelaProtegida(telaAtual, controlador) {
 
   if (!estado.autenticado) {
     return 'screen-login';
+  }
+
+  if (telaAtual === 'screen-processes-open') {
+    return 'screen-processes';
   }
 
   if (!controlador.podeAcessarTela(telaAtual)) {
@@ -147,10 +150,6 @@ function ConteudoAplicacao() {
 
   if (telaResolvida === 'screen-processes') {
     return html`<${TelaProcessos} controlador=${controlador} />`;
-  }
-
-  if (telaResolvida === 'screen-processes-open') {
-    return html`<${TelaProcessosAbertos} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-processes-closed') {

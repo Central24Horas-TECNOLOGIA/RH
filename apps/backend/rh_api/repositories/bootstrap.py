@@ -635,6 +635,24 @@ def ensure_process_columns(cursor) -> None:
         END
         """
     )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'configuracao_prova_json') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD configuracao_prova_json NVARCHAR(MAX) NULL
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'prova_configurada_em') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD prova_configurada_em DATETIME NULL
+        END
+        """
+    )
 
 
 def ensure_candidate_metadata_table(cursor) -> None:
@@ -2152,7 +2170,9 @@ def _select_process_query() -> str:
             descricao_publica,
             requisitos_publicos,
             responsabilidades_publicas,
-            observacoes_publicas_vaga
+            observacoes_publicas_vaga,
+            configuracao_prova_json,
+            prova_configurada_em
         FROM processos_seletivos
     """
 

@@ -155,9 +155,11 @@ class ProcessRepositoryMixin:
                     nota_corte,
                     status,
                     data_criacao,
-                    link_agendamento
+                    link_agendamento,
+                    configuracao_prova_json,
+                    prova_configurada_em
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     resolved_process_id,
@@ -172,6 +174,8 @@ class ProcessRepositoryMixin:
                     normalize_process_status(data.get("status", "Aberto")),
                     created_at,
                     data.get("link_agendamento", ""),
+                    data.get("configuracao_prova_json"),
+                    data.get("prova_configurada_em") or None,
                 ),
             )
             conn.commit()
@@ -208,7 +212,9 @@ class ProcessRepositoryMixin:
                     link_agendamento = ?,
                     observacoes_publicas_vaga = ?,
                     requisitos_publicos = ?,
-                    responsabilidades_publicas = ?
+                    responsabilidades_publicas = ?,
+                    configuracao_prova_json = ?,
+                    prova_configurada_em = ?
                 WHERE {where_clause}
                 """,
                 (
@@ -232,6 +238,12 @@ class ProcessRepositoryMixin:
                     data.get("responsabilidades_publicas")
                     if data.get("responsabilidades_publicas") is not None
                     else processo.get("responsabilidades_publicas", ""),
+                    data.get("configuracao_prova_json")
+                    if data.get("configuracao_prova_json") is not None
+                    else processo.get("configuracao_prova_json"),
+                    data.get("prova_configurada_em")
+                    if data.get("prova_configurada_em") is not None
+                    else processo.get("prova_configurada_em"),
                     *params,
                 ),
             )

@@ -74,10 +74,10 @@ const TOUR_TEXTOS = {
           'Aplique filtros por vaga, operação, nota de corte e status antes de navegar nas listas.',
       },
       {
-        tourId: 'process-open-table',
+        tourId: 'process-open-highlights',
         title: 'Processos abertos',
         text:
-          'Use a tabela para editar, abrir detalhes e encerrar processos sem perder a referência operacional.',
+          'Acompanhe os processos abertos em destaque e acesse os detalhes do funil sem sair da visão principal.',
       },
     ],
   },

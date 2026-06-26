@@ -5,7 +5,6 @@ export const ROTAS_POR_TELA = {
   'screen-email-inbox': 'caixa-email',
   'screen-history': 'processos/historico-exames',
   'screen-processes': 'processos',
-  'screen-processes-open': 'processos/abertos',
   'screen-processes-closed': 'processos/encerrados',
   'screen-process-decisions': 'processos/decisoes-pendentes',
   'screen-candidates': 'candidatos',
@@ -41,6 +40,7 @@ export const TELAS_POR_ROTA = Object.entries(ROTAS_POR_TELA).reduce(
 );
 
 TELAS_POR_ROTA['processos/visao-geral'] = 'screen-processes';
+TELAS_POR_ROTA['processos/abertos'] = 'screen-processes';
 TELAS_POR_ROTA.historico = 'screen-history';
 TELAS_POR_ROTA['historico-exames'] = 'screen-history';
 TELAS_POR_ROTA['provas-resultados'] = 'screen-generated-exams';
@@ -50,6 +50,7 @@ TELAS_POR_ROTA['configuracoes/usuario'] = 'screen-settings-users';
 TELAS_POR_ROTA['configuracoes/usuarios'] = 'screen-settings-users';
 
 export function obterRotaPorTela(tela) {
+  if (tela === 'screen-processes-open') return ROTAS_POR_TELA['screen-processes'];
   return ROTAS_POR_TELA[tela] || ROTAS_POR_TELA['screen-login'];
 }
 

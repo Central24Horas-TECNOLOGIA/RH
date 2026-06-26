@@ -27,6 +27,8 @@ class ProcessCreateRequest(BaseSchema):
     status: str = "Aberto"
     data_criacao: str = ""
     link_agendamento: str = ""
+    configuracao_prova_json: str | None = None
+    prova_configurada_em: str | None = None
 
     @field_validator("id_processo", "vaga", "data_encerramento")
     @classmethod
@@ -51,6 +53,16 @@ class ProcessCreateRequest(BaseSchema):
             raise ValueError("Informe um link de agendamento válido.")
         return safe_value
 
+    @field_validator("configuracao_prova_json")
+    @classmethod
+    def validate_exam_config(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 200000:
+            raise ValueError("A configuração da prova é muito longa.")
+        return safe_value
+
     @model_validator(mode="after")
     def validate_cutoff(self):
         if int(self.usa_nota_corte or 0) == 1:
@@ -72,6 +84,8 @@ class ProcessUpdateRequest(BaseSchema):
     observacoes_publicas_vaga: str | None = None
     requisitos_publicos: str | None = None
     responsabilidades_publicas: str | None = None
+    configuracao_prova_json: str | None = None
+    prova_configurada_em: str | None = None
 
     @field_validator("data_encerramento")
     @classmethod
@@ -114,6 +128,16 @@ class ProcessUpdateRequest(BaseSchema):
         safe_value = str(value or "").strip()
         if len(safe_value) > 3000:
             raise ValueError("As observações específicas da vaga devem ter no máximo 3000 caracteres.")
+        return safe_value
+
+    @field_validator("configuracao_prova_json")
+    @classmethod
+    def validate_exam_config(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 200000:
+            raise ValueError("A configuração da prova é muito longa.")
         return safe_value
 
     @field_validator("requisitos_publicos", "responsabilidades_publicas")

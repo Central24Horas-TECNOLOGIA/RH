@@ -6,9 +6,19 @@
 } from '../../infraestrutura-react.js';
 import {
   OPCOES_OPERACOES,
+  OPCOES_VAGAS_PROVA,
   OPCOES_TRILHAS_PROCESSO,
   OPCOES_VAGAS_PROCESSO,
+  SUGESTOES_NIVEL_POR_VAGA,
+  montarProvaPorBlueprint,
+  resolverBlueprintProva,
 } from '../../perguntas.js';
+import {
+  NIVEIS_PERSONALIZACAO,
+  TIPOS_ATENDIMENTO_PERSONALIZACAO,
+  gerarPersonalizacaoProva,
+  inferirPerfilAtendimentoPersonalizacao,
+} from '../prova/services/personalizacao-inteligente.js';
 import {
   TAMANHO_ANALISE,
   TAMANHO_HISTORICO,
@@ -97,8 +107,163 @@ import { BotaoAjudaTour, TourGuiado } from '../../ui/tour-guiado.js';
 const MENSAGEM_EMAIL_NAO_CONFIGURADO =
   'Caixa de e-mail corporativa ainda não configurada. Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor.';
 
+const OPCOES_NIVEL_PROVA_PROCESSO = [
+  { value: '1', label: 'Nível 1' },
+  { value: '2', label: 'Nível 2' },
+  { value: '3', label: 'Nível 3' },
+  { value: '4', label: 'Nível 4' },
+  { value: '5', label: 'Nível 5' },
+  { value: 'personalizado', label: 'Personalizado' },
+];
+
+const OPCOES_AREAS_PROVA_PROCESSO = [
+  'Atendimento',
+  'Administrativo',
+  'Operação',
+  'Comercial',
+  'Financeiro',
+  'RH',
+  'TI',
+  'Suporte Técnico',
+  'Planejamento',
+  'Estágio',
+  'Gestão',
+];
+
+const OPCOES_TOM_PROVA_PROCESSO = [
+  'Formal',
+  'Corporativo',
+  'Humanizado',
+  'Técnico',
+  'Simples e objetivo',
+  'Atendimento ao cliente',
+  'Operacional',
+];
+
+const OPCAO_OUTRO_PROCESSO = 'Outro';
+
 function normalizarTextoPainel(valor) {
   return String(valor || '').trim();
+}
+
+function normalizarBuscaPainel(valor) {
+  return normalizarTextoPainel(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function normalizarTrilhaProvaProcesso(valor) {
+  const chave = normalizarBuscaPainel(valor);
+  if (!chave) return '';
+  if (chave.includes('atendimento')) return 'operacao';
+  if (chave.includes('comercial')) return 'comercial';
+  if (chave.includes('financeiro')) return 'financeiro';
+  if (chave.includes('rh')) return 'rh';
+  if (chave.includes('ti') || chave.includes('suporte tecnico')) return 'ti';
+  if (chave.includes('adm') || chave.includes('administrativo') || chave.includes('gestao')) return 'adm';
+  if (chave.includes('operacao') || chave.includes('padrao')) return 'operacao';
+  return chave;
+}
+
+function normalizarNivelProvaProcesso(valor) {
+  const texto = normalizarTextoPainel(valor);
+  if (!texto) return '';
+  const chave = normalizarBuscaPainel(texto);
+  const numero = chave.match(/[1-5]/)?.[0];
+  if (numero) return numero;
+  if (chave.includes('basico') || chave.includes('junior') || chave.includes('aprendiz')) return '1';
+  if (chave.includes('intermediario') || chave.includes('pleno')) return '3';
+  if (chave.includes('avancado') || chave.includes('senior') || chave.includes('supervisor')) return '4';
+  return texto;
+}
+
+function obterOpcaoVagaProvaProcesso(vaga) {
+  const chave = normalizarBuscaPainel(vaga);
+  if (!chave) return null;
+  return (
+    OPCOES_VAGAS_PROVA.find((item) => normalizarBuscaPainel(item.label) === chave) ||
+    OPCOES_VAGAS_PROVA.find((item) => {
+      const label = normalizarBuscaPainel(item.label);
+      return label && (chave.includes(label) || label.includes(chave));
+    }) ||
+    null
+  );
+}
+
+function montarOpcoesComValorProcesso(opcoes = [], valor = '') {
+  const atual = normalizarTextoPainel(valor);
+  if (!atual || opcoes.some((opcao) => normalizarBuscaPainel(opcao) === normalizarBuscaPainel(atual))) {
+    return opcoes;
+  }
+  return [atual, ...opcoes];
+}
+
+function lerValoresMultiselectProcesso(event) {
+  return Array.from(event.target.selectedOptions || [])
+    .map((opcao) => normalizarTextoPainel(opcao.value))
+    .filter(Boolean);
+}
+
+function montarListaComOutroProcesso(lista = [], outro = '') {
+  return [
+    ...lista.filter((item) => item !== OPCAO_OUTRO_PROCESSO),
+    normalizarTextoPainel(outro),
+  ].filter(Boolean);
+}
+
+function montarEtapasBlueprintProcesso(blueprint) {
+  return (blueprint?.stages || []).map((stage) => ({
+    key: stage.key || '',
+    label: stage.label || stage.key || 'Etapa',
+    weight: Number(stage.weight || 0),
+    questionCount:
+      typeof stage.questions === 'function'
+        ? stage.questions().length
+        : Array.isArray(stage.questions)
+          ? stage.questions.length
+          : 0,
+  }));
+}
+
+function obterCategoriasQuestoesProcesso(questoes = []) {
+  return Array.from(
+    new Set(
+      questoes
+        .map((questao) => questao.stage || questao.category || questao.stageKey)
+        .filter(Boolean),
+    ),
+  );
+}
+
+function inferirPerfilOperacaoProcesso(formulario = {}) {
+  const base = normalizarBuscaPainel([
+    formulario.operacao,
+    formulario.areaProva,
+    formulario.vaga,
+  ].join(' '));
+  if (base.includes('davita') || base.includes('endoview') || base.includes('saude')) {
+    return 'atendimento_saude';
+  }
+  if (base.includes('suporte') || base.includes('ti') || base.includes('tecnico')) {
+    return 'suporte_ti';
+  }
+  if (base.includes('financeiro') || base.includes('administrativo') || base.includes('backoffice')) {
+    return 'backoffice';
+  }
+  if (base.includes('rh')) return 'rh_dp';
+  return 'call_center';
+}
+
+function formatarDataResumoProcesso(valor) {
+  if (!valor) return '-';
+  const data = new Date(`${valor}T00:00:00`);
+  if (Number.isNaN(data.getTime())) return valor;
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function mascararEmailContato(valor) {
@@ -1784,11 +1949,29 @@ export function TelaCriarProcesso({ controlador }) {
     trilha: '',
     usaNotaCorte: false,
     notaCorte: '',
+    areaProva: '',
+    nivelProva: '',
+    tempoTotal: 40,
+    tipoProva: 'Processo seletivo',
+    observacoesInternas: '',
+    personalizacaoInteligente: false,
+    clientesPersonalizacao: [],
+    clienteOutro: '',
+    tiposAtendimento: [],
+    tipoAtendimentoOutro: '',
+    nivelPersonalizacao: 'situacional',
+    tomProva: 'Humanizado',
+    situacaoPraticaOperacao: '',
   });
+  const [etapaAtual, setEtapaAtual] = useState(1);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
 
   const regras = obterRegrasFormularioProcesso(formulario.vaga);
+  const trilhaEfetiva = regras.trilhaFixa || formulario.trilha;
+  const trilhaBlueprint = normalizarTrilhaProvaProcesso(
+    formulario.areaProva || trilhaEfetiva,
+  );
 
   useEffect(() => {
     if (regras.trilhaFixa && formulario.trilha !== regras.trilhaFixa) {
@@ -1796,8 +1979,262 @@ export function TelaCriarProcesso({ controlador }) {
     }
   }, [regras.trilhaFixa, formulario.trilha]);
 
+  useEffect(() => {
+    if (!formulario.vaga) return;
+    const opcao = obterOpcaoVagaProvaProcesso(formulario.vaga);
+    const areaSugerida = normalizarTextoPainel(opcao?.track || trilhaEfetiva || '');
+    const nivelSugerido = normalizarNivelProvaProcesso(
+      SUGESTOES_NIVEL_POR_VAGA[formulario.vaga] || opcao?.level || '',
+    );
+    setFormulario((anterior) => ({
+      ...anterior,
+      areaProva: anterior.areaProva || areaSugerida,
+      nivelProva: anterior.nivelProva || nivelSugerido,
+      trilha: anterior.trilha || normalizarTrilhaProvaProcesso(areaSugerida),
+    }));
+  }, [formulario.vaga]);
+
+  const blueprint = useMemo(() => {
+    if (!formulario.vaga || !formulario.nivelProva) return null;
+    return resolverBlueprintProva(
+      formulario.vaga,
+      formulario.nivelProva,
+      trilhaBlueprint,
+    );
+  }, [formulario.vaga, formulario.nivelProva, trilhaBlueprint]);
+
+  const questoes = useMemo(
+    () => (blueprint ? montarProvaPorBlueprint(blueprint) : []),
+    [blueprint],
+  );
+  const etapasProva = useMemo(
+    () => montarEtapasBlueprintProcesso(blueprint),
+    [blueprint],
+  );
+  const categoriasProva = useMemo(
+    () => obterCategoriasQuestoesProcesso(questoes),
+    [questoes],
+  );
+  const opcoesAreasProva = useMemo(
+    () => montarOpcoesComValorProcesso(OPCOES_AREAS_PROVA_PROCESSO, formulario.areaProva),
+    [formulario.areaProva],
+  );
+  const opcoesNiveisProva = useMemo(() => {
+    if (
+      !formulario.nivelProva ||
+      OPCOES_NIVEL_PROVA_PROCESSO.some(
+        (opcao) =>
+          normalizarBuscaPainel(opcao.value) === normalizarBuscaPainel(formulario.nivelProva),
+      )
+    ) {
+      return OPCOES_NIVEL_PROVA_PROCESSO;
+    }
+    return [
+      { value: formulario.nivelProva, label: formulario.nivelProva },
+      ...OPCOES_NIVEL_PROVA_PROCESSO,
+    ];
+  }, [formulario.nivelProva]);
+  const opcoesOperacoesPersonalizacao = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...OPCOES_OPERACOES,
+            formulario.operacao,
+            'CRF / Flamengo',
+            'Davita',
+            'Endoview',
+            'Newe Seguros',
+            'Central24Horas',
+          ]
+            .map((item) => normalizarTextoPainel(item))
+            .filter(Boolean),
+        ),
+      ),
+    [formulario.operacao],
+  );
+
+  const atualizarCampo = (campo, valor) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+      ...(campo === 'vaga'
+        ? {
+            areaProva: '',
+            nivelProva: '',
+          }
+        : {}),
+      ...(campo === 'areaProva'
+        ? { trilha: normalizarTrilhaProvaProcesso(valor) || anterior.trilha }
+        : {}),
+    }));
+    setErro('');
+  };
+
+  const montarDadosPersonalizacao = () => {
+    const clientes = montarListaComOutroProcesso(
+      formulario.clientesPersonalizacao,
+      formulario.clienteOutro,
+    );
+    const tiposAtendimento = montarListaComOutroProcesso(
+      formulario.tiposAtendimento,
+      formulario.tipoAtendimentoOutro,
+    );
+
+    return {
+      enabled: Boolean(formulario.personalizacaoInteligente),
+      clientes,
+      tiposAtendimento,
+      operacao: clientes.join(', '),
+      tipo_atendimento: tiposAtendimento,
+      nivel_personalizacao: formulario.nivelPersonalizacao,
+      tom_prova: normalizarTextoPainel(formulario.tomProva),
+      situacao_pratica: normalizarTextoPainel(formulario.situacaoPraticaOperacao),
+      situacao_pratica_operacao: normalizarTextoPainel(formulario.situacaoPraticaOperacao),
+    };
+  };
+
+  const montarConfiguracaoPersonalizacao = (personalizacao) => ({
+    operacao: personalizacao.operacao,
+    cliente: personalizacao.operacao,
+    clientesOperacoes: personalizacao.clientes,
+    vaga: formulario.vaga,
+    area: formulario.areaProva,
+    trilha: trilhaBlueprint,
+    nivelProva: formulario.nivelProva,
+    perfilOperacao: inferirPerfilAtendimentoPersonalizacao({
+      clientes: personalizacao.clientes,
+      tipos: personalizacao.tiposAtendimento,
+      area: formulario.areaProva,
+      vaga: formulario.vaga,
+    }) || inferirPerfilOperacaoProcesso(formulario),
+    tiposAtendimento: personalizacao.tiposAtendimento,
+    nivelPersonalizacao: personalizacao.nivel_personalizacao,
+    tomProva: formulario.tomProva,
+    situacaoPratica: formulario.situacaoPraticaOperacao,
+    usuario:
+      controlador?.estado?.nomeUsuarioAutenticado ||
+      controlador?.estado?.usuarioAutenticado ||
+      'RH',
+  });
+
+  const validarEtapaDadosProcesso = () =>
+    validarFormularioProcesso(
+      {
+        vaga: formulario.vaga,
+        quantidade: formulario.quantidade,
+        dataEncerramento: formulario.dataEncerramento,
+        operacao: formulario.operacao,
+        trilha: trilhaEfetiva,
+        usaNotaCorte: formulario.usaNotaCorte,
+        notaCorte: formulario.notaCorte,
+      },
+      regras,
+    );
+
+  const validarEtapaProva = () => {
+    if (
+      !formulario.areaProva ||
+      !formulario.nivelProva ||
+      !Number(formulario.tempoTotal) ||
+      !blueprint ||
+      !questoes.length
+    ) {
+      return 'Selecione área/trilha, nível e tempo com uma configuração de prova válida.';
+    }
+    if (formulario.personalizacaoInteligente) {
+      const personalizacao = montarDadosPersonalizacao();
+      if (!personalizacao.clientes.length) {
+        return 'Selecione ao menos um Cliente/Operação para personalizar a prova.';
+      }
+      if (!personalizacao.tiposAtendimento.length) {
+        return 'Selecione ao menos um tipo de atendimento para personalizar a prova.';
+      }
+    }
+    return '';
+  };
+
+  const montarConfiguracaoProva = () => {
+    const personalizacao = montarDadosPersonalizacao();
+    const configuracaoPersonalizacao = formulario.personalizacaoInteligente
+      ? montarConfiguracaoPersonalizacao(personalizacao)
+      : null;
+    const resultadoPersonalizacao = formulario.personalizacaoInteligente
+      ? gerarPersonalizacaoProva(questoes, configuracaoPersonalizacao)
+      : null;
+    const questoesSnapshot = resultadoPersonalizacao?.questoes?.length
+      ? resultadoPersonalizacao.questoes
+      : questoes;
+    const configuradaEm = new Date().toISOString();
+
+    return {
+      versao: 1,
+      origem: 'processo_seletivo',
+      status: 'configurada',
+      configurada_em: configuradaEm,
+      vaga: formulario.vaga,
+      area: formulario.areaProva,
+      area_prova: formulario.areaProva,
+      nivel: formulario.nivelProva,
+      tempo_total: Number(formulario.tempoTotal || 40),
+      tempo_minutos: Number(formulario.tempoTotal || 40),
+      tipo_prova: formulario.tipoProva,
+      quantidade_questoes: questoesSnapshot.length,
+      etapas: etapasProva,
+      categorias: categoriasProva,
+      questoes_snapshot: questoesSnapshot,
+      observacoes_internas_rh: formulario.observacoesInternas,
+      tom_prova: formulario.tomProva,
+      situacao_pratica_operacao: formulario.situacaoPraticaOperacao,
+      personalizacao,
+      configuracao: {
+        blueprint_key: blueprint?.key || '',
+        blueprint_label: blueprint?.label || formulario.areaProva || '',
+        area_prova: formulario.areaProva,
+        area: formulario.areaProva,
+        trilha_blueprint: trilhaBlueprint,
+        setor_cliente: formulario.personalizacaoInteligente
+          ? personalizacao.operacao
+          : formulario.operacao,
+        operacao: formulario.personalizacaoInteligente
+          ? personalizacao.operacao
+          : formulario.operacao,
+        personalizacao_inteligente: Boolean(formulario.personalizacaoInteligente),
+        personalizacao: formulario.personalizacaoInteligente
+          ? {
+              ...personalizacao,
+              operacao: personalizacao.operacao,
+              setor_cliente: personalizacao.operacao,
+              tom_prova: formulario.tomProva,
+              situacao_pratica_operacao: formulario.situacaoPraticaOperacao,
+              tipos_atendimento: personalizacao.tiposAtendimento,
+              perfil_operacao: configuracaoPersonalizacao?.perfilOperacao,
+              nivel_personalizacao: configuracaoPersonalizacao?.nivelPersonalizacao,
+              historico: resultadoPersonalizacao?.historico || null,
+              alertas: resultadoPersonalizacao?.alertas || [],
+            }
+          : {
+              enabled: false,
+              opcional: true,
+              mensagem: 'Prova padrão configurada para este processo seletivo.',
+            },
+        entrevista_obrigatoria: false,
+      },
+    };
+  };
+
+  const avancar = () => {
+    const mensagemErro = etapaAtual === 1 ? validarEtapaDadosProcesso() : validarEtapaProva();
+    if (mensagemErro) {
+      setErro(mensagemErro);
+      return;
+    }
+    setErro('');
+    setEtapaAtual((etapa) => Math.min(3, etapa + 1));
+  };
+
   const criar = async () => {
-    const mensagemErro = validarFormularioProcesso(formulario, regras);
+    const mensagemErro = validarEtapaDadosProcesso() || validarEtapaProva();
     if (mensagemErro) {
       setErro(mensagemErro);
       return;
@@ -1807,6 +2244,7 @@ export function TelaCriarProcesso({ controlador }) {
     setSalvando(true);
 
     try {
+      const configuracaoProva = montarConfiguracaoProva();
       await criarProcesso({
         id_processo: montarIdProcesso(formulario.vaga),
         vaga: formulario.vaga,
@@ -1814,7 +2252,7 @@ export function TelaCriarProcesso({ controlador }) {
         vagas_preenchidas: 0,
         data_encerramento: formulario.dataEncerramento,
         operacao: formulario.operacao,
-        trilha: regras.trilhaFixa || formulario.trilha,
+        trilha: trilhaEfetiva,
         usa_nota_corte: formulario.usaNotaCorte ? 1 : 0,
         nota_corte: formulario.usaNotaCorte
           ? Number(formulario.notaCorte)
@@ -1822,6 +2260,8 @@ export function TelaCriarProcesso({ controlador }) {
         status: 'Aberto',
         data_criacao: new Date().toISOString(),
         link_agendamento: '',
+        configuracao_prova_json: JSON.stringify(configuracaoProva),
+        prova_configurada_em: configuracaoProva.configurada_em,
       });
 
       controlador.irParaTelaProtegida('screen-processes');
@@ -1847,153 +2287,325 @@ export function TelaCriarProcesso({ controlador }) {
     >
       <${PageIntro}
         kicker="Console • Novo processo"
-        title="Abrir processo seletivo"
-        description="Cadastre uma vaga com a mesma lógica funcional do sistema atual, agora em uma composição mais previsível."
+        title=${`Etapa ${etapaAtual}: ${
+    etapaAtual === 1
+      ? 'Dados do Processo'
+      : etapaAtual === 2
+        ? 'Configuração da Prova'
+        : 'Publicação'
+  }`}
+        description="Cadastre a vaga e configure a prova vinculada ao processo seletivo."
       />
 
-      <${SectionCard}
-        title="Dados do processo"
-        description="Os campos abaixo mantêm a compatibilidade com a API e com o fluxo atual de provas."
-        tourId="process-create-form"
-      >
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">Vaga do processo</label>
-            <select
-              class="form-select rh-flow-input"
-              value=${formulario.vaga}
-              onChange=${(event) =>
-      setFormulario({ ...formulario, vaga: event.target.value })}
-            >
-              <option value="">Selecione...</option>
-              ${OPCOES_VAGAS_PROCESSO.map(
-                (opcao) => html`
-                  <option key=${opcao.label} value=${opcao.label}>
-                    ${opcao.label}
-                  </option>
-                `,
-              )}
-            </select>
-          </div>
-
-          <div class="col-md-3">
-            <label class="form-label">Quantidade de vagas</label>
-            <input
-              class="form-control rh-flow-input"
-              type="number"
-              min="1"
-              value=${formulario.quantidade}
-              onInput=${(event) =>
-      setFormulario({ ...formulario, quantidade: event.target.value })}
-            />
-          </div>
-
-          <div class="col-md-3">
-            <label class="form-label">Data de encerramento</label>
-            <input
-              class="form-control rh-flow-input"
-              type="date"
-              value=${formulario.dataEncerramento}
-              onInput=${(event) =>
-      setFormulario({
-        ...formulario,
-        dataEncerramento: event.target.value,
-      })}
-            />
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Operação / Cliente</label>
-            <select
-              class="form-select rh-flow-input"
-              value=${formulario.operacao}
-              onChange=${(event) =>
-      setFormulario({ ...formulario, operacao: event.target.value })}
-            >
-              <option value="">Selecione...</option>
-              ${OPCOES_OPERACOES.map(
-                (operacao) => html`
-                  <option key=${operacao} value=${operacao}>
-                    ${operacao}
-                  </option>
-                `,
-              )}
-            </select>
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Área/Trilha</label>
-            <select
-              class="form-select rh-flow-input"
-              disabled=${!!regras.trilhaFixa}
-              value=${regras.trilhaFixa || formulario.trilha}
-              onChange=${(event) =>
-      setFormulario({ ...formulario, trilha: event.target.value })}
-            >
-              <option value="">Selecione...</option>
-              ${OPCOES_TRILHAS_PROCESSO.map(
-                (opcao) => html`
-                  <option key=${opcao.value} value=${opcao.value}>
-                    ${opcao.label}
-                  </option>
-                `,
-              )}
-            </select>
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label d-block mb-2">Ativar nota de corte</label>
-            <label class="rh-cutoff-toggle">
-              <input
-                type="checkbox"
-                checked=${formulario.usaNotaCorte}
-                onChange=${(event) =>
-      setFormulario({
-        ...formulario,
-        usaNotaCorte: event.target.checked,
-      })}
-              />
-              <span class="rh-cutoff-toggle-slider"></span>
-            </label>
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Nota de corte</label>
-            <input
-              class="form-control rh-flow-input"
-              type="number"
-              min="4"
-              max="10"
-              step="0.1"
-              disabled=${!formulario.usaNotaCorte}
-              value=${formulario.notaCorte}
-              onInput=${(event) =>
-      setFormulario({ ...formulario, notaCorte: event.target.value })}
-            />
-          </div>
-
+      <div class="process-create-shell">
+        <div class="process-create-stepper" aria-label="Etapas do processo seletivo">
+          ${[
+            ['1', 'Dados do Processo'],
+            ['2', 'Configuração da Prova'],
+            ['3', 'Publicação'],
+          ].map(([numero, label], indice) => {
+    const etapa = indice + 1;
+    return html`
+              <div class=${`process-create-step ${etapaAtual === etapa ? 'is-active' : ''} ${etapaAtual > etapa ? 'is-done' : ''}`} key=${numero}>
+                <span>${etapaAtual > etapa ? html`<i class="material-symbols-outlined">check</i>` : numero}</span>
+                <strong>${label}</strong>
+              </div>
+            `;
+  })}
         </div>
 
-        ${erro ? html`<div class="alert alert-danger mt-4">${erro}</div>` : null}
+        <div class="process-create-grid">
+          <div class="process-create-main">
+            ${etapaAtual === 1
+      ? html`
+                  <section class="process-create-card" tour-id="process-create-form">
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">work</span>
+                      <h2>Informações da Vaga</h2>
+                    </div>
+                    <div class="process-create-form-grid">
+                      <label class="process-create-field is-wide">
+                        <span>Vaga do processo</span>
+                        <select value=${formulario.vaga} onChange=${(event) => atualizarCampo('vaga', event.target.value)}>
+                          <option value="">Selecione...</option>
+                          ${OPCOES_VAGAS_PROCESSO.map(
+        (opcao) => html`<option key=${opcao.label} value=${opcao.label}>${opcao.label}</option>`,
+      )}
+                        </select>
+                      </label>
+                      <label class="process-create-field">
+                        <span>Quantidade de vagas</span>
+                        <input type="number" min="1" value=${formulario.quantidade} onInput=${(event) => atualizarCampo('quantidade', event.target.value)} />
+                      </label>
+                      <label class="process-create-field">
+                        <span>Data de encerramento</span>
+                        <input type="date" value=${formulario.dataEncerramento} onInput=${(event) => atualizarCampo('dataEncerramento', event.target.value)} />
+                      </label>
+                      <label class="process-create-field">
+                        <span>Operação / Cliente</span>
+                        <select value=${formulario.operacao} onChange=${(event) => atualizarCampo('operacao', event.target.value)}>
+                          <option value="">Selecione...</option>
+                          ${OPCOES_OPERACOES.map(
+        (operacao) => html`<option key=${operacao} value=${operacao}>${operacao}</option>`,
+      )}
+                        </select>
+                      </label>
+                      <label class="process-create-field">
+                        <span>Área / Trilha</span>
+                        <select disabled=${!!regras.trilhaFixa} value=${trilhaEfetiva} onChange=${(event) => atualizarCampo('trilha', event.target.value)}>
+                          <option value="">Selecione...</option>
+                          ${OPCOES_TRILHAS_PROCESSO.map(
+        (opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`,
+      )}
+                        </select>
+                      </label>
+                    </div>
+                  </section>
+                  <section class="process-create-card">
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">rule</span>
+                      <h2>Critérios de Avaliação</h2>
+                    </div>
+                    <div class="process-cutoff-panel">
+                      <label class="process-switch-row">
+                        <input type="checkbox" checked=${formulario.usaNotaCorte} onChange=${(event) => atualizarCampo('usaNotaCorte', event.target.checked)} />
+                        <span class="process-switch-visual"></span>
+                        <span>
+                          <strong>Ativar nota de corte</strong>
+                          <small>Candidatos abaixo da nota serão desclassificados automaticamente.</small>
+                        </span>
+                      </label>
+                      <label class="process-create-field process-cutoff-score">
+                        <span>Nota mínima</span>
+                        <input type="number" min="4" max="10" step="0.1" disabled=${!formulario.usaNotaCorte} value=${formulario.notaCorte} onInput=${(event) => atualizarCampo('notaCorte', event.target.value)} />
+                      </label>
+                    </div>
+                  </section>
+                `
+      : null}
 
-        <div class="rh-form-footer">
+            ${etapaAtual === 2
+      ? html`
+                  <section class="process-create-card">
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">settings_applications</span>
+                      <h2>Dados da Prova</h2>
+                    </div>
+                    <div class="process-create-form-grid">
+                      <label class="process-create-field">
+                        <span>Área / Trilha</span>
+                        <select value=${formulario.areaProva} onChange=${(event) => atualizarCampo('areaProva', event.target.value)}>
+                          <option value="">Selecione...</option>
+                          ${opcoesAreasProva.map(
+        (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+      )}
+                        </select>
+                      </label>
+                      <label class="process-create-field">
+                        <span>Nível da prova</span>
+                        <select value=${formulario.nivelProva} onChange=${(event) => atualizarCampo('nivelProva', event.target.value)}>
+                          <option value="">Selecione...</option>
+                          ${opcoesNiveisProva.map(
+        (opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`,
+      )}
+                        </select>
+                      </label>
+                      <label class="process-create-field">
+                        <span>Tempo total</span>
+                        <input type="number" min="1" max="300" value=${formulario.tempoTotal} onInput=${(event) => atualizarCampo('tempoTotal', event.target.value)} />
+                      </label>
+                      <label class="process-create-field">
+                        <span>Tipo de prova</span>
+                        <select value=${formulario.tipoProva} onChange=${(event) => atualizarCampo('tipoProva', event.target.value)}>
+                          <option>Processo seletivo</option>
+                          <option>Triagem técnica</option>
+                          <option>Avaliação operacional</option>
+                        </select>
+                      </label>
+                      <label class="process-create-field is-wide">
+                        <span>Observações internas</span>
+                        <textarea rows="3" value=${formulario.observacoesInternas} onInput=${(event) => atualizarCampo('observacoesInternas', event.target.value)}></textarea>
+                      </label>
+                    </div>
+                    <div class="process-blueprint-preview">
+                      <span class="material-symbols-outlined">fact_check</span>
+                      <div>
+                        <strong>${blueprint?.label || 'Blueprint não selecionado'}</strong>
+                        <small>${questoes.length ? `${questoes.length} questões em ${etapasProva.length} etapa(s)` : 'Escolha vaga, trilha e nível para montar a prova.'}</small>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="process-create-card">
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">palette</span>
+                      <h2>Personalização</h2>
+                    </div>
+                    <label class="process-personalization-toggle">
+                      <input type="checkbox" checked=${formulario.personalizacaoInteligente} onChange=${(event) => atualizarCampo('personalizacaoInteligente', event.target.checked)} />
+                      <span>
+                        <strong>Personalizar prova por operação/cliente</strong>
+                        <small>Opcional. A prova padrão permanece disponível se esta opção ficar desmarcada.</small>
+                      </span>
+                    </label>
+                    ${formulario.personalizacaoInteligente
+        ? html`
+                          <div class="process-create-form-grid mt-3">
+                            <label class="process-create-field">
+                              <span>Cliente/Operação</span>
+                              <select multiple value=${formulario.clientesPersonalizacao} onChange=${(event) => atualizarCampo('clientesPersonalizacao', lerValoresMultiselectProcesso(event))}>
+                                ${[...opcoesOperacoesPersonalizacao, OPCAO_OUTRO_PROCESSO].map(
+            (opcao) => html`<option key=${opcao} value=${opcao} selected=${formulario.clientesPersonalizacao.includes(opcao)}>${opcao}</option>`,
+          )}
+                              </select>
+                            </label>
+                            <label class="process-create-field">
+                              <span>Tipo de atendimento</span>
+                              <select multiple value=${formulario.tiposAtendimento} onChange=${(event) => atualizarCampo('tiposAtendimento', lerValoresMultiselectProcesso(event))}>
+                                ${[...TIPOS_ATENDIMENTO_PERSONALIZACAO, OPCAO_OUTRO_PROCESSO].map(
+            (opcao) => html`<option key=${opcao} value=${opcao} selected=${formulario.tiposAtendimento.includes(opcao)}>${opcao}</option>`,
+          )}
+                              </select>
+                            </label>
+                            ${formulario.clientesPersonalizacao.includes(OPCAO_OUTRO_PROCESSO)
+            ? html`
+                                  <label class="process-create-field">
+                                    <span>Outro cliente/operação</span>
+                                    <input value=${formulario.clienteOutro} onInput=${(event) => atualizarCampo('clienteOutro', event.target.value)} />
+                                  </label>
+                                `
+            : null}
+                            ${formulario.tiposAtendimento.includes(OPCAO_OUTRO_PROCESSO)
+            ? html`
+                                  <label class="process-create-field">
+                                    <span>Outro tipo de atendimento</span>
+                                    <input value=${formulario.tipoAtendimentoOutro} onInput=${(event) => atualizarCampo('tipoAtendimentoOutro', event.target.value)} />
+                                  </label>
+                                `
+            : null}
+                            <label class="process-create-field">
+                              <span>Nível de personalização</span>
+                              <select value=${formulario.nivelPersonalizacao} onChange=${(event) => atualizarCampo('nivelPersonalizacao', event.target.value)}>
+                                ${NIVEIS_PERSONALIZACAO.map(
+            (nivel) => html`<option key=${nivel.id} value=${nivel.id}>${nivel.label}: ${nivel.descricao}</option>`,
+          )}
+                              </select>
+                            </label>
+                            <label class="process-create-field">
+                              <span>Tom da prova</span>
+                              <select value=${formulario.tomProva} onChange=${(event) => atualizarCampo('tomProva', event.target.value)}>
+                                ${OPCOES_TOM_PROVA_PROCESSO.map(
+            (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+          )}
+                              </select>
+                            </label>
+                            <label class="process-create-field is-wide">
+                              <span>Situação prática da operação</span>
+                              <textarea rows="3" value=${formulario.situacaoPraticaOperacao} placeholder="Ex.: candidato atuará com atendimento receptivo em operação de saúde." onInput=${(event) => atualizarCampo('situacaoPraticaOperacao', event.target.value)}></textarea>
+                            </label>
+                          </div>
+                        `
+        : null}
+                  </section>
+                `
+      : null}
+
+            ${etapaAtual === 3
+      ? html`
+                  <section class="process-create-card">
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">publish</span>
+                      <h2>Publicação / Finalização</h2>
+                    </div>
+                    <div class="process-final-review">
+                      ${[
+        ['Vaga', formulario.vaga || '-'],
+        ['Quantidade', `${formulario.quantidade || 0} vaga(s)`],
+        ['Encerramento', formatarDataResumoProcesso(formulario.dataEncerramento)],
+        ['Operação', formulario.operacao || '-'],
+        ['Área / Trilha', trilhaEfetiva || '-'],
+        ['Nota de corte', formulario.usaNotaCorte ? formulario.notaCorte || '-' : 'Não ativada'],
+        ['Prova', blueprint?.label || '-'],
+        ['Tempo', `${formulario.tempoTotal || 0} min`],
+        ['Personalização', formulario.personalizacaoInteligente ? 'Ativada' : 'Não ativada'],
+      ].map(
+        ([label, value]) => html`
+                          <span key=${label}>
+                            <strong>${label}</strong>
+                            ${value}
+                          </span>
+                        `,
+      )}
+                    </div>
+                    <div class="process-blueprint-preview is-ready">
+                      <span class="material-symbols-outlined">check_circle</span>
+                      <div>
+                        <strong>Prova configurada para o processo</strong>
+                        <small>Ao publicar, esta configuração fica disponível para liberar prova aos candidatos deste processo.</small>
+                      </div>
+                    </div>
+                  </section>
+                `
+      : null}
+          </div>
+
+          <aside class="process-create-summary">
+            <h3><span class="material-symbols-outlined">info</span>Resumo do processo</h3>
+            <dl>
+              <div><dt>Vaga</dt><dd>${formulario.vaga || '-'}</dd></div>
+              <div><dt>Quantidade</dt><dd>${String(formulario.quantidade || 0).padStart(2, '0')} vaga(s)</dd></div>
+              <div><dt>Encerramento</dt><dd>${formatarDataResumoProcesso(formulario.dataEncerramento)}</dd></div>
+              <div><dt>Cliente</dt><dd>${formulario.operacao || '-'}</dd></div>
+              <div><dt>Prova</dt><dd>${blueprint?.label || '-'}</dd></div>
+              <div><dt>Questões</dt><dd>${questoes.length || '-'}</dd></div>
+            </dl>
+            <div class="process-create-summary-note">
+              <span class="material-symbols-outlined">verified</span>
+              A prova configurada aqui fica vinculada ao processo seletivo.
+            </div>
+          </aside>
+        </div>
+
+        ${erro ? html`<div class="alert alert-danger mt-3">${erro}</div>` : null}
+
+        <footer class="process-create-actions">
           <button
             type="button"
             class="btn btn-outline-secondary"
-            onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
+            disabled=${salvando}
+            onClick=${() =>
+      etapaAtual > 1
+        ? setEtapaAtual((etapa) => etapa - 1)
+        : controlador.irParaTelaProtegida('screen-processes')}
           >
+            <span class="material-symbols-outlined">arrow_back</span>
             Voltar
           </button>
-          <button
-            type="button"
-            class="btn btn-success btn-lg"
-            disabled=${salvando}
-            onClick=${criar}
-          >
-            ${salvando ? 'Salvando...' : 'Criar processo'}
-          </button>
-        </div>
-      </${SectionCard}>
+          <div>
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              disabled=${salvando}
+              onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
+            >
+              Cancelar
+            </button>
+            ${etapaAtual < 3
+      ? html`
+                  <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${avancar}>
+                    Próximo passo
+                    <span class="material-symbols-outlined">arrow_forward</span>
+                  </button>
+                `
+      : html`
+                  <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${criar}>
+                    ${salvando ? 'Publicando...' : 'Publicar processo'}
+                    <span class="material-symbols-outlined">check</span>
+                  </button>
+                `}
+          </div>
+        </footer>
+      </div>
     </${PainelRh}>
   `;
 }

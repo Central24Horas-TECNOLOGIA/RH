@@ -539,6 +539,64 @@ function BotaoAcaoProva({ icon, label, variant = 'neutral', onClick, disabled = 
   `;
 }
 
+function obterRotuloStatusDetalhe(status) {
+  const texto = normalizarTexto(status || 'Pendente');
+  return texto ? texto.toUpperCase() : 'PENDENTE';
+}
+
+function obterPercentualEtapaDetalhe(etapa = {}) {
+  if (etapa.score === null || etapa.score === undefined || Number.isNaN(Number(etapa.score))) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Number(etapa.score)));
+}
+
+function obterTomEtapaDetalhe(etapa = {}) {
+  const status = normalizarBusca(etapa.status);
+  const label = normalizarBusca(etapa.label);
+  const percentual = obterPercentualEtapaDetalhe(etapa);
+  if (status.includes('pend')) return 'warning';
+  if (status.includes('corrig') || percentual >= 70) return 'success';
+  if (label.includes('conhecimento') || label.includes('geral')) return 'info';
+  if (percentual <= 0) return 'neutral';
+  return 'warning';
+}
+
+function obterStatusRespostaDetalhe(resposta = {}) {
+  if (resposta.correta === true || resposta.correta === 1) {
+    return { label: 'Correta', className: 'is-correct' };
+  }
+  if (resposta.correta === false || resposta.correta === 0) {
+    return { label: 'Incorreta', className: 'is-incorrect' };
+  }
+  return { label: 'Manual', className: 'is-manual' };
+}
+
+function obterSubtituloEtapaResposta(resposta = {}) {
+  return (
+    resposta.stageLabel ||
+    resposta.stage_label ||
+    resposta.stage ||
+    resposta.subcategoria ||
+    resposta.tipo_questao ||
+    resposta.questionType ||
+    ''
+  );
+}
+
+function montarLinhasResultadoDetalhe(respostas = []) {
+  return respostas.map((resposta, indice) => ({
+    id: resposta.id_resposta || resposta.id || `${resposta.categoria || 'questao'}-${indice}`,
+    etapa: resposta.categoria || resposta.stageLabel || resposta.stage || 'Questão',
+    subtitulo: obterSubtituloEtapaResposta(resposta),
+    numero: Number(resposta.questao_indice ?? indice) + 1,
+    questao: resposta.texto_questao_snapshot || resposta.enunciado || resposta.questao || '-',
+    resposta: descreverResposta(resposta.resposta),
+    nota: formatarScore(resposta.nota),
+    status: obterStatusRespostaDetalhe(resposta),
+  }));
+}
+
 export function ModalGerarProva({
   aberto,
   contexto = {},
@@ -1189,18 +1247,28 @@ function ModalDetalheProvaGerada({
   onCancelar,
   onDecisao,
 }) {
-  const [mostrarResultadoCompleto, setMostrarResultadoCompleto] = useState(false);
+  const [mostrarResultadoCompleto, setMostrarResultadoCompleto] = useState(true);
   if (!detalhe) return null;
   const score = detalhe.score || {};
   const resultado = detalhe.resultado || {};
   const alertas = montarAlertasDetalhe(score);
   const etapas = montarEtapasResultado(detalhe);
   const respostas = Array.isArray(detalhe.respostas) ? detalhe.respostas : [];
+  const linhasResultado = montarLinhasResultadoDetalhe(respostas);
+  const notaGeral = obterNotaFinal(detalhe) ?? resultado.nota_final_prova;
+  const scoreConecta = obterScoreFinal(detalhe) ?? score.score_final;
+  const statusProva = detalhe.status || resultado.status || 'Pendente';
+  const statusClasse = obterClasseStatusProva(statusProva);
 
   return html`
     <${ModalPadrao}
       aberto=${!!detalhe}
-      titulo=${`Prova | ${detalhe.nome_candidato || 'Candidato'}`}
+      titulo=${html`
+        <span class="generated-detail-title-text">Prova | ${detalhe.nome_candidato || 'Candidato'}</span>
+        <span class=${`generated-detail-status-chip ${statusClasse}`}>
+          ${obterRotuloStatusDetalhe(statusProva)}
+        </span>
+      `}
       subtitulo="Detalhes internos do RH. Nada desta tela é exibido ao candidato."
       className="generated-exam-detail-dialog"
       onClose=${onClose}
@@ -1208,20 +1276,18 @@ function ModalDetalheProvaGerada({
       <div class="rh-details-body generated-detail-body">
         <div class="generated-detail-summary-grid">
           ${[
-            { icon: 'task_alt', label: 'Status da prova', value: detalhe.status || '-' },
+            { icon: 'task_alt', label: 'Status', value: statusProva || '-' },
             { icon: 'tag', label: 'Código', value: detalhe.codigo_acesso || '-' },
-            { icon: 'insert_chart', label: 'Nota geral', value: formatarScore(obterNotaFinal(detalhe) ?? resultado.nota_final_prova) },
-            { icon: 'trending_up', label: 'Score Conecta', value: formatarScore(obterScoreFinal(detalhe) ?? score.score_final) },
+            { icon: 'insert_chart', label: 'Nota geral', value: formatarScore(notaGeral) },
+            { icon: 'trending_up', label: 'Score Conecta', value: formatarScore(scoreConecta) },
             { icon: 'person_check', label: 'Classificação', value: score.classificacao || detalhe.classificacao || '-' },
             { icon: 'shield', label: 'Confiabilidade', value: score.confiabilidade || detalhe.confiabilidade || '-' },
           ].map(
             (item) => html`
               <article class="generated-detail-summary-card" key=${item.label}>
                 <span class="material-symbols-outlined">${item.icon}</span>
-                <div>
-                  <small>${item.label}</small>
-                  <strong>${item.value}</strong>
-                </div>
+                <small>${item.label}</small>
+                <strong>${item.value}</strong>
               </article>
             `,
           )}
@@ -1236,40 +1302,46 @@ function ModalDetalheProvaGerada({
             (item) => html`
               <div class="generated-detail-date-item" key=${item.label}>
                 <span class="material-symbols-outlined">${item.icon}</span>
-                <div>
-                  <small>${item.label}</small>
-                  <strong>${item.value}</strong>
-                </div>
+                <span>${item.label}: <strong>${item.value}</strong></span>
               </div>
             `,
           )}
         </div>
 
         <section class="generated-detail-section">
-          <h3>Resultado da prova por etapa</h3>
+          <div class="generated-detail-section-title">
+            <h3>Resultado da prova por etapa</h3>
+          </div>
           ${etapas.length
             ? html`
                 <div class="generated-stage-result-grid">
                   ${etapas.map(
-                    (etapa) => html`
-                      <article class="generated-stage-result-card" key=${etapa.key}>
+                    (etapa) => {
+                      const percentual = obterPercentualEtapaDetalhe(etapa);
+                      const tom = obterTomEtapaDetalhe(etapa);
+                      return html`
+                      <article class=${`generated-stage-result-card is-${tom}`} key=${etapa.key}>
                         <div class="generated-stage-card-head">
                           <span class="material-symbols-outlined">${etapa.icon}</span>
-                          <div>
-                            <strong>${etapa.label}</strong>
-                            <span class=${`generated-stage-status ${obterClasseStatusEtapa(etapa.status)}`}>
-                              ${etapa.status}
-                            </span>
-                          </div>
+                          <strong>${etapa.label}</strong>
+                          <span class=${`generated-stage-status ${obterClasseStatusEtapa(etapa.status)}`}>
+                            ${etapa.status}
+                          </span>
                         </div>
-                        <small>Score</small>
-                        <strong class="generated-stage-score">
+                        <div class="generated-stage-score-row">
+                          <strong class="generated-stage-score">
                           ${etapa.score === null || etapa.score === undefined || Number.isNaN(Number(etapa.score))
                             ? '-'
                             : formatarScore(etapa.score)}
-                        </strong>
+                          </strong>
+                          <small>Score</small>
+                        </div>
+                        <div class="generated-stage-progress" aria-hidden="true">
+                          <span style=${{ width: `${percentual}%` }}></span>
+                        </div>
                       </article>
-                    `,
+                    `;
+                    },
                   )}
                 </div>
               `
@@ -1287,7 +1359,7 @@ function ModalDetalheProvaGerada({
               (coluna) => html`
                 <div class=${`generated-alert-column is-${coluna.tone}`} key=${coluna.key}>
                   <div class="generated-alert-column-title">
-                    <span class="material-symbols-outlined">${coluna.icon}</span>
+                    <span class="generated-alert-dot"></span>
                     <strong>${coluna.title}</strong>
                   </div>
                   ${coluna.items.length
@@ -1305,7 +1377,65 @@ function ModalDetalheProvaGerada({
           </div>
         </section>
 
-        ${mostrarResultadoCompleto
+        <section class="generated-detail-section generated-full-result">
+          <button
+            type="button"
+            class="generated-detail-section-title generated-section-toggle"
+            onClick=${() => setMostrarResultadoCompleto((valor) => !valor)}
+            aria-expanded=${mostrarResultadoCompleto}
+          >
+            <h3>Resultado completo</h3>
+            <span class="material-symbols-outlined">
+              ${mostrarResultadoCompleto ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+            </span>
+          </button>
+          ${mostrarResultadoCompleto
+            ? linhasResultado.length
+              ? html`
+                  <div class="generated-result-table-shell">
+                    <table class="generated-result-table">
+                      <thead>
+                        <tr>
+                          <th># & Etapa</th>
+                          <th>Questão</th>
+                          <th>Resposta</th>
+                          <th>Nota</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${linhasResultado.map(
+                          (linha) => html`
+                            <tr key=${linha.id}>
+                              <td>
+                                <strong>${linha.numero}. ${linha.etapa}</strong>
+                                ${linha.subtitulo ? html`<small>${linha.subtitulo}</small>` : null}
+                              </td>
+                              <td>${linha.questao}</td>
+                              <td>${linha.resposta}</td>
+                              <td><strong>${linha.nota}</strong></td>
+                              <td>
+                                <span class=${`generated-answer-status ${linha.status.className}`}>
+                                  ${linha.status.label}
+                                </span>
+                              </td>
+                            </tr>
+                          `,
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                `
+              : html`
+                  <div class="generated-full-result-fallback">
+                    <p>As respostas completas ainda não estão salvas para esta prova.</p>
+                    <pre>${JSON.stringify({ resultado, questoes: detalhe.questoes || [] }, null, 2)}</pre>
+                  </div>
+                `
+            : null}
+        </section>
+
+        ${false && mostrarResultadoCompleto
           ? html`
               <section class="generated-detail-section generated-full-result">
                 <h3>Resultado completo</h3>
@@ -1355,12 +1485,12 @@ function ModalDetalheProvaGerada({
         <${BotaoAcaoProva} icon="visibility" label="Código" variant="primary" onClick=${onCopiarCodigo} />
         <${BotaoAcaoProva} icon="menu_book" label="Manual" variant="purple" onClick=${onAvaliacaoManual} />
         <${BotaoAcaoProva} icon="history" label="Reabrir" variant="success" onClick=${onReabrir} />
-        <${BotaoAcaoProva}
+        ${false ? html`<${BotaoAcaoProva}
           icon="format_list_bulleted"
           label=${mostrarResultadoCompleto ? 'Ocultar resultado' : 'Ver resultado completo'}
           variant="soft"
           onClick=${() => setMostrarResultadoCompleto((valor) => !valor)}
-        />
+        />` : null}
         <${BotaoAcaoProva} icon="delete" label="Cancelar" variant="danger" onClick=${onCancelar} />
         <${BotaoAcaoProva} icon="sync" label="Recalcular score" variant="soft" onClick=${onRecalcular} />
         <${BotaoAcaoProva} icon="person_add" label="Decisão RH" variant="solid" onClick=${onDecisao} />

@@ -303,7 +303,7 @@ const STAGE_LABELS = {
   tech_ti_specific: 'Conhecimentos Técnicos Específicos - TI',
   tech_adm_specific: 'Conhecimentos Técnicos Específicos - Administração',
   writing_logic: 'Avaliação de Escrita e Lógica',
-  professional_essay: 'Redação: Estudo de Caso Profissional',
+  professional_essay: 'Redação',
   analysis_eval: 'Avaliação de Análise',
   tech_logic: 'Avaliação Técnica e Lógica',
 };

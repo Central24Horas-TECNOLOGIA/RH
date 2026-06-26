@@ -138,7 +138,6 @@ export const PERMISSOES_TELAS = {
   'screen-history': 'candidatos.consultar_historico',
   'screen-process-create': 'vagas.criar',
   'screen-processes': 'vagas.visualizar',
-  'screen-processes-open': 'vagas.visualizar',
   'screen-processes-closed': 'vagas.visualizar',
   'screen-process-decisions': 'vagas.visualizar',
   'screen-candidates': 'candidatos.visualizar',
