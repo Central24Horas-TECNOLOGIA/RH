@@ -2,20 +2,45 @@ import {
   gravarCache,
   invalidarCacheApi,
   lerCache,
+  montarChaveCacheApi,
   requisitarArquivo,
   requisitar,
 } from './core.js';
 
-export async function lerProcessos(forcar = false) {
-  if (!forcar) {
-    const emCache = lerCache('processos');
+function normalizarOpcoesListagem(opcoesOuForcar = false) {
+  if (typeof opcoesOuForcar === 'boolean') {
+    return { forcar: opcoesOuForcar };
+  }
+  return opcoesOuForcar && typeof opcoesOuForcar === 'object' ? opcoesOuForcar : {};
+}
+
+function montarQueryListagem({ pagina, tamanho, filtros = {} } = {}) {
+  const params = new URLSearchParams();
+  if (pagina) params.set('page', String(pagina));
+  if (tamanho) params.set('page_size', String(tamanho));
+  Object.entries(filtros || {}).forEach(([chave, valor]) => {
+    if (valor === undefined || valor === null || valor === '') return;
+    params.set(chave, String(valor));
+  });
+  return params;
+}
+
+export async function lerProcessos(opcoesOuForcar = false) {
+  const opcoes = normalizarOpcoesListagem(opcoesOuForcar);
+  const params = montarQueryListagem(opcoes);
+  const paginado = params.has('page') || params.has('page_size');
+  const chaveCache = montarChaveCacheApi('processos', Object.fromEntries(params.entries()));
+
+  if (!opcoes.forcar) {
+    const emCache = lerCache(chaveCache);
     if (emCache) return emCache;
   }
 
-  const dados = await requisitar('/processes', { method: 'GET' });
-  const lista = Array.isArray(dados) ? dados : [];
-  gravarCache('processos', lista);
-  return lista;
+  const sufixo = params.toString() ? `?${params.toString()}` : '';
+  const dados = await requisitar(`/processes${sufixo}`, { method: 'GET' });
+  const resultado = paginado ? dados : Array.isArray(dados) ? dados : [];
+  gravarCache(chaveCache, resultado);
+  return resultado;
 }
 
 export async function criarProcesso(dadosProcesso) {
@@ -53,16 +78,22 @@ export async function encerrarProcesso(idProcesso) {
   return resultado;
 }
 
-export async function lerCandidatosProcessos(forcar = false) {
-  if (!forcar) {
-    const emCache = lerCache('candidatos-processos');
+export async function lerCandidatosProcessos(opcoesOuForcar = false) {
+  const opcoes = normalizarOpcoesListagem(opcoesOuForcar);
+  const params = montarQueryListagem(opcoes);
+  const paginado = params.has('page') || params.has('page_size');
+  const chaveCache = montarChaveCacheApi('candidatos-processos', Object.fromEntries(params.entries()));
+
+  if (!opcoes.forcar) {
+    const emCache = lerCache(chaveCache);
     if (emCache) return emCache;
   }
 
-  const dados = await requisitar('/process-candidates', { method: 'GET' });
-  const lista = Array.isArray(dados) ? dados : [];
-  gravarCache('candidatos-processos', lista);
-  return lista;
+  const sufixo = params.toString() ? `?${params.toString()}` : '';
+  const dados = await requisitar(`/process-candidates${sufixo}`, { method: 'GET' });
+  const resultado = paginado ? dados : Array.isArray(dados) ? dados : [];
+  gravarCache(chaveCache, resultado, { sensivel: true });
+  return resultado;
 }
 
 export async function criarCandidatoNoProcesso(dadosCandidato) {
@@ -114,8 +145,17 @@ export async function lerBancoTalentos({
   search = '',
   skill = '',
   tag = '',
+  pagina = 0,
+  tamanho = 0,
 } = {}) {
-  const chaveCache = `banco-talentos:${search}:${skill}:${tag}`;
+  const chaveCache = montarChaveCacheApi('banco-talentos', {
+    search,
+    skill,
+    tag,
+    page: pagina || '',
+    page_size: tamanho || '',
+  });
+  const paginado = Boolean(pagina || tamanho);
 
   if (!forcar) {
     const emCache = lerCache(chaveCache);
@@ -126,12 +166,14 @@ export async function lerBancoTalentos({
   if (search) params.set('search', search);
   if (skill) params.set('skill', skill);
   if (tag) params.set('tag', tag);
+  if (pagina) params.set('page', String(pagina));
+  if (tamanho) params.set('page_size', String(tamanho));
 
   const sufixo = params.toString() ? `?${params.toString()}` : '';
   const dados = await requisitar(`/talent-bank${sufixo}`, { method: 'GET' });
-  const lista = Array.isArray(dados) ? dados : [];
-  gravarCache(chaveCache, lista);
-  return lista;
+  const resultado = paginado ? dados : Array.isArray(dados) ? dados : [];
+  gravarCache(chaveCache, resultado, { sensivel: true });
+  return resultado;
 }
 
 export async function removerBancoTalentos(idBanco) {

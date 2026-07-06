@@ -17,7 +17,9 @@ export const URL_PUBLICA_BASE_CANDIDATURA =
   CONFIG_RUNTIME.PUBLIC_CANDIDATE_BASE_URL ||
   window.__RH_PUBLIC_CANDIDATE_BASE_URL__ ||
   '';
-const TEMPO_CACHE_MS = 30000;
+const TEMPO_CACHE_PADRAO_MS = 30000;
+const TEMPO_CACHE_SENSIVEL_MS = 15000;
+const TEMPO_CACHE_ESTATICO_MS = 300000;
 const PREFIXO_CACHE_SESSAO = 'rh_api_cache_v2:';
 const LIMITE_CACHE_SESSAO_CARACTERES = 1500000;
 const CHAVE_TOKEN_AUTENTICACAO = 'rh_api_access_token';
@@ -28,6 +30,22 @@ export const EVENTO_AUTENTICACAO_EXPIRADA = 'rh-auth-expired';
 
 const cacheMemoria = new Map();
 const logger = criarLogger('api');
+const PREFIXOS_CACHE_PERSISTENTE = [
+  'settings:roles',
+  'settings:permissions',
+  'settings:catalog',
+  'processos',
+  'gabaritos',
+];
+const PREFIXOS_CACHE_SENSIVEL = [
+  'banco-talentos',
+  'candidatos-processos',
+  'entrevistas',
+  'historico',
+  'pipeline-candidatos',
+  'processos:detalhe',
+  'slots-entrevista',
+];
 
 function chaveCacheSessao(chave) {
   return `${PREFIXO_CACHE_SESSAO}${chave}`;
@@ -48,16 +66,41 @@ function removerCacheSessaoPorPrefixo(...chaves) {
   }
 }
 
-function lerCache(chave) {
+function chaveComecaCom(chave, prefixos) {
+  return prefixos.some((prefixo) => chave === prefixo || chave.startsWith(`${prefixo}:`));
+}
+
+function normalizarOpcoesCache(opcoes = {}) {
+  const sensivel = opcoes.sensivel ?? chaveComecaCom(opcoes.chave || '', PREFIXOS_CACHE_SENSIVEL);
+  const persistente =
+    !sensivel &&
+    (opcoes.persistente ?? chaveComecaCom(opcoes.chave || '', PREFIXOS_CACHE_PERSISTENTE));
+
+  return {
+    ttlMs: Number(
+      opcoes.ttlMs ||
+        (sensivel ? TEMPO_CACHE_SENSIVEL_MS : persistente ? TEMPO_CACHE_ESTATICO_MS : TEMPO_CACHE_PADRAO_MS),
+    ),
+    persistente,
+    sensivel,
+  };
+}
+
+function lerCache(chave, opcoes = {}) {
+  const politica = normalizarOpcoesCache({ ...opcoes, chave });
   const entrada = cacheMemoria.get(chave);
   if (entrada) {
-    if (Date.now() - entrada.timestamp <= TEMPO_CACHE_MS) return entrada.data;
+    const ttlEntrada = Number(entrada.ttlMs || politica.ttlMs);
+    if (Date.now() - entrada.timestamp <= ttlEntrada) return entrada.data;
     cacheMemoria.delete(chave);
   }
 
+  if (!politica.persistente) return null;
+
   try {
     const persistido = JSON.parse(sessionStorage.getItem(chaveCacheSessao(chave)) || 'null');
-    if (!persistido || Date.now() - Number(persistido.timestamp || 0) > TEMPO_CACHE_MS) {
+    const ttlPersistido = Number(persistido?.ttlMs || politica.ttlMs);
+    if (!persistido || Date.now() - Number(persistido.timestamp || 0) > ttlPersistido) {
       sessionStorage.removeItem(chaveCacheSessao(chave));
       return null;
     }
@@ -69,12 +112,20 @@ function lerCache(chave) {
   }
 }
 
-function gravarCache(chave, data) {
+function gravarCache(chave, data, opcoes = {}) {
+  const politica = normalizarOpcoesCache({ ...opcoes, chave });
   const entrada = {
     data,
     timestamp: Date.now(),
+    ttlMs: politica.ttlMs,
   };
   cacheMemoria.set(chave, entrada);
+
+  if (!politica.persistente) {
+    sessionStorage.removeItem(chaveCacheSessao(chave));
+    return;
+  }
+
   try {
     const serializado = JSON.stringify(entrada);
     if (serializado.length <= LIMITE_CACHE_SESSAO_CARACTERES) {
@@ -83,6 +134,16 @@ function gravarCache(chave, data) {
   } catch (error) {
     logger.debug?.('Não foi possível persistir o cache temporário da API.', error);
   }
+}
+
+export function montarChaveCacheApi(prefixo, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([chave, valor]) => {
+    if (valor === undefined || valor === null || valor === '') return;
+    query.set(chave, String(valor));
+  });
+  const parametros = query.toString();
+  return parametros ? `${prefixo}:${parametros}` : prefixo;
 }
 
 export function lerSessaoAutenticacao() {

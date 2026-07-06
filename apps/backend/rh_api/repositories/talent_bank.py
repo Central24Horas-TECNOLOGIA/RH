@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime
 
 import pyodbc
@@ -29,7 +30,35 @@ from .bootstrap import (
 
 
 class TalentBankRepositoryMixin:
-    def list_talent_bank(self, search: str = "", skill: str = "", tag: str = "") -> list[dict]:
+    @staticmethod
+    def _paginate_talent_bank(items: list[dict], page: int | None, page_size: int | None) -> dict | list[dict]:
+        if page is None and page_size is None:
+            return items
+
+        safe_page = max(1, int(page or 1))
+        safe_page_size = max(1, min(int(page_size or 20), 100))
+        total = len(items)
+        total_pages = max(1, math.ceil(total / safe_page_size))
+        safe_page = min(safe_page, total_pages)
+        start = (safe_page - 1) * safe_page_size
+        return {
+            "items": items[start : start + safe_page_size],
+            "total": total,
+            "page": safe_page,
+            "page_size": safe_page_size,
+            "total_pages": total_pages,
+            "has_next": safe_page < total_pages,
+            "has_previous": safe_page > 1,
+        }
+
+    def list_talent_bank(
+        self,
+        search: str = "",
+        skill: str = "",
+        tag: str = "",
+        page: int | None = None,
+        page_size: int | None = None,
+    ) -> list[dict] | dict:
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -112,7 +141,7 @@ class TalentBankRepositoryMixin:
 
                 result.append(item)
 
-            return result
+            return self._paginate_talent_bank(result, page, page_size)
         finally:
             conn.close()
 

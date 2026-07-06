@@ -292,7 +292,22 @@ class BaseRepository:
                 ) resultado
                 WHERE ISNULL(prova.id_teste, '') <> ''
             )
-            SELECT *
+            SELECT
+                id_prova,
+                id_registro,
+                id_teste,
+                id_processo,
+                id_processo_ref,
+                status,
+                codigo_acesso,
+                gerada_em,
+                iniciada_em,
+                finalizada_em,
+                cancelada_em,
+                nota_final_prova,
+                ordem_registro,
+                ordem_processo,
+                ordem_teste
             FROM provas_ordenadas
             WHERE ordem_registro = 1 OR ordem_processo = 1 OR ordem_teste = 1
             """

@@ -83,7 +83,6 @@ export function ModalDetalhesProva({
               <article class="recent-exam-kpi" key=${label}>
                 <span>${label}</span>
                 <strong>${value}</strong>
-                ${helper ? html`<small>${helper}</small>` : null}
               </article>
             `,
     )}

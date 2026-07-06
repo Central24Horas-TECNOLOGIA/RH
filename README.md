@@ -140,6 +140,18 @@ node apps/frontend/tests/run-refresh-performance-smoke.cjs
 - cliente HTTP: `apps/frontend/fonte/services/api/`;
 - estilos: `apps/frontend/estilos/`.
 
+## Performance e cache
+
+A estrategia de paginacao, cache com TTL, carregamento sob demanda, Loading
+Spinner e indices recomendados esta documentada em
+[`docs/performance-cache-loading.md`](docs/performance-cache-loading.md).
+
+## Case Tecnico
+
+O case tecnico publico e anonimizado da plataforma de apoio ao recrutamento esta
+disponivel em
+[`docs/case-tecnico-plataforma-recrutamento.md`](docs/case-tecnico-plataforma-recrutamento.md).
+
 ## Dados e legado
 
 `data/private/` contém dados locais potencialmente pessoais e nunca deve ser

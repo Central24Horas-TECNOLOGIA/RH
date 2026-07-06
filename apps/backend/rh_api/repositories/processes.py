@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime
 
 from fastapi import HTTPException, status
@@ -51,6 +52,28 @@ logger = logging.getLogger(__name__)
 
 class ProcessRepositoryMixin:
     @staticmethod
+    def _paginate_list(items: list[dict], page: int | None, page_size: int | None) -> dict | list[dict]:
+        if page is None and page_size is None:
+            return items
+
+        safe_page = max(1, int(page or 1))
+        safe_page_size = max(1, min(int(page_size or 20), 100))
+        total = len(items)
+        total_pages = max(1, math.ceil(total / safe_page_size))
+        safe_page = min(safe_page, total_pages)
+        start = (safe_page - 1) * safe_page_size
+        page_items = items[start : start + safe_page_size]
+        return {
+            "items": page_items,
+            "total": total,
+            "page": safe_page,
+            "page_size": safe_page_size,
+            "total_pages": total_pages,
+            "has_next": safe_page < total_pages,
+            "has_previous": safe_page > 1,
+        }
+
+    @staticmethod
     def _candidate_matches_process_reference(candidate: dict, process: dict) -> bool:
         candidate_reference = normalize_text(candidate.get("id_processo_ref"))
         process_reference = normalize_text(process.get("id_processo_ref"))
@@ -83,7 +106,7 @@ class ProcessRepositoryMixin:
 
         return requested
 
-    def list_processes(self) -> list[dict]:
+    def list_processes(self, page: int | None = None, page_size: int | None = None) -> list[dict] | dict:
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -125,7 +148,7 @@ class ProcessRepositoryMixin:
                 ref = normalize_text(row.get("id_processo_ref")) or normalize_text(row.get("id_processo"))
                 row["candidatos_concorrendo"] = int(contagem_por_ref.get(ref, 0))
                 row["quantidade_candidatos"] = row["candidatos_concorrendo"]
-            return rows
+            return self._paginate_list(rows, page, page_size)
         finally:
             conn.close()
 
@@ -294,7 +317,12 @@ class ProcessRepositoryMixin:
         finally:
             conn.close()
 
-    def list_process_candidates(self, id_processo: str | None = None) -> list[dict]:
+    def list_process_candidates(
+        self,
+        id_processo: str | None = None,
+        page: int | None = None,
+        page_size: int | None = None,
+    ) -> list[dict] | dict:
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -354,7 +382,7 @@ class ProcessRepositoryMixin:
                     if normalize_text(item.get("id_processo_ref")) == filtro_ref
                 ]
 
-            return rows
+            return self._paginate_list(rows, page, page_size)
         finally:
             conn.close()
 

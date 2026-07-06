@@ -1,4 +1,10 @@
-import { requisitar, requisitarArquivo } from './core.js';
+import {
+  gravarCache,
+  invalidarCacheApi,
+  lerCache,
+  requisitar,
+  requisitarArquivo,
+} from './core.js';
 
 function montarQuery(params = {}) {
   const query = new URLSearchParams();
@@ -11,19 +17,31 @@ function montarQuery(params = {}) {
 }
 
 export async function listarPerfis() {
-  return requisitar('/settings/security/roles', { method: 'GET' });
+  const chave = 'settings:roles';
+  const emCache = lerCache(chave, { ttlMs: 300000, persistente: true });
+  if (emCache) return emCache;
+  const dados = await requisitar('/settings/security/roles', { method: 'GET' });
+  gravarCache(chave, dados, { ttlMs: 300000, persistente: true });
+  return dados;
 }
 
 export async function listarPermissoes() {
-  return requisitar('/settings/security/permissions', { method: 'GET' });
+  const chave = 'settings:permissions';
+  const emCache = lerCache(chave, { ttlMs: 300000, persistente: true });
+  if (emCache) return emCache;
+  const dados = await requisitar('/settings/security/permissions', { method: 'GET' });
+  gravarCache(chave, dados, { ttlMs: 300000, persistente: true });
+  return dados;
 }
 
 export async function atualizarPermissoesPerfil(idPerfil, payload) {
-  return requisitar(`/settings/security/roles/${encodeURIComponent(idPerfil)}/permissions`, {
+  const resultado = await requisitar(`/settings/security/roles/${encodeURIComponent(idPerfil)}/permissions`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
+  invalidarCacheApi('settings:roles', 'settings:permissions');
+  return resultado;
 }
 
 export async function listarUsuarios(filtros = {}) {
@@ -31,19 +49,23 @@ export async function listarUsuarios(filtros = {}) {
 }
 
 export async function criarUsuario(payload) {
-  return requisitar('/settings/users', {
+  const resultado = await requisitar('/settings/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
+  invalidarCacheApi('settings:roles');
+  return resultado;
 }
 
 export async function atualizarUsuario(idUsuario, payload) {
-  return requisitar(`/settings/users/${encodeURIComponent(idUsuario)}`, {
+  const resultado = await requisitar(`/settings/users/${encodeURIComponent(idUsuario)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
+  invalidarCacheApi('settings:roles');
+  return resultado;
 }
 
 export async function redefinirSenhaUsuario(idUsuario, payload) {
@@ -55,18 +77,22 @@ export async function redefinirSenhaUsuario(idUsuario, payload) {
 }
 
 export async function alterarStatusUsuario(idUsuario, payload) {
-  return requisitar(`/settings/users/${encodeURIComponent(idUsuario)}/status`, {
+  const resultado = await requisitar(`/settings/users/${encodeURIComponent(idUsuario)}/status`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
+  invalidarCacheApi('settings:roles');
+  return resultado;
 }
 
 export async function excluirUsuario(idUsuario, justificativa = '') {
-  return requisitar(
+  const resultado = await requisitar(
     `/settings/users/${encodeURIComponent(idUsuario)}${montarQuery({ justificativa })}`,
     { method: 'DELETE' },
   );
+  invalidarCacheApi('settings:roles');
+  return resultado;
 }
 
 export async function listarLogsAuditoria(filtros = {}) {
@@ -78,19 +104,26 @@ export async function baixarLogsAuditoria() {
 }
 
 export async function listarCatalogoConfiguracoes() {
-  return requisitar('/settings/catalog', { method: 'GET' });
+  const chave = 'settings:catalog';
+  const emCache = lerCache(chave, { ttlMs: 300000, persistente: true });
+  if (emCache) return emCache;
+  const dados = await requisitar('/settings/catalog', { method: 'GET' });
+  gravarCache(chave, dados, { ttlMs: 300000, persistente: true });
+  return dados;
 }
 
 export async function criarItemConfiguracao(tipo, payload) {
-  return requisitar(`/settings/catalog/${encodeURIComponent(tipo)}`, {
+  const resultado = await requisitar(`/settings/catalog/${encodeURIComponent(tipo)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
+  invalidarCacheApi('settings:catalog');
+  return resultado;
 }
 
 export async function atualizarItemConfiguracao(tipo, idItem, payload) {
-  return requisitar(
+  const resultado = await requisitar(
     `/settings/catalog/${encodeURIComponent(tipo)}/${encodeURIComponent(idItem)}`,
     {
       method: 'PUT',
@@ -98,13 +131,17 @@ export async function atualizarItemConfiguracao(tipo, idItem, payload) {
       body: JSON.stringify(payload || {}),
     },
   );
+  invalidarCacheApi('settings:catalog');
+  return resultado;
 }
 
 export async function desativarItemConfiguracao(tipo, idItem, justificativa = '') {
-  return requisitar(
+  const resultado = await requisitar(
     `/settings/catalog/${encodeURIComponent(tipo)}/${encodeURIComponent(idItem)}${montarQuery({ justificativa })}`,
     { method: 'DELETE' },
   );
+  invalidarCacheApi('settings:catalog');
+  return resultado;
 }
 
 export async function registrarSolicitacaoLgpd(payload) {

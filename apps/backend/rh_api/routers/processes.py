@@ -27,8 +27,12 @@ router = APIRouter(tags=["processes"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/processes", dependencies=[Depends(require_permissions("vagas.visualizar"))])
-def get_processes(repository: DatabaseRepository = Depends(get_repository)):
-    return repository.list_processes()
+def get_processes(
+    page: int | None = Query(default=None, ge=1),
+    page_size: int | None = Query(default=None, ge=1, le=100),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.list_processes(page=page, page_size=page_size)
 
 
 @router.post("/processes", dependencies=[Depends(require_permissions("vagas.criar", "processos.criar"))])
@@ -89,8 +93,12 @@ def close_process(
 
 
 @router.get("/process-candidates", dependencies=[Depends(require_permissions("candidatos.visualizar"))])
-def get_process_candidates(repository: DatabaseRepository = Depends(get_repository)):
-    return repository.list_process_candidates()
+def get_process_candidates(
+    page: int | None = Query(default=None, ge=1),
+    page_size: int | None = Query(default=None, ge=1, le=100),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.list_process_candidates(page=page, page_size=page_size)
 
 
 @router.post("/process-candidates", dependencies=[Depends(require_permissions("candidatos.criar"))])
@@ -229,9 +237,17 @@ def get_talent_bank(
     search: str = Query(default=""),
     skill: str = Query(default=""),
     tag: str = Query(default=""),
+    page: int | None = Query(default=None, ge=1),
+    page_size: int | None = Query(default=None, ge=1, le=100),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    return repository.list_talent_bank(search=search, skill=skill, tag=tag)
+    return repository.list_talent_bank(
+        search=search,
+        skill=skill,
+        tag=tag,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post("/talent-bank", dependencies=[Depends(require_permissions("candidatos.mover_etapa", "candidatos.eliminar"))])

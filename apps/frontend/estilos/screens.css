@@ -2829,7 +2829,7 @@
 /* Design refresh: process creation, open processes, release exam, recent exam detail */
 #screen-process-create .rh-modern-page,
 #screen-processes-open .rh-modern-page {
-  width: min(100%, 1260px);
+  /*width: min(100%, 1260px);*/
   margin-inline: auto;
 }
 

@@ -350,7 +350,31 @@ class AnalisesCurriculoIaRepositoryMixin:
             safe_limit = max(1, min(int(limit or 50), 100))
             cursor.execute(
                 f"""
-                SELECT TOP {safe_limit} *
+                SELECT TOP {safe_limit}
+                    id_analise,
+                    id_candidato,
+                    id_processo,
+                    provedor_ia,
+                    modelo_ia,
+                    versao_prompt,
+                    nota_aderencia,
+                    parecer,
+                    resumo,
+                    pontos_fortes,
+                    pontos_atencao,
+                    riscos,
+                    justificativa,
+                    perguntas_sugeridas_entrevista,
+                    json_resultado,
+                    status_analise,
+                    erro_analise,
+                    tokens_entrada,
+                    tokens_saida,
+                    custo_estimado,
+                    revisado_por_humano,
+                    id_usuario_revisao,
+                    criado_em,
+                    revisado_em
                 FROM analises_curriculo_ia
                 WHERE id_candidato = ?
                   AND (? = '' OR id_processo = ?)

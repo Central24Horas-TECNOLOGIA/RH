@@ -82,6 +82,51 @@ PUBLIC_ACCESS_ALLOWED_STATUSES = {
 
 GENERIC_ACCESS_MESSAGE = "Não encontramos uma prova disponível com os dados informados."
 
+EXAM_ROW_COLUMNS = """
+    id_prova,
+    id_teste,
+    id_registro,
+    id_entrevista,
+    id_processo,
+    id_processo_ref,
+    nome_candidato,
+    email_acesso,
+    telefone_acesso,
+    cpf,
+    vaga,
+    operacao,
+    trilha,
+    nivel,
+    tempo_total,
+    quantidade_questoes,
+    etapas_json,
+    categorias_json,
+    configuracao_json,
+    questoes_json,
+    instrucoes_operacao,
+    status,
+    codigo_acesso,
+    token_sessao_publica,
+    token_expira_em,
+    metodo_acesso,
+    tentativas_acesso,
+    gerada_por,
+    gerada_em,
+    iniciada_em,
+    revisada_em,
+    finalizada_em,
+    expira_em,
+    reaberta_em,
+    reaberta_por,
+    motivo_reabertura,
+    respostas_anteriores_mantidas,
+    cancelada_em,
+    cancelada_por,
+    motivo_cancelamento,
+    dados_confirmados_em,
+    atualizado_em
+"""
+
 
 def _json_dumps(value: Any) -> str:
     return json.dumps(value if value is not None else {}, ensure_ascii=False)
@@ -627,8 +672,9 @@ class GeneratedExamRepositoryMixin:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão da prova não encontrada.")
 
         cursor.execute(
-            """
-            SELECT *
+            f"""
+            SELECT
+                {EXAM_ROW_COLUMNS}
             FROM dbo.provas_geradas
             WHERE token_sessao_publica = ?
               AND token_expira_em IS NOT NULL
@@ -1162,8 +1208,9 @@ class GeneratedExamRepositoryMixin:
 
     def _available_exam_rows(self, cursor) -> list[dict]:
         cursor.execute(
-            """
-            SELECT *
+            f"""
+            SELECT
+                {EXAM_ROW_COLUMNS}
             FROM dbo.provas_geradas
             WHERE status IN (?, ?, ?, ?, ?, ?)
             ORDER BY gerada_em DESC, id_prova DESC
