@@ -817,14 +817,26 @@ function textoParaLista(valor) {
     .filter(Boolean);
 }
 
+function valorFichaOuNaoInformado(valor) {
+  return String(valor || '').trim() || 'Não informado';
+}
+
 function montarFormularioPerfil(candidato) {
   return {
     nome_candidato: candidato?.nome_candidato || '',
     email: candidato?.email || '',
     telefone: candidato?.telefone || '',
     whatsapp: candidato?.whatsapp || '',
+    endereco: candidato?.endereco || '',
     cidade: candidato?.cidade || '',
     bairro: candidato?.bairro || '',
+    escolaridade: candidato?.escolaridade || '',
+    possui_experiencia: candidato?.possui_experiencia || '',
+    musica: candidato?.musica || '',
+    prato: candidato?.prato || '',
+    futebol: candidato?.futebol || '',
+    time: candidato?.time || '',
+    rede_social: candidato?.rede_social || '',
     observacao_rh: candidato?.observacao_rh || '',
     classificacao_indicacao: candidato?.classificacao_indicacao || '',
     justificativa_indicacao: candidato?.justificativa_indicacao || '',
@@ -848,8 +860,16 @@ function aplicarDadosFichaAoCandidato(candidato, ficha) {
     email: dados.email || candidato?.email || '',
     telefone: dados.telefone || candidato?.telefone || '',
     whatsapp: dados.whatsapp || candidato?.whatsapp || '',
+    endereco: dados.endereco || candidato?.endereco || '',
     cidade: dados.cidade || candidato?.cidade || '',
     bairro: dados.bairro || candidato?.bairro || '',
+    escolaridade: dados.escolaridade || candidato?.escolaridade || '',
+    possui_experiencia: dados.possui_experiencia || candidato?.possui_experiencia || '',
+    musica: dados.musica || candidato?.musica || '',
+    prato: dados.prato || candidato?.prato || '',
+    futebol: dados.futebol || candidato?.futebol || '',
+    time: dados.time || candidato?.time || '',
+    rede_social: dados.rede_social || candidato?.rede_social || '',
     observacao_rh:
       avaliacao.observacoes !== undefined
         ? avaliacao.observacoes || ''
@@ -1216,8 +1236,16 @@ export function TelaDetalhesCandidato({ controlador }) {
         email: formPerfil.email,
         telefone: formPerfil.telefone,
         whatsapp: formPerfil.whatsapp,
+        endereco: formPerfil.endereco,
         cidade: formPerfil.cidade,
         bairro: formPerfil.bairro,
+        escolaridade: formPerfil.escolaridade,
+        possui_experiencia: formPerfil.possui_experiencia,
+        musica: formPerfil.musica,
+        prato: formPerfil.prato,
+        futebol: formPerfil.futebol,
+        time: formPerfil.time,
+        rede_social: formPerfil.rede_social,
         classificacao_indicacao: formPerfil.classificacao_indicacao,
         justificativa_indicacao: formPerfil.justificativa_indicacao,
         habilidades: textoParaLista(formPerfil.habilidades),
@@ -1526,6 +1554,10 @@ export function TelaDetalhesCandidato({ controlador }) {
             <label class="form-label">WhatsApp</label>
             <input class="form-control" value=${formPerfil.whatsapp} onInput=${(event) => atualizarCampo('whatsapp', event.target.value)} />
           </div>
+          <div class="col-md-6">
+            <label class="form-label">Endereço</label>
+            <input class="form-control" value=${formPerfil.endereco} onInput=${(event) => atualizarCampo('endereco', event.target.value)} />
+          </div>
           <div class="col-md-3">
             <label class="form-label">Cidade</label>
             <input class="form-control" value=${formPerfil.cidade} onInput=${(event) => atualizarCampo('cidade', event.target.value)} />
@@ -1533,6 +1565,18 @@ export function TelaDetalhesCandidato({ controlador }) {
           <div class="col-md-3">
             <label class="form-label">Bairro</label>
             <input class="form-control" value=${formPerfil.bairro} onInput=${(event) => atualizarCampo('bairro', event.target.value)} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Escolaridade</label>
+            <input class="form-control" value=${formPerfil.escolaridade} onInput=${(event) => atualizarCampo('escolaridade', event.target.value)} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Possui experiência</label>
+            <select class="form-select" value=${formPerfil.possui_experiencia} onChange=${(event) => atualizarCampo('possui_experiencia', event.target.value)}>
+              <option value="">Não informado</option>
+              <option value="Sim">Sim</option>
+              <option value="Nao">Não</option>
+            </select>
           </div>
           <div class="col-md-3">
             <label class="form-label">Status atual</label>
@@ -1550,6 +1594,31 @@ export function TelaDetalhesCandidato({ controlador }) {
                 (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
               )}
             </select>
+          </div>
+        </div>
+      </${SectionCard}>
+
+      <${SectionCard} title="Pesquisa cultural" className="rh-section-card--flat">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Música</label>
+            <input class="form-control" placeholder=${valorFichaOuNaoInformado(candidato.musica)} value=${formPerfil.musica} onInput=${(event) => atualizarCampo('musica', event.target.value)} />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Prato</label>
+            <input class="form-control" placeholder=${valorFichaOuNaoInformado(candidato.prato)} value=${formPerfil.prato} onInput=${(event) => atualizarCampo('prato', event.target.value)} />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Futebol</label>
+            <input class="form-control" placeholder=${valorFichaOuNaoInformado(candidato.futebol)} value=${formPerfil.futebol} onInput=${(event) => atualizarCampo('futebol', event.target.value)} />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Time</label>
+            <input class="form-control" placeholder=${valorFichaOuNaoInformado(candidato.time)} value=${formPerfil.time} onInput=${(event) => atualizarCampo('time', event.target.value)} />
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">Rede social</label>
+            <input class="form-control" placeholder=${valorFichaOuNaoInformado(candidato.rede_social)} value=${formPerfil.rede_social} onInput=${(event) => atualizarCampo('rede_social', event.target.value)} />
           </div>
         </div>
       </${SectionCard}>
@@ -2235,8 +2304,16 @@ export function TelaCandidatos({ controlador }) {
         email: formPerfil.email,
         telefone: formPerfil.telefone,
         whatsapp: formPerfil.whatsapp,
+        endereco: formPerfil.endereco,
         cidade: formPerfil.cidade,
         bairro: formPerfil.bairro,
+        escolaridade: formPerfil.escolaridade,
+        possui_experiencia: formPerfil.possui_experiencia,
+        musica: formPerfil.musica,
+        prato: formPerfil.prato,
+        futebol: formPerfil.futebol,
+        time: formPerfil.time,
+        rede_social: formPerfil.rede_social,
         classificacao_indicacao: formPerfil.classificacao_indicacao,
         justificativa_indicacao: formPerfil.justificativa_indicacao,
         habilidades: textoParaLista(formPerfil.habilidades),
@@ -2920,6 +2997,14 @@ export function TelaCandidatos({ controlador }) {
                         onInput=${(event) => atualizarCampoPerfil('whatsapp', event.target.value)}
                       />
                     </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Endereço</label>
+                      <input
+                        class="form-control"
+                        value=${formPerfil.endereco}
+                        onInput=${(event) => atualizarCampoPerfil('endereco', event.target.value)}
+                      />
+                    </div>
                     <div class="col-md-3">
                       <label class="form-label">Cidade</label>
                       <input
@@ -2935,6 +3020,26 @@ export function TelaCandidatos({ controlador }) {
                         value=${formPerfil.bairro}
                         onInput=${(event) => atualizarCampoPerfil('bairro', event.target.value)}
                       />
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Escolaridade</label>
+                      <input
+                        class="form-control"
+                        value=${formPerfil.escolaridade}
+                        onInput=${(event) => atualizarCampoPerfil('escolaridade', event.target.value)}
+                      />
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Possui experiência</label>
+                      <select
+                        class="form-select"
+                        value=${formPerfil.possui_experiencia}
+                        onChange=${(event) => atualizarCampoPerfil('possui_experiencia', event.target.value)}
+                      >
+                        <option value="">Não informado</option>
+                        <option value="Sim">Sim</option>
+                        <option value="Nao">Não</option>
+                      </select>
                     </div>
                     <div class="col-md-4">
                       <label class="form-label">Classificação do RH</label>
@@ -2966,6 +3071,34 @@ export function TelaCandidatos({ controlador }) {
                         value=${formPerfil.observacao_rh}
                         onInput=${(event) => atualizarCampoPerfil('observacao_rh', event.target.value)}
                       ></textarea>
+                    </div>
+                  </div>
+                </${SectionCard}>
+
+                <${SectionCard}
+                  title="Pesquisa cultural"
+                  className="rh-section-card--flat candidate-sheet-section"
+                >
+                  <div class="row g-2">
+                    <div class="col-md-4">
+                      <label class="form-label">Música</label>
+                      <input class="form-control" value=${formPerfil.musica} onInput=${(event) => atualizarCampoPerfil('musica', event.target.value)} />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Prato</label>
+                      <input class="form-control" value=${formPerfil.prato} onInput=${(event) => atualizarCampoPerfil('prato', event.target.value)} />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Futebol</label>
+                      <input class="form-control" value=${formPerfil.futebol} onInput=${(event) => atualizarCampoPerfil('futebol', event.target.value)} />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Time</label>
+                      <input class="form-control" value=${formPerfil.time} onInput=${(event) => atualizarCampoPerfil('time', event.target.value)} />
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label">Rede social</label>
+                      <input class="form-control" value=${formPerfil.rede_social} onInput=${(event) => atualizarCampoPerfil('rede_social', event.target.value)} />
                     </div>
                   </div>
                 </${SectionCard}>
@@ -3232,6 +3365,14 @@ export function TelaCandidatos({ controlador }) {
                   />
                 </div>
                 <div class="col-md-6">
+                  <label class="form-label">Endereço</label>
+                  <input
+                    class="form-control"
+                    value=${formPerfil.endereco}
+                    onInput=${(event) => atualizarCampoPerfil('endereco', event.target.value)}
+                  />
+                </div>
+                <div class="col-md-6">
                   <label class="form-label">Cidade</label>
                   <input
                     class="form-control"
@@ -3260,6 +3401,46 @@ export function TelaCandidatos({ controlador }) {
                       (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
                     )}
                   </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Escolaridade</label>
+                  <input
+                    class="form-control"
+                    value=${formPerfil.escolaridade}
+                    onInput=${(event) => atualizarCampoPerfil('escolaridade', event.target.value)}
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Possui experiência</label>
+                  <select
+                    class="form-select"
+                    value=${formPerfil.possui_experiencia}
+                    onChange=${(event) => atualizarCampoPerfil('possui_experiencia', event.target.value)}
+                  >
+                    <option value="">Não informado</option>
+                    <option value="Sim">Sim</option>
+                    <option value="Nao">Não</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Música</label>
+                  <input class="form-control" value=${formPerfil.musica} onInput=${(event) => atualizarCampoPerfil('musica', event.target.value)} />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Prato</label>
+                  <input class="form-control" value=${formPerfil.prato} onInput=${(event) => atualizarCampoPerfil('prato', event.target.value)} />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Futebol</label>
+                  <input class="form-control" value=${formPerfil.futebol} onInput=${(event) => atualizarCampoPerfil('futebol', event.target.value)} />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Time</label>
+                  <input class="form-control" value=${formPerfil.time} onInput=${(event) => atualizarCampoPerfil('time', event.target.value)} />
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Rede social</label>
+                  <input class="form-control" value=${formPerfil.rede_social} onInput=${(event) => atualizarCampoPerfil('rede_social', event.target.value)} />
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Habilidades</label>

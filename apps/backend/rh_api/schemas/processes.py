@@ -494,8 +494,16 @@ class CandidateProfileUpdateRequest(BaseSchema):
     email: str = ""
     telefone: str = ""
     whatsapp: str = ""
+    endereco: str = ""
     cidade: str = ""
     bairro: str = ""
+    escolaridade: str = ""
+    possui_experiencia: str = ""
+    musica: str = ""
+    prato: str = ""
+    futebol: str = ""
+    time: str = ""
+    rede_social: str = ""
 
     @field_validator("habilidades", "tags")
     @classmethod
@@ -545,6 +553,30 @@ class CandidateProfileUpdateRequest(BaseSchema):
             raise ValueError("Informe um telefone ou WhatsApp válido.")
         return safe_value
 
+    @field_validator("endereco", "escolaridade", "musica", "prato", "futebol", "time")
+    @classmethod
+    def validate_profile_text(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 255:
+            raise ValueError("Campo da ficha muito longo.")
+        return safe_value
+
+    @field_validator("rede_social")
+    @classmethod
+    def validate_profile_social(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 500:
+            raise ValueError("Rede social deve ter no maximo 500 caracteres.")
+        return safe_value
+
+    @field_validator("possui_experiencia")
+    @classmethod
+    def validate_profile_experience(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if safe_value and _normalize_compare_value(safe_value) not in {"sim", "nao"}:
+            raise ValueError("Possui experiencia deve ser Sim ou Nao.")
+        return safe_value
+
     @field_validator("cidade", "bairro")
     @classmethod
     def validate_location(cls, value: str) -> str:
@@ -559,8 +591,16 @@ class CandidateSheetUpdateRequest(BaseSchema):
     email: str | None = None
     telefone: str | None = None
     whatsapp: str | None = None
+    endereco: str | None = None
     cidade: str | None = None
     bairro: str | None = None
+    escolaridade: str | None = None
+    possui_experiencia: str | None = None
+    musica: str | None = None
+    prato: str | None = None
+    futebol: str | None = None
+    time: str | None = None
+    rede_social: str | None = None
     observacao_rh: str | None = None
     classificacao: str | None = None
     classificacao_indicacao: str | None = None
@@ -596,6 +636,36 @@ class CandidateSheetUpdateRequest(BaseSchema):
         digits = re.sub(r"\D", "", safe_value)
         if safe_value and len(digits) not in (10, 11, 12, 13):
             raise ValueError("Informe um telefone ou WhatsApp válido.")
+        return safe_value
+
+    @field_validator("endereco", "escolaridade", "musica", "prato", "futebol", "time")
+    @classmethod
+    def validate_sheet_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 255:
+            raise ValueError("Campo da ficha muito longo.")
+        return safe_value
+
+    @field_validator("rede_social")
+    @classmethod
+    def validate_sheet_social(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 500:
+            raise ValueError("Rede social deve ter no maximo 500 caracteres.")
+        return safe_value
+
+    @field_validator("possui_experiencia")
+    @classmethod
+    def validate_sheet_experience(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if safe_value and _normalize_compare_value(safe_value) not in {"sim", "nao"}:
+            raise ValueError("Possui experiencia deve ser Sim ou Nao.")
         return safe_value
 
     @field_validator("cidade", "bairro")

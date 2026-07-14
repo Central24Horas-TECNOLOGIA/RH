@@ -3,12 +3,12 @@ from __future__ import annotations
 import csv
 import io
 import logging
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from fastapi import HTTPException, status
 
 from ..services.analytics import build_analysis_from_payload
-from ..services.helpers import normalize_compare_text, normalize_text, parse_float_br, rows_to_dicts
+from ..services.helpers import normalize_compare_text, normalize_text, parse_float_br, rows_to_dicts, safe_json_loads
 from ..services.process_flow import (
     CANDIDATE_STATUS_APPROVED,
     CANDIDATE_STATUS_ELIMINATED,
@@ -90,6 +90,74 @@ def _format_report_value(value) -> str:
     if isinstance(value, date):
         return value.isoformat()
     return normalize_text(value)
+
+
+def _format_report_date_br(value) -> str:
+    parsed = _coerce_datetime(value)
+    if not parsed:
+        return ""
+    return parsed.strftime("%d/%m/%Y")
+
+
+def _add_days(value, days: int):
+    parsed = _coerce_datetime(value)
+    if not parsed:
+        return None
+    return parsed + timedelta(days=days)
+
+
+def _yes_no(value) -> str:
+    return "SIM" if bool(value) else "NÃƒO"
+
+
+def _candidate_is_approved(status_value: str) -> bool:
+    return canonicalize_candidate_status(status_value) == CANDIDATE_STATUS_APPROVED
+
+
+def _candidate_is_eliminated(status_value: str) -> bool:
+    return canonicalize_candidate_status(status_value) in {
+        CANDIDATE_STATUS_ELIMINATED,
+        CANDIDATE_STATUS_NOT_QUALIFIED,
+        CANDIDATE_STATUS_WITHDREW,
+    }
+
+
+def _candidate_in_talent_bank(status_value: str) -> bool:
+    return canonicalize_candidate_status(status_value) == CANDIDATE_STATUS_TALENT_BANK
+
+
+def _score_by_stage(etapas_json: str) -> dict[str, str]:
+    result = {
+        "nota_word": "",
+        "nota_excel": "",
+        "nota_conhecimentos_gerais": "",
+        "nota_conhecimentos_tecnicos": "",
+        "nota_redacao": "",
+    }
+    etapas = safe_json_loads(etapas_json, [])
+    if not isinstance(etapas, list):
+        return result
+
+    for etapa in etapas:
+        if not isinstance(etapa, dict):
+            continue
+        label = normalize_compare_text(etapa.get("label") or etapa.get("key"))
+        raw_score = parse_float_br(etapa.get("rawScore"))
+        raw_max = parse_float_br(etapa.get("rawMax"))
+        nota = round((raw_score / raw_max) * 10, 1) if raw_max else ""
+        if nota == "":
+            continue
+        if "word" in label:
+            result["nota_word"] = nota
+        elif "excel" in label:
+            result["nota_excel"] = nota
+        elif "redacao" in label or "reda" in label:
+            result["nota_redacao"] = nota
+        elif "tecnico" in label or "tecnica" in label:
+            result["nota_conhecimentos_tecnicos"] = nota
+        elif "gerais" in label or "geral" in label or "conhecimento" in label:
+            result["nota_conhecimentos_gerais"] = nota
+    return result
 
 
 def _csv_bytes(rows: list[dict], columns: list[tuple[str, str]]) -> bytes:
@@ -216,7 +284,7 @@ class AnalyticsRepositoryMixin:
             )
             row = cursor.fetchone()
             if not row:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prova não encontrada.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prova nÃ£o encontrada.")
 
             history_row = rows_to_dicts(cursor, [row])[0]
             process_ref = normalize_text(history_row.get("id_processo_ref"))
@@ -232,6 +300,61 @@ class AnalyticsRepositoryMixin:
             )
         finally:
             conn.close()
+
+    def _build_candidate_report_fields(
+        self,
+        item: dict,
+        status_candidato: str,
+        movement_summary: dict,
+        movements: list[dict] | None = None,
+    ) -> dict:
+        safe_movements = movements or []
+        movement_dates = [
+            _coerce_datetime(movement.get("criado_em"))
+            for movement in safe_movements
+            if _coerce_datetime(movement.get("criado_em"))
+        ]
+        data_entrada = min(movement_dates) if movement_dates else (
+            item.get("data_prova_realizada")
+            or item.get("data_movimentacao")
+            or item.get("data_atualizacao_pipeline")
+            or item.get("data_prova")
+            or item.get("data_iso")
+        )
+        data_saida = _add_days(data_entrada, 60)
+        stage_scores = _score_by_stage(item.get("etapas_prova_json") or item.get("etapas_json") or "")
+        prova_realizada = bool(
+            item.get("prova_disponivel")
+            or normalize_text(item.get("nota_prova"))
+            or normalize_text(item.get("data_prova_realizada"))
+        )
+        aprovado = _candidate_is_approved(status_candidato)
+        eliminado = _candidate_is_eliminated(status_candidato)
+        banco_talentos = _candidate_in_talent_bank(status_candidato)
+        cv_disponivel = bool(item.get("cv_disponivel"))
+
+        return {
+            "id_candidato": item.get("id_registro") or item.get("id_banco") or item.get("id_teste") or "",
+            "nome": item.get("nome_candidato") or "",
+            "telefone": item.get("whatsapp") or item.get("telefone") or "",
+            "e_mail": item.get("email") or "",
+            "processo_relatorio": normalize_text(item.get("id_processo_ref")) or normalize_text(item.get("id_processo")) or "",
+            "vaga_relatorio": item.get("vaga") or "",
+            "data_entrada": _format_report_date_br(data_entrada),
+            "movimentacoes_completas": movement_summary.get("movimentacoes") or "",
+            "nota_perfil": item.get("nota_perfil") or "",
+            "score_cv": item.get("cv_score_final") or "",
+            "cv": _yes_no(cv_disponivel),
+            "justificativa": item.get("justificativa_indicacao") or item.get("observacao_rh") or "",
+            "prova": _yes_no(prova_realizada),
+            "data_da_prova": _format_report_date_br(item.get("data_prova_realizada") or item.get("data_prova") or item.get("data_iso")) if prova_realizada else "",
+            **stage_scores,
+            "aprovacao": _yes_no(aprovado),
+            "eliminacao": _yes_no(eliminado),
+            "motivo_da_eliminacao": item.get("motivo_eliminacao") if eliminado else "",
+            "banco_de_talentos": _yes_no(banco_talentos),
+            "data_saida": _format_report_date_br(data_saida),
+        }
 
     def list_process_report(self, start_date: str = "", end_date: str = "") -> list[dict]:
         conn = self._connect()
@@ -305,14 +428,14 @@ class AnalyticsRepositoryMixin:
     def export_process_report_csv(self, start_date: str = "", end_date: str = "") -> tuple[str, bytes]:
         rows = self.list_process_report(start_date=start_date, end_date=end_date)
         columns = [
-            ("Nome do relatório/processo", "nome_relatorio_processo"),
+            ("Nome do relatÃ³rio/processo", "nome_relatorio_processo"),
             ("Vaga", "vaga"),
             ("Quantidade de vagas", "quantidade_vagas"),
             ("Quantidade de aprovados", "quantidade_aprovados"),
             ("Quantidade de eliminados/reprovados", "quantidade_eliminados_reprovados"),
             ("Data de abertura", "data_abertura"),
             ("Data de encerramento", "data_encerramento"),
-            ("Operação", "operacao"),
+            ("OperaÃ§Ã£o", "operacao"),
             ("Trilha", "trilha"),
             ("Status do processo", "status_processo"),
         ]
@@ -391,6 +514,12 @@ class AnalyticsRepositoryMixin:
                 )
                 linhas.append(
                     {
+                        **self._build_candidate_report_fields(
+                            item,
+                            status_candidato,
+                            movement_summary,
+                            movements_map.get(normalize_text(item.get("id_teste")), []),
+                        ),
                         "nome_candidato": item.get("nome_candidato") or "",
                         "processo": process_ref or process_id or "",
                         "vaga": item.get("vaga") or processo.get("vaga") or "",
@@ -414,7 +543,7 @@ class AnalyticsRepositoryMixin:
                         }
                         else "",
                         "motivo_eliminacao": item.get("motivo_eliminacao") or (
-                            "Motivo não informado" if status_candidato == CANDIDATE_STATUS_ELIMINATED else ""
+                            "Motivo nÃ£o informado" if status_candidato == CANDIDATE_STATUS_ELIMINATED else ""
                         ),
                         "etapa_eliminacao": item.get("etapa_eliminacao") or "",
                         "data_banco_talentos": data_evento if status_candidato == CANDIDATE_STATUS_TALENT_BANK else "",
@@ -423,7 +552,7 @@ class AnalyticsRepositoryMixin:
                         "classificacao_rh": item.get("classificacao_indicacao") or "",
                         "justificativa_observacoes_rh": item.get("justificativa_indicacao") or "",
                         "observacao_rh": item.get("observacao_rh") or "",
-                        "cv_disponivel": "Sim" if item.get("cv_disponivel") else "Não",
+                        "cv_disponivel": "Sim" if item.get("cv_disponivel") else "NÃ£o",
                         "cv_arquivo": item.get("cv_nome_arquivo") or "",
                         "cv_classificacao": item.get("cv_classificacao") or item.get("classificacao_exibicao") or "",
                     }
@@ -467,6 +596,12 @@ class AnalyticsRepositoryMixin:
                 )
                 linhas.append(
                     {
+                        **self._build_candidate_report_fields(
+                            item,
+                            CANDIDATE_STATUS_TALENT_BANK,
+                            movement_summary,
+                            movements_map.get(normalize_text(item.get("id_teste")), []),
+                        ),
                         "nome_candidato": item.get("nome_candidato") or "",
                         "processo": process_ref or process_id or "",
                         "vaga": item.get("vaga") or "",
@@ -491,7 +626,7 @@ class AnalyticsRepositoryMixin:
                         "classificacao_rh": profile.get("classificacao_indicacao") or "",
                         "justificativa_observacoes_rh": profile.get("justificativa_indicacao") or "",
                         "observacao_rh": profile.get("observacao_rh") or "",
-                        "cv_disponivel": "Sim" if item.get("cv_disponivel") else "Não",
+                        "cv_disponivel": "Sim" if item.get("cv_disponivel") else "NÃ£o",
                         "cv_arquivo": item.get("cv_nome_arquivo") or "",
                         "cv_classificacao": item.get("cv_classificacao") or "",
                     }
@@ -519,7 +654,7 @@ class AnalyticsRepositoryMixin:
                 status_candidato = canonicalize_candidate_status(item.get("status"))
                 process_ref = normalize_text(item.get("id_processo_ref"))
                 process_id = normalize_text(item.get("id_processo"))
-                processo_label = process_ref or process_id or "Processo único"
+                processo_label = process_ref or process_id or "Processo Ãºnico"
                 if safe_process_filter and safe_process_filter not in normalize_compare_text(processo_label):
                     continue
                 if safe_status_filter and safe_status_filter not in normalize_compare_text(status_candidato):
@@ -532,7 +667,7 @@ class AnalyticsRepositoryMixin:
                     {
                         **item,
                         "status_candidato": status_candidato,
-                        "origem": "Processo único",
+                        "origem": "Processo Ãºnico",
                         "prova_disponivel": True,
                         "nota_prova": item.get("pontuacao_final"),
                     },
@@ -540,10 +675,16 @@ class AnalyticsRepositoryMixin:
                 )
                 linhas.append(
                     {
+                        **self._build_candidate_report_fields(
+                            item,
+                            status_candidato,
+                            movement_summary,
+                            movements_map.get(id_teste, []),
+                        ),
                         "nome_candidato": item.get("nome_candidato") or "",
                         "processo": processo_label,
                         "vaga": item.get("vaga") or "",
-                        "origem_inicial": movement_summary.get("origem_inicial") or "Processo único",
+                        "origem_inicial": movement_summary.get("origem_inicial") or "Processo Ãºnico",
                         "movimentacoes": movement_summary.get("movimentacoes") or "Prova realizada",
                         "data_movimentacao": movement_summary.get("data_movimentacao") or item.get("data_iso") or "",
                         "status_anterior": movement_summary.get("status_anterior") or "",
@@ -562,7 +703,7 @@ class AnalyticsRepositoryMixin:
                             CANDIDATE_STATUS_WITHDREW,
                         }
                         else "",
-                        "motivo_eliminacao": "Motivo não informado" if status_candidato == CANDIDATE_STATUS_ELIMINATED else "",
+                        "motivo_eliminacao": "Motivo nÃ£o informado" if status_candidato == CANDIDATE_STATUS_ELIMINATED else "",
                         "etapa_eliminacao": "",
                         "data_banco_talentos": "",
                         "email": profile.get("email") or "",
@@ -570,7 +711,7 @@ class AnalyticsRepositoryMixin:
                         "classificacao_rh": profile.get("classificacao_indicacao") or "",
                         "justificativa_observacoes_rh": profile.get("justificativa_indicacao") or "",
                         "observacao_rh": profile.get("observacao_rh") or "",
-                        "cv_disponivel": "Sim" if item.get("cv_disponivel") else "Não",
+                        "cv_disponivel": "Sim" if item.get("cv_disponivel") else "NÃ£o",
                         "cv_arquivo": item.get("cv_nome_arquivo") or "",
                         "cv_classificacao": item.get("cv_classificacao") or item.get("classificacao_exibicao") or "",
                     }
@@ -603,31 +744,30 @@ class AnalyticsRepositoryMixin:
             id_processo=id_processo,
         )
         columns = [
-            ("Nome do candidato", "nome_candidato"),
-            ("Processo em que estava concorrendo", "processo"),
-            ("Vaga", "vaga"),
-            ("Origem inicial", "origem_inicial"),
-            ("Movimentações realizadas", "movimentacoes"),
-            ("Data da movimentação", "data_movimentacao"),
-            ("Status anterior", "status_anterior"),
-            ("Status novo", "status_novo"),
-            ("Usuário/RH responsável", "usuario_responsavel"),
-            ("Observação/motivo", "observacao_motivo"),
-            ("Nota da prova", "nota_prova"),
-            ("Status atual", "status_atual"),
-            ("Data da aprovação", "data_aprovacao"),
-            ("Data da eliminação/reprovação", "data_eliminacao_reprovacao"),
-            ("Motivo da eliminação", "motivo_eliminacao"),
-            ("Etapa da eliminação", "etapa_eliminacao"),
-            ("Data de envio ao Banco de Talentos", "data_banco_talentos"),
-            ("Processo de destino", "processo_destino"),
-            ("E-mail", "email"),
+            ("ID do Candidato", "id_candidato"),
+            ("Nome", "nome"),
             ("Telefone", "telefone"),
-            ("Classificação do RH", "classificacao_rh"),
-            ("Justificativa/observações do RH", "justificativa_observacoes_rh"),
-            ("Observação interna do RH", "observacao_rh"),
-            ("CV disponível", "cv_disponivel"),
-            ("Arquivo do CV", "cv_arquivo"),
-            ("Classificação do CV", "cv_classificacao"),
+            ("E-mail", "e_mail"),
+            ("Processo", "processo_relatorio"),
+            ("Vaga", "vaga_relatorio"),
+            ("Data de Entrada", "data_entrada"),
+            ("Movimentações", "movimentacoes_completas"),
+            ("Nota de Perfil", "nota_perfil"),
+            ("Score do CV", "score_cv"),
+            ("CV", "cv"),
+            ("Justificativa", "justificativa"),
+            ("Prova", "prova"),
+            ("Data da Prova", "data_da_prova"),
+            ("Nota no Word", "nota_word"),
+            ("Nota no Excel", "nota_excel"),
+            ("Nota nos Conhecimentos Gerais", "nota_conhecimentos_gerais"),
+            ("Nota nos Conhecimentos Técnicos", "nota_conhecimentos_tecnicos"),
+            ("Nota da Redação", "nota_redacao"),
+            ("Aprovação", "aprovacao"),
+            ("Eliminação", "eliminacao"),
+            ("Motivo da Eliminação", "motivo_da_eliminacao"),
+            ("Banco de Talentos", "banco_de_talentos"),
+            ("Data de Saída", "data_saida"),
         ]
         return _report_filename("relatorio_candidatos", start_date, end_date), _csv_bytes(rows, columns)
+

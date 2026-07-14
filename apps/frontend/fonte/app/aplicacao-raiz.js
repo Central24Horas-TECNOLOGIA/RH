@@ -32,7 +32,10 @@ const TelaEntrevistas = carregarTela(() => import('../features/tela-entrevistas.
 const TelaCandidaturaPublica = carregarTela(() => import('../features/public-candidacy/index.js'), 'TelaCandidaturaPublica');
 const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js'), 'TelaConectaProvas');
 const TelaProvasResultados = carregarTela(() => import('../features/provas-geradas/index.js'), 'TelaProvasResultados');
-const TelaConfiguracoesSistema = carregarTela(() => import('../features/configuracoes/index.js'), 'TelaConfiguracoesSistema');
+const TelaConfiguracoesSistema = carregarTela(
+  () => import('../features/configuracoes/index.js?v=20260713-config-users-fix7'),
+  'TelaConfiguracoesSistema',
+);
 const TelaCandidato = carregarTela(importarProva, 'TelaCandidato');
 const TelaConfiguracao = carregarTela(importarProva, 'TelaConfiguracao');
 const TelaConclusao = carregarTela(importarProva, 'TelaConclusao');

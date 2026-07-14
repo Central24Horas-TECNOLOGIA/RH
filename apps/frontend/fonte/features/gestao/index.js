@@ -2,6 +2,7 @@
   html,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from '../../infraestrutura-react.js';
 import {
@@ -20,7 +21,6 @@ import {
   inferirPerfilAtendimentoPersonalizacao,
 } from '../prova/services/personalizacao-inteligente.js';
 import {
-  TAMANHO_ANALISE,
   TAMANHO_HISTORICO,
   TAMANHO_RECENTES,
   atualizarStatusCandidato,
@@ -44,8 +44,6 @@ import {
   obterRotuloSituacaoAtual,
   atualizarPerfilCandidato,
   baixarAnexoEmailRecebido,
-  baixarRelatorioCandidatos,
-  baixarRelatorioProcessos,
   analisarCvEmailRecebidoGeral,
   enviarEmailRecebidoBancoTalentos,
   ignorarEmailRecebido,
@@ -79,6 +77,7 @@ import {
   getCandidateVisibleStatus,
   isProcessClosed,
 } from '../../shared/process-flow.js';
+import { CHAVE_PROCESSO_DETALHE } from '../processos-estado.js';
 import { obterTourLogin } from '../../shared/tour-config.js';
 import {
   obterChaveProcesso,
@@ -106,6 +105,58 @@ import { BotaoAjudaTour, TourGuiado } from '../../ui/tour-guiado.js';
 
 const MENSAGEM_EMAIL_NAO_CONFIGURADO =
   'Caixa de e-mail corporativa ainda não configurada. Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor.';
+
+const TAMANHO_RELATORIO = 8;
+
+const COLUNAS_RELATORIO_PROCESSOS = [
+  { label: 'ID do processo', key: 'id_processo_relatorio' },
+  { label: 'Processo', key: 'processo_relatorio' },
+  { label: 'Data de abertura', key: 'data_abertura_relatorio' },
+  { label: 'Data de encerramento', key: 'data_encerramento_relatorio' },
+  { label: 'Status', key: 'status_relatorio' },
+  { label: 'Total de vagas', key: 'total_vagas_relatorio' },
+  { label: 'Vagas preenchidas', key: 'vagas_preenchidas_relatorio' },
+  { label: 'Candidatos', key: 'candidatos_relatorio' },
+  { label: 'Aprovados', key: 'aprovados_relatorio' },
+  { label: 'Eliminados', key: 'eliminados_relatorio' },
+];
+
+const COLUNAS_RELATORIO_CANDIDATOS = [
+  { label: 'ID do Candidato', key: 'id_candidato' },
+  { label: 'Nome', key: 'nome' },
+  { label: 'Telefone', key: 'telefone' },
+  { label: 'E-mail', key: 'e_mail' },
+  { label: 'Processo', key: 'processo_relatorio' },
+  { label: 'Vaga', key: 'vaga_relatorio' },
+  { label: 'Data de Entrada', key: 'data_entrada' },
+  { label: 'Movimentações', key: 'movimentacoes_completas' },
+  { label: 'Nota de Perfil', key: 'nota_perfil' },
+  { label: 'Score do CV', key: 'score_cv' },
+  { label: 'CV', key: 'cv' },
+  { label: 'Justificativa', key: 'justificativa' },
+  { label: 'Prova', key: 'prova' },
+  { label: 'Data da Prova', key: 'data_da_prova' },
+  { label: 'Nota no Word', key: 'nota_word' },
+  { label: 'Nota no Excel', key: 'nota_excel' },
+  { label: 'Nota nos Conhecimentos Gerais', key: 'nota_conhecimentos_gerais' },
+  { label: 'Nota nos Conhecimentos Técnicos', key: 'nota_conhecimentos_tecnicos' },
+  { label: 'Nota da Redação', key: 'nota_redacao' },
+  { label: 'Aprovação', key: 'aprovacao' },
+  { label: 'Eliminação', key: 'eliminacao' },
+  { label: 'Motivo da Eliminação', key: 'motivo_da_eliminacao' },
+  { label: 'Banco de Talentos', key: 'banco_de_talentos' },
+  { label: 'Data de Saída', key: 'data_saida' },
+];
+
+const COLUNAS_RANKING_ANALITICO = [
+  { label: 'Processo', key: 'id_processo' },
+  { label: 'Candidato', key: 'nome_candidato' },
+  { label: 'Vaga', key: 'vaga' },
+  { label: 'Nota', key: 'nota_final' },
+  { label: 'Afinidade', key: 'afinidade_percentual' },
+  { label: 'Recomendação', key: 'recomendacao' },
+  { label: 'Status', key: 'status_visual' },
+];
 
 const OPCOES_NIVEL_PROVA_PROCESSO = [
   { value: '1', label: 'Nível 1' },
@@ -296,6 +347,169 @@ function obterIntervaloPaginacao(paginacao) {
   return `${inicio}-${fim}`;
 }
 
+function formatarDataRelatorio(valor) {
+  if (!valor) return '-';
+  const texto = String(valor || '').trim();
+  const data = /^\d{4}-\d{2}-\d{2}$/.test(texto)
+    ? new Date(`${texto}T00:00:00`)
+    : new Date(valor);
+  if (Number.isNaN(data.getTime())) return String(valor || '-');
+  return data.toLocaleDateString('pt-BR');
+}
+
+function formatarAtualizacaoRelatorio(valor) {
+  if (!valor) return 'Última atualização: aguardando atualização';
+  return `Última atualização: hoje às ${valor.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
+
+function obterPrimeiroValorRelatorio(linha, campos = [], fallback = '-') {
+  for (const campo of campos) {
+    const valor = linha?.[campo];
+    if (valor !== undefined && valor !== null && valor !== '') {
+      return valor;
+    }
+  }
+  return fallback;
+}
+
+function obterIdRelatorioProcesso(linha) {
+  return String(
+    obterPrimeiroValorRelatorio(linha, [
+      'id_processo_ref',
+      'id_processo',
+      'nome_relatorio_processo',
+    ], ''),
+  ).trim();
+}
+
+function obterNomeRelatorioProcesso(linha) {
+  return obterPrimeiroValorRelatorio(linha, [
+    'processo',
+    'nome_processo',
+    'vaga',
+    'nome_relatorio_processo',
+  ]);
+}
+
+function obterStatusRelatorioProcesso(linha) {
+  return obterPrimeiroValorRelatorio(linha, ['status_processo', 'status'], 'Aberto');
+}
+
+function obterClasseStatusRelatorioProcesso(status) {
+  const texto = normalizarBuscaPainel(status);
+  if (texto.includes('encerr')) return 'is-muted';
+  if (texto.includes('cancel') || texto.includes('reprov') || texto.includes('elimin')) return 'is-eliminated';
+  if (texto.includes('abert') || texto.includes('ativo')) return 'is-approved';
+  return 'is-analysis';
+}
+
+function formatarNumeroRelatorio(valor, fallback = '0') {
+  if (valor === undefined || valor === null || valor === '') return fallback;
+  return valor;
+}
+
+function textoBuscaRelatorioProcesso(linha) {
+  return [
+    obterIdRelatorioProcesso(linha),
+    obterNomeRelatorioProcesso(linha),
+    linha?.vaga,
+    linha?.operacao,
+    linha?.trilha,
+  ].join(' ');
+}
+
+function formatarDataArquivoHoje() {
+  const data = new Date();
+  const pad = (valor) => String(valor).padStart(2, '0');
+  return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}`;
+}
+
+function normalizarValorExportacao(valor) {
+  if (valor === undefined || valor === null) return '';
+  return String(valor);
+}
+
+function escaparCampoCsv(valor) {
+  const texto = normalizarValorExportacao(valor);
+  if (/[;"\n\r]/.test(texto)) return `"${texto.replace(/"/g, '""')}"`;
+  return texto;
+}
+
+function baixarCsvRelatorio(nomeBase, colunas, linhas) {
+  const conteudo = [
+    colunas.map((coluna) => escaparCampoCsv(coluna.label)).join(';'),
+    ...linhas.map((linha) =>
+      colunas.map((coluna) => escaparCampoCsv(linha[coluna.key])).join(';'),
+    ),
+  ].join('\n');
+  baixarBlob(`${nomeBase}_${formatarDataArquivoHoje()}.csv`, new Blob([`\ufeff${conteudo}`], {
+    type: 'text/csv;charset=utf-8',
+  }));
+}
+
+function baixarXlsxRelatorio(nomeBase, nomePlanilha, colunas, linhas) {
+  const XLSX = window.XLSX;
+  if (!XLSX) {
+    throw new Error('A biblioteca XLSX não foi carregada.');
+  }
+  const matriz = [
+    colunas.map((coluna) => coluna.label),
+    ...linhas.map((linha) => colunas.map((coluna) => linha[coluna.key] ?? '')),
+  ];
+  const planilha = XLSX.utils.aoa_to_sheet(matriz);
+  const range = XLSX.utils.decode_range(planilha['!ref'] || 'A1:A1');
+  planilha['!autofilter'] = { ref: XLSX.utils.encode_range(range) };
+  planilha['!freeze'] = { xSplit: 0, ySplit: 1 };
+  planilha['!cols'] = colunas.map((coluna) => {
+    const maior = Math.max(
+      coluna.label.length,
+      ...linhas.slice(0, 250).map((linha) => normalizarValorExportacao(linha[coluna.key]).length),
+    );
+    return { wch: Math.min(Math.max(maior + 2, 10), coluna.key.includes('moviment') || coluna.key.includes('justific') ? 48 : 28) };
+  });
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, planilha, nomePlanilha.slice(0, 31));
+  const dados = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  baixarBlob(`${nomeBase}_${formatarDataArquivoHoje()}.xlsx`, new Blob([dados], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  }));
+}
+
+function montarLinhaProcessoRelatorio(linha) {
+  const status = obterStatusRelatorioProcesso(linha);
+  return {
+    ...linha,
+    id_processo_relatorio: obterIdRelatorioProcesso(linha) || '-',
+    processo_relatorio: obterNomeRelatorioProcesso(linha),
+    data_abertura_relatorio: formatarDataRelatorio(linha.data_abertura),
+    data_encerramento_relatorio: formatarDataRelatorio(linha.data_encerramento),
+    status_relatorio: status || '-',
+    total_vagas_relatorio: formatarNumeroRelatorio(linha.quantidade_vagas, '-'),
+    vagas_preenchidas_relatorio: formatarNumeroRelatorio(obterPrimeiroValorRelatorio(linha, ['vagas_preenchidas', 'quantidade_vagas_preenchidas', 'quantidade_aprovados'], 0)),
+    candidatos_relatorio: formatarNumeroRelatorio(obterPrimeiroValorRelatorio(linha, ['quantidade_candidatos', 'total_candidatos', 'candidatos'], '-'), '-'),
+    aprovados_relatorio: formatarNumeroRelatorio(linha.quantidade_aprovados),
+    eliminados_relatorio: formatarNumeroRelatorio(linha.quantidade_eliminados_reprovados),
+  };
+}
+
+function montarLinhaRankingRelatorio(linha) {
+  return {
+    ...linha,
+    nota_final: formatarNotaAnalise(linha.nota_final),
+    afinidade_percentual: `${formatarPercentualAfinidade(linha.afinidade_percentual)}%`,
+    status_visual: getCandidateVisibleStatus(linha) || '-',
+  };
+}
+
+function resumirTextoTabela(valor, limite = 72) {
+  const texto = String(valor || '').trim();
+  if (texto.length <= limite) return texto || '-';
+  return `${texto.slice(0, limite - 1)}…`;
+}
+
 function PaginacaoCompacta({
   paginacao,
   onChange,
@@ -323,7 +537,7 @@ function PaginacaoCompacta({
           <span class="material-symbols-outlined">chevron_left</span>
         </button>
         ${paginas.map(
-          (pagina) => html`
+    (pagina) => html`
             <button
               key=${pagina}
               type="button"
@@ -333,7 +547,7 @@ function PaginacaoCompacta({
               ${pagina}
             </button>
           `,
-        )}
+  )}
         <button
           type="button"
           class="c24-page-btn"
@@ -344,12 +558,12 @@ function PaginacaoCompacta({
           <span class="material-symbols-outlined">chevron_right</span>
         </button>
         ${onVerTodos
-          ? html`
+      ? html`
               <button type="button" class="c24-page-link" onClick=${onVerTodos}>
                 Ver todos
               </button>
             `
-          : null}
+      : null}
       </div>
     </footer>
   `;
@@ -369,6 +583,13 @@ function obterClasseAlertaEmail(payload) {
   if (status === 'error' || payload?.error) return 'alert-danger';
   if (payload && payload.configured === false) return 'alert-warning';
   return 'alert-info';
+}
+
+function formatarExperienciaEmail(item) {
+  const valor = String(item?.experiencia_detectada || item?.campos_formulario?.experiencia || '').trim().toLowerCase();
+  if (valor === 'sim') return 'Sim';
+  if (valor === 'nao' || valor === 'não') return 'Não';
+  return 'Não identificado';
 }
 
 function formatarPartesDataHoraEmail(valor) {
@@ -648,14 +869,14 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
         actions=${html`
           <div class=${`mailbox-toolbar rh-email-panel-actions ${compacto ? 'mailbox-toolbar-compact' : 'mailbox-toolbar-full'}`}>
             ${!compacto
-              ? html`
+        ? html`
                   <form class="mailbox-filter-form" onSubmit=${enviarFiltro}>
                     <label class="email-search-control">
                       <span class="material-symbols-outlined">search</span>
                       <input
                         class="form-control form-control-sm rh-email-filter-input email-filter-input"
                         aria-label="Filtrar e-mails"
-                        placeholder="Filtrar por assunto, remetente, nome ou vaga"
+                        placeholder="Filtrar por assunto, nome, experiência ou contato"
                         value=${filtroTexto}
                         onInput=${(event) => setFiltroTexto(event.target.value)}
                       />
@@ -670,8 +891,8 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                     </button>
                   </form>
                 `
-              : controlador
-                ? html`
+        : controlador
+          ? html`
                     <button
                       type="button"
                       class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
@@ -681,7 +902,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                       Abrir caixa completa
                     </button>
                   `
-                : null}
+          : null}
 
             <div class="mailbox-toolbar-options">
               <label class="form-check rh-email-toggle-ignored">
@@ -719,7 +940,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
               </button>
 
               ${compacto
-                ? html`
+        ? html`
                     <button
                       type="button"
                       class="btn btn-outline-secondary btn-sm rh-action-btn email-toolbar-btn"
@@ -729,16 +950,16 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                       ${aberta ? 'Recolher' : 'Expandir'}
                     </button>
                   `
-                : null}
+        : null}
             </div>
           </div>
         `}
         tourId="home-email-inbox"
       >
         ${aberta
-          ? html`
+      ? html`
               ${payloadEmail && !payloadEmail.configured
-                ? html`
+          ? html`
                     <div class="alert alert-warning mailbox-config-alert">
                       <span class="material-symbols-outlined">error</span>
                       <div>
@@ -747,17 +968,17 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                       </div>
                     </div>
                   `
-                : payloadEmail?.message
-                  ? html`<div class=${`alert ${obterClasseAlertaEmail(payloadEmail)}`}>${payloadEmail.message}</div>`
-                  : null}
+          : payloadEmail?.message
+            ? html`<div class=${`alert ${obterClasseAlertaEmail(payloadEmail)}`}>${payloadEmail.message}</div>`
+            : null}
 
               <div class="table-responsive email-table-shell">
                 <table class="table align-middle rh-modern-history-table rh-email-inbox-table email-table">
                   <thead>
                     <tr>
                       ${compacto
-                        ? null
-                        : html`
+          ? null
+          : html`
                             <th class="email-select-cell">
                               <input
                                 class="form-check-input"
@@ -769,13 +990,12 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                             </th>
                           `}
                       <th>Data</th>
-                      <th>Remetente</th>
                       <th>Assunto</th>
                       ${compacto
-                        ? null
-                        : html`
-                            <th>Nome detectado</th>
-                            <th>Vaga detectada</th>
+          ? null
+          : html`
+                            <th>Nome</th>
+                            <th>Experiência</th>
                             <th>Contato detectado</th>
                           `}
                       <th>Anexo/CV</th>
@@ -784,14 +1004,14 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                   </thead>
                   <tbody>
                     ${paginacaoEmails.itens.length
-                      ? paginacaoEmails.itens.map((item) => {
-                          const dataHora = formatarPartesDataHoraEmail(item.data_recebimento);
-                          const selecionado = idsSelecionados.includes(String(item.id));
-                          return html`
+          ? paginacaoEmails.itens.map((item) => {
+            const dataHora = formatarPartesDataHoraEmail(item.data_recebimento);
+            const selecionado = idsSelecionados.includes(String(item.id));
+            return html`
                             <tr key=${item.id} class=${`email-row ${selecionado ? 'is-selected' : ''}`}>
                               ${compacto
-                                ? null
-                                : html`
+                ? null
+                : html`
                                     <td class="email-select-cell" data-label="Selecionar">
                                       <input
                                         class="form-check-input"
@@ -806,20 +1026,14 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                                 <span>${dataHora.data}</span>
                                 <small>${dataHora.hora}</small>
                               </td>
-                              <td class="email-sender-cell" data-label="Remetente">
-                                <strong>${item.remetente_nome || item.remetente || 'Remetente não informado'}</strong>
-                                ${item.remetente_email
-                                  ? html`<small>${item.remetente_email}</small>`
-                                  : null}
-                              </td>
                               <td class="email-subject-cell" data-label="Assunto">
                                 <div>${item.assunto || 'Sem assunto'}</div>
                               </td>
                               ${compacto
-                                ? null
-                                : html`
-                                    <td data-label="Nome detectado">${item.nome_detectado || '-'}</td>
-                                    <td data-label="Vaga detectada">${item.vaga_detectada || 'Não identificado'}</td>
+                ? null
+                : html`
+                                    <td data-label="Nome">${item.nome_detectado || '-'}</td>
+                                    <td data-label="Experiência">${formatarExperienciaEmail(item)}</td>
                                     <td class="email-contact-cell" data-label="Contato detectado">
                                       <div>${item.telefone_detectado || 'Não identificado'}</div>
                                       <small>${item.email_detectado || '-'}</small>
@@ -835,10 +1049,10 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                               </td>
                             </tr>
                           `;
-                        })
-                      : html`
+          })
+          : html`
                           <tr class="email-empty-row">
-                            <td class="text-center text-muted py-4" colSpan=${compacto ? 5 : 9}>
+                            <td class="text-center text-muted py-4" colSpan=${compacto ? 4 : 8}>
                               <span class="material-symbols-outlined">inbox</span>
                               <span>${carregando ? 'Carregando currículos recebidos.' : 'Nenhum currículo recebido por e-mail para listar.'}</span>
                             </td>
@@ -849,14 +1063,14 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
               </div>
 
               ${compacto
-                ? html`
+          ? html`
                     <${PaginacaoCompacta}
                       paginacao=${{ ...paginacaoEmails, tamanhoPagina }}
                       onChange=${setPaginaAtual}
                       label=${`Mostrando ${obterIntervaloPaginacao({ ...paginacaoEmails, tamanhoPagina })} de ${paginacaoEmails.totalItens} e-mail(s)`}
                     />
                   `
-                : html`
+          : html`
                     <div class="email-pagination-row">
                       <small>Exibindo ${paginacaoEmails.itens.length} de ${paginacaoEmails.totalItens} e-mail(s).</small>
                       <${GrupoPaginacao}
@@ -867,11 +1081,11 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                     </div>
                   `}
             `
-          : null}
+      : null}
       </${SectionCard}>
 
       ${!compacto && itensSelecionados.length
-        ? html`
+      ? html`
             <aside class="email-quick-actions" aria-live="polite">
               <header>
                 <div>
@@ -889,7 +1103,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
               </header>
 
               ${itemSelecionado
-                ? html`
+          ? html`
                     <div class="email-quick-actions-list">
                       <button type="button" onClick=${() => abrirDetalhesEmail(itemSelecionado)}>
                         <span class="material-symbols-outlined">mail</span>
@@ -918,9 +1132,9 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                           aria-label="Processo para vínculo"
                           value=${selecoesProcesso[itemSelecionado.id] || ''}
                           onChange=${(event) => setSelecoesProcesso((anteriores) => ({
-                            ...anteriores,
-                            [itemSelecionado.id]: event.target.value,
-                          }))}
+            ...anteriores,
+            [itemSelecionado.id]: event.target.value,
+          }))}
                         >
                           <option value="">Selecione o processo</option>
                           ${processosAbertos.map((processo) => html`
@@ -940,7 +1154,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                       </div>
 
                       ${controlador?.possuiPermissao?.('candidatos.mover_etapa')
-                        ? html`
+              ? html`
                             <button
                               type="button"
                               disabled=${acaoEmAndamento === `banco:${itemSelecionado.id}`}
@@ -950,14 +1164,14 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                               Banco de Talentos
                             </button>
                           `
-                        : null}
+              : null}
                     </div>
                   `
-                : null}
+          : null}
 
               <div class="email-quick-actions-danger">
                 ${controlador?.possuiPermissao?.('candidatos.mover_etapa')
-                  ? html`
+          ? html`
                       <button
                         type="button"
                         class="is-danger"
@@ -968,9 +1182,9 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                         Ignorar
                       </button>
                     `
-                  : null}
+          : null}
                 ${controlador?.possuiPermissao?.('candidatos.excluir')
-                  ? html`
+          ? html`
                       <button
                         type="button"
                         class="is-danger"
@@ -981,11 +1195,11 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                         Excluir
                       </button>
                     `
-                  : null}
+          : null}
               </div>
             </aside>
           `
-        : null}
+      : null}
 
       <${ModalPadrao}
         aberto=${!!detalheEmail}
@@ -1004,8 +1218,12 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
               <div>${detalheEmail?.nome_anexo || 'Sem anexo'}</div>
             </div>
             <div class="col-md-4">
-              <label class="form-label">Nome detectado</label>
+              <label class="form-label">Nome</label>
               <div>${detalheEmail?.nome_detectado || '-'}</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Experiência</label>
+              <div>${formatarExperienciaEmail(detalheEmail)}</div>
             </div>
             <div class="col-md-4">
               <label class="form-label">Telefone detectado</label>
@@ -1015,6 +1233,14 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
               <label class="form-label">E-mail detectado</label>
               <div>${detalheEmail?.email_detectado || '-'}</div>
             </div>
+            ${Array.isArray(detalheEmail?.inconsistencias) && detalheEmail.inconsistencias.length
+      ? html`
+                  <div class="col-12">
+                    <label class="form-label">Inconsistências</label>
+                    <div class="alert alert-warning mb-0">${detalheEmail.inconsistencias.join(' ')}</div>
+                  </div>
+                `
+      : null}
             <div class="col-12">
               <label class="form-label">Corpo do e-mail</label>
               <pre class="rh-email-body-preview">${detalheEmail?.corpo || detalheEmail?.resumo_corpo || ''}</pre>
@@ -1174,6 +1400,11 @@ export function TelaInicio({ controlador }) {
   const [entrevistas, setEntrevistas] = useState([]);
   const [paginaRecentes, setPaginaRecentes] = useState(1);
   const [detalheAberto, setDetalheAberto] = useState(null);
+  const nomeUsuarioLogado = normalizarTextoPainel(
+    controlador?.estado?.nomeUsuarioAutenticado ||
+    controlador?.estado?.usuarioAutenticado ||
+    'usuário',
+  );
 
   const carregar = async () => {
     setCarregando(true);
@@ -1438,7 +1669,7 @@ export function TelaInicio({ controlador }) {
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        title="Olá, RH!"
+        title=${`Olá, ${nomeUsuarioLogado}!`}
         description="Panorama geral do recrutamento hoje."
         actions=${html`
           <button
@@ -1459,46 +1690,49 @@ export function TelaInicio({ controlador }) {
       >
         <div class="home-quick-grid">
           ${[
-            {
-              label: 'Nova vaga',
-              icon: 'work',
-              permissao: 'vagas.criar',
-              onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
-            },
-            {
-              label: 'Adicionar candidato',
-              icon: 'person_add',
-              permissao: 'candidatos.criar',
-              onClick: () => controlador.irParaTelaProtegida('screen-candidates'),
-            },
-            {
-              label: 'Agendar entrevista',
-              icon: 'calendar_month',
-              permissao: 'entrevistas.visualizar',
-              onClick: () => controlador.irParaTelaProtegida('screen-interviews'),
-            },
-            {
-              label: 'Enviar e-mail',
-              icon: 'send',
-              permissao: 'candidatos.criar',
-              onClick: () => controlador.irParaTelaProtegida('screen-email-inbox'),
-            },
-            {
-              label: 'Relatórios',
-              icon: 'bar_chart',
-              permissao: 'relatorios.visualizar',
-              onClick: () => controlador.irParaTelaProtegida('screen-analysis-candidates'),
-            },
-            {
-              label: 'Mais opções',
-              icon: 'more_horiz',
-              permissao: 'configuracoes.visualizar',
-              onClick: () => controlador.irParaTelaProtegida('screen-settings'),
-            },
-          ]
-            .filter((item) => !item.permissao || controlador.possuiPermissao(item.permissao))
-            .map(
-              (item) => html`
+      {
+        label: 'Nova vaga',
+        icon: 'work',
+        permissao: 'vagas.criar',
+        onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
+      },
+      /*
+      {
+        label: 'Adicionar candidato',
+        icon: 'person_add',
+        permissao: 'candidatos.criar',
+        onClick: () => controlador.irParaTelaProtegida('screen-candidates'),
+      },
+      */
+
+      {
+        label: 'Agendar entrevista',
+        icon: 'calendar_month',
+        permissao: 'entrevistas.visualizar',
+        onClick: () => controlador.irParaTelaProtegida('screen-interviews'),
+      },
+      {
+        label: 'Caixa de Email',
+        icon: 'send',
+        permissao: 'candidatos.criar',
+        onClick: () => controlador.irParaTelaProtegida('screen-email-inbox'),
+      },
+      {
+        label: 'Relatórios',
+        icon: 'bar_chart',
+        permissao: 'relatorios.visualizar',
+        onClick: () => controlador.irParaTelaProtegida('screen-analysis-candidates'),
+      },
+      {
+        label: 'Configurações',
+        icon: 'more_horiz',
+        permissao: 'configuracoes.visualizar',
+        onClick: () => controlador.irParaTelaProtegida('screen-settings'),
+      },
+    ]
+      .filter((item) => !item.permissao || controlador.possuiPermissao(item.permissao))
+      .map(
+        (item) => html`
                 <button
                   key=${item.label}
                   type="button"
@@ -1509,7 +1743,7 @@ export function TelaInicio({ controlador }) {
                   <strong>${item.label}</strong>
                 </button>
               `,
-            )}
+      )}
         </div>
       </${SectionCard}>
 
@@ -1520,15 +1754,15 @@ export function TelaInicio({ controlador }) {
         <div class="day-summary-layout">
           <div class="day-summary-stats">
             ${[
-              ...indicadoresPainel,
-              {
-                icon: 'notifications',
-                label: 'Notificações do dia',
-                value: notificacoesDia.length,
-                variant: 'is-blue',
-              },
-            ].map(
-              (item) => html`
+      ...indicadoresPainel,
+      {
+        icon: 'notifications',
+        label: 'Notificações do dia',
+        value: notificacoesDia.length,
+        variant: 'is-blue',
+      },
+    ].map(
+      (item) => html`
                 <article class=${`day-stat-card ${item.variant || ''}`} key=${item.label}>
                   <span class="material-symbols-outlined">${item.icon}</span>
                   <div>
@@ -1537,7 +1771,7 @@ export function TelaInicio({ controlador }) {
                   </div>
                 </article>
               `,
-            )}
+    )}
           </div>
         </div>
       </${SectionCard}>
@@ -1549,10 +1783,10 @@ export function TelaInicio({ controlador }) {
             className="processes-today-card compact-dashboard-card"
           >
             ${entrevistasHoje.length
-              ? html`
+      ? html`
                   <div class="processes-today-list">
                     ${entrevistasHoje.slice(0, 5).map(
-                      (item) => html`
+        (item) => html`
                         <article class="processes-today-item" key=${`${item.id_entrevista || item.id_slot || item.nome_candidato}-${item.data_entrevista}`}>
                           <span class="material-symbols-outlined">event_available</span>
                           <div>
@@ -1564,10 +1798,10 @@ export function TelaInicio({ controlador }) {
                           </span>
                         </article>
                       `,
-                    )}
+      )}
                   </div>
                 `
-              : html`
+      : html`
                   <div class="home-empty-state">
                     <span class="material-symbols-outlined">calendar_month</span>
                     <h3>Nenhuma entrevista hoje</h3>
@@ -1595,27 +1829,27 @@ export function TelaInicio({ controlador }) {
             `}
           >
             ${carregando
-              ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
-              : recentes.length
-                ? html`
+      ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
+      : recentes.length
+        ? html`
                     <div class="rh-recent-grid">
                       ${recentesPaginados.itens.map(
-                        (item) => html`
+          (item) => html`
                           <button
                             key=${item.id_teste}
                             type="button"
                             class="rh-recent-card"
                             onClick=${async () =>
-                              setDetalheAberto(
-                                await carregarDetalhesProva(item.id_teste),
-                              )}
+              setDetalheAberto(
+                await carregarDetalhesProva(item.id_teste),
+              )}
                           >
                             <div class="rh-recent-avatar-wrap">
                               <span class="rh-recent-avatar">
                                 ${String(item.nome_candidato || 'T')
-                                  .trim()
-                                  .slice(0, 1)
-                                  .toUpperCase()}
+              .trim()
+              .slice(0, 1)
+              .toUpperCase()}
                               </span>
                             </div>
                             <div class="rh-recent-card-body">
@@ -1626,18 +1860,18 @@ export function TelaInicio({ controlador }) {
                             <span class="material-symbols-outlined">arrow_forward</span>
                           </button>
                         `,
-                      )}
+        )}
                     </div>
                     <${PaginacaoCompacta}
                       paginacao=${{ ...recentesPaginados, tamanhoPagina: 3 }}
                       onChange=${setPaginaRecentes}
                       label=${`Mostrando ${obterIntervaloPaginacao({
-                        ...recentesPaginados,
-                        tamanhoPagina: 3,
-                      })} de ${recentesPaginados.totalItens}`}
+          ...recentesPaginados,
+          tamanhoPagina: 3,
+        })} de ${recentesPaginados.totalItens}`}
                     />
                   `
-                : html`
+        : html`
                     <${EmptyState}
                       title="Nenhum registro salvo"
                       text="Assim que uma prova for concluída e salva, ela aparecerá aqui."
@@ -1650,10 +1884,10 @@ export function TelaInicio({ controlador }) {
             className="process-progress-card compact-dashboard-card"
           >
             ${processosAndamento.length
-              ? html`
+      ? html`
                   <div class="process-progress-list active-process-list">
                     ${processosAndamento.map(
-                      (item) => html`
+        (item) => html`
                         <article class="process-progress-item active-process-card" key=${item.id}>
                           <div class="active-process-info">
                             <strong>${item.nome}</strong>
@@ -1676,10 +1910,10 @@ export function TelaInicio({ controlador }) {
                           </div>
                         </article>
                       `,
-                    )}
+      )}
                   </div>
                 `
-              : html`
+      : html`
                   <${EmptyState}
                     title="Nenhum processo em andamento"
                     text="Os processos abertos aparecerão aqui assim que forem cadastrados."
@@ -1698,12 +1932,12 @@ export function TelaInicio({ controlador }) {
         detalheAberto?.linha?.nome_candidato || 'candidato',
       )}
         onCandidateDetails=${async () => {
-          try {
-            await abrirFichaCandidatoDaProva(detalheAberto);
-          } catch (error) {
-            window.alert('Não foi possível localizar a ficha deste candidato.');
-          }
-        }}
+      try {
+        await abrirFichaCandidatoDaProva(detalheAberto);
+      } catch (error) {
+        window.alert('Não foi possível localizar a ficha deste candidato.');
+      }
+    }}
       />
     </${PainelRh}>
   `;
@@ -1929,12 +2163,12 @@ export function TelaHistorico({ controlador }) {
         detalheAberto?.linha?.nome_candidato || 'candidato',
       )}
         onCandidateDetails=${async () => {
-          try {
-            await abrirFichaCandidatoDaProva(detalheAberto);
-          } catch (error) {
-            window.alert('Não foi possível localizar a ficha deste candidato.');
-          }
-        }}
+      try {
+        await abrirFichaCandidatoDaProva(detalheAberto);
+      } catch (error) {
+        window.alert('Não foi possível localizar a ficha deste candidato.');
+      }
+    }}
       />
     </${PainelRh}>
   `;
@@ -2060,9 +2294,9 @@ export function TelaCriarProcesso({ controlador }) {
       [campo]: valor,
       ...(campo === 'vaga'
         ? {
-            areaProva: '',
-            nivelProva: '',
-          }
+          areaProva: '',
+          nivelProva: '',
+        }
         : {}),
       ...(campo === 'areaProva'
         ? { trilha: normalizarTrilhaProvaProcesso(valor) || anterior.trilha }
@@ -2202,22 +2436,22 @@ export function TelaCriarProcesso({ controlador }) {
         personalizacao_inteligente: Boolean(formulario.personalizacaoInteligente),
         personalizacao: formulario.personalizacaoInteligente
           ? {
-              ...personalizacao,
-              operacao: personalizacao.operacao,
-              setor_cliente: personalizacao.operacao,
-              tom_prova: formulario.tomProva,
-              situacao_pratica_operacao: formulario.situacaoPraticaOperacao,
-              tipos_atendimento: personalizacao.tiposAtendimento,
-              perfil_operacao: configuracaoPersonalizacao?.perfilOperacao,
-              nivel_personalizacao: configuracaoPersonalizacao?.nivelPersonalizacao,
-              historico: resultadoPersonalizacao?.historico || null,
-              alertas: resultadoPersonalizacao?.alertas || [],
-            }
+            ...personalizacao,
+            operacao: personalizacao.operacao,
+            setor_cliente: personalizacao.operacao,
+            tom_prova: formulario.tomProva,
+            situacao_pratica_operacao: formulario.situacaoPraticaOperacao,
+            tipos_atendimento: personalizacao.tiposAtendimento,
+            perfil_operacao: configuracaoPersonalizacao?.perfilOperacao,
+            nivel_personalizacao: configuracaoPersonalizacao?.nivelPersonalizacao,
+            historico: resultadoPersonalizacao?.historico || null,
+            alertas: resultadoPersonalizacao?.alertas || [],
+          }
           : {
-              enabled: false,
-              opcional: true,
-              mensagem: 'Prova padrão configurada para este processo seletivo.',
-            },
+            enabled: false,
+            opcional: true,
+            mensagem: 'Prova padrão configurada para este processo seletivo.',
+          },
         entrevista_obrigatoria: false,
       },
     };
@@ -2287,31 +2521,30 @@ export function TelaCriarProcesso({ controlador }) {
     >
       <${PageIntro}
         kicker="Console • Novo processo"
-        title=${`Etapa ${etapaAtual}: ${
-    etapaAtual === 1
+        title=${`Etapa ${etapaAtual}: ${etapaAtual === 1
       ? 'Dados do Processo'
       : etapaAtual === 2
         ? 'Configuração da Prova'
         : 'Publicação'
-  }`}
+    }`}
         description="Cadastre a vaga e configure a prova vinculada ao processo seletivo."
       />
 
       <div class="process-create-shell">
         <div class="process-create-stepper" aria-label="Etapas do processo seletivo">
           ${[
-            ['1', 'Dados do Processo'],
-            ['2', 'Configuração da Prova'],
-            ['3', 'Publicação'],
-          ].map(([numero, label], indice) => {
-    const etapa = indice + 1;
-    return html`
+      ['1', 'Dados do Processo'],
+      ['2', 'Configuração da Prova'],
+      ['3', 'Publicação'],
+    ].map(([numero, label], indice) => {
+      const etapa = indice + 1;
+      return html`
               <div class=${`process-create-step ${etapaAtual === etapa ? 'is-active' : ''} ${etapaAtual > etapa ? 'is-done' : ''}`} key=${numero}>
                 <span>${etapaAtual > etapa ? html`<i class="material-symbols-outlined">check</i>` : numero}</span>
                 <strong>${label}</strong>
               </div>
             `;
-  })}
+    })}
         </div>
 
         <div class="process-create-grid">
@@ -2449,7 +2682,7 @@ export function TelaCriarProcesso({ controlador }) {
                       </span>
                     </label>
                     ${formulario.personalizacaoInteligente
-        ? html`
+          ? html`
                           <div class="process-create-form-grid mt-3">
                             <label class="process-create-field">
                               <span>Cliente/Operação</span>
@@ -2468,35 +2701,35 @@ export function TelaCriarProcesso({ controlador }) {
                               </select>
                             </label>
                             ${formulario.clientesPersonalizacao.includes(OPCAO_OUTRO_PROCESSO)
-            ? html`
+              ? html`
                                   <label class="process-create-field">
                                     <span>Outro cliente/operação</span>
                                     <input value=${formulario.clienteOutro} onInput=${(event) => atualizarCampo('clienteOutro', event.target.value)} />
                                   </label>
                                 `
-            : null}
+              : null}
                             ${formulario.tiposAtendimento.includes(OPCAO_OUTRO_PROCESSO)
-            ? html`
+              ? html`
                                   <label class="process-create-field">
                                     <span>Outro tipo de atendimento</span>
                                     <input value=${formulario.tipoAtendimentoOutro} onInput=${(event) => atualizarCampo('tipoAtendimentoOutro', event.target.value)} />
                                   </label>
                                 `
-            : null}
+              : null}
                             <label class="process-create-field">
                               <span>Nível de personalização</span>
                               <select value=${formulario.nivelPersonalizacao} onChange=${(event) => atualizarCampo('nivelPersonalizacao', event.target.value)}>
                                 ${NIVEIS_PERSONALIZACAO.map(
-            (nivel) => html`<option key=${nivel.id} value=${nivel.id}>${nivel.label}: ${nivel.descricao}</option>`,
-          )}
+                (nivel) => html`<option key=${nivel.id} value=${nivel.id}>${nivel.label}: ${nivel.descricao}</option>`,
+              )}
                               </select>
                             </label>
                             <label class="process-create-field">
                               <span>Tom da prova</span>
                               <select value=${formulario.tomProva} onChange=${(event) => atualizarCampo('tomProva', event.target.value)}>
                                 ${OPCOES_TOM_PROVA_PROCESSO.map(
-            (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
-          )}
+                (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+              )}
                               </select>
                             </label>
                             <label class="process-create-field is-wide">
@@ -2505,7 +2738,7 @@ export function TelaCriarProcesso({ controlador }) {
                             </label>
                           </div>
                         `
-        : null}
+          : null}
                   </section>
                 `
       : null}
@@ -2519,23 +2752,23 @@ export function TelaCriarProcesso({ controlador }) {
                     </div>
                     <div class="process-final-review">
                       ${[
-        ['Vaga', formulario.vaga || '-'],
-        ['Quantidade', `${formulario.quantidade || 0} vaga(s)`],
-        ['Encerramento', formatarDataResumoProcesso(formulario.dataEncerramento)],
-        ['Operação', formulario.operacao || '-'],
-        ['Área / Trilha', trilhaEfetiva || '-'],
-        ['Nota de corte', formulario.usaNotaCorte ? formulario.notaCorte || '-' : 'Não ativada'],
-        ['Prova', blueprint?.label || '-'],
-        ['Tempo', `${formulario.tempoTotal || 0} min`],
-        ['Personalização', formulario.personalizacaoInteligente ? 'Ativada' : 'Não ativada'],
-      ].map(
-        ([label, value]) => html`
+          ['Vaga', formulario.vaga || '-'],
+          ['Quantidade', `${formulario.quantidade || 0} vaga(s)`],
+          ['Encerramento', formatarDataResumoProcesso(formulario.dataEncerramento)],
+          ['Operação', formulario.operacao || '-'],
+          ['Área / Trilha', trilhaEfetiva || '-'],
+          ['Nota de corte', formulario.usaNotaCorte ? formulario.notaCorte || '-' : 'Não ativada'],
+          ['Prova', blueprint?.label || '-'],
+          ['Tempo', `${formulario.tempoTotal || 0} min`],
+          ['Personalização', formulario.personalizacaoInteligente ? 'Ativada' : 'Não ativada'],
+        ].map(
+          ([label, value]) => html`
                           <span key=${label}>
                             <strong>${label}</strong>
                             ${value}
                           </span>
                         `,
-      )}
+        )}
                     </div>
                     <div class="process-blueprint-preview is-ready">
                       <span class="material-symbols-outlined">check_circle</span>
@@ -3159,50 +3392,92 @@ function GraficoComparativoAnalise({ itens = [] }) {
 
 export function TelaAnaliseCandidatos({ controlador }) {
   const [linhas, setLinhas] = useState([]);
-  const [pagina, setPagina] = useState(1);
   const [relatorioAtivo, setRelatorioAtivo] = useState('processos');
   const [carregandoRelatorio, setCarregandoRelatorio] = useState(false);
+  const [exportandoRelatorio, setExportandoRelatorio] = useState(false);
   const [relatorioProcessos, setRelatorioProcessos] = useState([]);
   const [relatorioCandidatos, setRelatorioCandidatos] = useState([]);
+  const [ultimaAtualizacaoRelatorio, setUltimaAtualizacaoRelatorio] = useState(null);
+  const [erroRelatorio, setErroRelatorio] = useState('');
+  const [paginaRelatorio, setPaginaRelatorio] = useState(1);
+  const [painelFiltrosRelatorioAberto, setPainelFiltrosRelatorioAberto] = useState(false);
+  const [menuExportacaoAberto, setMenuExportacaoAberto] = useState(false);
   const [filtrosRelatorio, setFiltrosRelatorio] = useState({
     dataInicial: '',
     dataFinal: '',
     status: '',
     processo: '',
   });
-  const [filtros, setFiltros] = useState({
-    processo: '',
-    candidato: '',
-    vaga: '',
-    nota: '',
-  });
   const [detalhe, setDetalhe] = useState(null);
+  const exportMenuRef = useRef(null);
 
   const carregarAnalises = async () => {
     const dados = await lerAnalisesCandidatos();
     setLinhas(Array.isArray(dados) ? dados : []);
   };
 
-  const carregarRelatorios = async () => {
+  const carregarRelatorios = async (filtrosBase = filtrosRelatorio) => {
     setCarregandoRelatorio(true);
+    setErroRelatorio('');
     try {
       const [processos, candidatos] = await Promise.all([
-        lerRelatorioProcessos(filtrosRelatorio),
-        lerRelatorioCandidatos(filtrosRelatorio),
+        lerRelatorioProcessos(filtrosBase),
+        lerRelatorioCandidatos(filtrosBase),
       ]);
       setRelatorioProcessos(Array.isArray(processos) ? processos : []);
       setRelatorioCandidatos(Array.isArray(candidatos) ? candidatos : []);
+      setUltimaAtualizacaoRelatorio(new Date());
+      setPaginaRelatorio(1);
+    } catch (error) {
+      setErroRelatorio(error?.message || 'Não foi possível carregar os relatórios.');
     } finally {
       setCarregandoRelatorio(false);
     }
   };
 
-  const baixarRelatorioAtivo = async () => {
-    const arquivo =
+  const exportarRelatorioAtivo = async (formato) => {
+    if (exportandoRelatorio) return;
+    const configuracao =
       relatorioAtivo === 'processos'
-        ? await baixarRelatorioProcessos(filtrosRelatorio)
-        : await baixarRelatorioCandidatos(filtrosRelatorio);
-    baixarBlob(arquivo.filename || 'relatorio.csv', arquivo.blob);
+        ? {
+            colunas: COLUNAS_RELATORIO_PROCESSOS,
+            linhas: relatorioProcessosFiltrado.map(montarLinhaProcessoRelatorio),
+            nomeBase: 'relatorio_processos',
+            planilha: 'Processos',
+          }
+        : relatorioAtivo === 'ranking'
+          ? {
+              colunas: COLUNAS_RANKING_ANALITICO,
+              linhas: rankingAnaliticoFiltrado.map(montarLinhaRankingRelatorio),
+              nomeBase: 'ranking_analitico',
+              planilha: 'Ranking',
+            }
+          : {
+              colunas: COLUNAS_RELATORIO_CANDIDATOS,
+              linhas: relatorioCandidatosFiltrado,
+              nomeBase: 'relatorio_candidatos',
+              planilha: 'Candidatos',
+            };
+
+    setExportandoRelatorio(true);
+    setErroRelatorio('');
+    try {
+      if (formato === 'xlsx') {
+        baixarXlsxRelatorio(
+          configuracao.nomeBase,
+          configuracao.planilha,
+          configuracao.colunas,
+          configuracao.linhas,
+        );
+      } else {
+        baixarCsvRelatorio(configuracao.nomeBase, configuracao.colunas, configuracao.linhas);
+      }
+      setMenuExportacaoAberto(false);
+    } catch (error) {
+      setErroRelatorio(error?.message || 'Não foi possível exportar o relatório agora.');
+    } finally {
+      setExportandoRelatorio(false);
+    }
   };
 
   useEffect(() => {
@@ -3210,46 +3485,147 @@ export function TelaAnaliseCandidatos({ controlador }) {
     carregarRelatorios();
   }, []);
 
-  const filtrado = useMemo(
+  useEffect(() => {
+    if (!menuExportacaoAberto) return undefined;
+    const fecharMenu = (event) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
+        setMenuExportacaoAberto(false);
+      }
+    };
+    const fecharComTeclado = (event) => {
+      if (event.key === 'Escape') {
+        setMenuExportacaoAberto(false);
+      }
+    };
+    document.addEventListener('mousedown', fecharMenu);
+    document.addEventListener('keydown', fecharComTeclado);
+    return () => {
+      document.removeEventListener('mousedown', fecharMenu);
+      document.removeEventListener('keydown', fecharComTeclado);
+    };
+  }, [menuExportacaoAberto]);
+
+  const rankingAnaliticoFiltrado = useMemo(
     () =>
       linhas.filter((linha) => {
         const matchProcesso =
-          !filtros.processo ||
-          String(linha.id_processo || '')
-            .toLowerCase()
-            .includes(filtros.processo.toLowerCase());
-        const matchCandidato =
-          !filtros.candidato ||
-          String(linha.nome_candidato || '')
-            .toLowerCase()
-            .includes(filtros.candidato.toLowerCase());
-        const matchVaga =
-          !filtros.vaga ||
-          String(linha.vaga || '')
-            .toLowerCase()
-            .includes(filtros.vaga.toLowerCase());
-
-        let matchNota = true;
-        if (filtros.nota) {
-          const notaMinima = Number(String(filtros.nota).replace(',', '.'));
-          const notaAtual = Number(
-            String(linha.nota_final || 0).replace(',', '.'),
+          !filtrosRelatorio.processo ||
+          normalizarBuscaPainel([
+            linha?.id_processo,
+            linha?.nome_candidato,
+            linha?.vaga,
+            linha?.recomendacao,
+          ].join(' ')).includes(normalizarBuscaPainel(filtrosRelatorio.processo));
+        const matchStatus =
+          !filtrosRelatorio.status ||
+          normalizarBuscaPainel(getCandidateVisibleStatus(linha)).includes(
+            normalizarBuscaPainel(filtrosRelatorio.status),
           );
-          if (!Number.isNaN(notaMinima)) {
-            matchNota = notaAtual >= notaMinima;
-          }
-        }
 
-        return matchProcesso && matchCandidato && matchVaga && matchNota;
+        return matchProcesso && matchStatus;
       }),
-    [linhas, filtros],
+    [linhas, filtrosRelatorio.processo, filtrosRelatorio.status],
   );
+  const filtrosRelatorioAtivos = [
+    filtrosRelatorio.dataInicial,
+    filtrosRelatorio.dataFinal,
+    filtrosRelatorio.status,
+    filtrosRelatorio.processo,
+  ].filter((valor) => String(valor || '').trim()).length;
+  const relatorioProcessosFiltrado = useMemo(() => {
+    const busca = normalizarBuscaPainel(filtrosRelatorio.processo);
+    const status = normalizarBuscaPainel(filtrosRelatorio.status);
 
-  const paginado = obterItensPaginados(filtrado, pagina, TAMANHO_ANALISE);
+    return relatorioProcessos.filter((linha) => {
+      const matchBusca =
+        !busca || normalizarBuscaPainel(textoBuscaRelatorioProcesso(linha)).includes(busca);
+      const matchStatus =
+        !status || normalizarBuscaPainel(obterStatusRelatorioProcesso(linha)).includes(status);
+
+      return matchBusca && matchStatus;
+    });
+  }, [relatorioProcessos, filtrosRelatorio.processo, filtrosRelatorio.status]);
+  const relatorioCandidatosFiltrado = useMemo(() => {
+    const busca = normalizarBuscaPainel(filtrosRelatorio.processo);
+    const status = normalizarBuscaPainel(filtrosRelatorio.status);
+
+    return relatorioCandidatos.filter((linha) => {
+      const matchBusca =
+        !busca ||
+        normalizarBuscaPainel([
+          linha?.processo,
+          linha?.id_processo,
+          linha?.id_processo_ref,
+          linha?.vaga,
+          linha?.nome_candidato,
+        ].join(' ')).includes(busca);
+      const matchStatus =
+        !status ||
+        normalizarBuscaPainel(linha?.status_atual || linha?.status).includes(status);
+
+      return matchBusca && matchStatus;
+    });
+  }, [relatorioCandidatos, filtrosRelatorio.processo, filtrosRelatorio.status]);
+  const linhasRelatorioAtivo =
+    relatorioAtivo === 'processos'
+      ? relatorioProcessosFiltrado
+      : relatorioAtivo === 'ranking'
+        ? rankingAnaliticoFiltrado
+        : relatorioCandidatosFiltrado;
+  const paginacaoRelatorio = obterItensPaginados(linhasRelatorioAtivo, paginaRelatorio, TAMANHO_RELATORIO);
+  const totalRelatorioAtivo = linhasRelatorioAtivo.length;
+  const rotuloTotalRelatorio =
+    relatorioAtivo === 'processos'
+      ? `${totalRelatorioAtivo} ${totalRelatorioAtivo === 1 ? 'processo' : 'processos'}`
+      : relatorioAtivo === 'ranking'
+        ? `${totalRelatorioAtivo} ${totalRelatorioAtivo === 1 ? 'candidato ranqueado' : 'candidatos ranqueados'}`
+        : `${totalRelatorioAtivo} ${totalRelatorioAtivo === 1 ? 'candidato' : 'candidatos'}`;
   const detalheEstadoAcoes = useMemo(
     () => getCandidateActionState(detalhe || {}, detalhe?.status_processo || ''),
     [detalhe],
   );
+
+  useEffect(() => {
+    setPaginaRelatorio(1);
+  }, [
+    relatorioAtivo,
+    filtrosRelatorio.dataInicial,
+    filtrosRelatorio.dataFinal,
+    filtrosRelatorio.status,
+    filtrosRelatorio.processo,
+  ]);
+
+  const atualizarFiltroRelatorio = (campo, valor) => {
+    setFiltrosRelatorio((atuais) => ({
+      ...atuais,
+      [campo]: valor,
+    }));
+  };
+
+  const limparFiltrosRelatorio = () => {
+    const filtrosLimpos = {
+      dataInicial: '',
+      dataFinal: '',
+      status: '',
+      processo: '',
+    };
+    setFiltrosRelatorio(filtrosLimpos);
+    setPaginaRelatorio(1);
+    setPainelFiltrosRelatorioAberto(false);
+    carregarRelatorios(filtrosLimpos);
+  };
+
+  const alterarRelatorioAtivo = (valor) => {
+    setRelatorioAtivo(valor);
+    setPaginaRelatorio(1);
+  };
+
+  const abrirProcessoDoRelatorio = (linha) => {
+    const referencia = obterIdRelatorioProcesso(linha);
+    if (!referencia || !controlador.possuiPermissao('processos.visualizar')) return;
+    sessionStorage.setItem(CHAVE_PROCESSO_DETALHE, referencia);
+    controlador.irParaTelaProtegida('screen-process-details');
+  };
 
   const aplicarAcao = async (statusCandidato) => {
     if (!detalhe?.id_teste) return;
@@ -3313,331 +3689,362 @@ export function TelaAnaliseCandidatos({ controlador }) {
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="Console • Relatórios"
-        title="Relatórios e análise por candidato"
-        description="Exporte processos e candidatos por período, mantendo a análise individual disponível para consulta operacional."
-      />
-
-      <${SectionCard}
-        title="Relatórios exportáveis"
-        description="Os dados são gerados sob demanda pela API, sem criar arquivo permanente no servidor."
+        title="Relatórios"
+        description=${html`${formatarAtualizacaoRelatorio(ultimaAtualizacaoRelatorio)}
+          <button type="button" class="reports-refresh-link" disabled=${carregandoRelatorio} onClick=${carregarRelatorios}>
+            <span class="material-symbols-outlined" aria-hidden="true">sync</span>
+            Atualizar
+          </button>`}
         actions=${html`
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="c24-icon-btn"
+            title="Atualizar relatórios"
             disabled=${carregandoRelatorio}
             onClick=${carregarRelatorios}
           >
-            Atualizar
+            <span class="material-symbols-outlined" aria-hidden="true">sync</span>
           </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            disabled=${carregandoRelatorio}
-            onClick=${baixarRelatorioAtivo}
-          >
-            Exportar CSV
-          </button>
+          <div class="reports-export-menu" ref=${exportMenuRef}>
+            <button
+              type="button"
+              class="c24-icon-btn"
+              title="Opções do relatório"
+              aria-label="Opções do relatório"
+              aria-haspopup="menu"
+              aria-expanded=${menuExportacaoAberto}
+              disabled=${carregandoRelatorio || exportandoRelatorio}
+              onClick=${() => setMenuExportacaoAberto((aberto) => !aberto)}
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">
+                ${exportandoRelatorio ? 'hourglass_top' : 'settings'}
+              </span>
+            </button>
+            ${menuExportacaoAberto
+              ? html`
+                  <div class="reports-export-panel" role="menu" aria-label="Opções de download do relatório">
+                    <div class="reports-menu-title">Baixar relatório completo</div>
+                    <button
+                      type="button"
+                      class="reports-export-option"
+                      role="menuitem"
+                      disabled=${exportandoRelatorio}
+                      onClick=${() => exportarRelatorioAtivo('csv')}
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                      CSV
+                    </button>
+                    <button
+                      type="button"
+                      class="reports-export-option"
+                      role="menuitem"
+                      disabled=${exportandoRelatorio}
+                      onClick=${() => exportarRelatorioAtivo('xlsx')}
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">table_view</span>
+                      Excel (.xlsx)
+                    </button>
+                  </div>
+                `
+              : null}
+          </div>
         `}
-      >
-        <div class="d-flex gap-2 flex-wrap mb-3">
-          <button
-            type="button"
-            class=${`btn ${relatorioAtivo === 'processos' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick=${() => setRelatorioAtivo('processos')}
-          >
-            Relatório de Processos
-          </button>
-          <button
-            type="button"
-            class=${`btn ${relatorioAtivo === 'candidatos' ? 'btn-primary' : 'btn-outline-primary'}`}
-            onClick=${() => setRelatorioAtivo('candidatos')}
-          >
-            Relatório de Candidatos
-          </button>
-        </div>
+      />
 
-        <div class="rh-filter-grid rh-filter-grid--wide mb-4">
-          <div class="rh-filter-field">
-            <label>Data inicial</label>
-            <input
-              class="form-control"
-              type="date"
-              value=${filtrosRelatorio.dataInicial}
-              onInput=${(event) =>
-      setFiltrosRelatorio({
-        ...filtrosRelatorio,
-        dataInicial: event.target.value,
-      })}
-            />
-          </div>
-          <div class="rh-filter-field">
-            <label>Data final</label>
-            <input
-              class="form-control"
-              type="date"
-              value=${filtrosRelatorio.dataFinal}
-              onInput=${(event) =>
-      setFiltrosRelatorio({
-        ...filtrosRelatorio,
-        dataFinal: event.target.value,
-      })}
-            />
-          </div>
-          <div class="rh-filter-field">
-            <label>Status candidato</label>
+      <${SectionCard} className="reports-modern-card">
+        <div class="reports-count-line">${rotuloTotalRelatorio}</div>
+
+        <div class="reports-control-bar">
+          <label class="reports-type-select">
+            <span>Tipo de relatório</span>
             <select
               class="form-select"
-              value=${filtrosRelatorio.status}
-              disabled=${relatorioAtivo !== 'candidatos'}
-              onChange=${(event) =>
-      setFiltrosRelatorio({
-        ...filtrosRelatorio,
-        status: event.target.value,
-      })}
+              value=${relatorioAtivo}
+              onChange=${(event) => alterarRelatorioAtivo(event.target.value)}
             >
-              <option value="">Todos</option>
-              <option value="Aprovado">Aprovado</option>
-              <option value="Eliminado">Eliminado/Reprovado</option>
-              <option value="Banco de talentos">Banco de Talentos</option>
-              <option value="Analise">Em andamento</option>
+              <option value="processos">Relatório de Processos</option>
+              <option value="candidatos">Relatório de Candidatos</option>
+              <option value="ranking">Ranking Analítico</option>
             </select>
-          </div>
-          <div class="rh-filter-field">
-            <label>Processo</label>
+          </label>
+
+          <label class="reports-search-field">
+            <span class="material-symbols-outlined" aria-hidden="true">search</span>
             <input
               class="form-control"
+              placeholder=${relatorioAtivo === 'processos'
+                ? 'Pesquisar processo por nome ou ID'
+                : relatorioAtivo === 'ranking'
+                  ? 'Pesquisar por processo, candidato ou vaga'
+                  : 'Pesquisar por processo, vaga ou candidato'}
               value=${filtrosRelatorio.processo}
-              disabled=${relatorioAtivo !== 'candidatos'}
-              onInput=${(event) =>
-      setFiltrosRelatorio({
-        ...filtrosRelatorio,
-        processo: event.target.value,
-      })}
+              onInput=${(event) => atualizarFiltroRelatorio('processo', event.target.value)}
             />
+          </label>
+
+          <div class="reports-filter-menu">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm reports-filter-btn"
+              onClick=${() => setPainelFiltrosRelatorioAberto((aberto) => !aberto)}
+              aria-expanded=${painelFiltrosRelatorioAberto}
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
+              Filtros
+              ${filtrosRelatorioAtivos
+                ? html`<span class="reports-filter-count">${filtrosRelatorioAtivos}</span>`
+                : null}
+            </button>
+
+            ${painelFiltrosRelatorioAberto
+              ? html`
+                  <div class="reports-filter-panel" role="dialog" aria-label="Filtros do relatório">
+                    <label>
+                      <span>Data inicial</span>
+                      <input
+                        class="form-control"
+                        type="date"
+                        value=${filtrosRelatorio.dataInicial}
+                        onInput=${(event) => atualizarFiltroRelatorio('dataInicial', event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>Data final</span>
+                      <input
+                        class="form-control"
+                        type="date"
+                        value=${filtrosRelatorio.dataFinal}
+                        onInput=${(event) => atualizarFiltroRelatorio('dataFinal', event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>Status</span>
+                      <select
+                        class="form-select"
+                        value=${filtrosRelatorio.status}
+                        onChange=${(event) => atualizarFiltroRelatorio('status', event.target.value)}
+                      >
+                        <option value="">Todos</option>
+                        ${relatorioAtivo === 'processos'
+                          ? html`
+                              <option value="Aberto">Aberto</option>
+                              <option value="Encerrado">Encerrado</option>
+                              <option value="Cancelado">Cancelado</option>
+                            `
+                          : html`
+                              <option value="Aprovado">Aprovado</option>
+                              <option value="Eliminado">Eliminado/Reprovado</option>
+                              <option value="Banco de talentos">Banco de Talentos</option>
+                              <option value="Analise">Em andamento</option>
+                            `}
+                      </select>
+                    </label>
+                    <div class="reports-filter-actions">
+                      <button
+                        type="button"
+                        class="btn btn-primary btn-sm"
+                        disabled=${carregandoRelatorio}
+                        onClick=${() => {
+                          setPainelFiltrosRelatorioAberto(false);
+                          carregarRelatorios();
+                        }}
+                      >
+                        Aplicar
+                      </button>
+                    </div>
+                  </div>
+                `
+              : null}
           </div>
+
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm reports-clear-btn"
+            disabled=${!filtrosRelatorioAtivos}
+            onClick=${limparFiltrosRelatorio}
+          >
+            Limpar tudo
+          </button>
         </div>
 
+        ${erroRelatorio ? html`<div class="rh-inline-alert reports-alert">${erroRelatorio}</div>` : null}
+
         ${relatorioAtivo === 'processos'
-      ? html`
-              <div class="table-responsive">
-                <table class="table align-middle rh-modern-history-table">
+          ? html`
+              <div class="reports-table-shell">
+                <table class="table align-middle rh-modern-history-table reports-process-table">
                   <thead>
                     <tr>
+                      <th>ID do processo</th>
                       <th>Processo</th>
-                      <th>Vaga</th>
-                      <th>Vagas</th>
-                      <th>Aprovados</th>
-                      <th>Eliminados/Reprovados</th>
-                      <th>Abertura</th>
-                      <th>Encerramento</th>
+                      <th>Data de abertura</th>
+                      <th>Data de encerramento</th>
                       <th>Status</th>
+                      <th class="is-number">Total de vagas</th>
+                      <th class="is-number">Vagas preenchidas</th>
+                      <th class="is-number">Candidatos</th>
+                      <th class="is-number">Aprovados</th>
+                      <th class="is-number">Eliminados</th>
                     </tr>
                   </thead>
                   <tbody>
-                    ${relatorioProcessos.length
-          ? relatorioProcessos.slice(0, 12).map(
-            (linha) => html`
-                            <tr key=${`${linha.nome_relatorio_processo}-${linha.data_abertura}`}>
-                              <td>${linha.nome_relatorio_processo || '-'}</td>
-                              <td>${linha.vaga || '-'}</td>
-                              <td>${linha.quantidade_vagas ?? '-'}</td>
-                              <td>${linha.quantidade_aprovados ?? 0}</td>
-                              <td>${linha.quantidade_eliminados_reprovados ?? 0}</td>
-                              <td>${formatarDataHora(linha.data_abertura)}</td>
-                              <td>${linha.data_encerramento || '-'}</td>
-                              <td>${linha.status_processo || '-'}</td>
-                            </tr>
-                          `,
-          )
-          : html`<${TabelaVazia} colunas=${8} texto="Nenhum processo no período." />`}
+                    ${carregandoRelatorio
+                      ? html`<${TabelaVazia} colunas=${10} texto="Carregando relatórios..." />`
+                      : paginacaoRelatorio.itens.length
+                        ? paginacaoRelatorio.itens.map(
+                            (linha) => {
+                              const idProcesso = obterIdRelatorioProcesso(linha);
+                              const status = obterStatusRelatorioProcesso(linha);
+                              return html`
+                                <tr key=${`${idProcesso}-${linha.data_abertura}`}>
+                                  <td>
+                                    ${idProcesso && controlador.possuiPermissao('processos.visualizar')
+                                      ? html`
+                                          <button
+                                            type="button"
+                                            class="reports-process-link"
+                                            onClick=${() => abrirProcessoDoRelatorio(linha)}
+                                          >
+                                            ${idProcesso}
+                                          </button>
+                                        `
+                                      : html`<span class="reports-process-id">${idProcesso || '-'}</span>`}
+                                  </td>
+                                  <td>${obterNomeRelatorioProcesso(linha)}</td>
+                                  <td>${formatarDataRelatorio(linha.data_abertura)}</td>
+                                  <td>${formatarDataRelatorio(linha.data_encerramento)}</td>
+                                  <td>
+                                    <span class=${`rh-status-pill ${obterClasseStatusRelatorioProcesso(status)}`}>
+                                      ${status || '-'}
+                                    </span>
+                                  </td>
+                                  <td class="is-number">${formatarNumeroRelatorio(linha.quantidade_vagas, '-')}</td>
+                                  <td class="is-number">${formatarNumeroRelatorio(obterPrimeiroValorRelatorio(linha, ['vagas_preenchidas', 'quantidade_vagas_preenchidas', 'quantidade_aprovados'], 0))}</td>
+                                  <td class="is-number">${formatarNumeroRelatorio(obterPrimeiroValorRelatorio(linha, ['quantidade_candidatos', 'total_candidatos', 'candidatos'], '-'), '-')}</td>
+                                  <td class="is-number">${formatarNumeroRelatorio(linha.quantidade_aprovados)}</td>
+                                  <td class="is-number">${formatarNumeroRelatorio(linha.quantidade_eliminados_reprovados)}</td>
+                                </tr>
+                              `;
+                            },
+                          )
+                        : html`<${TabelaVazia} colunas=${10} texto="Nenhum processo no período." />`}
                   </tbody>
                 </table>
               </div>
             `
-      : html`
-              <div class="table-responsive">
-                <table class="table align-middle rh-modern-history-table">
+          : relatorioAtivo === 'ranking'
+            ? html`
+              <div class="reports-table-shell">
+                <table class="table align-middle rh-modern-history-table reports-ranking-table">
                   <thead>
                     <tr>
-                      <th>Candidato</th>
                       <th>Processo</th>
+                      <th>Candidato</th>
                       <th>Vaga</th>
-                      <th>Origem</th>
-                      <th>Movimentações</th>
                       <th>Nota</th>
+                      <th>Afinidade</th>
+                      <th>Recomendação</th>
                       <th>Status</th>
-                      <th>Classificação RH</th>
-                      <th>Justificativa RH</th>
-                      <th>CV</th>
-                      <th>Última movimentação</th>
-                      <th>Aprovação</th>
-                      <th>Eliminação/Reprovação</th>
-                      <th>Motivo eliminação</th>
-                      <th>Etapa eliminação</th>
-                      <th>Banco</th>
-                      <th>Contato</th>
+                      <th class="text-end">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    ${relatorioCandidatos.length
-          ? relatorioCandidatos.slice(0, 12).map(
-            (linha) => html`
-                            <tr key=${`${linha.nome_candidato}-${linha.processo}-${linha.status}`}>
+                    ${paginacaoRelatorio.itens.length
+                      ? paginacaoRelatorio.itens.map(
+                          (linha) => html`
+                            <tr key=${linha.id_teste || `${linha.id_processo}-${linha.nome_candidato}`}>
+                              <td>${linha.id_processo || '-'}</td>
                               <td>${linha.nome_candidato || '-'}</td>
-                              <td>${linha.processo || '-'}</td>
                               <td>${linha.vaga || '-'}</td>
-                              <td>${linha.origem_inicial || '-'}</td>
-                              <td>${linha.movimentacoes || '-'}</td>
-                              <td>${linha.nota_prova || 'Sem prova'}</td>
+                              <td>${formatarNotaAnalise(linha.nota_final)}</td>
+                              <td>${formatarPercentualAfinidade(linha.afinidade_percentual)}%</td>
                               <td>
-                                <span class=${`rh-status-pill ${obterClasseStatusEntrevista(linha.status_atual || linha.status)}`}>
-                                  ${linha.status_atual || linha.status || '-'}
+                                <span class=${obterClasseAderencia(linha.recomendacao)}>
+                                  ${linha.recomendacao || '-'}
                                 </span>
                               </td>
-                              <td>${linha.classificacao_rh || '-'}</td>
-                              <td>${linha.justificativa_observacoes_rh || linha.observacao_rh || '-'}</td>
-                              <td>
-                                <div>${linha.cv_disponivel || '-'}</div>
-                                <div class="small text-muted">${linha.cv_arquivo || linha.cv_classificacao || '-'}</div>
-                              </td>
-                              <td>${formatarDataHora(linha.data_movimentacao)}</td>
-                              <td>${formatarDataHora(linha.data_aprovacao)}</td>
-                              <td>${formatarDataHora(linha.data_eliminacao_reprovacao)}</td>
-                              <td>${linha.motivo_eliminacao || (String(linha.status_atual || linha.status || '').toLowerCase().includes('eliminado') ? 'Motivo não informado' : '-')}</td>
-                              <td>${linha.etapa_eliminacao || '-'}</td>
-                              <td>${formatarDataHora(linha.data_banco_talentos)}</td>
-                              <td>
-                                <div>${mascararEmailContato(linha.email)}</div>
-                                <div class="small text-muted">${mascararTelefoneContato(linha.telefone)}</div>
+                              <td>${getCandidateVisibleStatus(linha) || '-'}</td>
+                              <td class="text-end">
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-primary"
+                                  disabled=${!linha.id_teste}
+                                  onClick=${async () => setDetalhe(await lerDetalheAnaliseCandidato(linha.id_teste))}
+                                >
+                                  Detalhes
+                                </button>
                               </td>
                             </tr>
                           `,
-          )
-          : html`<${TabelaVazia} colunas=${17} texto="Nenhum candidato no período." />`}
+                        )
+                      : html`<${TabelaVazia} colunas=${8} texto="Nenhuma análise disponível." />`}
+                  </tbody>
+                </table>
+              </div>
+            `
+            : html`
+              <div class="reports-table-shell">
+                <table class="table align-middle rh-modern-history-table reports-candidates-table">
+                  <thead>
+                    <tr>
+                      ${COLUNAS_RELATORIO_CANDIDATOS.map((coluna) => html`<th key=${coluna.key}>${coluna.label}</th>`)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${carregandoRelatorio
+                      ? html`<${TabelaVazia} colunas=${COLUNAS_RELATORIO_CANDIDATOS.length} texto="Carregando relatórios..." />`
+                      : paginacaoRelatorio.itens.length
+                        ? paginacaoRelatorio.itens.map(
+                            (linha) => html`
+                              <tr key=${`${linha.id_candidato || linha.id_teste}-${linha.processo_relatorio || linha.processo}`}>
+                                <td>${linha.id_candidato || '-'}</td>
+                                <td>${linha.nome || linha.nome_candidato || '-'}</td>
+                                <td>${linha.telefone || '-'}</td>
+                                <td>${linha.e_mail || linha.email || '-'}</td>
+                                <td>${linha.processo_relatorio || linha.processo || '-'}</td>
+                                <td>${linha.vaga_relatorio || linha.vaga || '-'}</td>
+                                <td>${linha.data_entrada || '-'}</td>
+                                <td>
+                                  <span
+                                    class="reports-text-ellipsis"
+                                    title=${linha.movimentacoes_completas || linha.movimentacoes || ''}
+                                  >
+                                    ${resumirTextoTabela(linha.movimentacoes_completas || linha.movimentacoes)}
+                                  </span>
+                                </td>
+                                <td>${linha.nota_perfil || '-'}</td>
+                                <td>${linha.score_cv || '-'}</td>
+                                <td>${linha.cv || '-'}</td>
+                                <td>
+                                  <span class="reports-text-ellipsis" title=${linha.justificativa || ''}>
+                                    ${resumirTextoTabela(linha.justificativa, 64)}
+                                  </span>
+                                </td>
+                                <td>${linha.prova || '-'}</td>
+                                <td>${linha.data_da_prova || '-'}</td>
+                                <td>${linha.nota_word || '-'}</td>
+                                <td>${linha.nota_excel || '-'}</td>
+                                <td>${linha.nota_conhecimentos_gerais || '-'}</td>
+                                <td>${linha.nota_conhecimentos_tecnicos || '-'}</td>
+                                <td>${linha.nota_redacao || '-'}</td>
+                                <td>${linha.aprovacao || '-'}</td>
+                                <td>${linha.eliminacao || '-'}</td>
+                                <td>${linha.motivo_da_eliminacao || '-'}</td>
+                                <td>${linha.banco_de_talentos || '-'}</td>
+                                <td>${linha.data_saida || '-'}</td>
+                              </tr>
+                            `,
+                          )
+                        : html`<${TabelaVazia} colunas=${COLUNAS_RELATORIO_CANDIDATOS.length} texto="Nenhum candidato no período." />`}
                   </tbody>
                 </table>
               </div>
             `}
-      </${SectionCard}>
 
-      <${BlocoFiltro} tourId="analysis-filters">
-        <div class="rh-filter-grid rh-filter-grid--wide">
-          <${CampoFiltro} label="Processo" icon="folder_managed">
-            <input
-              class="form-control"
-              value=${filtros.processo}
-              onInput=${(event) => {
-      setPagina(1);
-      setFiltros({ ...filtros, processo: event.target.value });
-    }}
-            />
-          </${CampoFiltro}>
-          <${CampoFiltro} label="Candidato" icon="person_search">
-            <input
-              class="form-control"
-              value=${filtros.candidato}
-              onInput=${(event) => {
-      setPagina(1);
-      setFiltros({ ...filtros, candidato: event.target.value });
-    }}
-            />
-          </${CampoFiltro}>
-          <${CampoFiltro} label="Vaga" icon="work">
-            <input
-              class="form-control"
-              value=${filtros.vaga}
-              onInput=${(event) => {
-      setPagina(1);
-      setFiltros({ ...filtros, vaga: event.target.value });
-    }}
-            />
-          </${CampoFiltro}>
-          <${CampoFiltro} label="Nota mínima" icon="star">
-            <input
-              class="form-control"
-              type="number"
-              step="0.1"
-              min="0"
-              max="10"
-              value=${filtros.nota}
-              onInput=${(event) => {
-      setPagina(1);
-      setFiltros({ ...filtros, nota: event.target.value });
-    }}
-            />
-          </${CampoFiltro}>
-        </div>
-      </${BlocoFiltro}>
-
-      <${SectionCard}
-        title="Ranking analítico"
-        description="O modal de detalhe respeita o status atual do candidato e bloqueia movimentações em processo encerrado."
-        tourId="analysis-ranking"
-      >
-        <div class="table-responsive">
-          <table class="table align-middle rh-modern-history-table">
-            <thead>
-              <tr>
-                <th>Processo</th>
-                <th>Candidato</th>
-                <th>Vaga</th>
-                <th>Nota</th>
-                <th>Afinidade</th>
-                <th>Recomendação</th>
-                <th>Status</th>
-                <th class="text-end">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${paginado.itens.length
-      ? paginado.itens.map(
-        (linha) => html`
-                      <tr key=${linha.id_teste}>
-                        <td>${linha.id_processo || '-'}</td>
-                        <td>${linha.nome_candidato || '-'}</td>
-                        <td>${linha.vaga || '-'}</td>
-                        <td>${formatarNotaAnalise(linha.nota_final)}</td>
-                        <td>
-                          ${formatarPercentualAfinidade(
-          linha.afinidade_percentual,
-        )}%
-                        </td>
-                        <td>
-                          <span class=${obterClasseAderencia(linha.recomendacao)}>
-                            ${linha.recomendacao || '-'}
-                          </span>
-                        </td>
-                        <td>${getCandidateVisibleStatus(linha) || '-'}</td>
-                        <td class="text-end">
-                          <button
-                            type="button"
-                            class="btn btn-sm btn-outline-primary"
-                            onClick=${async () =>
-            setDetalhe(
-              await lerDetalheAnaliseCandidato(linha.id_teste),
-            )}
-                          >
-                            Detalhes
-                          </button>
-                        </td>
-                      </tr>
-                    `,
-      )
-      : html`
-                    <${TabelaVazia}
-                      colunas=${8}
-                      texto="Nenhuma análise disponível."
-                    />
-                  `}
-            </tbody>
-          </table>
-        </div>
-
-        <${GrupoPaginacao}
-          paginaAtual=${paginado.paginaAtual}
-          totalPaginas=${paginado.totalPaginas}
-          onChange=${setPagina}
+        <${PaginacaoCompacta}
+          paginacao=${paginacaoRelatorio}
+          label=${`Mostrando ${obterIntervaloPaginacao(paginacaoRelatorio)} de ${paginacaoRelatorio.totalItens} resultados`}
+          onChange=${setPaginaRelatorio}
         />
       </${SectionCard}>
 

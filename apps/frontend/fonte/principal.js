@@ -16,12 +16,17 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.error) {
+      const mensagem = this.state.error?.message || String(this.state.error || 'Erro desconhecido');
+      const stack = this.state.error?.stack || '';
       return html`
         <section class="active screen" id="screen-bootstrap-error">
           <div class="container py-5">
-            <div class="alert alert-danger mb-0">
-              Não foi possível renderizar a interface principal. Verifique o console para mais detalhes.
+            <div class="alert alert-danger mb-3">
+              Não foi possível renderizar a interface principal.
             </div>
+            <pre class="alert alert-light border text-danger small mb-0" style=${{ whiteSpace: 'pre-wrap' }}>
+${mensagem}${stack ? `\n\n${stack}` : ''}
+            </pre>
           </div>
         </section>
       `;
@@ -52,7 +57,7 @@ const root = createRoot(container);
 
 async function iniciarAplicacao() {
   try {
-    const { Aplicacao } = await import('./aplicacao.js');
+    const { Aplicacao } = await import('./aplicacao.js?v=20260713-config-users-fix7');
 
     root.render(html`
       <${ErrorBoundary}>
@@ -63,7 +68,7 @@ async function iniciarAplicacao() {
     console.error('[APP INIT] Falha ao inicializar aplicação:', error);
     renderizarFalhaInicializacao(
       root,
-      'Não foi possível inicializar a aplicação. Verifique o console para mais detalhes.',
+      `Não foi possível inicializar a aplicação: ${error?.message || error}`,
     );
   }
 }

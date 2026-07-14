@@ -19,6 +19,8 @@ from ..services.cv import (
     extract_professional_experiences,
     extract_text_from_uploaded_file,
     extract_whatsapp,
+    is_valid_email,
+    is_valid_phone,
     normalize_cv_text,
     score_cv_for_role,
     serialize_cv_problems,
@@ -34,6 +36,8 @@ from ..services.helpers import normalize_compare_text, normalize_text, rows_to_d
 from ..services.process_flow import CANDIDATE_STATUS_ANALYSIS, is_process_closed
 from .bootstrap import (
     ensure_candidate_attachments_table,
+    ensure_candidate_metadata_columns,
+    ensure_candidate_metadata_table,
     ensure_cv_pre_analises_table,
     ensure_email_inbox_items_table,
     ensure_pipeline_columns,
@@ -66,6 +70,31 @@ def _format_datetime(value) -> str:
 
 def _friendly_detected(value: str) -> str:
     return normalize_text(value) or "Nao identificado"
+
+
+def _only_digits(value: str) -> str:
+    digits = "".join(char for char in normalize_text(value) if char.isdigit())
+    if digits.startswith("55") and len(digits) in (12, 13):
+        return digits[2:]
+    return digits
+
+
+def _application_fields_from_row(row: dict) -> dict:
+    fields = safe_json_loads(row.get("campos_formulario_json"), {})
+    return fields if isinstance(fields, dict) else {}
+
+
+def _candidate_profile_kwargs_from_application(fields: dict) -> dict:
+    return {
+        "endereco": normalize_text(fields.get("endereco")) or None,
+        "escolaridade": normalize_text(fields.get("escolaridade")) or None,
+        "possui_experiencia": normalize_text(fields.get("experiencia")) or None,
+        "musica": normalize_text(fields.get("musica")) or None,
+        "prato": normalize_text(fields.get("prato")) or None,
+        "futebol": normalize_text(fields.get("futebol")) or None,
+        "time": normalize_text(fields.get("time")) or None,
+        "rede_social": normalize_text(fields.get("rede_social")) or None,
+    }
 
 
 class EmailInboxRepositoryMixin:
@@ -126,6 +155,11 @@ class EmailInboxRepositoryMixin:
             "email_encontrado": _friendly_detected(row.get("email_detectado")),
             "vaga_detectada": _friendly_detected(row.get("vaga_detectada")),
             "vaga_pretendida_possivel": _friendly_detected(row.get("vaga_detectada")),
+            "experiencia_detectada": normalize_text(row.get("experiencia_detectada")) or "Nao identificado",
+            "trabalhe_conosco": bool(row.get("trabalhe_conosco")),
+            "campos_formulario": _application_fields_from_row(row),
+            "curriculo_anexado_informado": normalize_text(row.get("curriculo_anexado_informado")),
+            "inconsistencias": safe_json_loads(row.get("inconsistencias_json"), []),
             "status": normalize_text(row.get("status")) or "Recebido",
             "status_analise": normalize_text(row.get("status")) or "Recebido",
             "origem": normalize_text(row.get("origem")) or EMAIL_INBOX_ORIGIN,
@@ -159,6 +193,11 @@ class EmailInboxRepositoryMixin:
                 telefone_detectado,
                 email_detectado,
                 vaga_detectada,
+                experiencia_detectada,
+                trabalhe_conosco,
+                campos_formulario_json,
+                curriculo_anexado_informado,
+                inconsistencias_json,
                 status,
                 origem,
                 caminho_anexo,
@@ -207,7 +246,13 @@ class EmailInboxRepositoryMixin:
         incoming_attachments_json = json.dumps(item.get("anexos") or [], ensure_ascii=False)
         attachments_json = existing_attachments if existing_attachment_path and existing_attachments else incoming_attachments_json
         first_attachment = (item.get("anexos") or [{}])[0] if item.get("anexos") else {}
-        effective_status = "Ignorado" if existing_ignored else existing_status or normalize_text(item.get("status")) or "Recebido"
+        incoming_status = normalize_text(item.get("status")) or "Recebido"
+        if existing_ignored:
+            effective_status = "Ignorado"
+        elif existing_status in {"", "Recebido"}:
+            effective_status = incoming_status
+        else:
+            effective_status = existing_status
         data_recebimento = _parse_datetime(item.get("data_recebimento"))
         params = (
             normalize_text(item.get("message_uid") or item.get("uid")),
@@ -222,6 +267,11 @@ class EmailInboxRepositoryMixin:
             normalize_text(item.get("telefone_detectado") or item.get("telefone_encontrado")),
             normalize_text(item.get("email_detectado") or item.get("email_encontrado")),
             normalize_text(item.get("vaga_detectada") or item.get("vaga_pretendida_possivel")),
+            normalize_text(item.get("experiencia_detectada")),
+            1 if item.get("trabalhe_conosco") else 0,
+            json.dumps(item.get("campos_formulario") or {}, ensure_ascii=False),
+            normalize_text(item.get("curriculo_anexado_informado")),
+            json.dumps(item.get("inconsistencias") or [], ensure_ascii=False),
             effective_status,
             EMAIL_INBOX_ORIGIN,
             normalize_text(item.get("nome_anexo")),
@@ -247,6 +297,11 @@ class EmailInboxRepositoryMixin:
                     telefone_detectado = ?,
                     email_detectado = ?,
                     vaga_detectada = ?,
+                    experiencia_detectada = ?,
+                    trabalhe_conosco = ?,
+                    campos_formulario_json = ?,
+                    curriculo_anexado_informado = ?,
+                    inconsistencias_json = ?,
                     status = ?,
                     origem = ?,
                     nome_anexo = COALESCE(NULLIF(nome_anexo, ''), ?),
@@ -277,6 +332,11 @@ class EmailInboxRepositoryMixin:
                 telefone_detectado,
                 email_detectado,
                 vaga_detectada,
+                experiencia_detectada,
+                trabalhe_conosco,
+                campos_formulario_json,
+                curriculo_anexado_informado,
+                inconsistencias_json,
                 status,
                 origem,
                 nome_anexo,
@@ -287,7 +347,7 @@ class EmailInboxRepositoryMixin:
                 atualizado_em,
                 ignorado
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE(), 0)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE(), 0)
             """,
             (item_id, *params),
         )
@@ -319,6 +379,11 @@ class EmailInboxRepositoryMixin:
                 telefone_detectado,
                 email_detectado,
                 vaga_detectada,
+                experiencia_detectada,
+                trabalhe_conosco,
+                campos_formulario_json,
+                curriculo_anexado_informado,
+                inconsistencias_json,
                 status,
                 origem,
                 caminho_anexo,
@@ -346,12 +411,12 @@ class EmailInboxRepositoryMixin:
         result = []
         for row in rows:
             item = self._serialize_email_inbox_item(row)
-            if with_attachments_only and not item.get("possui_anexo"):
+            if with_attachments_only and not item.get("possui_anexo") and not item.get("trabalhe_conosco"):
                 continue
             if query_term:
                 haystack = " ".join(
                     normalize_text(item.get(key))
-                    for key in ("remetente", "assunto", "resumo", "nome_detectado", "vaga_detectada", "email_detectado")
+                    for key in ("remetente", "assunto", "resumo", "nome_detectado", "vaga_detectada", "email_detectado", "experiencia_detectada")
                 )
                 if query_term not in normalize_compare_text(haystack):
                     continue
@@ -505,6 +570,153 @@ class EmailInboxRepositoryMixin:
         finally:
             conn.close()
 
+    def _get_email_inbox_saved_attachment_if_any(self, item_id: str) -> dict | None:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            row = self._select_email_inbox_item(cursor, item_id)
+            attachments = safe_json_loads(row.get("attachments_json"), [])
+            has_saved = any(isinstance(item, dict) and normalize_text(item.get("path")) for item in attachments)
+        finally:
+            conn.close()
+
+        if not has_saved:
+            try:
+                self.download_configured_email_inbox_attachments(item_id)
+            except HTTPException as exc:
+                if exc.status_code != status.HTTP_400_BAD_REQUEST:
+                    raise
+                return None
+
+        try:
+            return self.get_configured_email_inbox_attachment(item_id, "")
+        except HTTPException:
+            return None
+
+    def _resolve_email_inbox_candidate_identity(self, cursor, row: dict, pre_analysis: dict | None = None) -> dict:
+        fields = _application_fields_from_row(row)
+        candidate_name = (
+            normalize_text((pre_analysis or {}).get("nome_candidato"))
+            or normalize_text(fields.get("nome"))
+            or normalize_text(row.get("nome_detectado"))
+            or "Candidato recebido por e-mail"
+        )
+        email = (
+            normalize_text((pre_analysis or {}).get("email"))
+            or normalize_text(fields.get("email"))
+            or normalize_text(row.get("email_detectado"))
+        )
+        phone = (
+            normalize_text((pre_analysis or {}).get("telefone"))
+            or normalize_text(fields.get("telefone"))
+            or normalize_text(row.get("telefone_detectado"))
+        )
+        whatsapp = normalize_text((pre_analysis or {}).get("whatsapp")) or phone
+
+        if email and not is_valid_email(email):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail invalido no cadastro recebido.")
+        if phone and not is_valid_phone(phone):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Telefone nao identificado ou invalido no cadastro recebido.")
+
+        id_teste = f"CV-{pre_analysis.get('id_pre_analise')}" if pre_analysis else ""
+        if not id_teste:
+            id_teste = self._find_candidate_profile_id_by_identity(
+                cursor,
+                nome_candidato=candidate_name,
+                email=email,
+                telefone=phone,
+                whatsapp=whatsapp,
+            ) or f"EMAIL-{normalize_text(row.get('id'))[:110]}"
+
+        return {
+            "id_teste": id_teste,
+            "nome_candidato": candidate_name,
+            "email": email,
+            "telefone": phone,
+            "whatsapp": whatsapp,
+            "form_fields": fields,
+        }
+
+    def _find_candidate_profile_id_by_identity(
+        self,
+        cursor,
+        *,
+        nome_candidato: str = "",
+        email: str = "",
+        telefone: str = "",
+        whatsapp: str = "",
+    ) -> str:
+        safe_email = normalize_compare_text(email)
+        safe_name = normalize_compare_text(nome_candidato)
+        safe_phones = {_only_digits(telefone), _only_digits(whatsapp)}
+        safe_phones.discard("")
+        ensure_candidate_metadata_table(cursor)
+        ensure_candidate_metadata_columns(cursor)
+        cursor.execute(
+            """
+            SELECT id_teste, nome_candidato, email, telefone, whatsapp
+            FROM candidatos_metadata
+            """
+        )
+        for profile in rows_to_dicts(cursor, cursor.fetchall()):
+            profile_id = normalize_text(profile.get("id_teste"))
+            if not profile_id:
+                continue
+            profile_email = normalize_compare_text(profile.get("email"))
+            if safe_email and profile_email == safe_email:
+                return profile_id
+            profile_phones = {_only_digits(profile.get("telefone")), _only_digits(profile.get("whatsapp"))}
+            profile_phones.discard("")
+            if safe_phones and profile_phones.intersection(safe_phones):
+                return profile_id
+            if safe_name and safe_email and normalize_compare_text(profile.get("nome_candidato")) == safe_name and profile_email == safe_email:
+                return profile_id
+        return ""
+
+    def _candidate_profile_kwargs_for_email_import(self, cursor, id_teste: str, fields: dict) -> dict:
+        incoming = _candidate_profile_kwargs_from_application(fields)
+        safe_id_teste = normalize_text(id_teste)
+        if not safe_id_teste:
+            return incoming
+
+        ensure_candidate_metadata_table(cursor)
+        ensure_candidate_metadata_columns(cursor)
+        cursor.execute(
+            """
+            SELECT
+                endereco,
+                escolaridade,
+                possui_experiencia,
+                musica,
+                prato,
+                futebol,
+                time,
+                rede_social
+            FROM candidatos_metadata
+            WHERE id_teste = ?
+            """,
+            (safe_id_teste,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return incoming
+
+        existing = {
+            "endereco": row[0],
+            "escolaridade": row[1],
+            "possui_experiencia": row[2],
+            "musica": row[3],
+            "prato": row[4],
+            "futebol": row[5],
+            "time": row[6],
+            "rede_social": row[7],
+        }
+        return {
+            key: value
+            for key, value in incoming.items()
+            if value is not None and not normalize_text(existing.get(key))
+        }
+
     def get_configured_email_inbox_attachment(self, item_id: str, attachment_id: str = "") -> dict:
         row = self._ensure_email_inbox_downloaded(item_id)
         attachments = safe_json_loads(row.get("attachments_json"), [])
@@ -624,9 +836,10 @@ class EmailInboxRepositoryMixin:
             fallback_name=normalize_text(row.get("nome_detectado")),
             filename=filename,
         )
-        candidate_name = name_details.get("nome") or normalize_text(row.get("nome_detectado")) or "Candidato recebido por e-mail"
-        email = extract_email(normalized_text) or normalize_text(row.get("email_detectado"))
-        phone = extract_phone(normalized_text) or normalize_text(row.get("telefone_detectado"))
+        form_fields = _application_fields_from_row(row)
+        candidate_name = normalize_text(form_fields.get("nome")) or name_details.get("nome") or normalize_text(row.get("nome_detectado")) or "Candidato recebido por e-mail"
+        email = normalize_text(form_fields.get("email")) or extract_email(normalized_text) or normalize_text(row.get("email_detectado"))
+        phone = normalize_text(form_fields.get("telefone")) or extract_phone(normalized_text) or normalize_text(row.get("telefone_detectado"))
         whatsapp = extract_whatsapp(normalized_text) or phone
         phone_base = whatsapp or phone
         keywords = extract_keywords(normalized_text)
@@ -770,6 +983,7 @@ class EmailInboxRepositoryMixin:
                 email=email,
                 telefone=phone,
                 whatsapp=whatsapp,
+                **_candidate_profile_kwargs_from_application(form_fields),
             )
             self._save_email_inbox_attachment_link(
                 cursor,
@@ -813,13 +1027,13 @@ class EmailInboxRepositoryMixin:
             cursor = conn.cursor()
             row = self._select_email_inbox_item(cursor, item_id)
             id_pre_analise = int(row.get("id_pre_analise") or 0)
+            has_attachment = bool(self._serialize_email_inbox_item(row).get("possui_anexo"))
         finally:
             conn.close()
-        if not id_pre_analise:
+        if not id_pre_analise and has_attachment:
             self.analyze_configured_email_inbox_cv(item_id)
 
-        row = self._ensure_email_inbox_downloaded(item_id)
-        attachment = self.get_configured_email_inbox_attachment(item_id, "")
+        attachment = self._get_email_inbox_saved_attachment_if_any(item_id) if has_attachment else None
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -837,11 +1051,12 @@ class EmailInboxRepositoryMixin:
                 )
             fresh_row = self._select_email_inbox_item(cursor, item_id)
             pre_analysis = self._load_email_inbox_pre_analysis(cursor, int(fresh_row.get("id_pre_analise") or 0))
-            candidate_name = normalize_text((pre_analysis or {}).get("nome_candidato")) or normalize_text(fresh_row.get("nome_detectado")) or "Candidato recebido por e-mail"
-            email = normalize_text((pre_analysis or {}).get("email")) or normalize_text(fresh_row.get("email_detectado"))
-            phone = normalize_text((pre_analysis or {}).get("telefone")) or normalize_text(fresh_row.get("telefone_detectado"))
-            whatsapp = normalize_text((pre_analysis or {}).get("whatsapp")) or phone
-            id_teste = f"CV-{pre_analysis.get('id_pre_analise')}" if pre_analysis else f"EMAIL-{normalize_text(item_id)[:110]}"
+            identity = self._resolve_email_inbox_candidate_identity(cursor, fresh_row, pre_analysis)
+            candidate_name = identity["nome_candidato"]
+            email = identity["email"]
+            phone = identity["telefone"]
+            whatsapp = identity["whatsapp"]
+            id_teste = identity["id_teste"]
             existing_candidate = self._find_process_candidate_by_identity(
                 cursor,
                 processo,
@@ -875,13 +1090,15 @@ class EmailInboxRepositoryMixin:
                 email=email,
                 telefone=phone,
                 whatsapp=whatsapp,
+                **self._candidate_profile_kwargs_for_email_import(cursor, id_teste, identity["form_fields"]),
             )
-            self._save_email_inbox_attachment_link(
-                cursor,
-                id_teste=id_teste,
-                processo=processo,
-                attachment=attachment,
-            )
+            if attachment:
+                self._save_email_inbox_attachment_link(
+                    cursor,
+                    id_teste=id_teste,
+                    processo=processo,
+                    attachment=attachment,
+                )
             self._record_candidate_movement(
                 cursor,
                 id_teste=id_teste,
@@ -931,25 +1148,27 @@ class EmailInboxRepositoryMixin:
             cursor = conn.cursor()
             row = self._select_email_inbox_item(cursor, item_id)
             id_pre_analise = int(row.get("id_pre_analise") or 0)
+            has_attachment = bool(self._serialize_email_inbox_item(row).get("possui_anexo"))
         finally:
             conn.close()
-        if not id_pre_analise:
+        if not id_pre_analise and has_attachment:
             self.analyze_configured_email_inbox_cv(item_id)
 
-        row = self._ensure_email_inbox_downloaded(item_id)
-        attachment = self.get_configured_email_inbox_attachment(item_id, "")
+        attachment = self._get_email_inbox_saved_attachment_if_any(item_id) if has_attachment else None
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            row = self._select_email_inbox_item(cursor, item_id)
             pre_analysis = self._load_email_inbox_pre_analysis(cursor, int(row.get("id_pre_analise") or 0))
+            identity = self._resolve_email_inbox_candidate_identity(cursor, row, pre_analysis)
         finally:
             conn.close()
 
-        candidate_name = normalize_text((pre_analysis or {}).get("nome_candidato")) or normalize_text(row.get("nome_detectado")) or "Candidato recebido por e-mail"
-        email = normalize_text((pre_analysis or {}).get("email")) or normalize_text(row.get("email_detectado"))
-        phone = normalize_text((pre_analysis or {}).get("telefone")) or normalize_text(row.get("telefone_detectado"))
-        whatsapp = normalize_text((pre_analysis or {}).get("whatsapp")) or phone
-        id_teste = f"CV-{pre_analysis.get('id_pre_analise')}" if pre_analysis else f"EMAIL-{normalize_text(item_id)[:110]}"
+        candidate_name = identity["nome_candidato"]
+        email = identity["email"]
+        phone = identity["telefone"]
+        whatsapp = identity["whatsapp"]
+        id_teste = identity["id_teste"]
         result = self.add_candidate_to_talent_bank(
             {
                 "id_teste": id_teste,
@@ -963,17 +1182,19 @@ class EmailInboxRepositoryMixin:
                 "email": email,
                 "telefone": phone,
                 "whatsapp": whatsapp,
+                **self._candidate_profile_kwargs_for_email_import(cursor, id_teste, identity["form_fields"]),
             }
         )
         conn = self._connect()
         try:
             cursor = conn.cursor()
-            self._save_email_inbox_attachment_link(
-                cursor,
-                id_teste=id_teste,
-                processo=None,
-                attachment=attachment,
-            )
+            if attachment:
+                self._save_email_inbox_attachment_link(
+                    cursor,
+                    id_teste=id_teste,
+                    processo=None,
+                    attachment=attachment,
+                )
             cursor.execute(
                 """
                 UPDATE email_inbox_items

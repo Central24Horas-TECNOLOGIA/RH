@@ -46,6 +46,22 @@ BLOCKED_ATTACHMENT_EXTENSIONS = {
     ".zip",
 }
 
+APPLICATION_FORM_LABELS = {
+    "nome": ("nome", "nome completo"),
+    "endereco": ("endereco", "endereço"),
+    "email": ("e-mail", "email"),
+    "telefone": ("telefone", "whatsapp", "celular"),
+    "escolaridade": ("escolaridade",),
+    "experiencia": ("experiencia", "experiência", "possui experiencia", "possui experiência"),
+    "musica": ("musica", "música"),
+    "prato": ("prato",),
+    "futebol": ("futebol",),
+    "time": ("time",),
+    "rede_social": ("rede social", "redes sociais", "linkedin", "instagram"),
+    "curriculo_anexado": ("curriculo anexado", "currículo anexado", "curriculo", "currículo"),
+}
+APPLICATION_REQUIRED_LABELS = {"nome", "email", "telefone", "escolaridade"}
+
 
 class EmailInboxUnavailable(Exception):
     def __init__(self, message: str, *, configured: bool = False):
@@ -146,6 +162,135 @@ def _iso_datetime(value) -> str:
     if isinstance(value, datetime):
         return value.isoformat()
     return normalize_text(value)
+
+
+def _html_to_text(content: str) -> str:
+    text = re.sub(r"(?i)<\s*(br|tr|p|div|li|h[1-6])\b[^>]*>", "\n", content or "")
+    text = re.sub(r"(?i)<\s*/\s*(tr|p|div|li|h[1-6]|td|th)\s*>", "\n", text)
+    text = re.sub(r"(?i)<\s*(td|th)\b[^>]*>", "\n", text)
+    text = re.sub(r"(?is)<\s*(script|style)\b.*?<\s*/\s*\1\s*>", " ", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = html.unescape(text)
+    text = re.sub(r"[ \t\f\v]+", " ", text)
+    text = re.sub(r"\n\s+", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return normalize_text(text)
+
+
+def _label_key(value: str) -> str:
+    cleaned = re.sub(r"[:：\-–—]+$", "", normalize_text(value))
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return normalize_compare_text(cleaned)
+
+
+APPLICATION_LABEL_TO_FIELD = {
+    _label_key(alias): field
+    for field, aliases in APPLICATION_FORM_LABELS.items()
+    for alias in aliases
+}
+
+
+def _canonical_yes_no(value: str) -> str:
+    normalized = normalize_compare_text(value)
+    if re.search(r"\b(sim|s|yes|y)\b", normalized):
+        return "Sim"
+    if re.search(r"\b(nao|n|no)\b", normalized):
+        return "Nao"
+    return ""
+
+
+def _clean_application_value(value: str) -> str:
+    cleaned = re.sub(r"\s+", " ", normalize_text(value))
+    return cleaned.strip(" :;-")
+
+
+def _extract_application_form_fields(subject: str, body: str, sender: str = "") -> dict:
+    lines = [
+        normalize_text(line)
+        for line in re.split(r"[\r\n]+", body or "")
+        if normalize_text(line)
+    ]
+    fields = {field: "" for field in APPLICATION_FORM_LABELS}
+
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        inline_match = re.match(r"^\s*([^:：]{2,40})\s*[:：]\s*(.*?)\s*$", line)
+        label_source = inline_match.group(1) if inline_match else line
+        field = APPLICATION_LABEL_TO_FIELD.get(_label_key(label_source))
+        if not field:
+            index += 1
+            continue
+
+        value = inline_match.group(2) if inline_match and inline_match.group(2) else ""
+        if not value:
+            collected = []
+            cursor = index + 1
+            while cursor < len(lines):
+                next_line = lines[cursor]
+                next_inline = re.match(r"^\s*([^:：]{2,40})\s*[:：]\s*(.*?)\s*$", next_line)
+                next_label_source = next_inline.group(1) if next_inline else next_line
+                if APPLICATION_LABEL_TO_FIELD.get(_label_key(next_label_source)):
+                    break
+                if _label_key(next_line) == "pesquisa cultural":
+                    cursor += 1
+                    continue
+                collected.append(next_line)
+                cursor += 1
+            value = " ".join(collected)
+            index = max(index, cursor - 1)
+
+        fields[field] = fields[field] or _clean_application_value(value)
+        index += 1
+
+    if fields["email"]:
+        fields["email"] = extract_email(fields["email"]) or fields["email"]
+    if fields["telefone"]:
+        fields["telefone"] = extract_whatsapp(fields["telefone"]) or extract_phone(fields["telefone"]) or fields["telefone"]
+    fields["experiencia"] = _canonical_yes_no(fields["experiencia"]) or fields["experiencia"]
+    fields["curriculo_anexado"] = _canonical_yes_no(fields["curriculo_anexado"]) or fields["curriculo_anexado"]
+
+    normalized_body = normalize_compare_text(body)
+    normalized_subject = normalize_compare_text(subject)
+    normalized_sender = normalize_compare_text(sender)
+    detected_labels = {field for field, value in fields.items() if value}
+    required_hits = {
+        field
+        for field in APPLICATION_REQUIRED_LABELS
+        if re.search(rf"(^|\n|\b){re.escape(normalize_compare_text(APPLICATION_FORM_LABELS[field][0]))}\b", normalized_body)
+        or fields.get(field)
+    }
+    has_title = "novo cadastro rh" in normalized_body
+    subject_hint = any(item in normalized_subject for item in ("site", "candidato", "trabalhe conosco", "rh"))
+    sender_hint = any(item in normalized_sender for item in ("site", "wordpress", "central24", "conecta", "rh"))
+    is_application = (
+        has_title
+        and len(required_hits) >= 3
+    ) or (
+        subject_hint
+        and len(required_hits) >= 3
+        and len(detected_labels) >= 4
+    ) or (
+        sender_hint
+        and len(required_hits) >= 4
+    )
+
+    missing = sorted(field for field in APPLICATION_REQUIRED_LABELS if not fields.get(field))
+    errors = []
+    if is_application:
+        if missing:
+            errors.append("Campo obrigatorio nao encontrado: " + ", ".join(missing))
+        if fields["email"] and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", fields["email"]):
+            errors.append("E-mail invalido")
+        if not fields["telefone"]:
+            errors.append("Telefone nao identificado")
+
+    return {
+        "is_application": is_application,
+        "fields": fields,
+        "missing_required": missing,
+        "errors": errors,
+    }
 
 
 class EmailInboxService:
@@ -314,11 +459,7 @@ class EmailInboxService:
         try:
             html_part = message.get_body(preferencelist=("html",))
             if html_part:
-                content = html_part.get_content()
-                content = re.sub(r"<br\s*/?>", "\n", content, flags=re.IGNORECASE)
-                content = re.sub(r"</p\s*>", "\n", content, flags=re.IGNORECASE)
-                content = re.sub(r"<[^>]+>", " ", content)
-                return normalize_text(html.unescape(content))
+                return _html_to_text(html_part.get_content())
         except Exception:
             pass
 
@@ -331,7 +472,7 @@ class EmailInboxService:
             payload = part.get_payload(decode=True) or b""
             text = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
             if part.get_content_type() == "text/html":
-                text = re.sub(r"<[^>]+>", " ", text)
+                text = _html_to_text(text)
             parts.append(text)
         return normalize_text("\n".join(parts))
 
@@ -445,10 +586,20 @@ class EmailInboxService:
         attachments = self._iter_cv_attachments(item_id, message)
         primary_filename = attachments[0]["filename"] if attachments else ""
         received_at = _parse_message_datetime(message)
-        detected_email = extract_email(body) or _first_email(sender)
-        detected_phone = extract_whatsapp(body) or extract_phone(body)
-        detected_name = self._candidate_name_from_email(subject, body, primary_filename)
+        application_form = _extract_application_form_fields(subject, body, sender)
+        application_fields = application_form["fields"]
+        detected_email = application_fields.get("email") or extract_email(body) or _first_email(sender)
+        detected_phone = application_fields.get("telefone") or extract_whatsapp(body) or extract_phone(body)
+        detected_name = application_fields.get("nome") or self._candidate_name_from_email(subject, body, primary_filename)
         detected_role = self._role_from_email(subject, body)
+        curriculum_answer = application_fields.get("curriculo_anexado")
+        inconsistencies = []
+        if application_form["is_application"] and curriculum_answer == "Sim" and not attachments:
+            inconsistencies.append("Curriculo informado como anexado, mas nenhum arquivo valido foi encontrado.")
+        inconsistencies.extend(application_form.get("errors") or [])
+        status_value = "Recebido"
+        if inconsistencies:
+            status_value = "Inconsistencia no cadastro"
         resumo = (body[:420] + "...") if len(body) > 420 else body
         return {
             "id": item_id,
@@ -475,8 +626,13 @@ class EmailInboxService:
             "email_encontrado": detected_email,
             "vaga_detectada": detected_role,
             "vaga_pretendida_possivel": detected_role,
-            "status": "Recebido",
-            "status_analise": "Recebido",
+            "experiencia_detectada": application_fields.get("experiencia"),
+            "trabalhe_conosco": bool(application_form["is_application"]),
+            "campos_formulario": application_fields,
+            "curriculo_anexado_informado": curriculum_answer,
+            "inconsistencias": inconsistencies,
+            "status": status_value,
+            "status_analise": status_value,
             "origem": EMAIL_INBOX_ORIGIN,
         }
 
@@ -551,12 +707,12 @@ class EmailInboxService:
                     if message is None:
                         continue
                     item = self._serialize_message(uid, message)
-                    if with_attachments_only and not item.get("possui_anexo"):
+                    if with_attachments_only and not item.get("possui_anexo") and not item.get("trabalhe_conosco"):
                         continue
                     if query_term:
                         haystack = " ".join(
                             normalize_text(item.get(key))
-                            for key in ("remetente", "assunto", "resumo", "nome_detectado", "vaga_detectada", "email_detectado")
+                            for key in ("remetente", "assunto", "resumo", "nome_detectado", "vaga_detectada", "email_detectado", "experiencia_detectada")
                         )
                         if query_term not in normalize_compare_text(haystack):
                             continue
@@ -637,6 +793,10 @@ class EmailInboxService:
                 for attachment in saved_attachments
             ],
             "status": "Recebido",
+            "trabalhe_conosco": bool(summary.get("trabalhe_conosco")),
+            "campos_formulario": summary.get("campos_formulario") or {},
+            "curriculo_anexado_informado": summary.get("curriculo_anexado_informado"),
+            "inconsistencias": summary.get("inconsistencias") or [],
             "origem": EMAIL_INBOX_ORIGIN,
         }
         metadata_path.write_text(

@@ -122,6 +122,12 @@ class BaseRepository:
             "bairro": normalize_text(safe_row.get("bairro")),
             "idade": safe_row.get("idade"),
             "escolaridade": normalize_text(safe_row.get("escolaridade")),
+            "possui_experiencia": normalize_text(safe_row.get("possui_experiencia")),
+            "musica": normalize_text(safe_row.get("musica")),
+            "prato": normalize_text(safe_row.get("prato")),
+            "futebol": normalize_text(safe_row.get("futebol")),
+            "time": normalize_text(safe_row.get("time")),
+            "rede_social": normalize_text(safe_row.get("rede_social")),
             "atualizado_em": safe_row.get("atualizado_em"),
         }
 
@@ -148,6 +154,12 @@ class BaseRepository:
                 bairro,
                 idade,
                 escolaridade,
+                possui_experiencia,
+                musica,
+                prato,
+                futebol,
+                time,
+                rede_social,
                 atualizado_em
             FROM candidatos_metadata
             """
@@ -206,6 +218,8 @@ class BaseRepository:
                 id_pre_analise,
                 nome_arquivo,
                 mime_type,
+                score_final,
+                classificacao,
                 arquivo_original_base64
             FROM cv_pre_analises
             WHERE ISNULL(arquivo_original_base64, '') <> ''
@@ -222,6 +236,8 @@ class BaseRepository:
                 "tipo_arquivo": normalize_text(item.get("mime_type")) or "application/octet-stream",
                 "caminho_arquivo": "__cv_pre_analise_base64__",
                 "arquivo_original_base64": normalize_text(item.get("arquivo_original_base64")),
+                "score_final": item.get("score_final"),
+                "classificacao": normalize_text(item.get("classificacao")),
             }
         return result
 
@@ -544,6 +560,8 @@ class BaseRepository:
             candidate["cv_nome_arquivo"] = normalize_text(cv_attachment.get("nome_arquivo_original"))
             candidate["cv_tipo_arquivo"] = normalize_text(cv_attachment.get("tipo_arquivo"))
             candidate["cv_tamanho_bytes"] = cv_attachment.get("tamanho_bytes")
+            candidate["cv_score_final"] = cv_attachment.get("score_final")
+            candidate["cv_classificacao"] = normalize_text(cv_attachment.get("classificacao"))
             history_score = normalize_text(history_result.get("pontuacao_final"))
             if history_score and not normalize_text(candidate.get("pontuacao_final")):
                 candidate["pontuacao_final"] = history_score
@@ -600,6 +618,12 @@ class BaseRepository:
         bairro: str | None = None,
         idade: int | None = None,
         escolaridade: str | None = None,
+        possui_experiencia: str | None = None,
+        musica: str | None = None,
+        prato: str | None = None,
+        futebol: str | None = None,
+        time: str | None = None,
+        rede_social: str | None = None,
     ) -> None:
         safe_id_teste = normalize_text(id_teste)
         if not safe_id_teste:
@@ -626,6 +650,12 @@ class BaseRepository:
                 bairro,
                 idade,
                 escolaridade,
+                possui_experiencia,
+                musica,
+                prato,
+                futebol,
+                time,
+                rede_social,
                 atualizado_em
             FROM candidatos_metadata
             WHERE id_teste = ?
@@ -653,7 +683,13 @@ class BaseRepository:
                     "bairro": existing[13],
                     "idade": existing[14],
                     "escolaridade": existing[15],
-                    "atualizado_em": existing[16],
+                    "possui_experiencia": existing[16],
+                    "musica": existing[17],
+                    "prato": existing[18],
+                    "futebol": existing[19],
+                    "time": existing[20],
+                    "rede_social": existing[21],
+                    "atualizado_em": existing[22],
                 }
             )
             if existing
@@ -674,6 +710,12 @@ class BaseRepository:
                 "bairro": "",
                 "idade": None,
                 "escolaridade": "",
+                "possui_experiencia": "",
+                "musica": "",
+                "prato": "",
+                "futebol": "",
+                "time": "",
+                "rede_social": "",
             }
         )
 
@@ -705,6 +747,12 @@ class BaseRepository:
         merged_neighborhood = normalize_text(bairro) if bairro is not None else existing_profile.get("bairro", "")
         merged_age = idade if idade is not None else existing_profile.get("idade")
         merged_education = normalize_text(escolaridade) if escolaridade is not None else existing_profile.get("escolaridade", "")
+        merged_experience = normalize_text(possui_experiencia) if possui_experiencia is not None else existing_profile.get("possui_experiencia", "")
+        merged_music = normalize_text(musica) if musica is not None else existing_profile.get("musica", "")
+        merged_dish = normalize_text(prato) if prato is not None else existing_profile.get("prato", "")
+        merged_soccer = normalize_text(futebol) if futebol is not None else existing_profile.get("futebol", "")
+        merged_team = normalize_text(time) if time is not None else existing_profile.get("time", "")
+        merged_social = normalize_text(rede_social) if rede_social is not None else existing_profile.get("rede_social", "")
 
         if existing:
             cursor.execute(
@@ -727,6 +775,12 @@ class BaseRepository:
                     bairro = ?,
                     idade = ?,
                     escolaridade = ?,
+                    possui_experiencia = ?,
+                    musica = ?,
+                    prato = ?,
+                    futebol = ?,
+                    time = ?,
+                    rede_social = ?,
                     atualizado_em = GETDATE()
                 WHERE id_teste = ?
                 """,
@@ -747,6 +801,12 @@ class BaseRepository:
                     merged_neighborhood,
                     merged_age,
                     merged_education,
+                    merged_experience,
+                    merged_music,
+                    merged_dish,
+                    merged_soccer,
+                    merged_team,
+                    merged_social,
                     safe_id_teste,
                 ),
             )
@@ -771,9 +831,15 @@ class BaseRepository:
                     cidade,
                     bairro,
                     idade,
-                    escolaridade
+                    escolaridade,
+                    possui_experiencia,
+                    musica,
+                    prato,
+                    futebol,
+                    time,
+                    rede_social
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     safe_id_teste,
@@ -793,6 +859,12 @@ class BaseRepository:
                     merged_neighborhood,
                     merged_age,
                     merged_education,
+                    merged_experience,
+                    merged_music,
+                    merged_dish,
+                    merged_soccer,
+                    merged_team,
+                    merged_social,
                 ),
             )
 

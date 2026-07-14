@@ -21,7 +21,7 @@ import { AcaoSair } from '../../shared/components/actions.js';
 import { PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
 
 const ABAS = [
-  { id: 'usuarios', tela: 'screen-settings-users', label: 'Usuário', permissao: 'usuarios.visualizar', icon: 'person' },
+  { id: 'usuarios', tela: 'screen-settings-users', label: 'Usuários', permissao: 'usuarios.visualizar', icon: 'person' },
   { id: 'perfis', tela: 'screen-settings-profiles', label: 'Perfis e permissões', permissao: 'configuracoes.visualizar', icon: 'admin_panel_settings' },
   { id: 'catalogos', tela: 'screen-settings-rules', label: 'Regras reutilizáveis', permissao: 'configuracoes.visualizar', icon: 'rebase_edit' },
   { id: 'logs', tela: 'screen-settings-logs', label: 'Logs', permissao: 'logs.visualizar', icon: 'history_edu' },
@@ -82,6 +82,24 @@ function normalizarLista(valor) {
   return Array.isArray(valor) ? valor : [];
 }
 
+function textoSeguro(valor, fallback = '-') {
+  if (valor === undefined || valor === null || valor === '') return fallback;
+  if (typeof valor === 'string' || typeof valor === 'number' || typeof valor === 'boolean') {
+    return String(valor);
+  }
+  if (typeof valor === 'object') {
+    return (
+      valor.nome ||
+      valor.label ||
+      valor.titulo ||
+      valor.id ||
+      valor.chave ||
+      fallback
+    );
+  }
+  return String(valor);
+}
+
 function normalizarBusca(valor) {
   return String(valor || '')
     .normalize('NFD')
@@ -112,6 +130,23 @@ function formatarDataCurta(valor) {
     month: '2-digit',
     year: '2-digit',
   });
+}
+
+function formatarAtualizacao(valor) {
+  if (!valor) return 'Última atualização: aguardando atualização';
+  return `Última atualização: hoje às ${valor.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
+
+function obterIntervaloPaginacao(paginacao) {
+  const total = Number(paginacao?.totalItens || 0);
+  if (!total) return '0-0';
+  const tamanho = Number(paginacao?.tamanhoPagina || paginacao?.itens?.length || 1);
+  const inicio = (Number(paginacao?.paginaAtual || 1) - 1) * tamanho + 1;
+  const fim = Math.min(total, inicio + Number(paginacao?.itens?.length || 0) - 1);
+  return `${inicio}-${fim}`;
 }
 
 function hojeSemHora() {
@@ -223,7 +258,7 @@ function StatGrid({ items }) {
   return html`
     <div class="c24-stat-grid">
       ${items.map(
-        (item) => html`
+    (item) => html`
           <${StatCard}
             key=${item.label}
             icon=${item.icon}
@@ -233,7 +268,7 @@ function StatGrid({ items }) {
             tone=${item.tone}
           />
         `,
-      )}
+  )}
     </div>
   `;
 }
@@ -258,26 +293,46 @@ function FilterField({ label, icon = 'filter_alt', children }) {
   `;
 }
 
-function PaginacaoCompacta({ paginacao, onChange }) {
-  if (!paginacao || paginacao.totalPaginas <= 1) return null;
+function PaginacaoCompacta({ paginacao, onChange, label = '' }) {
+  if (!paginacao) return null;
+  const totalPaginas = Math.max(1, Number(paginacao.totalPaginas || 1));
+  const paginaAtual = Math.min(Math.max(1, Number(paginacao.paginaAtual || 1)), totalPaginas);
   return html`
     <div class="c24-pagination">
       <span>
-        ${paginacao.totalItens} itens, página ${paginacao.paginaAtual} de ${paginacao.totalPaginas}
+        ${label || `Mostrando ${obterIntervaloPaginacao(paginacao)} de ${paginacao.totalItens} resultados`}
       </span>
       <div class="c24-pagination-actions">
-        ${Array.from({ length: paginacao.totalPaginas }, (_, indice) => indice + 1).map(
-          (pagina) => html`
+        <button
+          type="button"
+          class="c24-page-btn"
+          aria-label="Página anterior"
+          disabled=${paginaAtual <= 1}
+          onClick=${() => onChange(paginaAtual - 1)}
+        >
+          <${Icone} name="chevron_left" />
+        </button>
+        ${Array.from({ length: totalPaginas }, (_, indice) => indice + 1).map(
+    (pagina) => html`
             <button
               key=${pagina}
               type="button"
-              class=${`c24-page-btn ${pagina === paginacao.paginaAtual ? 'is-active' : ''}`.trim()}
+              class=${`c24-page-btn ${pagina === paginaAtual ? 'is-active' : ''}`.trim()}
               onClick=${() => onChange(pagina)}
             >
               ${pagina}
             </button>
           `,
-        )}
+  )}
+        <button
+          type="button"
+          class="c24-page-btn"
+          aria-label="Próxima página"
+          disabled=${paginaAtual >= totalPaginas}
+          onClick=${() => onChange(paginaAtual + 1)}
+        >
+          <${Icone} name="chevron_right" />
+        </button>
       </div>
     </div>
   `;
@@ -304,6 +359,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
   const [usuarios, setUsuarios] = useState([]);
   const [perfis, setPerfis] = useState([]);
   const [permissoes, setPermissoes] = useState([]);
@@ -319,6 +375,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     area: '',
     acesso: '',
   });
+  const [painelFiltrosUsuariosAberto, setPainelFiltrosUsuariosAberto] = useState(false);
   const [paginaUsuarios, setPaginaUsuarios] = useState(1);
   const [perfilSelecionadoId, setPerfilSelecionadoId] = useState('');
   const [permissoesPerfilDraft, setPermissoesPerfilDraft] = useState([]);
@@ -341,6 +398,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const [paginaLogs, setPaginaLogs] = useState(1);
   const [logExpandidoId, setLogExpandidoId] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [menuUsuarioAbertoId, setMenuUsuarioAbertoId] = useState('');
+  const [menuUsuarioPosicao, setMenuUsuarioPosicao] = useState(null);
+  const [drawerUsuarioAberto, setDrawerUsuarioAberto] = useState(false);
+  const [confirmandoExclusaoUsuario, setConfirmandoExclusaoUsuario] = useState(false);
 
   const permissoesPorModulo = useMemo(() => agruparPermissoes(permissoes), [permissoes]);
   const secaoCatalogoAtiva = useMemo(
@@ -358,6 +419,13 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const abaRenderizada = abasPermitidas.some((aba) => aba.id === abaAtiva)
     ? abaAtiva
     : abasPermitidas[0]?.id || '';
+
+  const fecharDrawerUsuario = () => {
+    setDrawerUsuarioAberto(false);
+    setMenuUsuarioAbertoId('');
+    setMenuUsuarioPosicao(null);
+    setConfirmandoExclusaoUsuario(false);
+  };
 
   useEffect(() => {
     const abaDaRota = ABA_POR_TELA[telaAtual];
@@ -409,7 +477,12 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     setFormUsuario({
       ...FORM_USUARIO_INICIAL,
       ...usuario,
-      perfil: usuario.perfil || usuario.perfil_id || FORM_USUARIO_INICIAL.perfil,
+      id_usuario: textoSeguro(usuario.id_usuario, ''),
+      nome: textoSeguro(usuario.nome, ''),
+      email: textoSeguro(usuario.email, ''),
+      login: textoSeguro(usuario.login, ''),
+      perfil: textoSeguro(usuario.perfil || usuario.perfil_id, FORM_USUARIO_INICIAL.perfil),
+      status: textoSeguro(usuario.status, FORM_USUARIO_INICIAL.status),
       senha: '',
       justificativa: '',
     });
@@ -448,6 +521,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       if (falha) {
         setErro(falha.reason?.message || 'Não foi possível carregar parte das configurações.');
       }
+      setUltimaAtualizacao(new Date());
     } finally {
       setCarregando(false);
     }
@@ -457,27 +531,82 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     carregarTudo();
   }, []);
 
+  useEffect(() => {
+    if (!drawerUsuarioAberto) return undefined;
+    const fecharComEsc = (event) => {
+      if (event.key === 'Escape') fecharDrawerUsuario();
+    };
+    document.addEventListener('keydown', fecharComEsc);
+    return () => document.removeEventListener('keydown', fecharComEsc);
+  }, [drawerUsuarioAberto]);
+
+  useEffect(() => {
+    if (!menuUsuarioAbertoId) return undefined;
+    const fecharMenu = () => {
+      setMenuUsuarioAbertoId('');
+      setMenuUsuarioPosicao(null);
+    };
+    const fecharComEsc = (event) => {
+      if (event.key === 'Escape') fecharMenu();
+    };
+    document.addEventListener('click', fecharMenu);
+    document.addEventListener('keydown', fecharComEsc);
+    window.addEventListener('resize', fecharMenu);
+    window.addEventListener('scroll', fecharMenu, true);
+    return () => {
+      document.removeEventListener('click', fecharMenu);
+      document.removeEventListener('keydown', fecharComEsc);
+      window.removeEventListener('resize', fecharMenu);
+      window.removeEventListener('scroll', fecharMenu, true);
+    };
+  }, [menuUsuarioAbertoId]);
+
   const selecionarUsuario = (usuario) => {
     setCriandoUsuario(false);
     setUsuarioSelecionadoId(usuario.id_usuario);
+    setFormUsuario({
+      ...FORM_USUARIO_INICIAL,
+      ...usuario,
+      id_usuario: textoSeguro(usuario.id_usuario, ''),
+      nome: textoSeguro(usuario.nome, ''),
+      email: textoSeguro(usuario.email, ''),
+      login: textoSeguro(usuario.login, ''),
+      perfil: textoSeguro(usuario.perfil || usuario.perfil_id, FORM_USUARIO_INICIAL.perfil),
+      status: textoSeguro(usuario.status, FORM_USUARIO_INICIAL.status),
+      senha: '',
+      justificativa: '',
+    });
+    setMenuUsuarioAbertoId('');
+    setMenuUsuarioPosicao(null);
+    setConfirmandoExclusaoUsuario(false);
+    setDrawerUsuarioAberto(true);
   };
 
   const iniciarNovoUsuario = () => {
     setCriandoUsuario(true);
     setUsuarioSelecionadoId('');
     setFormUsuario(FORM_USUARIO_INICIAL);
+    setMenuUsuarioAbertoId('');
+    setMenuUsuarioPosicao(null);
+    setConfirmandoExclusaoUsuario(false);
+    setDrawerUsuarioAberto(true);
   };
 
   const salvarUsuario = async (event) => {
     event.preventDefault();
+    const email = String(formUsuario.email || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setErro('Informe um e-mail válido.');
+      return;
+    }
     setSalvando(true);
     setErro('');
     setFeedback('');
     try {
       const payload = {
         nome: formUsuario.nome,
-        email: formUsuario.email,
-        login: formUsuario.login || formUsuario.email,
+        email,
+        login: formUsuario.login || email,
         perfil: formUsuario.perfil,
         status: formUsuario.status,
         justificativa: formUsuario.justificativa,
@@ -490,13 +619,12 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
             justificativa: formUsuario.justificativa || 'Senha redefinida em Configurações.',
           });
         }
-        setFeedback('Usuário atualizado.');
+        setFeedback('Usuário atualizado com sucesso.');
       } else {
         await criarUsuario({ ...payload, senha: formUsuario.senha });
-        setFeedback('Usuário criado.');
+        setFeedback('Usuário criado com sucesso.');
       }
       setCriandoUsuario(false);
-      setFormUsuario(FORM_USUARIO_INICIAL);
       await carregarTudo();
     } catch (error) {
       setErro(error?.message || 'Não foi possível salvar o usuário.');
@@ -530,6 +658,26 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       await carregarTudo();
     } catch (error) {
       setErro(error?.message || 'Não foi possível desativar o usuário.');
+    }
+  };
+
+  const excluirUsuarioSelecionado = async () => {
+    if (!formUsuario.id_usuario || !controlador.possuiPermissao('usuarios.excluir')) return;
+    setSalvando(true);
+    setErro('');
+    setFeedback('');
+    try {
+      await excluirUsuario(formUsuario.id_usuario, 'Exclusão solicitada em Configurações.');
+      setFeedback('Usuário excluído com sucesso.');
+      fecharDrawerUsuario();
+      setCriandoUsuario(false);
+      setUsuarioSelecionadoId('');
+      setFormUsuario(FORM_USUARIO_INICIAL);
+      await carregarTudo();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível excluir o usuário.');
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -708,26 +856,30 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     const agora = Date.now();
     return usuarios.filter((usuario) => {
       const texto = textoCampos(
-        usuario.nome,
-        usuario.email,
-        usuario.login,
-        usuario.perfil_nome,
-        usuario.perfil,
-        usuario.nivel,
-        usuario.area,
-        usuario.operacao,
-        usuario.departamento,
+        textoSeguro(usuario?.nome, ''),
+        textoSeguro(usuario?.email, ''),
+        textoSeguro(usuario?.login, ''),
+        textoSeguro(usuario?.perfil_nome, ''),
+        textoSeguro(usuario?.perfil, ''),
+        textoSeguro(usuario?.nivel, ''),
+        textoSeguro(usuario?.area, ''),
+        textoSeguro(usuario?.operacao, ''),
+        textoSeguro(usuario?.departamento, ''),
       );
       if (busca && !texto.includes(busca)) return false;
-      if (status && normalizarBusca(usuario.status) !== status) return false;
-      if (perfil && normalizarBusca(usuario.perfil) !== perfil) return false;
+      if (status && normalizarBusca(textoSeguro(usuario?.status, '')) !== status) return false;
+      if (perfil && normalizarBusca(textoSeguro(usuario?.perfil, '')) !== perfil) return false;
       if (area) {
-        const textoArea = textoCampos(usuario.area, usuario.operacao, usuario.departamento);
+        const textoArea = textoCampos(
+          textoSeguro(usuario?.area, ''),
+          textoSeguro(usuario?.operacao, ''),
+          textoSeguro(usuario?.departamento, ''),
+        );
         if (!textoArea.includes(area)) return false;
       }
-      if (acesso === 'sem_acesso' && usuario.ultimo_acesso) return false;
+      if (acesso === 'sem_acesso' && usuario?.ultimo_acesso) return false;
       if (acesso === 'recentes') {
-        const data = new Date(usuario.ultimo_acesso);
+        const data = new Date(usuario?.ultimo_acesso);
         if (Number.isNaN(data.getTime()) || agora - data.getTime() > 1000 * 60 * 60 * 24 * 7) {
           return false;
         }
@@ -740,6 +892,19 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     () => obterItensPaginados(usuariosFiltrados, paginaUsuarios, 7),
     [usuariosFiltrados, paginaUsuarios],
   );
+  const filtrosUsuariosAtivos = [
+    filtrosUsuarios.busca,
+    filtrosUsuarios.status,
+    filtrosUsuarios.perfil,
+    filtrosUsuarios.area,
+    filtrosUsuarios.acesso,
+  ].filter((valor) => String(valor || '').trim()).length;
+
+  const limparFiltrosUsuarios = () => {
+    setFiltrosUsuarios({ busca: '', status: '', perfil: '', area: '', acesso: '' });
+    setPaginaUsuarios(1);
+    setPainelFiltrosUsuariosAberto(false);
+  };
 
   const usuariosPorPerfil = useMemo(() => {
     return usuarios.reduce((mapa, usuario) => {
@@ -907,18 +1072,18 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
           <h3>Últimas ações administrativas</h3>
         </div>
         ${controlador.possuiPermissao('logs.visualizar')
-          ? html`
+      ? html`
               <button type="button" class="c24-link-btn" onClick=${() => setAbaAtiva('logs')}>
                 Ver todas as ações
               </button>
             `
-          : null}
+      : null}
       </header>
       ${itens.length
-        ? html`
+      ? html`
             <div class="settings-audit-list">
               ${itens.map(
-                (log) => html`
+        (log) => html`
                   <article class="settings-audit-item" key=${log.id_log}>
                     <span class="settings-audit-icon"><${Icone} name="history" /></span>
                     <div>
@@ -931,10 +1096,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                     />
                   </article>
                 `,
-              )}
+      )}
             </div>
           `
-        : html`
+      : html`
             <${EmptyPanel}
               icon="history"
               title="Sem auditoria recente"
@@ -947,326 +1112,365 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const renderUsuarios = () => {
     const podeCriar = controlador.possuiPermissao('usuarios.criar');
     const podeEditar = controlador.possuiPermissao('usuarios.editar');
+    const podeExcluir = controlador.possuiPermissao('usuarios.excluir');
     const podeSalvar = formUsuario.id_usuario ? podeEditar : podeCriar;
+    const totalUsuarios = usuariosFiltrados.length;
+    const statusAtivo = normalizarBusca(formUsuario.status) === 'ativo';
+    const nomeDrawer = formUsuario.nome || formUsuario.email || (criandoUsuario ? 'Novo usuário' : 'Usuário');
+    const linhasUsuarios = paginacaoUsuarios.itens.map((usuario) => ({
+      usuario,
+      idUsuario: textoSeguro(usuario.id_usuario, ''),
+      selecionado: String(textoSeguro(usuario.id_usuario, '')) === String(usuarioSelecionadoId),
+    }));
+
+    const atualizarFiltroUsuario = (campo, valor) => {
+      setFiltrosUsuarios((atuais) => ({ ...atuais, [campo]: valor }));
+      setPaginaUsuarios(1);
+    };
+
+    const alternarMenuUsuario = (event, idUsuario) => {
+      event.stopPropagation();
+      if (String(menuUsuarioAbertoId) === String(idUsuario)) {
+        setMenuUsuarioAbertoId('');
+        setMenuUsuarioPosicao(null);
+        return;
+      }
+      const rect = event.currentTarget.getBoundingClientRect();
+      const largura = 196;
+      setMenuUsuarioPosicao({
+        top: `${Math.min(window.innerHeight - 52, rect.bottom + 6)}px`,
+        left: `${Math.max(8, Math.min(window.innerWidth - largura - 8, rect.right - largura))}px`,
+      });
+      setMenuUsuarioAbertoId(idUsuario);
+    };
+
+    const marcarUsuario = (usuario) => {
+      setCriandoUsuario(false);
+      setUsuarioSelecionadoId(usuario.id_usuario);
+      setMenuUsuarioAbertoId('');
+      setMenuUsuarioPosicao(null);
+    };
+
     return html`
-      <div class="settings-admin-shell">
-        <${StatGrid}
-          items=${[
-            { icon: 'group', label: 'Total de usuários', value: usuarios.length, helper: 'Contas registradas', tone: 'blue' },
-            {
-              icon: 'check_circle',
-              label: 'Ativos',
-              value: contarPor(usuarios, (usuario) => normalizarBusca(usuario.status) === 'ativo'),
-              helper: 'Com acesso liberado',
-              tone: 'green',
-            },
-            {
-              icon: 'block',
-              label: 'Inativos ou bloqueados',
-              value: contarPor(usuarios, (usuario) => normalizarBusca(usuario.status) !== 'ativo'),
-              helper: 'Requerem revisão',
-              tone: 'yellow',
-            },
-            {
-              icon: 'person_add',
-              label: 'Novos este mês',
-              value: contarPor(usuarios, (usuario) => {
-                const data = new Date(usuario.criado_em);
-                const agora = new Date();
-                return !Number.isNaN(data.getTime()) && data.getMonth() === agora.getMonth() && data.getFullYear() === agora.getFullYear();
-              }),
-              helper: 'Criados no mes atual',
-              tone: 'indigo',
-            },
-          ]}
-        />
-
-        <div class="settings-users-workspace">
-          <section class="c24-card settings-list-panel">
-            <header class="c24-card-header">
-              <div>
-                <span class="c24-eyebrow">Acessos</span>
-                <h3>Usuários do sistema</h3>
-                <p>${usuariosFiltrados.length} resultado(s) com os filtros atuais.</p>
-              </div>
-              <div class="settings-card-actions">
-                <button type="button" class="btn btn-primary btn-sm" disabled=${!podeCriar} onClick=${iniciarNovoUsuario}>
-                  <${Icone} name="person_add" /> Novo usuário
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${carregarTudo}>
-                  <${Icone} name="refresh" /> Atualizar
-                </button>
-              </div>
-            </header>
-
-            <div class="c24-filter-bar settings-users-filter">
-              <${FilterField} label="Buscar" icon="search">
-                <input
-                  class="form-control"
-                  placeholder="Nome, e-mail ou login"
-                  value=${filtrosUsuarios.busca}
-                  onInput=${(event) => {
-                    setFiltrosUsuarios({ ...filtrosUsuarios, busca: event.target.value });
-                    setPaginaUsuarios(1);
-                  }}
-                />
-              </${FilterField}>
-              <${FilterField} label="Status">
-                <select
-                  class="form-select"
-                  value=${filtrosUsuarios.status}
-                  onChange=${(event) => {
-                    setFiltrosUsuarios({ ...filtrosUsuarios, status: event.target.value });
-                    setPaginaUsuarios(1);
-                  }}
-                >
-                  ${STATUS_USUARIO.map(
-                    (status) => html`<option key=${status || 'todos'} value=${status}>${status || 'Todos'}</option>`,
-                  )}
-                </select>
-              </${FilterField}>
-              <${FilterField} label="Perfil" icon="badge">
-                <select
-                  class="form-select"
-                  value=${filtrosUsuarios.perfil}
-                  onChange=${(event) => {
-                    setFiltrosUsuarios({ ...filtrosUsuarios, perfil: event.target.value });
-                    setPaginaUsuarios(1);
-                  }}
-                >
-                  <option value="">Todos</option>
-                  ${perfis.map(
-                    (perfil) => html`<option key=${perfil.id} value=${perfil.id}>${perfil.nome}</option>`,
-                  )}
-                </select>
-              </${FilterField}>
-              <${FilterField} label="Area/op." icon="account_tree">
-                <input
-                  class="form-control"
-                  placeholder="Área ou operação"
-                  value=${filtrosUsuarios.area}
-                  onInput=${(event) => {
-                    setFiltrosUsuarios({ ...filtrosUsuarios, area: event.target.value });
-                    setPaginaUsuarios(1);
-                  }}
-                />
-              </${FilterField}>
-              <${FilterField} label="Acesso" icon="schedule">
-                <select
-                  class="form-select"
-                  value=${filtrosUsuarios.acesso}
-                  onChange=${(event) => {
-                    setFiltrosUsuarios({ ...filtrosUsuarios, acesso: event.target.value });
-                    setPaginaUsuarios(1);
-                  }}
-                >
-                  <option value="">Todos</option>
-                  <option value="recentes">Últimos 7 dias</option>
-                  <option value="sem_acesso">Sem acesso</option>
-                </select>
-              </${FilterField}>
+      <div class="settings-admin-shell users-modern-page">
+        <section class="users-modern-panel">
+          <header class="users-modern-header">
+            <div class="users-modern-actions">
+              <button type="button" class="btn btn-primary btn-sm" disabled=${!podeCriar} onClick=${iniciarNovoUsuario}>
+                Criar usuário
+              </button>
               <button
                 type="button"
-                class="btn btn-outline-secondary btn-sm"
-                onClick=${() => {
-                  setFiltrosUsuarios({ busca: '', status: '', perfil: '', area: '', acesso: '' });
-                  setPaginaUsuarios(1);
-                }}
+                class="c24-icon-btn"
+                title="Atualizar usuários"
+                aria-label="Atualizar usuários"
+                disabled=${carregando}
+                onClick=${carregarTudo}
               >
-                Limpar
+                <${Icone} name="refresh" />
               </button>
             </div>
+          </header>
 
-            ${paginacaoUsuarios.itens.length
+          <div class="users-modern-count">${totalUsuarios} ${totalUsuarios === 1 ? 'resultado' : 'resultados'}</div>
+
+          <div class="users-modern-toolbar">
+            <label class="users-search-field">
+              <${Icone} name="search" />
+              <input
+                class="form-control"
+                placeholder="Pesquisar usuário"
+                value=${filtrosUsuarios.busca}
+                onInput=${(event) => atualizarFiltroUsuario('busca', event.target.value)}
+              />
+            </label>
+
+            <div class="users-filter-menu">
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm users-filter-btn"
+                aria-expanded=${painelFiltrosUsuariosAberto}
+                onClick=${() => setPainelFiltrosUsuariosAberto((aberto) => !aberto)}
+              >
+                <${Icone} name="filter_alt" />
+                Filtros
+                ${filtrosUsuariosAtivos ? html`<span class="users-filter-count">${filtrosUsuariosAtivos}</span>` : null}
+              </button>
+              ${painelFiltrosUsuariosAberto
+        ? html`
+                    <div class="users-filter-panel" role="dialog" aria-label="Filtros de usuários">
+                      <label>
+                        <span>Status</span>
+                        <select
+                          class="form-select"
+                          value=${filtrosUsuarios.status}
+                          onChange=${(event) => atualizarFiltroUsuario('status', event.target.value)}
+                        >
+                          ${STATUS_USUARIO.map(
+          (status) => html`<option key=${status || 'todos'} value=${status}>${status || 'Todos'}</option>`,
+        )}
+                        </select>
+                      </label>
+                      <label>
+                        <span>Perfil</span>
+                        <select
+                          class="form-select"
+                          value=${filtrosUsuarios.perfil}
+                          onChange=${(event) => atualizarFiltroUsuario('perfil', event.target.value)}
+                        >
+                          <option value="">Todos</option>
+                          ${perfis.map(
+          (perfil) => html`<option key=${perfil.id} value=${perfil.id}>${perfil.nome}</option>`,
+        )}
+                        </select>
+                      </label>
+                      <label>
+                        <span>Área/op.</span>
+                        <input
+                          class="form-control"
+                          placeholder="Área ou operação"
+                          value=${filtrosUsuarios.area}
+                          onInput=${(event) => atualizarFiltroUsuario('area', event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>Acesso</span>
+                        <select
+                          class="form-select"
+                          value=${filtrosUsuarios.acesso}
+                          onChange=${(event) => atualizarFiltroUsuario('acesso', event.target.value)}
+                        >
+                          <option value="">Todos</option>
+                          <option value="recentes">Últimos 7 dias</option>
+                          <option value="sem_acesso">Sem acesso</option>
+                        </select>
+                      </label>
+                    </div>
+                  `
+        : null}
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm users-clear-btn"
+              disabled=${!filtrosUsuariosAtivos}
+              onClick=${limparFiltrosUsuarios}
+            >
+              Limpar tudo
+            </button>
+          </div>
+
+          ${linhasUsuarios.length
+        ? html`
+                <div class="users-table-shell">
+                  <table class="users-modern-table">
+                    <thead>
+                      <tr>
+                        <th class="is-select"><input type="radio" disabled /></th>
+                        <th>Nome</th>
+                        <th>Perfil</th>
+                        <th>Status</th>
+                        <th>E-mail</th>
+                        <th class="is-actions">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${linhasUsuarios.map(
+          ({ usuario, idUsuario, selecionado }) => html`
+                          <tr key=${idUsuario || textoSeguro(usuario.email, textoSeguro(usuario.login, 'usuario'))} class=${selecionado ? 'is-selected' : ''}>
+                            <td class="is-select">
+                              <input
+                                type="radio"
+                                name="usuario-selecionado"
+                                checked=${selecionado}
+                                onChange=${() => marcarUsuario(usuario)}
+                              />
+                            </td>
+                            <td><span class="users-name-text">${textoSeguro(usuario.nome)}</span></td>
+                            <td>${textoSeguro(usuario.perfil_nome, textoSeguro(usuario.perfil))}</td>
+                            <td><${Badge} label=${textoSeguro(usuario.status, 'Sem status')} tone=${obterStatusTone(textoSeguro(usuario.status, ''))} /></td>
+                            <td>${textoSeguro(usuario.email, textoSeguro(usuario.login))}</td>
+                            <td class="is-actions">
+                              <div class="users-row-menu">
+                                <button
+                                  type="button"
+                                  class="process-row-action-trigger"
+                                  title="Mais ações"
+                                  aria-label="Mais ações"
+                                  aria-haspopup="menu"
+                                  aria-expanded=${String(menuUsuarioAbertoId) === String(idUsuario)}
+                                  onClick=${(event) => alternarMenuUsuario(event, idUsuario)}
+                                >
+                                  <span class="material-symbols-outlined">more_horiz</span>
+                                </button>
+                                ${String(menuUsuarioAbertoId) === String(idUsuario)
               ? html`
-                  <div class="settings-user-list">
-                    ${paginacaoUsuarios.itens.map(
-                      (usuario) => {
-                        const ativo = normalizarBusca(usuario.status) === 'ativo';
-                        return html`
-                          <article
-                            key=${usuario.id_usuario}
-                            class=${`settings-user-row ${String(usuario.id_usuario) === String(usuarioSelecionadoId) ? 'is-active' : ''}`.trim()}
-                            onClick=${() => selecionarUsuario(usuario)}
-                          >
-                            <span class="settings-avatar">${obterIniciais(usuario.nome || usuario.email)}</span>
-                            <div class="settings-row-main">
-                              <strong>${usuario.nome || '-'}</strong>
-                              <span>${usuario.email || usuario.login || '-'}</span>
-                              <div class="settings-row-meta">
-                                <small>${usuario.perfil_nome || usuario.perfil || '-'}</small>
-                                <small>${formatarDataCurta(usuario.ultimo_acesso)}</small>
+                                      <div class="users-row-actions-dropdown" role="menu" style=${menuUsuarioPosicao || {}} onClick=${(event) => event.stopPropagation()}>
+                                        <button type="button" role="menuitem" class="process-row-actions-item" onClick=${() => selecionarUsuario(usuario)}>
+                                          <span class="material-symbols-outlined">edit</span>
+                                          <span>Editar usuário</span>
+                                        </button>
+                                      </div>
+                                    `
+              : null}
                               </div>
-                            </div>
-                            <div class="settings-row-status">
-                              <${Badge} label=${usuario.status || 'Sem status'} tone=${obterStatusTone(usuario.status)} />
-                              <div class="settings-row-actions">
-                                <button
-                                  type="button"
-                                  class="c24-icon-btn"
-                                  title=${ativo ? 'Bloquear' : 'Ativar'}
-                                  onClick=${(event) => {
-                                    event.stopPropagation();
-                                    alterarStatus(usuario, ativo ? 'bloquear' : 'ativar');
-                                  }}
-                                >
-                                  <${Icone} name=${ativo ? 'lock' : 'check_circle'} />
-                                </button>
-                                <button
-                                  type="button"
-                                  class="c24-icon-btn is-danger"
-                                  title="Desativar"
-                                  disabled=${!controlador.possuiPermissao('usuarios.excluir')}
-                                  onClick=${(event) => {
-                                    event.stopPropagation();
-                                    desativarUsuario(usuario);
-                                  }}
-                                >
-                                  <${Icone} name="person_remove" />
-                                </button>
-                              </div>
-                            </div>
-                          </article>
-                        `;
-                      },
-                    )}
-                  </div>
-                  <${PaginacaoCompacta} paginacao=${paginacaoUsuarios} onChange=${setPaginaUsuarios} />
-                `
-              : html`
-                  <${EmptyPanel}
-                    icon="group_off"
-                    title="Sem usuários"
-                    text="Nenhum usuário corresponde aos filtros atuais."
-                    action=${html`<button type="button" class="btn btn-primary btn-sm" disabled=${!podeCriar} onClick=${iniciarNovoUsuario}>Novo usuário</button>`}
-                  />
-                `}
-          </section>
+                            </td>
+                          </tr>
+                        `,
+        )}
+                    </tbody>
+                  </table>
+                </div>
+                <${PaginacaoCompacta}
+                  paginacao=${paginacaoUsuarios}
+                  label=${`Mostrando ${obterIntervaloPaginacao(paginacaoUsuarios)} de ${paginacaoUsuarios.totalItens} resultados`}
+                  onChange=${setPaginaUsuarios}
+                />
+              `
+        : html`
+                <${EmptyPanel}
+                  icon="group_off"
+                  title="Sem usuários"
+                  text="Nenhum usuário corresponde aos filtros atuais."
+                  action=${html`<button type="button" class="btn btn-primary btn-sm" disabled=${!podeCriar} onClick=${iniciarNovoUsuario}>Criar usuário</button>`}
+                />
+              `}
+        </section>
 
-          <section class="c24-card settings-detail-panel">
-            <header class="c24-card-header">
-              <div>
-                <span class="c24-eyebrow">${formUsuario.id_usuario ? 'Edição' : 'Cadastro'}</span>
-                <h3>${formUsuario.id_usuario ? 'Detalhes do usuário' : 'Novo usuário'}</h3>
-                <p>Dados, perfil, senha e status ficam conectados ao controle de acesso real.</p>
-              </div>
-              ${formUsuario.id_usuario
-                ? html`<${Badge} label=${formUsuario.status || 'Sem status'} tone=${obterStatusTone(formUsuario.status)} />`
-                : null}
-            </header>
+        ${drawerUsuarioAberto
+        ? html`
+              <div class="users-drawer-backdrop" onClick=${fecharDrawerUsuario}>
+                <aside
+                  class="users-drawer"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="users-drawer-title"
+                  onClick=${(event) => event.stopPropagation()}
+                >
+                  <header class="users-drawer-header">
+                    <div>
+                      <span class="c24-eyebrow">${criandoUsuario ? 'Cadastro' : 'Editar usuário'}</span>
+                      <h3 id="users-drawer-title">${criandoUsuario ? 'Criar usuário' : 'Editar usuário'}</h3>
+                      <p>${nomeDrawer}</p>
+                    </div>
+                    <button type="button" class="c24-icon-btn" title="Fechar" aria-label="Fechar" onClick=${fecharDrawerUsuario}>
+                      <${Icone} name="close" />
+                    </button>
+                  </header>
 
-            <form class="c24-form-grid" onSubmit=${salvarUsuario}>
-              <label>
-                <span>Nome</span>
-                <input
-                  class="form-control"
-                  required
-                  value=${formUsuario.nome}
-                  onInput=${(event) => setFormUsuario({ ...formUsuario, nome: event.target.value })}
-                />
-              </label>
-              <label>
-                <span>E-mail</span>
-                <input
-                  class="form-control"
-                  type="email"
-                  required
-                  value=${formUsuario.email}
-                  onInput=${(event) => setFormUsuario({ ...formUsuario, email: event.target.value })}
-                />
-              </label>
-              <label>
-                <span>Login</span>
-                <input
-                  class="form-control"
-                  placeholder="Usa o e-mail se vazio"
-                  value=${formUsuario.login}
-                  onInput=${(event) => setFormUsuario({ ...formUsuario, login: event.target.value })}
-                />
-              </label>
-              <label>
-                <span>Perfil</span>
-                <select
-                  class="form-select"
-                  value=${formUsuario.perfil}
-                  onChange=${(event) => setFormUsuario({ ...formUsuario, perfil: event.target.value })}
-                >
-                  ${perfis.map(
-                    (perfil) => html`<option key=${perfil.id} value=${perfil.id}>${perfil.nome} - ${perfil.nivel}</option>`,
-                  )}
-                </select>
-              </label>
-              <label>
-                <span>Status</span>
-                <select
-                  class="form-select"
-                  value=${formUsuario.status}
-                  onChange=${(event) => setFormUsuario({ ...formUsuario, status: event.target.value })}
-                >
-                  <option>Ativo</option>
-                  <option>Inativo</option>
-                  <option>Bloqueado</option>
-                </select>
-              </label>
-              <label>
-                <span>${formUsuario.id_usuario ? 'Nova senha' : 'Senha inicial'}</span>
-                <input
-                  class="form-control"
-                  type="password"
-                  required=${!formUsuario.id_usuario}
-                  value=${formUsuario.senha}
-                  onInput=${(event) => setFormUsuario({ ...formUsuario, senha: event.target.value })}
-                />
-              </label>
-              <label class="is-wide">
-                <span>Justificativa</span>
-                <textarea
-                  class="form-control"
-                  rows="2"
-                  placeholder="Explique alterações sensíveis, como perfil, status ou senha."
-                  value=${formUsuario.justificativa}
-                  onInput=${(event) => setFormUsuario({ ...formUsuario, justificativa: event.target.value })}
-                ></textarea>
-              </label>
-              <footer class="settings-form-footer is-wide">
-                <button type="submit" class="btn btn-primary" disabled=${salvando || !podeSalvar}>
-                  <${Icone} name="check" /> ${salvando ? 'Salvando...' : 'Salvar'}
-                </button>
-                <button type="button" class="btn btn-outline-secondary" onClick=${iniciarNovoUsuario}>
-                  Limpar
-                </button>
-                ${formUsuario.id_usuario
-                  ? html`
-                      <button
-                        type="button"
-                        class="btn btn-outline-danger"
-                        disabled=${!controlador.possuiPermissao('usuarios.desativar')}
-                        onClick=${() => desativarUsuario(formUsuario)}
-                      >
-                        Desativar
+                  <form class="users-drawer-form" onSubmit=${salvarUsuario}>
+                    <div class="users-drawer-body">
+                      <label>
+                        <span>Nome</span>
+                        <input
+                          class="form-control"
+                          required
+                          value=${formUsuario.nome}
+                          onInput=${(event) => setFormUsuario({ ...formUsuario, nome: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        <span>E-mail</span>
+                        <input
+                          class="form-control"
+                          type="email"
+                          required
+                          value=${formUsuario.email}
+                          onInput=${(event) => setFormUsuario({ ...formUsuario, email: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        <span>Perfil</span>
+                        <select
+                          class="form-select"
+                          required
+                          value=${formUsuario.perfil}
+                          onChange=${(event) => setFormUsuario({ ...formUsuario, perfil: event.target.value })}
+                        >
+                          ${perfis.map((perfil) => html`<option key=${perfil.id} value=${perfil.id}>${perfil.nome}</option>`)}
+                        </select>
+                      </label>
+                      <label class="users-toggle-row">
+                        <span>${statusAtivo ? 'Usuário ativo' : 'Usuário inativo'}</span>
+                        <button
+                          type="button"
+                          class=${`users-switch ${statusAtivo ? 'is-on' : ''}`.trim()}
+                          role="switch"
+                          aria-checked=${statusAtivo}
+                          onClick=${() => setFormUsuario({ ...formUsuario, status: statusAtivo ? 'Inativo' : 'Ativo' })}
+                        >
+                          <i></i>
+                        </button>
+                      </label>
+                      ${criandoUsuario
+            ? html`
+                            <label>
+                              <span>Senha inicial</span>
+                              <input
+                                class="form-control"
+                                type="password"
+                                required
+                                value=${formUsuario.senha}
+                                onInput=${(event) => setFormUsuario({ ...formUsuario, senha: event.target.value })}
+                              />
+                            </label>
+                          `
+            : null}
+                      <label>
+                        <span>Justificativa</span>
+                        <textarea
+                          class="form-control"
+                          rows="3"
+                          placeholder="Obrigatória para alterações sensíveis"
+                          value=${formUsuario.justificativa}
+                          onInput=${(event) => setFormUsuario({ ...formUsuario, justificativa: event.target.value })}
+                        ></textarea>
+                      </label>
+
+                      ${formUsuario.id_usuario && podeExcluir
+            ? html`
+                            <div class="users-delete-panel">
+                              ${confirmandoExclusaoUsuario
+                ? html`
+                                      <p>Deseja realmente excluir este usuário? Esta ação é permanente.</p>
+                                      <div>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" disabled=${salvando} onClick=${() => setConfirmandoExclusaoUsuario(false)}>
+                                          Cancelar
+                                        </button>
+                                        <button type="button" class="btn btn-danger btn-sm" disabled=${salvando} onClick=${excluirUsuarioSelecionado}>
+                                          Excluir usuário
+                                        </button>
+                                      </div>
+                                    `
+                : html`
+                                      <button type="button" class="users-delete-button" disabled=${salvando} onClick=${() => setConfirmandoExclusaoUsuario(true)}>
+                                        <${Icone} name="delete" />
+                                        Excluir usuário
+                                      </button>
+                                    `}
+                            </div>
+                          `
+            : null}
+                    </div>
+
+                    <footer class="users-drawer-footer">
+                      <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${fecharDrawerUsuario}>
+                        Cancelar
                       </button>
-                    `
-                  : null}
-              </footer>
-            </form>
-          </section>
-        </div>
+                      <button type="submit" class="btn btn-primary" disabled=${salvando || !podeSalvar}>
+                        ${salvando ? 'Salvando...' : 'Salvar'}
+                      </button>
+                    </footer>
+                  </form>
+                </aside>
+              </div>
+            `
+        : null}
       </div>
     `;
   };
 
   const renderPerfis = () => {
-    const permissoesFiltradasPorModulo = Object.entries(permissoesPorModulo).map(([modulo, itens]) => {
-      const filtrados = itens.filter((permissao) => {
-        const ativa = permissoesPerfilDraft.includes(permissao.chave);
-        if (mostrarSomenteAtivas && !ativa) return false;
-        const busca = normalizarBusca(buscaPermissao);
-        if (!busca) return true;
-        return textoCampos(permissao.chave, permissao.descricao, permissao.modulo).includes(busca);
-      });
-      return [modulo, filtrados];
-    }).filter(([, itens]) => itens.length);
-
     const renderPreviaUsuarios = (perfil) => {
       const usuariosPerfil = usuariosPorPerfil[perfil.id] || [];
       const exibidos = usuariosPerfil.slice(0, 3);
@@ -1275,8 +1479,8 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
           <span>Usuários</span>
           <div class="settings-profile-avatar-stack">
             ${exibidos.length
-              ? exibidos.map(
-                  (usuario) => html`
+          ? exibidos.map(
+            (usuario) => html`
                     <span
                       class="settings-profile-user-avatar"
                       key=${usuario.id_usuario}
@@ -1285,11 +1489,11 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                       ${obterIniciais(usuario.nome || usuario.email)}
                     </span>
                   `,
-                )
-              : html`<span class="settings-profile-users-empty">Sem usuários</span>`}
+          )
+          : html`<span class="settings-profile-users-empty">Sem usuários</span>`}
             ${usuariosPerfil.length > exibidos.length
-              ? html`<span class="settings-profile-user-more">+${usuariosPerfil.length - exibidos.length}</span>`
-              : null}
+          ? html`<span class="settings-profile-user-more">+${usuariosPerfil.length - exibidos.length}</span>`
+          : null}
           </div>
         </div>
       `;
@@ -1299,17 +1503,17 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       <div class="settings-admin-shell settings-profiles-page">
         <${StatGrid}
           items=${[
-            { icon: 'badge', label: 'Total de perfis', value: perfis.length, helper: `${perfilMaisUsado} em destaque`, tone: 'blue' },
-            { icon: 'shield', label: 'Permissões cadastradas', value: permissoes.length, helper: `${contarPor(permissoes, (item) => item.critica)} críticas`, tone: 'yellow' },
-            { icon: 'groups', label: 'Usuários vinculados', value: usuarios.length, helper: 'Base real cadastrada', tone: 'green' },
-            {
-              icon: 'pending_actions',
-              label: 'Alterações pendentes',
-              value: alteracoesPendentesPerfil,
-              helper: perfilSelecionado?.nome || 'Nenhum perfil selecionado',
-              tone: 'indigo',
-            },
-          ]}
+        { icon: 'badge', label: 'Total de perfis', value: perfis.length, helper: `${perfilMaisUsado} em destaque`, tone: 'blue' },
+        { icon: 'shield', label: 'Permissões cadastradas', value: permissoes.length, helper: `${contarPor(permissoes, (item) => item.critica)} críticas`, tone: 'yellow' },
+        { icon: 'groups', label: 'Usuários vinculados', value: usuarios.length, helper: 'Base real cadastrada', tone: 'green' },
+        {
+          icon: 'pending_actions',
+          label: 'Alterações pendentes',
+          value: alteracoesPendentesPerfil,
+          helper: perfilSelecionado?.nome || 'Nenhum perfil selecionado',
+          tone: 'indigo',
+        },
+      ]}
         />
 
         <div class="settings-profile-workspace">
@@ -1323,10 +1527,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
             </header>
             <div class="settings-profile-list">
               ${perfis.length
-                ? perfis.map(
-                    (perfil) => {
-                      const selecionado = perfilSelecionado?.id === perfil.id;
-                      return html`
+        ? perfis.map(
+          (perfil) => {
+            const selecionado = perfilSelecionado?.id === perfil.id;
+            return html`
                         <article
                           key=${perfil.id}
                           class=${`settings-profile-card ${selecionado ? 'is-active' : ''}`.trim()}
@@ -1357,9 +1561,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                           </button>
                         </article>
                       `;
-                    },
-                  )
-                : html`
+          },
+        )
+        : html`
                     <${EmptyPanel}
                       icon="group_off"
                       title="Sem perfis"
@@ -1370,7 +1574,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
           </section>
 
           ${perfilSelecionado
-            ? html`
+        ? html`
                 <section class="c24-card settings-linked-users-card">
                   <header class="c24-card-header compact">
                     <div>
@@ -1381,21 +1585,21 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                     <div class="settings-card-actions">
                       <${Badge} label=${`${usuariosPerfilSelecionado.length} usuário(s)`} tone="info" />
                       ${usuariosPerfilSelecionado.length
-                        ? html`
+            ? html`
                             <button type="button" class="btn btn-outline-primary btn-sm" onClick=${abrirUsuariosDoPerfil}>
                               Ver todos
                             </button>
                           `
-                        : null}
+            : null}
                     </div>
                   </header>
                   ${usuariosPerfilSelecionado.length
-                    ? html`
+            ? html`
                         <div class="settings-linked-user-list">
                           ${usuariosPerfilSelecionado.slice(0, 5).map(
-                            (usuario) => {
-                              const areaUsuario = usuario.operacao || usuario.area || usuario.departamento || '';
-                              return html`
+              (usuario) => {
+                const areaUsuario = usuario.operacao || usuario.area || usuario.departamento || '';
+                return html`
                                 <article class="settings-linked-user-row" key=${usuario.id_usuario}>
                                   <span class="settings-avatar">${obterIniciais(usuario.nome || usuario.email)}</span>
                                   <div class="settings-row-main">
@@ -1419,11 +1623,11 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                                   </div>
                                 </article>
                               `;
-                            },
-                          )}
+              },
+            )}
                         </div>
                       `
-                    : html`
+            : html`
                         <p class="settings-linked-users-empty">
                           Este perfil ainda não possui usuários vinculados.
                         </p>
@@ -1482,8 +1686,8 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                       >
                         <option value="">Não comparar</option>
                         ${perfis
-                          .filter((perfil) => perfil.id !== perfilSelecionado.id)
-                          .map((perfil) => html`<option key=${perfil.id} value=${perfil.id}>${perfil.nome}</option>`)}
+            .filter((perfil) => perfil.id !== perfilSelecionado.id)
+            .map((perfil) => html`<option key=${perfil.id} value=${perfil.id}>${perfil.nome}</option>`)}
                       </select>
                     </${FilterField}>
                     <label class="c24-check-filter settings-active-filter">
@@ -1506,10 +1710,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
 
                   <div class="settings-permission-groups">
                     ${permissoesFiltradasPorModulo.length
-                      ? permissoesFiltradasPorModulo.map(
-                          ([modulo, itens]) => {
-                            const ativos = contarPor(itens, (permissao) => permissoesPerfilDraft.includes(permissao.chave));
-                            return html`
+            ? permissoesFiltradasPorModulo.map(
+              ([modulo, itens]) => {
+                const ativos = contarPor(itens, (permissao) => permissoesPerfilDraft.includes(permissao.chave));
+                return html`
                               <details class="settings-permission-group" key=${modulo} open>
                                 <summary>
                                   <span>
@@ -1520,20 +1724,20 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                                     <button
                                       type="button"
                                       onClick=${(event) => {
-                                        event.preventDefault();
-                                        event.stopPropagation();
-                                        alterarGrupoPermissoes(itens, true);
-                                      }}
+                    event.preventDefault();
+                    event.stopPropagation();
+                    alterarGrupoPermissoes(itens, true);
+                  }}
                                     >
                                       Marcar grupo
                                     </button>
                                     <button
                                       type="button"
                                       onClick=${(event) => {
-                                        event.preventDefault();
-                                        event.stopPropagation();
-                                        alterarGrupoPermissoes(itens, false);
-                                      }}
+                    event.preventDefault();
+                    event.stopPropagation();
+                    alterarGrupoPermissoes(itens, false);
+                  }}
                                     >
                                       Limpar grupo
                                     </button>
@@ -1541,10 +1745,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                                 </summary>
                                 <div class="settings-permission-list">
                                   ${itens.map(
-                                    (permissao) => {
-                                      const ativa = permissoesPerfilDraft.includes(permissao.chave);
-                                      const ativaComparado = perfilComparado ? permissaoEstaAtiva(perfilComparado, permissao.chave) : null;
-                                      return html`
+                    (permissao) => {
+                      const ativa = permissoesPerfilDraft.includes(permissao.chave);
+                      const ativaComparado = perfilComparado ? permissaoEstaAtiva(perfilComparado, permissao.chave) : null;
+                      return html`
                                         <label class=${`settings-permission-row ${ativa ? 'is-active' : ''}`.trim()} key=${permissao.chave}>
                                           <input
                                             type="checkbox"
@@ -1558,19 +1762,19 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                                           <span class="settings-permission-badges">
                                             <${Badge} label=${permissao.critica ? 'Crítica' : 'Operacional'} tone=${permissao.critica ? 'danger' : 'muted'} />
                                             ${perfilComparado
-                                              ? html`<${Badge} label=${ativaComparado ? 'no comparado' : 'fora do comparado'} tone=${ativaComparado ? 'success' : 'muted'} />`
-                                              : null}
+                          ? html`<${Badge} label=${ativaComparado ? 'no comparado' : 'fora do comparado'} tone=${ativaComparado ? 'success' : 'muted'} />`
+                          : null}
                                           </span>
                                         </label>
                                       `;
-                                    },
-                                  )}
+                    },
+                  )}
                                 </div>
                               </details>
                             `;
-                          },
-                        )
-                      : html`
+              },
+            )
+            : html`
                           <${EmptyPanel}
                             icon="shield_off"
                             title="Sem permissões"
@@ -1580,7 +1784,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                   </div>
                 </section>
               `
-            : html`
+        : html`
                 <section class="c24-card settings-profile-empty-card">
                   <${EmptyPanel}
                     icon="rule"
@@ -1608,9 +1812,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
           </header>
           <div class="settings-area-list">
             ${catalogo.map(
-              (secao) => {
-                const ativos = contarPor(secao.items, (item) => item.ativo);
-                return html`
+    (secao) => {
+      const ativos = contarPor(secao.items, (item) => item.ativo);
+      return html`
                   <button
                     type="button"
                     key=${secao.tipo}
@@ -1622,8 +1826,8 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                     <small>${ativos}/${normalizarLista(secao.items).length} ativos</small>
                   </button>
                 `;
-              },
-            )}
+    },
+  )}
           </div>
         </section>
 
@@ -1636,7 +1840,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
             </div>
             <div class="settings-card-actions">
               ${itemEmEdicao
-                ? html`
+      ? html`
                     <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => duplicarItem(itemEmEdicao)}>
                       <${Icone} name="content_copy" /> Duplicar
                     </button>
@@ -1644,7 +1848,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                       <${Icone} name="archive" /> Arquivar
                     </button>
                   `
-                : null}
+      : null}
             </div>
           </header>
           <form class="c24-form-grid settings-rule-form" onSubmit=${salvarItem}>
@@ -1788,17 +1992,17 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                 onChange=${(event) => setFiltrosCatalogo({ ...filtrosCatalogo, status: event.target.value })}
               >
                 ${STATUS_ITEM.map(
-                  (item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`,
-                )}
+        (item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`,
+      )}
               </select>
             </${FilterField}>
           </div>
 
           ${itensCatalogoFiltrados.length
-            ? html`
+      ? html`
                 <div class="settings-catalog-items">
                   ${itensCatalogoFiltrados.map(
-                    (item) => html`
+        (item) => html`
                       <article class=${`settings-catalog-item ${String(item.id_item) === String(formItem.id_item) ? 'is-active' : ''}`.trim()} key=${item.id_item}>
                         <button type="button" class="settings-catalog-item-main" onClick=${() => editarItem(item)}>
                           <span class="settings-catalog-icon"><${Icone} name=${CATALOGO_ICONS[secaoCatalogoAtiva?.tipo] || 'settings'} /></span>
@@ -1818,7 +2022,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                         </div>
                       </article>
                     `,
-                  )}
+      )}
                 </div>
                 <div class="settings-list-footer">
                   <span>${itensCatalogoFiltrados.length} exibidos de ${itensCatalogo.length}</span>
@@ -1827,7 +2031,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                   </button>
                 </div>
               `
-            : html`
+      : html`
                 <${EmptyPanel}
                   icon="inventory_2"
                   title="Sem itens"
@@ -1846,38 +2050,38 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     <div class="settings-admin-shell">
       <${StatGrid}
         items=${[
-          {
-            icon: 'today',
-            label: 'Ações hoje',
-            value: contarPor(logs, (log) => {
-              const data = new Date(log.data_hora);
-              return !Number.isNaN(data.getTime()) && data.getTime() >= hojeSemHora().getTime();
-            }),
-            helper: 'Desde 00:00',
-            tone: 'blue',
-          },
-          {
-            icon: 'priority_high',
-            label: 'Críticas',
-            value: contarPor(logs, (log) => inferirCriticidadeLog(log) === 'Crítica'),
-            helper: 'Permissões, senha e bloqueios',
-            tone: 'yellow',
-          },
-          {
-            icon: 'error',
-            label: 'Falhas',
-            value: contarPor(logs, (log) => log.sucesso === false),
-            helper: 'Eventos sem sucesso',
-            tone: 'red',
-          },
-          {
-            icon: 'login',
-            label: 'Logins recentes',
-            value: contarPor(logs, (log) => normalizarBusca(log.acao).includes('login')),
-            helper: 'Entradas e recusas',
-            tone: 'green',
-          },
-        ]}
+      {
+        icon: 'today',
+        label: 'Ações hoje',
+        value: contarPor(logs, (log) => {
+          const data = new Date(log.data_hora);
+          return !Number.isNaN(data.getTime()) && data.getTime() >= hojeSemHora().getTime();
+        }),
+        helper: 'Desde 00:00',
+        tone: 'blue',
+      },
+      {
+        icon: 'priority_high',
+        label: 'Críticas',
+        value: contarPor(logs, (log) => inferirCriticidadeLog(log) === 'Crítica'),
+        helper: 'Permissões, senha e bloqueios',
+        tone: 'yellow',
+      },
+      {
+        icon: 'error',
+        label: 'Falhas',
+        value: contarPor(logs, (log) => log.sucesso === false),
+        helper: 'Eventos sem sucesso',
+        tone: 'red',
+      },
+      {
+        icon: 'login',
+        label: 'Logins recentes',
+        value: contarPor(logs, (log) => normalizarBusca(log.acao).includes('login')),
+        helper: 'Entradas e recusas',
+        tone: 'green',
+      },
+    ]}
       />
 
       <section class="c24-card settings-logs-panel">
@@ -1904,9 +2108,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               value=${filtrosLogs.busca}
               placeholder="Texto livre"
               onInput=${(event) => {
-                setFiltrosLogs({ ...filtrosLogs, busca: event.target.value });
-                setPaginaLogs(1);
-              }}
+      setFiltrosLogs({ ...filtrosLogs, busca: event.target.value });
+      setPaginaLogs(1);
+    }}
             />
           </${FilterField}>
           <${FilterField} label="Módulo">
@@ -1914,9 +2118,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               class="form-select"
               value=${filtrosLogs.modulo}
               onChange=${(event) => {
-                setFiltrosLogs({ ...filtrosLogs, modulo: event.target.value });
-                setPaginaLogs(1);
-              }}
+      setFiltrosLogs({ ...filtrosLogs, modulo: event.target.value });
+      setPaginaLogs(1);
+    }}
             >
               <option value="">Todos</option>
               ${modulosLogs.map((modulo) => html`<option key=${modulo} value=${modulo}>${modulo}</option>`)}
@@ -1927,9 +2131,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               class="form-select"
               value=${filtrosLogs.acao}
               onChange=${(event) => {
-                setFiltrosLogs({ ...filtrosLogs, acao: event.target.value });
-                setPaginaLogs(1);
-              }}
+      setFiltrosLogs({ ...filtrosLogs, acao: event.target.value });
+      setPaginaLogs(1);
+    }}
             >
               <option value="">Todas</option>
               ${acoesLogs.map((acao) => html`<option key=${acao} value=${acao}>${acao}</option>`)}
@@ -1940,9 +2144,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               class="form-control"
               value=${filtrosLogs.usuario}
               onInput=${(event) => {
-                setFiltrosLogs({ ...filtrosLogs, usuario: event.target.value });
-                setPaginaLogs(1);
-              }}
+      setFiltrosLogs({ ...filtrosLogs, usuario: event.target.value });
+      setPaginaLogs(1);
+    }}
             />
           </${FilterField}>
           <${FilterField} label="Criticidade" icon="priority_high">
@@ -1950,9 +2154,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               class="form-select"
               value=${filtrosLogs.criticidade}
               onChange=${(event) => {
-                setFiltrosLogs({ ...filtrosLogs, criticidade: event.target.value });
-                setPaginaLogs(1);
-              }}
+      setFiltrosLogs({ ...filtrosLogs, criticidade: event.target.value });
+      setPaginaLogs(1);
+    }}
             >
               <option value="">Todas</option>
               <option value="Operacional">Operacional</option>
@@ -1965,9 +2169,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               class="form-select"
               value=${filtrosLogs.periodo}
               onChange=${(event) => {
-                setFiltrosLogs({ ...filtrosLogs, periodo: event.target.value });
-                setPaginaLogs(1);
-              }}
+      setFiltrosLogs({ ...filtrosLogs, periodo: event.target.value });
+      setPaginaLogs(1);
+    }}
             >
               <option value="">Todo período</option>
               <option value="hoje">Hoje</option>
@@ -1979,22 +2183,22 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
             type="button"
             class="btn btn-outline-secondary btn-sm"
             onClick=${() => {
-              setFiltrosLogs({ busca: '', modulo: '', acao: '', usuario: '', criticidade: '', status: '', periodo: '' });
-              setPaginaLogs(1);
-            }}
+      setFiltrosLogs({ busca: '', modulo: '', acao: '', usuario: '', criticidade: '', status: '', periodo: '' });
+      setPaginaLogs(1);
+    }}
           >
             Limpar
           </button>
         </div>
 
         ${paginacaoLogs.itens.length
-          ? html`
+      ? html`
               <div class="settings-log-list">
                 ${paginacaoLogs.itens.map(
-                  (log) => {
-                    const aberto = String(logExpandidoId) === String(log.id_log);
-                    const criticidade = inferirCriticidadeLog(log);
-                    return html`
+        (log) => {
+          const aberto = String(logExpandidoId) === String(log.id_log);
+          const criticidade = inferirCriticidadeLog(log);
+          return html`
                       <article class=${`settings-log-card ${aberto ? 'is-open' : ''}`.trim()} key=${log.id_log}>
                         <button
                           type="button"
@@ -2020,7 +2224,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                           </span>
                         </button>
                         ${aberto
-                          ? html`
+              ? html`
                               <div class="settings-log-details">
                                 <div>
                                   <strong>Antes</strong>
@@ -2037,15 +2241,15 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                                 </div>
                               </div>
                             `
-                          : null}
+              : null}
                       </article>
                     `;
-                  },
-                )}
+        },
+      )}
               </div>
               <${PaginacaoCompacta} paginacao=${paginacaoLogs} onChange=${setPaginaLogs} />
             `
-          : html`
+      : html`
               <${EmptyPanel}
                 icon="history_off"
                 title="Sem logs"
@@ -2069,27 +2273,12 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       <${PageIntro}
         kicker="Console - Administração"
         title=${abasPermitidas.find((aba) => aba.id === abaRenderizada)?.label || 'Configurações'}
-        description="Gerencie esta área administrativa em uma tela própria."
-        actions=${html`
-          <div class="c24-tabs">
-            ${abasPermitidas.map(
-              (aba) => html`
-                <${BotaoAba}
-                  key=${aba.id}
-                  aba=${aba}
-                  ativa=${abaRenderizada === aba.id}
-                  onClick=${() => controlador.irParaTelaProtegida(aba.tela)}
-                />
-              `,
-            )}
-          </div>
-        `}
       />
 
       ${erro ? html`<div class="alert alert-danger c24-feedback">${erro}</div>` : null}
       ${feedback ? html`<div class="alert alert-success c24-feedback">${feedback}</div>` : null}
       ${carregando
-        ? html`
+      ? html`
             <div class="c24-loading-panel">
               <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
               <div>
@@ -2098,21 +2287,21 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               </div>
             </div>
           `
-          : !abasPermitidas.length
-          ? html`
+      : !abasPermitidas.length
+        ? html`
               <${EmptyPanel}
                 icon="lock"
                 title="Sem permissão"
                 text="Seu perfil não tem acesso a esta área administrativa."
               />
             `
-          : abaRenderizada === 'usuarios'
-            ? renderUsuarios()
-            : abaRenderizada === 'perfis'
-              ? renderPerfis()
-              : abaRenderizada === 'catalogos'
-                ? renderCatalogos()
-                : renderLogs()}
+        : abaRenderizada === 'usuarios'
+          ? renderUsuarios()
+          : abaRenderizada === 'perfis'
+            ? renderPerfis()
+            : abaRenderizada === 'catalogos'
+              ? renderCatalogos()
+              : renderLogs()}
     </${PainelRh}>
   `;
 }

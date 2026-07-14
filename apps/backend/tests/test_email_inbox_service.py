@@ -54,6 +54,68 @@ def make_cv_message(filename: str = "curriculo_joao.pdf") -> EmailMessage:
     return message
 
 
+def make_work_with_us_message(*, html_body: bool = True, attachment: bool = False, experience: str = " Sim ") -> EmailMessage:
+    message = EmailMessage()
+    message["From"] = "Site Central24 <site@central24horas.com.br>"
+    message["Subject"] = "[Site] Candidato (RH)"
+    message["Date"] = "Sun, 10 May 2026 11:00:00 -0300"
+    message["Message-ID"] = "<trabalhe-conosco@example.com>"
+    text = f"""
+Novo cadastro RH
+
+Nome
+Teste Candidato
+
+Endereço
+Rua Teste
+
+E-mail
+teste@ovlk.com.br
+
+Telefone
++55 (11) 1231-2312
+
+Escolaridade
+1º Grau
+
+Experiência
+{experience}
+
+Pesquisa cultural
+
+Música
+boa
+
+Prato
+cheio
+
+Futebol
+não liga
+
+Time
+que ganha
+
+Rede social
+https://social.example/teste
+
+Currículo anexado
+Sim
+"""
+    if html_body:
+        html = "".join(f"<p>{line}</p>" for line in text.splitlines())
+        message.add_alternative(html, subtype="html")
+    else:
+        message.set_content(text)
+    if attachment:
+        message.add_attachment(
+            b"%PDF-1.4\nconteudo",
+            maintype="application",
+            subtype="pdf",
+            filename="curriculo_teste.pdf",
+        )
+    return message
+
+
 def test_status_disabled_returns_local_warning(monkeypatch):
     monkeypatch.delenv("RH_EMAIL_CLIENT_SECRET_TEST", raising=False)
     service = EmailInboxService(make_settings(email_inbox_enabled=False))
@@ -103,6 +165,52 @@ def test_serialize_message_detects_cv_and_ignores_signature_image(monkeypatch):
     assert item["nome_detectado"] == "Joao Silva"
     assert item["vaga_detectada"] == "Jovem Aprendiz"
     assert item["email_detectado"] == "joao@example.com"
+
+
+def test_serialize_message_extracts_work_with_us_html_fields(monkeypatch):
+    monkeypatch.setenv("RH_EMAIL_CLIENT_SECRET_TEST", "super-secret")
+    service = EmailInboxService(make_settings())
+
+    item = service._serialize_message("43", make_work_with_us_message(attachment=True))
+
+    assert item["trabalhe_conosco"] is True
+    assert item["nome_detectado"] == "Teste Candidato"
+    assert item["email_detectado"] == "teste@ovlk.com.br"
+    assert item["telefone_detectado"] == "+55 (11) 1231-2312"
+    assert item["experiencia_detectada"] == "Sim"
+    assert item["campos_formulario"]["endereco"] == "Rua Teste"
+    assert item["campos_formulario"]["escolaridade"] == "1º Grau"
+    assert item["campos_formulario"]["musica"] == "boa"
+    assert item["campos_formulario"]["rede_social"] == "https://social.example/teste"
+    assert item["possui_anexo"] is True
+
+
+def test_serialize_message_extracts_work_with_us_plain_text_without_cv(monkeypatch):
+    monkeypatch.setenv("RH_EMAIL_CLIENT_SECRET_TEST", "super-secret")
+    service = EmailInboxService(make_settings())
+
+    item = service._serialize_message(
+        "44",
+        make_work_with_us_message(html_body=False, attachment=False, experience="  não "),
+    )
+
+    assert item["trabalhe_conosco"] is True
+    assert item["experiencia_detectada"] == "Nao"
+    assert item["possui_anexo"] is False
+    assert "Curriculo informado como anexado" in " ".join(item["inconsistencias"])
+
+
+def test_serialize_message_does_not_classify_regular_email_without_form(monkeypatch):
+    monkeypatch.setenv("RH_EMAIL_CLIENT_SECRET_TEST", "super-secret")
+    service = EmailInboxService(make_settings())
+    message = EmailMessage()
+    message["From"] = "Fornecedor <fornecedor@example.com>"
+    message["Subject"] = "Reunião semanal"
+    message.set_content("Segue resumo da reunião, sem dados de candidatura.")
+
+    item = service._serialize_message("45", message)
+
+    assert item["trabalhe_conosco"] is False
 
 
 def test_download_cv_attachment_sanitizes_and_preserves_unique_names(monkeypatch):

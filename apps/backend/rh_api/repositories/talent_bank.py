@@ -263,8 +263,16 @@ class TalentBankRepositoryMixin:
                 email=email or None,
                 telefone=telefone or None,
                 whatsapp=whatsapp or None,
+                endereco=normalize_text(data.get("endereco")) or None,
                 cidade=normalize_text(data.get("cidade")) or None,
                 bairro=normalize_text(data.get("bairro")) or None,
+                escolaridade=normalize_text(data.get("escolaridade")) or None,
+                possui_experiencia=normalize_text(data.get("possui_experiencia")) or None,
+                musica=normalize_text(data.get("musica")) or None,
+                prato=normalize_text(data.get("prato")) or None,
+                futebol=normalize_text(data.get("futebol")) or None,
+                time=normalize_text(data.get("time")) or None,
+                rede_social=normalize_text(data.get("rede_social")) or None,
             )
             if id_processo or id_processo_ref:
                 cursor.execute(

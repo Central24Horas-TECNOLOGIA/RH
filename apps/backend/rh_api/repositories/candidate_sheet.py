@@ -76,6 +76,12 @@ class CandidateSheetRepositoryMixin:
                 bairro,
                 idade,
                 escolaridade,
+                possui_experiencia,
+                musica,
+                prato,
+                futebol,
+                time,
+                rede_social,
                 atualizado_em
             FROM candidatos_metadata
             WHERE id_teste = ?
@@ -579,6 +585,12 @@ class CandidateSheetRepositoryMixin:
                     "bairro": normalize_text(profile.get("bairro") or primary_process.get("bairro")),
                     "idade": profile.get("idade"),
                     "escolaridade": normalize_text(profile.get("escolaridade")),
+                    "possui_experiencia": normalize_text(profile.get("possui_experiencia")),
+                    "musica": normalize_text(profile.get("musica")),
+                    "prato": normalize_text(profile.get("prato")),
+                    "futebol": normalize_text(profile.get("futebol")),
+                    "time": normalize_text(profile.get("time")),
+                    "rede_social": normalize_text(profile.get("rede_social")),
                     "skills": skills,
                     "qualidades_cv": [normalize_text(item) for item in qualities if normalize_text(item)],
                     "aderencia_percentual": adherence_percent,
@@ -663,8 +675,16 @@ class CandidateSheetRepositoryMixin:
                 email=payload.get("email") if "email" in payload else None,
                 telefone=payload.get("telefone") if "telefone" in payload else None,
                 whatsapp=payload.get("whatsapp") if "whatsapp" in payload else None,
+                endereco=payload.get("endereco") if "endereco" in payload else None,
                 cidade=payload.get("cidade") if "cidade" in payload else None,
                 bairro=payload.get("bairro") if "bairro" in payload else None,
+                escolaridade=payload.get("escolaridade") if "escolaridade" in payload else None,
+                possui_experiencia=payload.get("possui_experiencia") if "possui_experiencia" in payload else None,
+                musica=payload.get("musica") if "musica" in payload else None,
+                prato=payload.get("prato") if "prato" in payload else None,
+                futebol=payload.get("futebol") if "futebol" in payload else None,
+                time=payload.get("time") if "time" in payload else None,
+                rede_social=payload.get("rede_social") if "rede_social" in payload else None,
             )
             self._sync_candidate_identity_copies(
                 cursor,

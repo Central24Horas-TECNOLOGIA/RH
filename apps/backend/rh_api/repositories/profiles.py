@@ -166,8 +166,16 @@ class CandidateProfileRepositoryMixin:
                 email=safe_email or None,
                 telefone=safe_phone or None,
                 whatsapp=safe_whatsapp or None,
+                endereco=data.get("endereco") if "endereco" in data else None,
                 cidade=data.get("cidade") if normalize_text(data.get("cidade")) else None,
                 bairro=data.get("bairro") if normalize_text(data.get("bairro")) else None,
+                escolaridade=data.get("escolaridade") if "escolaridade" in data else None,
+                possui_experiencia=data.get("possui_experiencia") if "possui_experiencia" in data else None,
+                musica=data.get("musica") if "musica" in data else None,
+                prato=data.get("prato") if "prato" in data else None,
+                futebol=data.get("futebol") if "futebol" in data else None,
+                time=data.get("time") if "time" in data else None,
+                rede_social=data.get("rede_social") if "rede_social" in data else None,
             )
             self._sync_candidate_identity_copies(
                 cursor,
@@ -190,8 +198,16 @@ class CandidateProfileRepositoryMixin:
                     email,
                     telefone,
                     whatsapp,
+                    endereco,
                     cidade,
-                    bairro
+                    bairro,
+                    escolaridade,
+                    possui_experiencia,
+                    musica,
+                    prato,
+                    futebol,
+                    time,
+                    rede_social
                 FROM candidatos_metadata
                 WHERE id_teste = ?
                 """,
@@ -212,8 +228,16 @@ class CandidateProfileRepositoryMixin:
                         "email": updated[6] if updated else safe_email,
                         "telefone": updated[7] if updated else safe_phone,
                         "whatsapp": updated[8] if updated else safe_whatsapp,
-                        "cidade": updated[9] if updated else data.get("cidade", ""),
-                        "bairro": updated[10] if updated else data.get("bairro", ""),
+                        "endereco": updated[9] if updated else data.get("endereco", ""),
+                        "cidade": updated[10] if updated else data.get("cidade", ""),
+                        "bairro": updated[11] if updated else data.get("bairro", ""),
+                        "escolaridade": updated[12] if updated else data.get("escolaridade", ""),
+                        "possui_experiencia": updated[13] if updated else data.get("possui_experiencia", ""),
+                        "musica": updated[14] if updated else data.get("musica", ""),
+                        "prato": updated[15] if updated else data.get("prato", ""),
+                        "futebol": updated[16] if updated else data.get("futebol", ""),
+                        "time": updated[17] if updated else data.get("time", ""),
+                        "rede_social": updated[18] if updated else data.get("rede_social", ""),
                     }
                 ),
             }
