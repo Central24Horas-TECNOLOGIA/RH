@@ -23,7 +23,6 @@ import { PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
 const ABAS = [
   { id: 'usuarios', tela: 'screen-settings-users', label: 'Usuários', permissao: 'usuarios.visualizar', icon: 'person' },
   { id: 'perfis', tela: 'screen-settings-profiles', label: 'Perfis e permissões', permissao: 'configuracoes.visualizar', icon: 'admin_panel_settings' },
-  { id: 'catalogos', tela: 'screen-settings-rules', label: 'Regras reutilizáveis', permissao: 'configuracoes.visualizar', icon: 'rebase_edit' },
   { id: 'logs', tela: 'screen-settings-logs', label: 'Logs', permissao: 'logs.visualizar', icon: 'history_edu' },
 ];
 const ABA_POR_TELA = ABAS.reduce((mapa, aba) => ({ ...mapa, [aba.tela]: aba.id }), {

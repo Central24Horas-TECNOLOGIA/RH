@@ -25,6 +25,7 @@ import {
 import { baixarBlob, obterItensPaginados } from '../../utilitarios.js';
 import {
   EmptyState,
+  LoadingState,
   MetricGrid,
   ModalPadrao,
   PageIntro,
@@ -1144,17 +1145,17 @@ export function TelaDetalhesCandidato({ controlador }) {
   const [enviandoCvFicha, setEnviandoCvFicha] = useState(false);
   const [analisandoCvFicha, setAnalisandoCvFicha] = useState(false);
 
-  const carregar = async () => {
+  const carregar = async ({ forcar = false } = {}) => {
     setCarregando(true);
     setErro('');
     try {
       const [historicoResp, candidatosResp, bancoResp, entrevistasResp, processosResp] =
         await Promise.allSettled([
           lerHistorico(),
-          lerCandidatosProcessos(true),
-          lerBancoTalentos(),
+          lerCandidatosProcessos({ forcar }),
+          lerBancoTalentos({ forcar }),
           lerEntrevistas(),
-          lerProcessos(true),
+          lerProcessos({ forcar }),
         ]);
       const historico = historicoResp.status === 'fulfilled' && Array.isArray(historicoResp.value) ? historicoResp.value : [];
       const candidatosProcessos = candidatosResp.status === 'fulfilled' && Array.isArray(candidatosResp.value) ? candidatosResp.value : [];
@@ -1512,7 +1513,14 @@ export function TelaDetalhesCandidato({ controlador }) {
 
       ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
       ${mensagem ? html`<div class="alert alert-success">${mensagem}</div>` : null}
-      ${carregando ? html`<div class="alert alert-secondary">Carregando candidato...</div>` : null}
+      ${carregando
+        ? html`
+            <${LoadingState}
+              titulo="Carregando candidato"
+              descricao="Buscando ficha, histórico e vínculos do candidato."
+            />
+          `
+        : null}
 
       <${MetricGrid}
         items=${[
@@ -1947,16 +1955,16 @@ export function TelaCandidatos({ controlador }) {
     setArquivoCvDetalhe(null);
   };
 
-  const carregar = async () => {
+  const carregar = async ({ forcar = false } = {}) => {
     setCarregando(true);
     setErro('');
 
     try {
       const resultados = await Promise.allSettled([
         lerHistorico(),
-        lerCandidatosProcessos(true),
-        lerBancoTalentos({ forcar: true }),
-        lerProcessos(true),
+        lerCandidatosProcessos({ forcar }),
+        lerBancoTalentos({ forcar }),
+        lerProcessos({ forcar }),
         lerEntrevistas(),
       ]);
 
@@ -2723,7 +2731,7 @@ export function TelaCandidatos({ controlador }) {
             type="button"
             class="btn btn-outline-primary"
             disabled=${carregando || salvando}
-            onClick=${carregar}
+            onClick=${() => carregar({ forcar: true })}
           >
             Atualizar
           </button>

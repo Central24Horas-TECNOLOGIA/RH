@@ -1,16 +1,33 @@
-import { html, lazy, Suspense, useEffect } from '../infraestrutura-react.js';
-"Teste de commit - Aplicação Raiz";
+﻿import { html, lazy, Suspense, useEffect } from '../infraestrutura-react.js';
+"Teste de commit - AplicaÃ§Ã£o Raiz";
 import {
   navegarParaTela,
   usarTelaAtual,
   useControladorAplicacao,
 } from './controlador-aplicacao.js';
+import { LoadingState } from '../ui/componentes-compartilhados.js';
 
 function carregarTela(importador, nomeExportado) {
   return lazy(() => importador().then((modulo) => ({ default: modulo[nomeExportado] })));
 }
 
-const importarGestao = () => import('../features/telas-gestao.js');
+function TelaCarregando({
+  titulo = 'Carregando tela',
+  descricao = 'Aguarde enquanto preparamos as informaÃ§Ãµes.',
+}) {
+  return html`
+    <section class="active screen" id="screen-loading">
+      <div class="container py-5">
+        <${LoadingState}
+          titulo=${titulo}
+          descricao=${descricao}
+        />
+      </div>
+    </section>
+  `;
+}
+
+const importarGestao = () => import('../features/telas-gestao.js?v=20260714-cache-email-fix');
 const importarProcessos = () => import('../features/telas-processos.js');
 const importarProva = () => import('../features/telas-prova.js');
 
@@ -121,13 +138,10 @@ function ConteudoAplicacao() {
 
   if (controlador.estado.validandoSessao) {
     return html`
-      <section class="active screen" id="screen-loading">
-        <div class="container py-5">
-          <div class="alert alert-secondary mb-0">
-            Validando sessão do usuário...
-          </div>
-        </div>
-      </section>
+      <${TelaCarregando}
+        titulo="Validando sessão"
+        descricao="Confirmando seu acesso antes de abrir o painel."
+      />
     `;
   }
 
@@ -195,7 +209,6 @@ function ConteudoAplicacao() {
     telaResolvida === 'screen-settings' ||
     telaResolvida === 'screen-settings-users' ||
     telaResolvida === 'screen-settings-profiles' ||
-    telaResolvida === 'screen-settings-rules' ||
     telaResolvida === 'screen-settings-logs'
   ) {
     return html`
@@ -216,7 +229,7 @@ function ConteudoAplicacao() {
         <div class="container py-5">
           <div class="alert alert-warning mb-3">
             ${controlador.estado.avisoAcessoNegado ||
-            'Você não possui permissão para acessar esta área ou executar esta ação.'}
+            'VocÃª nÃ£o possui permissÃ£o para acessar esta Ã¡rea ou executar esta aÃ§Ã£o.'}
           </div>
           <button
             type="button"
@@ -251,7 +264,7 @@ function ConteudoAplicacao() {
 
 export function Aplicacao() {
   return html`
-    <${Suspense} fallback=${html`<section class="active screen" id="screen-loading"><div class="container py-5"><div class="alert alert-secondary mb-0">Carregando tela...</div></div></section>`}>
+    <${Suspense} fallback=${html`<${TelaCarregando} />`}>
       <${ConteudoAplicacao} />
     </${Suspense}>
   `;

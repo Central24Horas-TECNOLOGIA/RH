@@ -106,7 +106,7 @@ def logout(
     if hasattr(repository, "record_audit_log"):
         repository.record_audit_log(
             user=user,
-            modulo="Autenticacao",
+            modulo="Autenticação",
             acao="logout",
             entidade="sessao",
             entidade_id=user.username,

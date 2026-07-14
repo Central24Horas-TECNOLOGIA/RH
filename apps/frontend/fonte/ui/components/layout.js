@@ -47,7 +47,7 @@ function BarraLateral({
     {
       tela: 'screen-processes',
       icone: 'view_list',
-      label: 'Processos',
+      label: 'Processos Seletivos',
       permissao: 'vagas.visualizar',
     },
     {
@@ -93,12 +93,6 @@ function BarraLateral({
       permissao: 'configuracoes.visualizar',
     },
     {
-      tela: 'screen-settings-rules',
-      icone: 'rebase_edit',
-      label: 'Regras reutilizáveis',
-      permissao: 'configuracoes.visualizar',
-    },
-    {
       tela: 'screen-settings-logs',
       icone: 'history_edu',
       label: 'Logs',
@@ -124,7 +118,6 @@ function BarraLateral({
     'screen-settings',
     'screen-settings-users',
     'screen-settings-profiles',
-    'screen-settings-rules',
     'screen-settings-logs',
   ];
   const possuiPermissao = (permissao) =>
@@ -246,7 +239,7 @@ function BarraLateral({
           ? 'is-active'
           : ''
           }`.trim()}
-                  title="Processos"
+                  title="Recrutamento"
                   aria-expanded=${!recolhida && submenuProcessosAberto}
                   aria-controls="rh-modern-subnav-processos"
                   aria-current=${grupoProcessosAtivo && !subitemProcessoAtivo ? 'page' : null
@@ -266,7 +259,7 @@ function BarraLateral({
                   <span class="material-symbols-outlined" aria-hidden="true">
                     business_center
                   </span>
-                  <span class="rh-modern-nav-label">Processos</span>
+                  <span class="rh-modern-nav-label">Recrutamento</span>
                   <span
                     class="material-symbols-outlined rh-modern-nav-chevron"
                     aria-hidden="true"
@@ -280,7 +273,7 @@ function BarraLateral({
                         class="rh-modern-subnav"
                         id="rh-modern-subnav-processos"
                         role="group"
-                        aria-label="Submenu de Processos"
+                        aria-label="Submenu de Recrutamento"
                       >
                         ${sublinksProcessos.filter((subitem) => possuiPermissao(subitem.permissao)).map(
             (subitem) => html`

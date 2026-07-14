@@ -653,6 +653,28 @@ def ensure_process_columns(cursor) -> None:
         END
         """
     )
+    for column_name, sql_type in (
+        ("status_anterior", "NVARCHAR(80)"),
+        ("status_operacional_anterior", "NVARCHAR(80)"),
+        ("justificativa_status", "NVARCHAR(MAX)"),
+        ("status_alterado_por", "NVARCHAR(180)"),
+        ("status_alterado_em", "DATETIME"),
+        ("ultima_movimentacao_relevante_em", "DATETIME"),
+        ("ultimo_alerta_inatividade_em", "DATETIME"),
+        ("tempo_pausa", "NVARCHAR(80)"),
+        ("pausa_inicio_em", "DATETIME"),
+        ("pausa_previsao_termino", "DATETIME"),
+        ("pausa_retomada_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.processos_seletivos', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.processos_seletivos
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
 
 
 def ensure_candidate_metadata_table(cursor) -> None:
@@ -868,6 +890,30 @@ def ensure_curriculo_ia_table(cursor) -> None:
         )
             CREATE INDEX IX_analises_curriculo_ia_criado_em
                 ON dbo.analises_curriculo_ia (criado_em DESC)
+        """
+    )
+
+
+def ensure_process_inactivity_alerts_table(cursor) -> None:
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.processos_alertas_inatividade', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.processos_alertas_inatividade (
+                id_alerta INT IDENTITY(1,1) PRIMARY KEY,
+                id_processo NVARCHAR(120) NOT NULL,
+                id_processo_ref NVARCHAR(255) NULL,
+                tipo NVARCHAR(80) NOT NULL,
+                titulo NVARCHAR(180) NOT NULL,
+                mensagem NVARCHAR(MAX) NOT NULL,
+                destinatarios NVARCHAR(MAX) NULL,
+                status_envio NVARCHAR(80) NULL,
+                dias_sem_movimentacao INT NOT NULL,
+                data_abertura DATETIME NULL,
+                data_ultima_movimentacao DATETIME NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
         """
     )
 

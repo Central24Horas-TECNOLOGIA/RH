@@ -29,7 +29,7 @@ from ..rbac import (
     normalize_role_id,
     sanitize_permissions,
 )
-from ..services.helpers import normalize_text, rows_to_dicts, safe_json_loads
+from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts, safe_json_loads
 
 
 def _json_dump(value) -> str:
@@ -68,6 +68,13 @@ def _actor_payload(user: AuthenticatedUser | dict | None) -> dict:
         "perfil_id": "",
         "perfil_nome": "",
     }
+
+
+def _display_audit_module(value: str) -> str:
+    safe_value = normalize_text(value)
+    if normalize_text(safe_value).lower().replace("ç", "c").replace("ã", "a") == "autenticacao":
+        return "Autenticação"
+    return safe_value
 
 
 class SecurityRepositoryMixin:
@@ -116,7 +123,7 @@ class SecurityRepositoryMixin:
                 actor.get("email"),
                 actor.get("perfil_id"),
                 actor.get("perfil_nome"),
-                normalize_text(modulo),
+                _display_audit_module(modulo),
                 normalize_text(acao),
                 normalize_text(entidade),
                 normalize_text(entidade_id),
@@ -877,7 +884,12 @@ class SecurityRepositoryMixin:
         safe_action = normalize_text(acao).lower()
         safe_user = normalize_text(usuario).lower()
         if safe_module:
-            rows = [item for item in rows if safe_module in normalize_text(item.get("modulo")).lower()]
+            safe_module_compare = normalize_compare_text(safe_module)
+            rows = [
+                item
+                for item in rows
+                if safe_module_compare in normalize_compare_text(item.get("modulo"))
+            ]
         if safe_action:
             rows = [item for item in rows if safe_action in normalize_text(item.get("acao")).lower()]
         if safe_user:
@@ -887,6 +899,8 @@ class SecurityRepositoryMixin:
                 if safe_user in normalize_text(item.get("nome_usuario")).lower()
                 or safe_user in normalize_text(item.get("email_usuario")).lower()
             ]
+        for item in rows:
+            item["modulo"] = _display_audit_module(item.get("modulo"))
         return rows
 
     def export_audit_logs_csv(self, *, limit: int = 500) -> tuple[str, str]:

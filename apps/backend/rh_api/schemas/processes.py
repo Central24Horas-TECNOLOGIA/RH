@@ -158,6 +158,27 @@ class ProcessUpdateRequest(BaseSchema):
         return self
 
 
+class ProcessStateChangeRequest(BaseSchema):
+    justificativa: str = ""
+    tempo_pausa: str = ""
+    pausa_previsao_termino: str = ""
+
+    @field_validator("justificativa")
+    @classmethod
+    def validate_required_reason(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) < 10:
+            raise ValueError("Informe uma justificativa com pelo menos 10 caracteres.")
+        if len(safe_value) > 3000:
+            raise ValueError("A justificativa deve ter no máximo 3000 caracteres.")
+        return safe_value
+
+    @field_validator("tempo_pausa", "pausa_previsao_termino")
+    @classmethod
+    def validate_optional_pause_fields(cls, value: str) -> str:
+        return str(value or "").strip()
+
+
 class ProcessDossierNoteCreateRequest(BaseSchema):
     id_teste: str = ""
     nome_candidato: str = ""

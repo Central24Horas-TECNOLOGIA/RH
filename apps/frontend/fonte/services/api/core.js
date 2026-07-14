@@ -17,11 +17,12 @@ export const URL_PUBLICA_BASE_CANDIDATURA =
   CONFIG_RUNTIME.PUBLIC_CANDIDATE_BASE_URL ||
   window.__RH_PUBLIC_CANDIDATE_BASE_URL__ ||
   '';
-const TEMPO_CACHE_PADRAO_MS = 30000;
-const TEMPO_CACHE_SENSIVEL_MS = 15000;
+const TEMPO_CACHE_PADRAO_MS = 60000;
+const TEMPO_CACHE_SENSIVEL_MS = 1800000;
 const TEMPO_CACHE_ESTATICO_MS = 300000;
 const PREFIXO_CACHE_SESSAO = 'rh_api_cache_v2:';
 const LIMITE_CACHE_SESSAO_CARACTERES = 1500000;
+const LIMITE_ITENS_CACHE_MEMORIA = 80;
 const CHAVE_TOKEN_AUTENTICACAO = 'rh_api_access_token';
 const CHAVE_USUARIO_AUTENTICADO = 'rh_api_authenticated_user';
 const CHAVE_SESSAO_AUTENTICACAO = 'rh_api_session_payload';
@@ -40,10 +41,13 @@ const PREFIXOS_CACHE_PERSISTENTE = [
 const PREFIXOS_CACHE_SENSIVEL = [
   'banco-talentos',
   'candidatos-processos',
+  'email-inbox',
   'entrevistas',
   'historico',
   'pipeline-candidatos',
   'processos:detalhe',
+  'provas-geradas',
+  'relatorios',
   'slots-entrevista',
 ];
 
@@ -87,6 +91,7 @@ function normalizarOpcoesCache(opcoes = {}) {
 }
 
 function lerCache(chave, opcoes = {}) {
+  limparCacheExpirado();
   const politica = normalizarOpcoesCache({ ...opcoes, chave });
   const entrada = cacheMemoria.get(chave);
   if (entrada) {
@@ -112,6 +117,28 @@ function lerCache(chave, opcoes = {}) {
   }
 }
 
+function limparCacheExpirado() {
+  const agora = Date.now();
+  Array.from(cacheMemoria.entries()).forEach(([chave, entrada]) => {
+    const politica = normalizarOpcoesCache({ chave });
+    const ttlEntrada = Number(entrada?.ttlMs || politica.ttlMs);
+    if (!entrada || agora - Number(entrada.timestamp || 0) > ttlEntrada) {
+      cacheMemoria.delete(chave);
+    }
+  });
+}
+
+function limitarCacheMemoria() {
+  limparCacheExpirado();
+  const excesso = cacheMemoria.size - LIMITE_ITENS_CACHE_MEMORIA;
+  if (excesso <= 0) return;
+
+  Array.from(cacheMemoria.entries())
+    .sort(([, a], [, b]) => Number(a?.timestamp || 0) - Number(b?.timestamp || 0))
+    .slice(0, excesso)
+    .forEach(([chave]) => cacheMemoria.delete(chave));
+}
+
 function gravarCache(chave, data, opcoes = {}) {
   const politica = normalizarOpcoesCache({ ...opcoes, chave });
   const entrada = {
@@ -120,6 +147,7 @@ function gravarCache(chave, data, opcoes = {}) {
     ttlMs: politica.ttlMs,
   };
   cacheMemoria.set(chave, entrada);
+  limitarCacheMemoria();
 
   if (!politica.persistente) {
     sessionStorage.removeItem(chaveCacheSessao(chave));
@@ -320,6 +348,18 @@ export function invalidarCacheApi(...chaves) {
       .forEach((cacheKey) => cacheMemoria.delete(cacheKey));
   });
   removerCacheSessaoPorPrefixo(...chaves);
+}
+
+export function atualizarCacheApi(chave, atualizador, opcoes = {}) {
+  const atual = lerCache(chave, opcoes);
+  const proximo = typeof atualizador === 'function' ? atualizador(atual) : atualizador;
+  gravarCache(chave, proximo, opcoes);
+  return proximo;
+}
+
+export function limparCachesExpiradosApi() {
+  limparCacheExpirado();
+  removerCacheSessaoPorPrefixo('__expired__');
 }
 
 export { gravarCache, lerCache };

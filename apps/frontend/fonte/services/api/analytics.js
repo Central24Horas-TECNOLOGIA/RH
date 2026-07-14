@@ -1,13 +1,33 @@
-import { requisitar, requisitarArquivo } from './core.js';
+import {
+  gravarCache,
+  lerCache,
+  montarChaveCacheApi,
+  requisitar,
+  requisitarArquivo,
+} from './core.js';
 
-export async function lerAnalisesCandidatos() {
-  return requisitar('/candidate-analytics', { method: 'GET' });
+export async function lerAnalisesCandidatos(forcar = false) {
+  const chaveCache = 'relatorios:analises-candidatos';
+  if (!forcar) {
+    const emCache = lerCache(chaveCache);
+    if (emCache) return emCache;
+  }
+  const dados = await requisitar('/candidate-analytics', { method: 'GET' });
+  gravarCache(chaveCache, dados, { sensivel: true });
+  return dados;
 }
 
-export async function lerDetalheAnaliseCandidato(idTeste) {
-  return requisitar(`/candidate-analytics/${encodeURIComponent(idTeste)}`, {
+export async function lerDetalheAnaliseCandidato(idTeste, forcar = false) {
+  const chaveCache = `relatorios:analise-candidato:${idTeste}`;
+  if (!forcar) {
+    const emCache = lerCache(chaveCache);
+    if (emCache) return emCache;
+  }
+  const dados = await requisitar(`/candidate-analytics/${encodeURIComponent(idTeste)}`, {
     method: 'GET',
   });
+  gravarCache(chaveCache, dados, { sensivel: true });
+  return dados;
 }
 
 function montarParametrosRelatorio(filtros = {}) {
@@ -21,9 +41,14 @@ function montarParametrosRelatorio(filtros = {}) {
 }
 
 export async function lerRelatorioProcessos(filtros = {}) {
-  return requisitar(`/reports/processes${montarParametrosRelatorio(filtros)}`, {
+  const chaveCache = montarChaveCacheApi('relatorios:processos', filtros);
+  const emCache = lerCache(chaveCache);
+  if (emCache) return emCache;
+  const dados = await requisitar(`/reports/processes${montarParametrosRelatorio(filtros)}`, {
     method: 'GET',
   });
+  gravarCache(chaveCache, dados, { sensivel: true });
+  return dados;
 }
 
 export async function baixarRelatorioProcessos(filtros = {}) {
@@ -34,9 +59,14 @@ export async function baixarRelatorioProcessos(filtros = {}) {
 }
 
 export async function lerRelatorioCandidatos(filtros = {}) {
-  return requisitar(`/reports/candidates${montarParametrosRelatorio(filtros)}`, {
+  const chaveCache = montarChaveCacheApi('relatorios:candidatos', filtros);
+  const emCache = lerCache(chaveCache);
+  if (emCache) return emCache;
+  const dados = await requisitar(`/reports/candidates${montarParametrosRelatorio(filtros)}`, {
     method: 'GET',
   });
+  gravarCache(chaveCache, dados, { sensivel: true });
+  return dados;
 }
 
 export async function baixarRelatorioCandidatos(filtros = {}) {

@@ -30,7 +30,9 @@ import { AcaoSair } from '../../shared/components/actions.js';
 import { formatarNotaVisual } from '../../shared/helpers-visuais.js';
 import {
   EmptyState,
+  LoadingState,
   MetricGrid,
+  ModalConfirmacaoAcao,
   ModalPadrao,
   PageIntro,
   PainelRh,
@@ -1708,6 +1710,9 @@ export function TelaProvasResultados({ controlador }) {
   const [detalhe, setDetalhe] = useState(null);
   const [avaliacaoManual, setAvaliacaoManual] = useState(null);
   const [decisaoRh, setDecisaoRh] = useState(null);
+  const [acaoSensivel, setAcaoSensivel] = useState(null);
+  const [salvandoAcaoSensivel, setSalvandoAcaoSensivel] = useState(false);
+  const [erroAcaoSensivel, setErroAcaoSensivel] = useState('');
 
   const carregar = async () => {
     setCarregando(true);
@@ -1826,24 +1831,35 @@ export function TelaProvasResultados({ controlador }) {
 
   const executarCancelamento = async (prova) => {
     if (!prova?.id_prova) return;
-    const motivo = window.prompt('Motivo do cancelamento da prova:');
-    if (motivo === null) return;
+    setErroAcaoSensivel('');
+    setAcaoSensivel({ tipo: 'cancelar', prova });
+  };
+
+  const confirmarCancelamento = async (prova, motivo) => {
     try {
+      setSalvandoAcaoSensivel(true);
       await cancelarProvaGerada(prova.id_prova, { motivo });
       setMensagem('Prova cancelada.');
       await carregar();
       if (detalhe?.id_prova === prova.id_prova) {
         setDetalhe(await lerProvaGerada(prova.id_prova));
       }
+      setSalvandoAcaoSensivel(false);
+      setAcaoSensivel(null);
     } catch (error) {
       setErro(error?.message || 'Não foi possível cancelar a prova.');
     }
   };
 
   const executarReabertura = async (prova) => {
-    const motivo = window.prompt('Motivo da reabertura da prova:');
-    if (!motivo) return;
+    if (!prova?.id_prova) return;
+    setErroAcaoSensivel('');
+    setAcaoSensivel({ tipo: 'reabrir', prova });
+  };
+
+  const confirmarReabertura = async (prova, motivo) => {
     try {
+      setSalvandoAcaoSensivel(true);
       await reabrirProvaGerada(prova.id_prova, {
         motivo,
         manter_respostas: true,
@@ -1853,7 +1869,11 @@ export function TelaProvasResultados({ controlador }) {
       if (detalhe?.id_prova === prova.id_prova) {
         setDetalhe(await lerProvaGerada(prova.id_prova));
       }
+      setSalvandoAcaoSensivel(false);
+      setAcaoSensivel(null);
     } catch (error) {
+      setSalvandoAcaoSensivel(false);
+      setSalvandoAcaoSensivel(false);
       setErro(error?.message || 'Não foi possível reabrir a prova.');
     }
   };
@@ -1985,7 +2005,12 @@ export function TelaProvasResultados({ controlador }) {
           </button>
         </div>
         ${carregando
-          ? html`<div class="alert alert-secondary mb-0">Carregando provas...</div>`
+          ? html`
+              <${LoadingState}
+                titulo="Carregando provas"
+                descricao="Buscando provas geradas, status e resultados."
+              />
+            `
           : provasFiltradas.length
             ? html`
                 <div class="table-responsive generated-exams-table">
@@ -2092,6 +2117,39 @@ export function TelaProvasResultados({ controlador }) {
               `
             : html`<${EmptyState} title="Nenhuma prova encontrada" text="Gere uma prova vinculada ao processo ou uma prova avulsa." />`}
       </${SectionCard}>
+
+      <${ModalConfirmacaoAcao}
+        aberto=${Boolean(acaoSensivel)}
+        titulo=${acaoSensivel?.tipo === 'cancelar' ? 'Cancelar prova' : 'Reabrir prova'}
+        descricao=${`Prova de ${acaoSensivel?.prova?.nome_candidato || 'candidato'} para ${acaoSensivel?.prova?.vaga || 'vaga não informada'}.`}
+        consequencia=${acaoSensivel?.tipo === 'cancelar'
+          ? 'O cancelamento interromperá a disponibilidade da prova e ficará registrado para auditoria.'
+          : 'A reabertura permitirá nova continuidade da prova, mantendo respostas conforme a regra atual.'}
+        reversibilidade=${acaoSensivel?.tipo === 'cancelar'
+          ? 'Esta ação poderá ser revertida posteriormente por reabertura autorizada.'
+          : 'Esta ação poderá ser revertida posteriormente por novo cancelamento autorizado.'}
+        labelJustificativa=${acaoSensivel?.tipo === 'cancelar'
+          ? 'Justificativa do cancelamento'
+          : 'Justificativa da reabertura'}
+        justificativaObrigatoria=${true}
+        textoConfirmar=${acaoSensivel?.tipo === 'cancelar'
+          ? 'Confirmar cancelamento'
+          : 'Confirmar reabertura'}
+        textoCancelar="Voltar"
+        tipo=${acaoSensivel?.tipo === 'cancelar' ? 'destrutivo' : 'aviso'}
+        carregando=${salvandoAcaoSensivel}
+        erro=${erroAcaoSensivel}
+        onClose=${() => {
+          if (!salvandoAcaoSensivel) setAcaoSensivel(null);
+        }}
+        onConfirm=${({ justificativa }) => {
+          if (acaoSensivel?.tipo === 'cancelar') {
+            confirmarCancelamento(acaoSensivel.prova, justificativa);
+            return;
+          }
+          confirmarReabertura(acaoSensivel?.prova, justificativa);
+        }}
+      />
 
       <${ModalGerarProva}
         aberto=${modalGerarAberto}

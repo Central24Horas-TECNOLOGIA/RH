@@ -15,6 +15,7 @@ from ..schemas.processes import (
     ProcessCandidateCreateRequest,
     ProcessCandidateStatusUpdateRequest,
     ProcessCreateRequest,
+    ProcessStateChangeRequest,
     ProcessUpdateRequest,
     StandaloneCandidateStatusUpdateRequest,
     TalentBankCreateRequest,
@@ -77,10 +78,15 @@ def update_process(
 @router.post("/processes/{id_processo}/close", dependencies=[Depends(require_permissions("vagas.encerrar"))])
 def close_process(
     id_processo: str,
+    payload: ProcessStateChangeRequest | None = Body(default=None),
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    result = repository.close_process(id_processo)
+    result = repository.close_process(
+        id_processo,
+        justificativa=payload.justificativa if payload else "",
+        usuario_responsavel=user.username,
+    )
     audit_action(
         repository,
         user,
@@ -88,6 +94,111 @@ def close_process(
         acao="encerrar_processo",
         entidade="processo",
         entidade_id=id_processo,
+        justificativa=payload.justificativa if payload else "",
+    )
+    return result
+
+
+@router.post("/processes/{id_processo}/pause", dependencies=[Depends(require_permissions("vagas.editar", "processos.editar"))])
+def pause_process(
+    id_processo: str,
+    payload: ProcessStateChangeRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.change_process_status(
+        id_processo,
+        novo_status="Pausado",
+        justificativa=payload.justificativa,
+        usuario_responsavel=user.username,
+        tempo_pausa=payload.tempo_pausa,
+        pausa_previsao_termino=payload.pausa_previsao_termino,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Processos",
+        acao="pausar_processo",
+        entidade="processo",
+        entidade_id=id_processo,
+        valor_anterior={"status": result.get("status_anterior")},
+        valor_novo={
+            "status": result.get("status_novo"),
+            "tempo_pausa": payload.tempo_pausa,
+            "pausa_previsao_termino": payload.pausa_previsao_termino,
+        },
+        justificativa=payload.justificativa,
+    )
+    return result
+
+
+@router.post("/processes/{id_processo}/resume", dependencies=[Depends(require_permissions("vagas.editar", "processos.editar"))])
+def resume_process(
+    id_processo: str,
+    payload: ProcessStateChangeRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.change_process_status(
+        id_processo,
+        novo_status="Aberto",
+        justificativa=payload.justificativa,
+        usuario_responsavel=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Processos",
+        acao="retomar_processo",
+        entidade="processo",
+        entidade_id=id_processo,
+        valor_anterior={"status": result.get("status_anterior")},
+        valor_novo={"status": result.get("status_novo")},
+        justificativa=payload.justificativa,
+    )
+    return result
+
+
+@router.post("/processes/{id_processo}/cancel", dependencies=[Depends(require_permissions("vagas.encerrar"))])
+def cancel_process(
+    id_processo: str,
+    payload: ProcessStateChangeRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.change_process_status(
+        id_processo,
+        novo_status="Cancelado",
+        justificativa=payload.justificativa,
+        usuario_responsavel=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Processos",
+        acao="cancelar_processo",
+        entidade="processo",
+        entidade_id=id_processo,
+        valor_anterior={"status": result.get("status_anterior")},
+        valor_novo={"status": result.get("status_novo")},
+        justificativa=payload.justificativa,
+    )
+    return result
+
+
+@router.post("/processes/inactivity-alerts/run", dependencies=[Depends(require_permissions("notificacoes.configurar"))])
+def run_process_inactivity_alerts(
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.monitor_process_inactivity(dias=30)
+    audit_action(
+        repository,
+        user,
+        modulo="Notificações",
+        acao="monitorar_processos_sem_movimentacao",
+        entidade="processos",
+        valor_novo=result,
     )
     return result
 

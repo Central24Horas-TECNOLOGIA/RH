@@ -7,6 +7,8 @@ import {
   requisitar,
 } from './core.js';
 
+const TEMPO_CACHE_EMAIL_INBOX_MS = 1800000;
+
 function normalizarOpcoesListagem(opcoesOuForcar = false) {
   if (typeof opcoesOuForcar === 'boolean') {
     return { forcar: opcoesOuForcar };
@@ -64,18 +66,51 @@ export async function atualizarProcesso(idProcesso, dadosProcesso) {
     },
   );
 
-  invalidarCacheApi('processos');
+  invalidarCacheApi('processos', `processos:detalhe:${idProcesso}`, 'relatorios');
   return resultado;
 }
 
-export async function encerrarProcesso(idProcesso) {
+export async function encerrarProcesso(idProcesso, payload = null) {
+  const opcoes = payload
+    ? {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    : { method: 'POST' };
   const resultado = await requisitar(
     `/processes/${encodeURIComponent(idProcesso)}/close`,
-    { method: 'POST' },
+    opcoes,
   );
 
-  invalidarCacheApi('processos');
+  invalidarCacheApi('processos', `processos:detalhe:${idProcesso}`, 'relatorios');
   return resultado;
+}
+
+async function alterarEstadoProcesso(idProcesso, acao, payload = {}) {
+  const resultado = await requisitar(
+    `/processes/${encodeURIComponent(idProcesso)}/${acao}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    },
+  );
+
+  invalidarCacheApi('processos', `processos:detalhe:${idProcesso}`, 'relatorios');
+  return resultado;
+}
+
+export async function pausarProcesso(idProcesso, payload = {}) {
+  return alterarEstadoProcesso(idProcesso, 'pause', payload);
+}
+
+export async function retomarProcesso(idProcesso, payload = {}) {
+  return alterarEstadoProcesso(idProcesso, 'resume', payload);
+}
+
+export async function cancelarProcesso(idProcesso, payload = {}) {
+  return alterarEstadoProcesso(idProcesso, 'cancel', payload);
 }
 
 export async function lerCandidatosProcessos(opcoesOuForcar = false) {
@@ -446,12 +481,29 @@ export async function adicionarPreAnaliseAoProcesso(idPreAnalise, opcoes = {}) {
   return resultado;
 }
 
-export async function lerEmailsRecebidosProcesso(idProcesso, limite = 12) {
+export async function lerEmailsRecebidosProcesso(idProcesso, limite = 12, forcar = false) {
   const params = new URLSearchParams({ limit: String(limite) });
-  return requisitar(
+  const chaveCache = montarChaveCacheApi('email-inbox:processo', {
+    id_processo: idProcesso,
+    limit: limite,
+  });
+  if (!forcar) {
+    const emCache = lerCache(chaveCache, {
+      sensivel: true,
+      ttlMs: TEMPO_CACHE_EMAIL_INBOX_MS,
+    });
+    if (emCache) return emCache;
+  }
+
+  const dados = await requisitar(
     `/processes/${encodeURIComponent(idProcesso)}/email-inbox?${params.toString()}`,
     { method: 'GET' },
   );
+  gravarCache(chaveCache, Array.isArray(dados) ? dados : [], {
+    sensivel: true,
+    ttlMs: TEMPO_CACHE_EMAIL_INBOX_MS,
+  });
+  return dados;
 }
 
 export async function analisarCvEmailRecebido(idProcesso, payload) {
@@ -464,7 +516,7 @@ export async function analisarCvEmailRecebido(idProcesso, payload) {
     },
   );
 
-  invalidarCacheApi('processos', 'candidatos-processos');
+  invalidarCacheApi('processos', 'candidatos-processos', 'email-inbox', 'relatorios');
   return resultado;
 }
 
@@ -472,21 +524,47 @@ export async function lerEmailsRecebidos({
   limite = 50,
   mostrarIgnorados = false,
   apenasComAnexos = true,
-  refresh = true,
+  refresh = false,
   query = '',
 } = {}) {
   const params = new URLSearchParams({ limit: String(limite) });
+  const paramsCache = new URLSearchParams({ limit: String(limite) });
   if (mostrarIgnorados) params.set('include_ignored', 'true');
+  if (mostrarIgnorados) paramsCache.set('include_ignored', 'true');
   params.set('with_attachments_only', apenasComAnexos ? 'true' : 'false');
+  paramsCache.set('with_attachments_only', apenasComAnexos ? 'true' : 'false');
   params.set('refresh', refresh ? 'true' : 'false');
   if (query) params.set('query', query);
-  return requisitar(`/email-inbox/messages?${params.toString()}`, { method: 'GET' });
+  if (query) paramsCache.set('query', query);
+  const chaveCache = montarChaveCacheApi('email-inbox', Object.fromEntries(paramsCache.entries()));
+  if (!refresh) {
+    const emCache = lerCache(chaveCache, {
+      sensivel: true,
+      ttlMs: TEMPO_CACHE_EMAIL_INBOX_MS,
+    });
+    if (emCache) return emCache;
+  }
+
+  const dados = await requisitar(`/email-inbox/messages?${params.toString()}`, { method: 'GET' });
+  gravarCache(chaveCache, dados, {
+    sensivel: true,
+    ttlMs: TEMPO_CACHE_EMAIL_INBOX_MS,
+  });
+  return dados;
 }
 
-export async function lerDetalheEmailRecebido(idEmail) {
-  return requisitar(`/email-inbox/messages/${encodeURIComponent(idEmail)}`, {
+export async function lerDetalheEmailRecebido(idEmail, forcar = false) {
+  const chaveCache = `email-inbox:detalhe:${idEmail}`;
+  if (!forcar) {
+    const emCache = lerCache(chaveCache);
+    if (emCache) return emCache;
+  }
+
+  const dados = await requisitar(`/email-inbox/messages/${encodeURIComponent(idEmail)}`, {
     method: 'GET',
   });
+  gravarCache(chaveCache, dados, { sensivel: true });
+  return dados;
 }
 
 export async function baixarAnexoEmailRecebido(idEmail, idAnexo = '') {
@@ -512,7 +590,7 @@ export async function analisarCvEmailRecebidoGeral(idEmail) {
     { method: 'POST' },
   );
 
-  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos', 'email-inbox', 'relatorios');
   return resultado;
 }
 
@@ -526,7 +604,7 @@ export async function vincularEmailRecebidoProcesso(idEmail, payload) {
     },
   );
 
-  invalidarCacheApi('processos', 'candidatos-processos', 'pipeline-candidatos');
+  invalidarCacheApi('processos', 'candidatos-processos', 'pipeline-candidatos', 'email-inbox', 'relatorios');
   return resultado;
 }
 
@@ -536,7 +614,7 @@ export async function enviarEmailRecebidoBancoTalentos(idEmail) {
     { method: 'POST' },
   );
 
-  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos');
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos', 'email-inbox', 'relatorios');
   return resultado;
 }
 
@@ -546,7 +624,7 @@ export async function ignorarEmailRecebido(idEmail) {
     { method: 'POST' },
   );
 
-  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos', 'email-inbox', 'relatorios');
   return resultado;
 }
 
@@ -556,7 +634,7 @@ export async function excluirEmailRecebido(idEmail) {
     { method: 'DELETE' },
   );
 
-  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos', 'email-inbox', 'relatorios');
   return resultado;
 }
 

@@ -1,4 +1,6 @@
 const PROCESS_STATUS_CLOSED = 'Encerrado';
+const PROCESS_STATUS_PAUSED = 'Pausado';
+const PROCESS_STATUS_CANCELED = 'Cancelado';
 
 const CANDIDATE_STATUS_ANALYSIS = 'Em análise';
 const CANDIDATE_STATUS_QUALIFIED = 'Qualificado';
@@ -56,21 +58,26 @@ function normalizeCompareText(value) {
 }
 
 export function normalizeProcessStatus(status) {
-  return ['encerrado', 'cancelado', 'arquivado', 'fechado', 'inativo'].includes(
-    normalizeCompareText(status),
-  )
-    ? PROCESS_STATUS_CLOSED
-    : String(status || '').trim();
+  const value = normalizeCompareText(status);
+  if (value === 'pausado' || value === 'pausa') return PROCESS_STATUS_PAUSED;
+  if (value === 'cancelado' || value === 'cancelada') return PROCESS_STATUS_CANCELED;
+  if (['encerrado', 'arquivado', 'fechado', 'inativo', 'finalizado'].includes(value)) {
+    return PROCESS_STATUS_CLOSED;
+  }
+  return String(status || '').trim() || 'Aberto';
 }
 
 export function isProcessClosed(statusOrProcess) {
   if (typeof statusOrProcess === 'object' && statusOrProcess !== null) {
-    return normalizeProcessStatus(
+    const status = normalizeProcessStatus(
       statusOrProcess.status || statusOrProcess.status_processo,
-    ) === PROCESS_STATUS_CLOSED;
+    );
+    return [PROCESS_STATUS_CLOSED, PROCESS_STATUS_PAUSED, PROCESS_STATUS_CANCELED].includes(status);
   }
 
-  return normalizeProcessStatus(statusOrProcess) === PROCESS_STATUS_CLOSED;
+  return [PROCESS_STATUS_CLOSED, PROCESS_STATUS_PAUSED, PROCESS_STATUS_CANCELED].includes(
+    normalizeProcessStatus(statusOrProcess),
+  );
 }
 
 export function canonicalizeCandidateStatus(status) {
@@ -268,4 +275,6 @@ export {
   CANDIDATE_STATUS_TALENT_BANK,
   CANDIDATE_STATUS_WITHDREW,
   PROCESS_STATUS_CLOSED,
+  PROCESS_STATUS_PAUSED,
+  PROCESS_STATUS_CANCELED,
 };

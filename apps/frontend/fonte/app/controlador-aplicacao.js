@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from '../infraestrutura-react.js';
-import { montarHashDaTela, obterTelaPorHash } from '../rotas.js';
+import { montarHashDaTela, obterTelaPorHash, obterRotaAtual } from '../rotas.js';
 import {
   baixarBlob,
   gerarIdResultado,
@@ -96,8 +96,11 @@ import {
   listarPerfis,
   listarPermissoes,
   listarUsuarios,
+  pausarProcesso,
   redefinirSenhaUsuario,
   registrarSolicitacaoLgpd,
+  retomarProcesso,
+  cancelarProcesso,
 } from '../servico-api.js';
 import { criarLogger } from '../logger.js';
 import {
@@ -150,7 +153,6 @@ export const PERMISSOES_TELAS = {
   'screen-settings': 'configuracoes.visualizar',
   'screen-settings-users': 'usuarios.visualizar',
   'screen-settings-profiles': 'configuracoes.visualizar',
-  'screen-settings-rules': 'configuracoes.visualizar',
   'screen-settings-logs': 'logs.visualizar',
   'screen-generated-exams': 'provas.visualizar',
   'screen-config': 'provas.enviar',
@@ -332,38 +334,51 @@ export function limparEstadoPersistido() {
 }
 
 export function navegarParaTela(tela, opcoes = {}) {
-  const hash = montarHashDaTela(tela);
+  const caminho = montarHashDaTela(tela);
+  const eventoNavegacao =
+    typeof PopStateEvent === 'function'
+      ? new PopStateEvent('popstate')
+      : new Event('popstate');
   if (opcoes?.replace) {
-    const url = `${window.location.pathname}${window.location.search}${hash}`;
-    window.history.replaceState(null, '', url);
-    const evento =
-      typeof HashChangeEvent === 'function'
-        ? new HashChangeEvent('hashchange')
-        : new Event('hashchange');
-    window.dispatchEvent(evento);
+    window.history.replaceState(null, '', caminho);
+    window.dispatchEvent(eventoNavegacao);
     return;
   }
 
-  window.location.hash = hash;
+  window.history.pushState(null, '', caminho);
+  window.dispatchEvent(eventoNavegacao);
 }
 
 export function usarTelaAtual(autenticado) {
   const [telaAtual, setTelaAtual] = useState(() =>
-    obterTelaPorHash(window.location.hash),
+    obterTelaPorHash(obterRotaAtual()),
   );
 
   useEffect(() => {
     const caminhoAtual = String(window.location.pathname || '').replace(/\/+$/, '');
-    if (!window.location.hash && caminhoAtual !== '/conecta-provas') {
+    if (window.location.hash) {
+      const rotaLegada = window.location.hash.replace(/^#\/?/, '').trim();
+      if (rotaLegada) {
+        window.history.replaceState(null, '', `/${rotaLegada}`);
+        setTelaAtual(obterTelaPorHash(rotaLegada));
+        return;
+      }
+    }
+
+    if (!obterRotaAtual() && caminhoAtual !== '/conecta-provas') {
       navegarParaTela(autenticado ? 'screen-menu' : 'screen-login');
     }
   }, [autenticado]);
 
   useEffect(() => {
-    const handleHashChange = () =>
-      setTelaAtual(obterTelaPorHash(window.location.hash));
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    const handleRouteChange = () =>
+      setTelaAtual(obterTelaPorHash(obterRotaAtual()));
+    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('hashchange', handleRouteChange);
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+      window.removeEventListener('hashchange', handleRouteChange);
+    };
   }, []);
 
   return telaAtual;
@@ -696,8 +711,8 @@ export async function localizarFichaCandidatoPorProva(detalhe) {
   const [historico, candidatosProcessos, bancoTalentos, entrevistas, provasGeradas] =
     await Promise.all([
       lerHistorico().catch(() => []),
-      lerCandidatosProcessos(true).catch(() => []),
-      lerBancoTalentos({ forcar: true }).catch(() => []),
+      lerCandidatosProcessos().catch(() => []),
+      lerBancoTalentos().catch(() => []),
       lerEntrevistas().catch(() => []),
       listarProvasGeradas().catch(() => []),
     ]);
@@ -1764,6 +1779,9 @@ export {
   listarPerfis,
   listarPermissoes,
   listarUsuarios,
+  pausarProcesso,
   redefinirSenhaUsuario,
   registrarSolicitacaoLgpd,
+  retomarProcesso,
+  cancelarProcesso,
 };

@@ -1,4 +1,4 @@
-import { html } from '../../infraestrutura-react.js';
+import { html, useEffect, useState } from '../../infraestrutura-react.js';
 import { formatarPontuacaoDetalhada } from '../../utilitarios.js';
 import { obterClasseSituacaoAtual } from '../../app/controlador-aplicacao.js';
 import { EmptyState } from './feedback.js';
@@ -43,6 +43,97 @@ export function ModalPadrao({
         <div class="rh-modal-content">${children}</div>
       </div>
     </div>
+  `;
+}
+
+export function ModalConfirmacaoAcao({
+  aberto,
+  titulo,
+  descricao,
+  consequencia = '',
+  reversibilidade = '',
+  labelJustificativa = 'Justificativa',
+  justificativaObrigatoria = false,
+  textoConfirmar = 'Confirmar',
+  textoCancelar = 'Cancelar',
+  tipo = 'aviso',
+  carregando = false,
+  erro = '',
+  onClose,
+  onConfirm,
+}) {
+  const [justificativa, setJustificativa] = useState('');
+  const [erroValidacao, setErroValidacao] = useState('');
+
+  useEffect(() => {
+    if (aberto) {
+      setJustificativa('');
+      setErroValidacao('');
+    }
+  }, [aberto]);
+
+  if (!aberto) return null;
+
+  const confirmar = () => {
+    const texto = justificativa.trim();
+    if (justificativaObrigatoria && texto.length < 10) {
+      setErroValidacao('Informe uma justificativa com pelo menos 10 caracteres.');
+      return;
+    }
+    setErroValidacao('');
+    onConfirm?.({ justificativa: texto });
+  };
+
+  return html`
+    <${ModalPadrao}
+      aberto=${aberto}
+      titulo=${titulo}
+      subtitulo=${descricao}
+      className=${`rh-action-modal rh-action-modal--${tipo}`}
+      onClose=${carregando ? () => null : onClose}
+    >
+      <div class="rh-action-modal-body">
+        ${consequencia
+          ? html`<p class="rh-action-modal-consequence">${consequencia}</p>`
+          : null}
+        ${reversibilidade
+          ? html`<p class="rh-action-modal-reversibility">${reversibilidade}</p>`
+          : null}
+        <label class="form-label" for="rh-action-modal-justification">
+          ${labelJustificativa}
+        </label>
+        <textarea
+          id="rh-action-modal-justification"
+          class="form-control"
+          rows="4"
+          value=${justificativa}
+          disabled=${carregando}
+          aria-required=${justificativaObrigatoria}
+          onInput=${(event) => setJustificativa(event.target.value)}
+        ></textarea>
+        ${erroValidacao || erro
+          ? html`<div class="alert alert-danger mt-3 mb-0">${erroValidacao || erro}</div>`
+          : null}
+      </div>
+      <footer class="rh-modal-footer">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          disabled=${carregando}
+          onClick=${onClose}
+        >
+          ${textoCancelar}
+        </button>
+        <button
+          type="button"
+          class=${`btn ${tipo === 'destrutivo' ? 'btn-danger' : 'btn-primary'}`}
+          disabled=${carregando}
+          onClick=${confirmar}
+        >
+          ${carregando ? 'Processando...' : textoConfirmar}
+        </button>
+      </footer>
+    </${ModalPadrao}>
   `;
 }
 

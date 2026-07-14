@@ -16,7 +16,6 @@ export const ROTAS_POR_TELA = {
   'screen-talent-bank': 'banco-talentos',
   'screen-settings-users': 'configuracoes/usuario',
   'screen-settings-profiles': 'configuracoes/perfis-permissoes',
-  'screen-settings-rules': 'configuracoes/regras-reutilizaveis',
   'screen-settings-logs': 'configuracoes/logs',
   'screen-settings': 'configuracoes/usuario',
   'screen-generated-exams': 'processos/provas-resultados',
@@ -48,45 +47,75 @@ TELAS_POR_ROTA.entrevistas = 'screen-interviews';
 TELAS_POR_ROTA.configuracoes = 'screen-settings-users';
 TELAS_POR_ROTA['configuracoes/usuario'] = 'screen-settings-users';
 TELAS_POR_ROTA['configuracoes/usuarios'] = 'screen-settings-users';
+TELAS_POR_ROTA['configuracoes/regras-reutilizaveis'] = 'screen-settings-users';
 
 export function obterRotaPorTela(tela) {
   if (tela === 'screen-processes-open') return ROTAS_POR_TELA['screen-processes'];
   return ROTAS_POR_TELA[tela] || ROTAS_POR_TELA['screen-login'];
 }
 
-export function obterTelaPorHash(hashAtual) {
+function normalizarRota(valor) {
+  return String(valor || '')
+    .replace(/^#\/?/, '')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '')
+    .trim();
+}
+
+export function obterRotaAtual() {
   const pathname =
     typeof window !== 'undefined' ? String(window.location.pathname || '') : '';
+  const hashLegado =
+    typeof window !== 'undefined' ? normalizarRota(window.location.hash) : '';
+  if (hashLegado) return hashLegado;
+
   const caminhoNormalizado = pathname.replace(/\/+$/, '') || '/';
   if (
     caminhoNormalizado === '/conecta-provas' ||
     caminhoNormalizado.startsWith('/conecta-provas/')
   ) {
-    return 'screen-conecta-provas';
+    return 'conecta-provas';
   }
 
-  const rota = String(hashAtual || '')
-    .replace(/^#\/?/, '')
-    .trim();
+  const partes = caminhoNormalizado.split('/').filter(Boolean);
+  const indiceIndex = partes.findIndex((parte) => parte.toLowerCase() === 'index.html');
+  if (indiceIndex >= 0) {
+    return normalizarRota(partes.slice(indiceIndex + 1).join('/'));
+  }
 
+  return normalizarRota(partes.join('/'));
+}
+
+export function obterTelaPorRota(rotaAtual = obterRotaAtual()) {
+  const rota = normalizarRota(rotaAtual);
   if (!rota) return 'screen-login';
+  if (rota === 'conecta-provas' || rota.startsWith('conecta-provas/')) {
+    return 'screen-conecta-provas';
+  }
   if (rota.startsWith('candidatar/')) return 'screen-public-candidacy';
   return TELAS_POR_ROTA[rota] || 'screen-login';
 }
 
+export function obterTelaPorHash(hashAtual) {
+  return obterTelaPorRota(hashAtual || obterRotaAtual());
+}
+
+export function montarCaminhoDaTela(tela) {
+  const rota = obterRotaPorTela(tela);
+  return `/${rota}`.replace(/\/+/g, '/');
+}
+
 export function montarHashDaTela(tela) {
-  return `#/${obterRotaPorTela(tela)}`;
+  return montarCaminhoDaTela(tela);
 }
 
 export function obterSlugCandidaturaPorHash(hashAtual) {
-  const rota = String(hashAtual || '')
-    .replace(/^#\/?/, '')
-    .trim();
+  const rota = normalizarRota(hashAtual || obterRotaAtual());
 
   if (!rota.startsWith('candidatar/')) return '';
   return decodeURIComponent(rota.slice('candidatar/'.length));
 }
 
 export function montarHashCandidatura(slug) {
-  return `#/candidatar/${encodeURIComponent(String(slug || '').trim())}`;
+  return `/candidatar/${encodeURIComponent(String(slug || '').trim())}`;
 }

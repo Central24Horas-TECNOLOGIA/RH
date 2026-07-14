@@ -27,6 +27,7 @@ import {
   desativarLinkPublicoCandidatura,
   dispensarPreAnaliseCv,
   encerrarProcesso,
+  pausarProcesso,
   enviarPreAnaliseParaBancoTalentos,
   enviarEmailAprovacao,
   gerarLinkPublicoCandidatura,
@@ -45,6 +46,8 @@ import {
   registrarWhatsappContatoManual,
   uploadCvCandidato,
   usarCandidatoDoBancoTalentos,
+  retomarProcesso,
+  cancelarProcesso,
 } from '../../app/controlador-aplicacao.js';
 import {
   baixarBlob,
@@ -90,6 +93,7 @@ import {
   isProcessClosed,
 } from '../../shared/process-flow.js';
 import {
+  quebrarListaTexto,
   validarFormularioEntrevista,
   validarFormularioProcesso,
 } from '../../shared/validacoes.js';
@@ -116,6 +120,7 @@ import { CabecalhoSecaoColapsavel } from './components/section-toggle.js';
 import {
   LoadingState,
   MetricGrid,
+  ModalConfirmacaoAcao,
   ModalDetalhesProva,
   ModalPadrao,
   PageIntro,
@@ -139,6 +144,13 @@ const TAMANHO_PAGINA_BANCO_TALENTOS_DETALHE = 5;
 const TAMANHO_PAGINA_PRE_ANALISE_DETALHE = 5;
 const TAMANHO_PAGINA_CVS_NAO_QUALIFICADOS = 5;
 const TAMANHO_PAGINA_ENTREVISTAS_PROCESSO = 4;
+const OPCOES_TEMPO_PAUSA_PROCESSO = [
+  { value: '1_semana', label: '1 semana', dias: 7 },
+  { value: '15_dias', label: '15 dias', dias: 15 },
+  { value: '1_mes', label: '1 mês', meses: 1 },
+  { value: '3_meses', label: '3 meses', meses: 3 },
+  { value: 'indefinido', label: 'Indefinido' },
+];
 const TIPOS_INDICACAO_PROCESSO = [
   'Indicado',
   'Indicado com restrição',
@@ -587,6 +599,79 @@ function normalizarTextoComparacao(valor) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function temValorProcesso(valor) {
+  if (Array.isArray(valor)) return valor.some(temValorProcesso);
+  return String(valor ?? '').trim() !== '';
+}
+
+function formatarValorResumoProcesso(valor) {
+  if (Array.isArray(valor)) return valor.filter(temValorProcesso).join(', ');
+  return String(valor ?? '').trim();
+}
+
+function obterItensTextoProcesso(valor) {
+  if (Array.isArray(valor)) {
+    return valor
+      .filter((item) => !(typeof item === 'object' && item !== null && item.visivel === false))
+      .map((item) => (typeof item === 'object' && item !== null ? item.texto : item))
+      .filter(temValorProcesso)
+      .map((item) => String(item).trim());
+  }
+  return quebrarListaTexto(valor);
+}
+
+function montarTextoCompartilhamentoVaga({ processo = {}, requisitos = [], responsabilidades = [], url = '' } = {}) {
+  const linhas = [];
+  const tituloVaga = String(processo?.vaga || processo?.cargo || 'Processo seletivo')
+    .trim()
+    .toUpperCase();
+  linhas.push(`*PROCESSO SELETIVO - ${tituloVaga}*`);
+  linhas.push('Não perca a oportunidade de fazer parte do nosso time 🚀');
+
+  const requisitosTexto = obterItensTextoProcesso(requisitos)
+    .filter((item) => item && item !== '-')
+    .slice(0, 8);
+  const responsabilidadesTexto = obterItensTextoProcesso(responsabilidades)
+    .filter((item) => item && item !== '-')
+    .slice(0, 8);
+  if (requisitosTexto.length) {
+    linhas.push('', 'Requisitos:');
+    requisitosTexto.forEach((item) => linhas.push(`✅ ${item}`));
+  }
+  if (responsabilidadesTexto.length) {
+    linhas.push('', 'Responsabilidades:');
+    responsabilidadesTexto.forEach((item) => linhas.push(`- ${item}`));
+  }
+  const dataInscricao = formatarDataCurta(
+    processo?.data_limite_inscricao || processo?.data_encerramento || processo?.data_fim,
+  );
+  linhas.push('', 'Inscreva-se em nosso site: https://central24horas.com.br/trabalhe-conosco');
+  if (temValorProcesso(dataInscricao) && dataInscricao !== '-') {
+    linhas.push('', `*Inscrições até: ${dataInscricao}*`);
+  }
+
+  return linhas.join('\n');
+}
+
+function adicionarMesesData(data, meses) {
+  const proxima = new Date(data.getTime());
+  proxima.setMonth(proxima.getMonth() + meses);
+  return proxima;
+}
+
+function calcularPrevisaoTerminoPausa(valor, base = new Date()) {
+  const opcao = OPCOES_TEMPO_PAUSA_PROCESSO.find((item) => item.value === valor);
+  if (!opcao || valor === 'indefinido') return '';
+  const previsao = new Date(base.getTime());
+  if (opcao.dias) previsao.setDate(previsao.getDate() + opcao.dias);
+  const dataFinal = opcao.meses ? adicionarMesesData(base, opcao.meses) : previsao;
+  return dataFinal.toISOString().slice(0, 19);
+}
+
+function obterRotuloTempoPausa(valor) {
+  return OPCOES_TEMPO_PAUSA_PROCESSO.find((item) => item.value === valor)?.label || '';
+}
+
 function normalizarDigitosContato(valor) {
   const digitos = String(valor || '').replace(/\D/g, '');
   if (digitos.startsWith('55') && [12, 13].includes(digitos.length)) {
@@ -632,11 +717,11 @@ function validarContatoLiberacaoProva({ nome, email, telefone }) {
 function obterChaveCandidatoLiberacao(candidato = {}) {
   return String(
     candidato.id_registro ||
-      candidato.id_teste ||
-      candidato.email ||
-      candidato.nome_candidato ||
-      candidato.nome ||
-      '',
+    candidato.id_teste ||
+    candidato.email ||
+    candidato.nome_candidato ||
+    candidato.nome ||
+    '',
   );
 }
 
@@ -1528,7 +1613,10 @@ function obterEntrevistasDoProcesso(entrevistas = [], processo) {
 }
 
 function obterStatusProcessoClasse(status) {
-  return isProcessClosed(status) ? 'is-unsaved' : 'is-finished';
+  const statusNormalizado = normalizarTextoComparacao(status);
+  if (statusNormalizado === 'pausado') return 'is-warning';
+  if (statusNormalizado === 'cancelado' || statusNormalizado === 'encerrado') return 'is-unsaved';
+  return 'is-finished';
 }
 
 function calcularProgressoProcesso(processo, candidatosProcesso = []) {
@@ -1682,8 +1770,23 @@ function renderizarResumoProcessoAberto({ processo, candidatosProcesso, entrevis
   `;
 }
 
-function MenuAcoesProcesso({ acoes = [] }) {
-  const itens = acoes.filter(Boolean);
+function MenuAcoesProcesso({
+  acoes = [],
+  label = '',
+  icon = 'more_horiz',
+  ariaLabel = 'Mais ações',
+  className = '',
+  triggerClassName = '',
+}) {
+  const itensBase = acoes.filter(Boolean);
+  const itens = itensBase.filter(
+    (item, indice) =>
+      !item.separator ||
+      (
+        itensBase.slice(0, indice).some((anterior) => !anterior.separator) &&
+        itensBase.slice(indice + 1).some((proximo) => !proximo.separator)
+      ),
+  );
   const [aberto, setAberto] = useState(false);
   const [menuId] = useState(() => `process-actions-${Math.random().toString(36).slice(2)}`);
   const [posicao, setPosicao] = useState(null);
@@ -1721,8 +1824,8 @@ function MenuAcoesProcesso({ acoes = [] }) {
     if (!aberto) {
       window.dispatchEvent(new CustomEvent('process-actions-open', { detail: menuId }));
       const rect = event.currentTarget.getBoundingClientRect();
-      const largura = 196;
-      const altura = Math.min(228, 14 + itens.length * 34);
+      const largura = label ? 232 : 196;
+      const altura = Math.min(286, 14 + itens.length * 38);
       const topoAbaixo = rect.bottom + 6;
       const topo =
         topoAbaixo + altura > window.innerHeight - 8
@@ -1731,6 +1834,7 @@ function MenuAcoesProcesso({ acoes = [] }) {
       setPosicao({
         top: `${topo}px`,
         left: `${Math.max(8, Math.min(window.innerWidth - largura - 8, rect.right - largura))}px`,
+        width: `${largura}px`,
       });
     }
     setAberto(!aberto);
@@ -1744,17 +1848,18 @@ function MenuAcoesProcesso({ acoes = [] }) {
   };
 
   return html`
-    <div class="process-row-action-menu">
+    <div class=${`process-row-action-menu ${className}`.trim()}>
       <button
         type="button"
-        class="process-row-action-trigger"
-        title="Mais ações"
-        aria-label="Mais ações"
+        class=${triggerClassName || 'process-row-action-trigger'}
+        title=${ariaLabel}
+        aria-label=${ariaLabel}
         aria-haspopup="menu"
         aria-expanded=${aberto}
         onClick=${alternarMenu}
       >
-        <span class="material-symbols-outlined">more_horiz</span>
+        ${label ? html`<span>${label}</span>` : null}
+        <span class="material-symbols-outlined">${icon}</span>
       </button>
       ${aberto
       ? html`
@@ -1765,7 +1870,9 @@ function MenuAcoesProcesso({ acoes = [] }) {
               onClick=${(event) => event.stopPropagation()}
             >
               ${itens.map(
-        (acao) => html`
+        (acao, indice) => acao.separator
+          ? html`<div key=${acao.key || `separator-${indice}`} class="process-row-actions-separator" role="separator"></div>`
+          : html`
                   <button
                     key=${acao.label}
                     type="button"
@@ -1776,8 +1883,8 @@ function MenuAcoesProcesso({ acoes = [] }) {
                     onClick=${(event) => executarAcao(event, acao)}
                   >
                     ${acao.icon
-            ? html`<span class="material-symbols-outlined">${acao.icon}</span>`
-            : null}
+              ? html`<span class="material-symbols-outlined">${acao.icon}</span>`
+              : null}
                     <span>${acao.label}</span>
                   </button>
                 `,
@@ -2204,14 +2311,14 @@ function ModalLiberarProva({
     >
       <div class="rh-details-body process-release-exam-body">
         ${!configuracoes.length
-          ? html`
+      ? html`
               <div class="process-release-empty">
                 <span class="material-symbols-outlined">assignment_late</span>
                 <h3>Nenhuma prova configurada para este processo</h3>
                 <p>Configure a prova no fluxo de criação do processo seletivo antes de liberar para candidatos.</p>
               </div>
             `
-          : html`
+      : html`
               <div class="process-release-grid">
                 <section class="process-release-card">
                   <h3>Prova do processo</h3>
@@ -2223,37 +2330,37 @@ function ModalLiberarProva({
                       onChange=${(event) => setConfiguracaoSelecionadaId(event.target.value)}
                     >
                       ${configuracoes.map(
-                        (item) => html`
+        (item) => html`
                           <option key=${item.id_configuracao} value=${item.id_configuracao}>
                             ${item.nome}
                           </option>
                         `,
-                      )}
+      )}
                     </select>
                   </label>
                   <div class="process-release-metrics">
                     ${[
-                      ['Vaga', configuracao?.vaga || processo?.vaga || '-'],
-                      ['Área', configuracao?.area_prova || configuracao?.area || processo?.trilha || '-'],
-                      ['Nível', configuracao?.nivel || '-'],
-                      ['Tempo', `${configuracao?.tempo_total || configuracao?.tempo_minutos || 40} min`],
-                      ['Questões', questoes.length || configuracao?.quantidade_questoes || '-'],
-                      ['Personalização', configuracao?.personalizacao?.enabled ? 'Ativada' : 'Padrão'],
-                    ].map(
-                      ([label, value]) => html`
+          ['Vaga', configuracao?.vaga || processo?.vaga || '-'],
+          ['Área', configuracao?.area_prova || configuracao?.area || processo?.trilha || '-'],
+          ['Nível', configuracao?.nivel || '-'],
+          ['Tempo', `${configuracao?.tempo_total || configuracao?.tempo_minutos || 40} min`],
+          ['Questões', questoes.length || configuracao?.quantidade_questoes || '-'],
+          ['Personalização', configuracao?.personalizacao?.enabled ? 'Ativada' : 'Padrão'],
+        ].map(
+          ([label, value]) => html`
                         <span key=${label}>
                           <strong>${label}</strong>
                           ${value}
                         </span>
                       `,
-                    )}
+        )}
                   </div>
                 </section>
 
                 <section class="process-release-card">
                   <h3>Candidato e acesso</h3>
                   ${opcoesCandidatos.length > 1
-                    ? html`
+          ? html`
                         <label class="process-release-field">
                           <span>Selecionar candidato</span>
                           <select
@@ -2262,16 +2369,16 @@ function ModalLiberarProva({
                             onChange=${selecionarCandidato}
                           >
                             ${opcoesCandidatos.map(
-                              ({ id, item }) => html`
+            ({ id, item }) => html`
                                 <option key=${id} value=${id}>
                                   ${item.nome_candidato || item.nome || item.email || id}
                                 </option>
                               `,
-                            )}
+          )}
                           </select>
                         </label>
                       `
-                    : null}
+          : null}
                   <label class="process-release-field">
                     <span>Candidato</span>
                     <input readonly value=${nome || '-'} />
@@ -2298,13 +2405,13 @@ function ModalLiberarProva({
 
         ${erro ? html`<div class="alert alert-danger">${erro}</div>` : null}
         ${resultado
-          ? html`
+      ? html`
               <div class="alert alert-success process-release-success">
                 Prova liberada com sucesso. Código de acesso:
                 <strong>${resultado.codigo_acesso || '-'}</strong>
               </div>
             `
-          : null}
+      : null}
       </div>
       <footer class="rh-modal-footer">
         <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${onClose}>
@@ -3757,7 +3864,7 @@ export function TelaProcessos({ controlador }) {
         title="Processos Seletivos"
         description="Gerencie processos, etapas, candidatos, entrevistas e decisões finais."
         actions=${controlador.possuiPermissao('vagas.criar')
-          ? html`
+      ? html`
               <button
                 type="button"
                 class="process-create-primary-btn"
@@ -3767,7 +3874,7 @@ export function TelaProcessos({ controlador }) {
                 Criar Processo
               </button>
             `
-          : null}
+      : null}
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
@@ -3905,10 +4012,10 @@ export function TelaProcessos({ controlador }) {
           <h3>Decisões Finais Pendentes</h3>
         </div>
         ${candidatosComDecisaoPendente.length
-          ? html`
+      ? html`
               <div class="process-decision-card-list">
                 ${candidatosComDecisaoPendente.map(
-                  (candidato) => html`
+        (candidato) => html`
                     <article class="process-decision-card" key=${candidato.id_registro}>
                       <div>
                         <strong>${candidato.nome_candidato || '-'}</strong>
@@ -3919,23 +4026,23 @@ export function TelaProcessos({ controlador }) {
                       </span>
                       <div class="process-decision-actions">
                         ${renderizarAcoesDoCandidato({
-                          candidato,
-                          onAprovar: abrirAprovacao,
-                          onAtualizarStatus: (item, status) =>
-                            atualizarStatus(
-                              item.id_registro,
-                              status,
-                              obterReferenciaProcessoDoCandidato(item),
-                            ),
-                          controlador,
-                        })}
+          candidato,
+          onAprovar: abrirAprovacao,
+          onAtualizarStatus: (item, status) =>
+            atualizarStatus(
+              item.id_registro,
+              status,
+              obterReferenciaProcessoDoCandidato(item),
+            ),
+          controlador,
+        })}
                       </div>
                     </article>
                   `,
-                )}
+      )}
               </div>
             `
-          : html`
+      : html`
               <div class="process-dashboard-empty">
                 <span class="material-symbols-outlined">assignment_turned_in</span>
                 <strong>Tudo em dia!</strong>
@@ -5348,6 +5455,44 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
       obterMotivoNaoQualificacao(item),
     ].map(normalizarTextoComparacao).join(' ').includes(termoEncontrar);
   });
+  const secoesResumoVaga = [
+    {
+      titulo: 'Identificação da vaga',
+      itens: [
+        ['Publicação', formatarDataCurta(datas.publicacao)],
+        ['Inscrições até', formatarDataCurta(datas.inscricao)],
+        ['Contratação prevista', formatarDataCurta(datas.contratacao)],
+        ['Cliente / operação', processo?.cliente || processo?.operacao],
+        ['Área', processo?.area || processo?.trilha],
+        ['Cargo', processo?.cargo || processo?.vaga],
+        ['Quantidade de vagas', processo?.quantidade_vagas],
+      ],
+    },
+    {
+      titulo: 'Condições',
+      itens: [
+        ['Contratação', processo?.tipo_contratacao || processo?.regime_contratacao],
+        ['Localidade', processo?.localidade || processo?.cidade],
+        ['Modalidade', processo?.modalidade],
+        ['Jornada / horário', processo?.jornada || processo?.horario],
+        ['Salário / faixa', processo?.salario || processo?.faixa_salarial],
+        ['Benefícios', processo?.beneficios],
+      ],
+    },
+    {
+      titulo: 'Fluxo seletivo',
+      itens: [
+        ['Etapas do processo', processo?.etapas_processo || processo?.etapas || resumo?.etapas],
+        ['Observações internas', processo?.observacoes_internas || processo?.observacoes],
+      ],
+    },
+  ].map((secao) => ({
+    ...secao,
+    itens: secao.itens.filter(([, valor]) => temValorProcesso(valor) && formatarValorResumoProcesso(valor) !== '-'),
+  })).filter((secao) => secao.itens.length);
+  const requisitosResumo = requisitos.filter((item) => item.visivel !== false && temValorProcesso(item?.texto || item));
+  const responsabilidadesResumo = responsabilidades.filter((item) => item.visivel !== false && temValorProcesso(item?.texto || item));
+  const descricaoResumo = processo?.descricao_completa || processo?.descricao || processo?.observacoes_publicas_vaga;
 
   return html`
     <div class="process-details-page">
@@ -5372,15 +5517,17 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
           </div>
         </div>
         <div class="process-header-actions">
-          <button type="button" class="process-link-button" onClick=${actions.compartilhar}>
-            <span class="material-symbols-outlined">share</span>Compartilhar vaga
-          </button>
-          <button type="button" class="process-link-button" onClick=${actions.abrirResumoVaga}>
-            <span class="material-symbols-outlined">assignment</span>Ver resumo da vaga
-          </button>
           <button type="button" class="btn btn-outline-primary" onClick=${actions.voltar}>
             <span class="material-symbols-outlined">arrow_back</span>Voltar à vaga
           </button>
+          <${MenuAcoesProcesso}
+            acoes=${actions.acoesCabecalho || []}
+            label="Ações"
+            icon="expand_more"
+            ariaLabel="Ações da vaga"
+            className="process-header-actions-menu"
+            triggerClassName="btn btn-primary process-actions-trigger"
+          />
         </div>
       </header>
 
@@ -5419,9 +5566,6 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
               onInput=${(event) => actions.setBuscaCandidatos(event.target.value)}
             />
           </label>
-          <button type="button" class="btn btn-outline-primary" onClick=${() => actions.trocarAba('encontrar')}>
-            <span class="material-symbols-outlined">person_add</span>Adicionar candidato
-          </button>
           <select
             class="form-select process-compact-select"
             aria-label="Filtrar status"
@@ -5502,7 +5646,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
           ${aba === 'aprovados' ? html`
             <div class="process-section-heading"><div><h3>Candidatos aprovados</h3><p>Candidatos com decisão final de aprovação neste processo.</p></div></div>
             <div class="process-table-shell"><table class="process-table"><thead><tr><th>Candidato</th><th>Nota final</th><th>Data de aprovação</th><th>Status</th><th class="is-menu"></th></tr></thead><tbody>
-              ${aprovados.length ? aprovados.map((candidato) => html`<tr key=${candidato.id_registro || candidato.id_teste}><td><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span><div><strong>${candidato.nome_candidato || '-'}</strong><small>ID: ${candidato.id_registro || candidato.id_teste || '-'}</small></div></div></td><td><strong>${obterNotaVisualCandidato(candidato).valor}</strong></td><td>${formatarDataHora(candidato.aprovado_em || candidato.data_atualizacao_pipeline)}</td><td><span class="process-status-tag is-success">Aprovado</span></td><td class="is-menu"><${MenuAcoesProcesso} acoes=${actions.acoesDaLinha(candidato)} /></td></tr>`) : html`<tr><td colspan="5" class="process-empty-row">Nenhum candidato aprovado neste processo.</td></tr>`}
+              ${aprovados.length ? aprovados.map((candidato) => html`<tr key=${candidato.id_registro || candidato.id_teste}><td><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span><div><strong>${candidato.nome_candidato || '-'}</strong><small>ID: ${candidato.id_registro || candidato.id_teste || '-'}</small></div></div></td><td><strong>${obterNotaVisualCandidato(candidato).valor}</strong></td><td>${formatarDataHora(candidato.aprovado_em || candidato.data_atualizacao_pipeline)}</td><td><span class="process-status-tag is-success">Aprovado</span></td><td class="is-menu"><${MenuAcoesProcesso} acoes=${actions.acoesDaLinha(candidato)} /></td></tr>`) : html`<tr><td colspan="5" class="process-empty-row"><strong>Nenhum candidato aprovado até o momento.</strong><span>Os candidatos aprovados aparecerão aqui após a conclusão das etapas do processo.</span></td></tr>`}
             </tbody></table></div>
           ` : null}
 
@@ -5562,7 +5706,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
           ` : null}
 
           ${aba === 'encontrar' ? html`
-            <div class="process-section-heading process-find-heading"><div><h3>Encontrar mais candidatos</h3><p>Analise novos currículos ou reutilize candidatos do Banco de Talentos.</p></div><div><button type="button" class="btn btn-primary" disabled=${model.processoEncerrado} onClick=${actions.abrirModalAnaliseCv}><span class="material-symbols-outlined">person_add</span>Adicionar candidato</button><button type="button" class="btn btn-outline-primary" onClick=${() => actions.trocarAba('candidatos')}>Voltar aos candidatos</button></div></div>
+            <div class="process-section-heading process-find-heading"><div><h3>Encontrar mais candidatos</h3><p>Analise novos currículos ou reutilize candidatos do Banco de Talentos.</p></div><div><button type="button" class="btn btn-outline-primary" onClick=${() => actions.trocarAba('candidatos')}>Voltar aos candidatos</button></div></div>
             <nav class="process-find-subtabs" aria-label="Fontes de candidatos"><button type="button" class=${subAbaEncontrar === 'cvs' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('cvs')}>CVs não qualificados <span>${cvsNaoQualificadosPaginacao.totalItens}</span></button><button type="button" class=${subAbaEncontrar === 'banco' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('banco')}>Banco de Talentos <span>${bancoTalentos.length}</span></button></nav>
 
             ${subAbaEncontrar === 'cvs' ? html`
@@ -5604,18 +5748,17 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
       <${ModalPadrao} aberto=${resumoVagaAberto} titulo="Resumo da vaga" subtitulo=${processo?.vaga || ''} onClose=${actions.fecharResumoVaga}>
         <div class="process-job-modal">
           <div class="process-job-modal-title"><div><h3>${processo?.vaga || '-'}</h3><span class=${`process-status-tag ${obterStatusClasseVisual(processo?.status)}`}>${processo?.status || '-'}</span></div></div>
-          <div class="process-job-details-grid">
-            ${[
-      ['Publicação', formatarDataCurta(datas.publicacao)], ['Inscrições até', formatarDataCurta(datas.inscricao)], ['Contratação prevista', formatarDataCurta(datas.contratacao)],
-      ['Cliente / operação', processo?.cliente || processo?.operacao || '-'], ['Área', processo?.area || processo?.trilha || '-'], ['Cargo', processo?.cargo || processo?.vaga || '-'],
-      ['Quantidade de vagas', processo?.quantidade_vagas ?? '-'], ['Contratação', processo?.tipo_contratacao || processo?.regime_contratacao || '-'], ['Localidade', processo?.localidade || processo?.cidade || '-'],
-      ['Modalidade', processo?.modalidade || '-'], ['Jornada / horário', processo?.jornada || processo?.horario || '-'], ['Salário / faixa', processo?.salario || processo?.faixa_salarial || '-'],
-      ['Benefícios', processo?.beneficios || '-'], ['Etapas do processo', processo?.etapas_processo || processo?.etapas || resumo?.etapas || '-'], ['Observações internas', processo?.observacoes_internas || processo?.observacoes || '-'],
-    ].map(([label, value]) => html`<div key=${label}><span>${label}</span><strong>${Array.isArray(value) ? value.join(', ') : value}</strong></div>`)}
-          </div>
-          <section><h4>Requisitos</h4><ul>${requisitos.filter((item) => item.visivel !== false).map((item, index) => html`<li key=${index}>${item.texto || item}</li>`)}</ul></section>
-          <section><h4>Responsabilidades</h4><ul>${responsabilidades.filter((item) => item.visivel !== false).map((item, index) => html`<li key=${index}>${item.texto || item}</li>`)}</ul></section>
-          <section><h4>Descrição completa</h4><p>${processo?.descricao_completa || processo?.descricao || processo?.observacoes_publicas_vaga || 'Descrição não informada.'}</p></section>
+          ${secoesResumoVaga.map((secao) => html`
+            <section key=${secao.titulo}>
+              <h4>${secao.titulo}</h4>
+              <div class="process-job-details-grid">
+                ${secao.itens.map(([label, value]) => html`<div key=${label}><span>${label}</span><strong>${formatarValorResumoProcesso(value)}</strong></div>`)}
+              </div>
+            </section>
+          `)}
+          ${requisitosResumo.length ? html`<section><h4>Requisitos</h4><ul>${requisitosResumo.map((item, index) => html`<li key=${index}>${item.texto || item}</li>`)}</ul></section>` : null}
+          ${responsabilidadesResumo.length ? html`<section><h4>Responsabilidades</h4><ul>${responsabilidadesResumo.map((item, index) => html`<li key=${index}>${item.texto || item}</li>`)}</ul></section>` : null}
+          ${temValorProcesso(descricaoResumo) ? html`<section><h4>Descrição completa</h4><p>${descricaoResumo}</p></section>` : null}
         </div>
         <footer class="rh-modal-footer"><button type="button" class="btn btn-primary" onClick=${actions.fecharResumoVaga}>Fechar</button></footer>
       </${ModalPadrao}>
@@ -5724,6 +5867,11 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [detalheProvaSelecionado, setDetalheProvaSelecionado] = useState(null);
   const [carregandoDetalheProva, setCarregandoDetalheProva] = useState('');
   const [contextoGeracaoProva, setContextoGeracaoProva] = useState(null);
+  const [acaoProcessoSensivel, setAcaoProcessoSensivel] = useState(null);
+  const [justificativaAcaoProcesso, setJustificativaAcaoProcesso] = useState('');
+  const [tempoPausaProcesso, setTempoPausaProcesso] = useState('');
+  const [erroAcaoProcesso, setErroAcaoProcesso] = useState('');
+  const [acaoProvaSensivel, setAcaoProvaSensivel] = useState(null);
   const [liberacaoProvaSelecionada, setLiberacaoProvaSelecionada] = useState(null);
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState(null);
   const [documentosEntrevista, setDocumentosEntrevista] = useState([]);
@@ -5761,6 +5909,8 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [mensagemEntrevistaEditada, setMensagemEntrevistaEditada] =
     useState(false);
   const [feedbackLinkPublico, setFeedbackLinkPublico] = useState('');
+  const [modalCompartilharVagaAberto, setModalCompartilharVagaAberto] = useState(false);
+  const [feedbackCompartilhamentoVaga, setFeedbackCompartilhamentoVaga] = useState('');
   const [observacoesPublicasVaga, setObservacoesPublicasVaga] = useState('');
   const [requisitosPublicos, setRequisitosPublicos] = useState(() =>
     montarItensPublicosPadrao(REQUISITOS_PUBLICOS_PADRAO),
@@ -6140,6 +6290,27 @@ export function TelaDetalhesProcesso({ controlador }) {
     : linkPublicoAtivo
       ? 'Ativa'
       : 'Inativa';
+  const processoPausado = normalizarTextoComparacao(processo?.status) === 'pausado';
+  const possuiAlgumaPermissao = (...permissoes) => {
+    if (!controlador?.possuiPermissao) return true;
+    return permissoes.some((permissao) => controlador.possuiPermissao(permissao));
+  };
+  const textoCompartilhamentoVaga = useMemo(
+    () =>
+      montarTextoCompartilhamentoVaga({
+        processo,
+        requisitos: requisitosPublicos,
+        responsabilidades: responsabilidadesPublicas,
+        url: urlPublicaCandidatura || urlInternaCandidatura || '',
+      }),
+    [
+      processo,
+      requisitosPublicos,
+      responsabilidadesPublicas,
+      urlPublicaCandidatura,
+      urlInternaCandidatura,
+    ],
+  );
 
   const abrirEdicaoProcessoDetalhe = () => {
     if (!processo) return;
@@ -6215,31 +6386,72 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
   };
 
-  const encerrarProcessoDetalhe = async () => {
+  const solicitarAcaoProcessoDetalhe = (tipo) => {
     const referenciaProcesso =
       obterReferenciaProcesso(edicaoProcesso) || obterReferenciaProcesso(processo) || idProcesso;
     if (!referenciaProcesso) {
-      setErro('Processo não identificado para encerramento.');
+      setErro('Processo não identificado para alteração de status.');
       return;
     }
+    setJustificativaAcaoProcesso('');
+    setTempoPausaProcesso('');
+    setErroAcaoProcesso('');
+    setAcaoProcessoSensivel({ tipo, referenciaProcesso, processo });
+  };
 
-    const confirmar = window.confirm(
-      `Deseja realmente encerrar o processo ${processo?.id_processo || referenciaProcesso}?`,
-    );
-    if (!confirmar) return;
-
+  const executarAcaoProcessoDetalhe = async () => {
+    if (!acaoProcessoSensivel?.referenciaProcesso) return;
+    const { tipo, referenciaProcesso } = acaoProcessoSensivel;
+    const justificativa = justificativaAcaoProcesso.trim();
+    if (justificativa.length < 10) {
+      setErroAcaoProcesso('Informe uma justificativa com pelo menos 10 caracteres.');
+      return;
+    }
+    if (tipo === 'pausar' && !tempoPausaProcesso) {
+      setErroAcaoProcesso('Selecione por quanto tempo a vaga ficará pausada.');
+      return;
+    }
     setSalvandoProcesso(true);
     setErro('');
+    setErroAcaoProcesso('');
     try {
-      await encerrarProcesso(referenciaProcesso);
+      const previsaoTerminoPausa =
+        tipo === 'pausar' ? calcularPrevisaoTerminoPausa(tempoPausaProcesso) : '';
+      if (tipo === 'pausar') {
+        await pausarProcesso(referenciaProcesso, {
+          justificativa,
+          tempo_pausa: tempoPausaProcesso,
+          pausa_previsao_termino: previsaoTerminoPausa,
+        });
+      } else if (tipo === 'retomar') {
+        await retomarProcesso(referenciaProcesso, { justificativa });
+      } else if (tipo === 'cancelar') {
+        await cancelarProcesso(referenciaProcesso, { justificativa });
+      } else {
+        await encerrarProcesso(referenciaProcesso, { justificativa });
+      }
+      const proximoStatus =
+        tipo === 'pausar'
+          ? 'Pausado'
+          : tipo === 'retomar'
+            ? 'Aberto'
+            : tipo === 'cancelar'
+              ? 'Cancelado'
+              : 'Encerrado';
       setProcesso((atual) => ({
         ...(atual || {}),
-        status: 'Encerrado',
+        status: proximoStatus,
+        justificativa_status: justificativa,
+        tempo_pausa: tipo === 'pausar' ? tempoPausaProcesso : '',
+        pausa_previsao_termino: tipo === 'pausar' ? previsaoTerminoPausa : '',
       }));
       setEdicaoProcesso(null);
+      setAcaoProcessoSensivel(null);
+      setJustificativaAcaoProcesso('');
+      setTempoPausaProcesso('');
       await carregar(paginaPreAnalises, filtrosPreAnalises, paginaCvsNaoQualificados);
     } catch (error) {
-      setErro(error?.message || 'Não foi possível encerrar o processo.');
+      setErroAcaoProcesso(error?.message || 'Não foi possível alterar o status do processo.');
     } finally {
       setSalvandoProcesso(false);
     }
@@ -7083,28 +7295,31 @@ export function TelaDetalhesProcesso({ controlador }) {
   const cancelarProvaDoCandidato = async (candidato) => {
     const idProva = obterIdProvaGeradaCandidato(candidato);
     if (!idProva) return;
-    const motivo = window.prompt('Motivo do cancelamento da prova:');
-    if (motivo === null) return;
-    try {
-      setErro('');
-      await cancelarProvaGerada(idProva, { motivo });
-      await carregar(paginaPreAnalises, filtrosPreAnalises, paginaCvsNaoQualificados);
-    } catch (error) {
-      setErro(error?.message || 'Não foi possível cancelar a prova.');
-    }
+    setAcaoProvaSensivel({ tipo: 'cancelar', candidato, idProva });
   };
 
   const reabrirProvaDoCandidato = async (candidato) => {
     const idProva = obterIdProvaGeradaCandidato(candidato);
     if (!idProva) return;
-    const motivo = window.prompt('Motivo da reabertura da prova:');
-    if (!motivo) return;
+    setAcaoProvaSensivel({ tipo: 'reabrir', candidato, idProva });
+  };
+
+  const confirmarAcaoProva = async ({ justificativa }) => {
+    if (!acaoProvaSensivel?.idProva) return;
     try {
       setErro('');
-      await reabrirProvaGerada(idProva, { motivo, manter_respostas: true });
+      if (acaoProvaSensivel.tipo === 'cancelar') {
+        await cancelarProvaGerada(acaoProvaSensivel.idProva, { motivo: justificativa });
+      } else {
+        await reabrirProvaGerada(acaoProvaSensivel.idProva, {
+          motivo: justificativa,
+          manter_respostas: true,
+        });
+      }
+      setAcaoProvaSensivel(null);
       await carregar(paginaPreAnalises, filtrosPreAnalises, paginaCvsNaoQualificados);
     } catch (error) {
-      setErro(error?.message || 'Não foi possível reabrir a prova.');
+      setErro(error?.message || 'Não foi possível alterar a prova.');
     }
   };
 
@@ -8355,18 +8570,64 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
   };
 
   const compartilharVaga = async () => {
-    const url = urlPublicaCandidatura || urlInternaCandidatura || window.location.href;
-    const titulo = processo?.vaga ? `Vaga: ${processo.vaga}` : 'Processo seletivo';
+    setFeedbackCompartilhamentoVaga('');
+    setModalCompartilharVagaAberto(true);
+  };
+
+  const copiarTextoCompartilhamentoVaga = async () => {
     try {
-      if (navigator.share && (urlPublicaCandidatura || urlInternaCandidatura)) {
-        await navigator.share({ title: titulo, url });
-        return;
-      }
-      await copiarTexto(url);
-      setFeedbackLinkPublico('Link da vaga copiado.');
+      await copiarTexto(textoCompartilhamentoVaga);
+      setFeedbackCompartilhamentoVaga('Texto da vaga copiado para a área de transferência.');
+      setFeedbackLinkPublico('Texto da vaga copiado.');
     } catch (error) {
-      if (error?.name !== 'AbortError') setErro('Não foi possível compartilhar a vaga agora.');
+      setFeedbackCompartilhamentoVaga('Não foi possível copiar agora. Selecione o texto e copie manualmente.');
     }
+  };
+
+  const montarAcoesCabecalhoDetalhe = () => {
+    const candidatoBloqueadoTitulo = processoPausado
+      ? 'Esta vaga está pausada. Retome a vaga para adicionar candidatos.'
+      : processoEncerrado
+        ? 'Esta vaga não permite novas inclusões ou movimentações.'
+        : '';
+    return [
+      possuiAlgumaPermissao('vagas.visualizar', 'processos.visualizar') ? {
+        label: 'Compartilhar vaga',
+        icon: 'share',
+        onClick: compartilharVaga,
+      } : null,
+      possuiAlgumaPermissao('vagas.visualizar', 'processos.visualizar') ? {
+        label: 'Ver resumo da vaga',
+        icon: 'assignment',
+        onClick: () => setResumoVagaAberto(true),
+      } : null,
+      possuiAlgumaPermissao('candidatos.criar', 'candidatos.editar') ? {
+        label: 'Adicionar candidato',
+        icon: 'person_add',
+        disabled: processoEncerrado,
+        title: candidatoBloqueadoTitulo || 'Analisar e adicionar candidato a esta vaga',
+        onClick: abrirModalPreAnalise,
+      } : null,
+      possuiAlgumaPermissao('vagas.editar', 'processos.editar') ? {
+        label: 'Editar vaga',
+        icon: 'edit_square',
+        onClick: abrirEdicaoProcessoDetalhe,
+      } : null,
+      { separator: true, key: 'status-actions' },
+      possuiAlgumaPermissao('vagas.editar', 'processos.editar') ? {
+        label: processoPausado ? 'Retomar vaga' : 'Pausar vaga',
+        icon: processoPausado ? 'play_circle' : 'pause_circle',
+        disabled: ['cancelado', 'encerrado'].includes(normalizarTextoComparacao(processo?.status)),
+        onClick: () => solicitarAcaoProcessoDetalhe(processoPausado ? 'retomar' : 'pausar'),
+      } : null,
+      possuiAlgumaPermissao('vagas.encerrar') ? {
+        label: 'Encerrar vaga',
+        icon: 'lock',
+        danger: true,
+        disabled: ['cancelado', 'encerrado'].includes(normalizarTextoComparacao(processo?.status)),
+        onClick: () => solicitarAcaoProcessoDetalhe('encerrar'),
+      } : null,
+    ];
   };
 
   const abrirDossieDoCandidato = (candidato) => {
@@ -8560,7 +8821,10 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       }}
         acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
       >
-        <div class="alert alert-info">Carregando detalhes do processo...</div>
+        <${LoadingState}
+          titulo="Carregando detalhes do processo"
+          descricao="Buscando dados da vaga, candidatos, entrevistas e histórico."
+        />
       </${PainelRh}>
     `;
   }
@@ -8677,9 +8941,11 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       compartilhar: compartilharVaga,
       abrirResumoVaga: () => setResumoVagaAberto(true),
       fecharResumoVaga: () => setResumoVagaAberto(false),
+      acoesCabecalho: montarAcoesCabecalhoDetalhe(),
       trocarAba: trocarAbaDetalhe,
       setSubAbaEncontrar,
       abrirModalAnaliseCv: abrirModalPreAnalise,
+      abrirCentralCandidatos: () => controlador.irParaTelaProtegida('screen-candidates'),
       setBuscaCandidatos: setBuscaCandidatosProcesso,
       setFiltroStatusCandidatos,
       setOrdenacaoCandidatos,
@@ -8725,6 +8991,31 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
     }}
       />
 
+      <${ModalConfirmacaoAcao}
+        aberto=${Boolean(acaoProvaSensivel)}
+        titulo=${acaoProvaSensivel?.tipo === 'cancelar' ? 'Cancelar prova' : 'Reabrir prova'}
+        descricao=${`Candidato: ${acaoProvaSensivel?.candidato?.nome_candidato || 'não informado'}.`}
+        consequencia=${acaoProvaSensivel?.tipo === 'cancelar'
+      ? 'O cancelamento interromperá a disponibilidade da prova e será registrado em auditoria.'
+      : 'A reabertura permitirá que a prova volte ao fluxo operacional.'}
+        reversibilidade=${acaoProvaSensivel?.tipo === 'cancelar'
+      ? 'Esta ação poderá ser revertida posteriormente por reabertura autorizada.'
+      : 'Esta ação poderá ser revertida posteriormente por novo cancelamento autorizado.'}
+        labelJustificativa=${acaoProvaSensivel?.tipo === 'cancelar'
+      ? 'Justificativa do cancelamento'
+      : 'Justificativa da reabertura'}
+        justificativaObrigatoria=${true}
+        textoConfirmar=${acaoProvaSensivel?.tipo === 'cancelar'
+      ? 'Confirmar cancelamento'
+      : 'Confirmar reabertura'}
+        textoCancelar="Voltar"
+        tipo=${acaoProvaSensivel?.tipo === 'cancelar' ? 'destrutivo' : 'aviso'}
+        carregando=${false}
+        erro=${erro}
+        onClose=${() => setAcaoProvaSensivel(null)}
+        onConfirm=${confirmarAcaoProva}
+      />
+
       <${ModalAnaliseCvProcesso}
         aberto=${modalPreAnaliseAberto}
         processoEncerrado=${processoEncerrado}
@@ -8738,6 +9029,43 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         onGuardarOriginal=${setGuardarCvOriginal}
         onAnalisar=${enviarCv}
       />
+
+      <${ModalPadrao}
+        aberto=${modalCompartilharVagaAberto}
+        titulo="Compartilhar vaga"
+        subtitulo=${processo?.vaga || 'Processo seletivo'}
+        onClose=${() => setModalCompartilharVagaAberto(false)}
+      >
+        <div class="rh-details-body process-share-modal">
+          <p>Revise o texto antes de enviar aos candidatos.</p>
+          <textarea
+            class="form-control"
+            rows="12"
+            readOnly
+            value=${textoCompartilhamentoVaga}
+            onFocus=${(event) => event.currentTarget.select()}
+          ></textarea>
+          ${feedbackCompartilhamentoVaga
+      ? html`<div class="alert alert-success">${feedbackCompartilhamentoVaga}</div>`
+      : null}
+        </div>
+        <footer class="rh-modal-footer">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            onClick=${() => setModalCompartilharVagaAberto(false)}
+          >
+            Fechar
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            onClick=${copiarTextoCompartilhamentoVaga}
+          >
+            <span class="material-symbols-outlined">content_copy</span>Copiar texto da vaga
+          </button>
+        </footer>
+      </${ModalPadrao}>
 
       ${false ? html`
       <${PageIntro}
@@ -10273,7 +10601,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
 
       <${ModalPadrao}
         aberto=${!!edicaoProcesso}
-        titulo="Editar processo seletivo"
+        titulo="Editar vaga"
         subtitulo="Ajuste as configurações principais do processo."
         onClose=${() => setEdicaoProcesso(null)}
       >
@@ -10398,21 +10726,6 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           atualizarCampoEdicaoProcesso('nota_corte', event.target.value)}
                     />
                   </div>
-                  <div class="col-md-4">
-                    <label class="form-label">Status do processo</label>
-                    <select
-                      class="form-select"
-                      value=${edicaoProcesso.status || 'Aberto'}
-                      disabled=${salvandoProcesso}
-                      onChange=${(event) =>
-          atualizarCampoEdicaoProcesso('status', event.target.value)}
-                    >
-                      <option value="Aberto">Aberto</option>
-                      <option value="Em andamento">Em andamento</option>
-                      <option value="Pausado">Pausado</option>
-                      <option value="Encerrado">Encerrado</option>
-                    </select>
-                  </div>
                   <div class="col-md-12">
                     <label class="form-label">Link de agendamento</label>
                     <input
@@ -10426,14 +10739,6 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                 </div>
               </div>
               <footer class="rh-modal-footer">
-                <button
-                  type="button"
-                  class="btn btn-outline-danger me-auto"
-                  disabled=${salvandoProcesso || isProcessClosed(edicaoProcesso)}
-                  onClick=${encerrarProcessoDetalhe}
-                >
-                  Encerrar processo
-                </button>
                 <button
                   type="button"
                   class="btn btn-outline-secondary"
@@ -10453,6 +10758,107 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
               </footer>
             `
       : null}
+      </${ModalPadrao}>
+
+      <${ModalPadrao}
+        aberto=${Boolean(acaoProcessoSensivel)}
+        titulo=${acaoProcessoSensivel?.tipo === 'pausar'
+      ? 'Pausar vaga'
+      : acaoProcessoSensivel?.tipo === 'retomar'
+        ? 'Retomar vaga'
+        : acaoProcessoSensivel?.tipo === 'cancelar'
+          ? 'Cancelar vaga'
+          : 'Encerrar vaga'}
+        subtitulo=${`Processo ${acaoProcessoSensivel?.processo?.id_processo || acaoProcessoSensivel?.referenciaProcesso || ''}.`}
+        onClose=${() => {
+      if (!salvandoProcesso) {
+        setAcaoProcessoSensivel(null);
+        setErroAcaoProcesso('');
+      }
+    }}
+      >
+        <div class="rh-details-body process-status-action-modal">
+          <p>
+            ${acaoProcessoSensivel?.tipo === 'pausar'
+      ? 'A pausa bloqueia novas inclusões e movimentações operacionais até a vaga ser retomada.'
+      : acaoProcessoSensivel?.tipo === 'retomar'
+        ? 'A retomada libera novamente as movimentações operacionais da vaga.'
+        : acaoProcessoSensivel?.tipo === 'cancelar'
+          ? 'O cancelamento interrompe o processo sem excluir dados históricos.'
+          : 'O encerramento finaliza a vaga e bloqueia novas movimentações.'}
+          </p>
+          ${acaoProcessoSensivel?.tipo === 'pausar'
+      ? html`
+                <label class="form-label">Tempo de pausa</label>
+                <select
+                  class="form-select"
+                  value=${tempoPausaProcesso}
+                  disabled=${salvandoProcesso}
+                  onChange=${(event) => setTempoPausaProcesso(event.target.value)}
+                >
+                  <option value="">Selecione...</option>
+                  ${OPCOES_TEMPO_PAUSA_PROCESSO.map((opcao) => html`
+                    <option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>
+                  `)}
+                </select>
+                ${tempoPausaProcesso && tempoPausaProcesso !== 'indefinido'
+          ? html`<small class="text-muted">Previsão de término: ${formatarDataCurta(calcularPrevisaoTerminoPausa(tempoPausaProcesso))}</small>`
+          : null}
+                ${tempoPausaProcesso === 'indefinido'
+          ? html`<small class="text-muted">A vaga ficará pausada até retomada manual.</small>`
+          : null}
+              `
+      : null}
+          <label class="form-label">
+            ${acaoProcessoSensivel?.tipo === 'pausar'
+      ? 'Justificativa da pausa'
+      : acaoProcessoSensivel?.tipo === 'retomar'
+        ? 'Justificativa da retomada'
+        : acaoProcessoSensivel?.tipo === 'cancelar'
+          ? 'Justificativa do cancelamento'
+          : 'Justificativa do encerramento'}
+          </label>
+          <textarea
+            class="form-control"
+            rows="4"
+            value=${justificativaAcaoProcesso}
+            disabled=${salvandoProcesso}
+            placeholder="Informe o motivo desta ação"
+            onInput=${(event) => setJustificativaAcaoProcesso(event.target.value)}
+          ></textarea>
+          ${erroAcaoProcesso || erro
+      ? html`<div class="alert alert-danger">${erroAcaoProcesso || erro}</div>`
+      : null}
+        </div>
+        <footer class="rh-modal-footer">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            disabled=${salvandoProcesso}
+            onClick=${() => {
+      setAcaoProcessoSensivel(null);
+      setErroAcaoProcesso('');
+    }}
+          >
+            Voltar
+          </button>
+          <button
+            type="button"
+            class=${`btn ${['cancelar', 'encerrar'].includes(acaoProcessoSensivel?.tipo) ? 'btn-danger' : 'btn-primary'}`}
+            disabled=${salvandoProcesso}
+            onClick=${executarAcaoProcessoDetalhe}
+          >
+            ${salvandoProcesso
+      ? 'Processando...'
+      : acaoProcessoSensivel?.tipo === 'pausar'
+        ? 'Confirmar pausa'
+        : acaoProcessoSensivel?.tipo === 'retomar'
+          ? 'Confirmar retomada'
+          : acaoProcessoSensivel?.tipo === 'cancelar'
+            ? 'Confirmar cancelamento'
+            : 'Confirmar encerramento'}
+          </button>
+        </footer>
       </${ModalPadrao}>
 
       <${ModalPadrao}

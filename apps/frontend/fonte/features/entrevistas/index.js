@@ -237,7 +237,7 @@ export function TelaEntrevistas({ controlador }) {
   const [paginaAgenda, setPaginaAgenda] = useState(1);
   const [modalResumoDiaAberto, setModalResumoDiaAberto] = useState(false);
 
-  const carregar = async () => {
+  const carregar = async ({ forcar = false } = {}) => {
     setCarregando(true);
     setErro('');
 
@@ -248,7 +248,7 @@ export function TelaEntrevistas({ controlador }) {
           statusEntrevista: filtros.status,
           search: filtros.busca,
         }),
-        lerProcessos(true),
+        lerProcessos({ forcar }),
         lerSlotsEntrevista({
           idProcesso: filtros.processo,
           date: filtros.data,
@@ -883,7 +883,7 @@ export function TelaEntrevistas({ controlador }) {
               type="button"
               class="btn btn-primary btn-sm rh-action-btn interview-compact-action"
               title="Aplicar filtros"
-              onClick=${carregar}
+              onClick=${() => carregar({ forcar: true })}
             >
               <span class="material-symbols-outlined">filter_alt</span>
               Aplicar

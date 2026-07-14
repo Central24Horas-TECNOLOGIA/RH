@@ -3,7 +3,10 @@ from __future__ import annotations
 from .helpers import normalize_compare_text, normalize_text
 
 
+PROCESS_STATUS_OPEN = "Aberto"
 PROCESS_STATUS_CLOSED = "Encerrado"
+PROCESS_STATUS_PAUSED = "Pausado"
+PROCESS_STATUS_CANCELED = "Cancelado"
 
 CANDIDATE_STATUS_ANALYSIS = "Analise"
 CANDIDATE_STATUS_QUALIFIED = "Qualificado"
@@ -64,13 +67,21 @@ INTERVIEW_SCHEDULING_ALLOWED_STATUSES = {
 
 def normalize_process_status(status: str | None) -> str:
     safe_status = normalize_compare_text(status)
-    if safe_status in {"encerrado", "cancelado", "arquivado", "fechado", "inativo"}:
+    if safe_status in {"pausado", "pausa"}:
+        return PROCESS_STATUS_PAUSED
+    if safe_status in {"cancelado", "cancelada"}:
+        return PROCESS_STATUS_CANCELED
+    if safe_status in {"encerrado", "arquivado", "fechado", "inativo", "finalizado"}:
         return PROCESS_STATUS_CLOSED
-    return normalize_text(status)
+    return normalize_text(status) or PROCESS_STATUS_OPEN
 
 
 def is_process_closed(status: str | None) -> bool:
-    return normalize_process_status(status) == PROCESS_STATUS_CLOSED
+    return normalize_process_status(status) in {
+        PROCESS_STATUS_CLOSED,
+        PROCESS_STATUS_CANCELED,
+        PROCESS_STATUS_PAUSED,
+    }
 
 
 def canonicalize_candidate_status(status: str | None) -> str:
@@ -160,7 +171,10 @@ def map_cv_classification_to_status(classification: str | None) -> str:
 
 
 def build_process_closed_message(action_label: str, id_processo: str | None = None) -> str:
-    return "Processo encerrado. Movimentações não são permitidas."
+    return (
+        "Esta vaga está pausada, encerrada ou cancelada e não permite novas inclusões "
+        "ou movimentações. Retome a vaga para continuar quando ela estiver pausada."
+    )
 
 
 def build_candidate_status_action_label(status: str | None) -> str:

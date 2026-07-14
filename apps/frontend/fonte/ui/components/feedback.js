@@ -88,7 +88,7 @@ export function LoadingState({
   descricao = 'Aguarde enquanto as informações são atualizadas.',
 }) {
   return html`
-    <div class="rh-loading-state">
+    <div class="rh-loading-state c24-loading-panel">
       <div
         class="spinner-border text-primary"
         role="status"

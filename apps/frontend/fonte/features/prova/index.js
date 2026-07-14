@@ -316,7 +316,7 @@ export function TelaConfiguracao({ controlador }) {
   useEffect(() => {
     (async () => {
       try {
-        const lista = await lerProcessos(true);
+        const lista = await lerProcessos();
         const abertos = (Array.isArray(lista) ? lista : []).filter(
           (processo) => !isProcessClosed(processo),
         );

@@ -107,6 +107,8 @@ const MENSAGEM_EMAIL_NAO_CONFIGURADO =
   'Caixa de e-mail corporativa ainda não configurada. Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor.';
 
 const TAMANHO_RELATORIO = 8;
+const LIMITE_CACHE_EMAILS_RECEBIDOS = 80;
+const cacheSecoesEmail = new Map();
 
 const COLUNAS_RELATORIO_PROCESSOS = [
   { label: 'ID do processo', key: 'id_processo_relatorio' },
@@ -202,6 +204,27 @@ function normalizarBuscaPainel(valor) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+}
+
+function montarChaveCacheSecaoEmail({ mostrarIgnorados = false, query = '' } = {}) {
+  return JSON.stringify({
+    limite: LIMITE_CACHE_EMAILS_RECEBIDOS,
+    mostrarIgnorados: Boolean(mostrarIgnorados),
+    query: normalizarTextoPainel(query),
+    apenasComAnexos: true,
+  });
+}
+
+function lerCacheSecaoEmail(chave) {
+  return cacheSecoesEmail.get(chave) || null;
+}
+
+function gravarCacheSecaoEmail(chave, estado) {
+  cacheSecoesEmail.set(chave, {
+    payloadEmail: estado?.payloadEmail || null,
+    emails: Array.isArray(estado?.emails) ? estado.emails : [],
+    processosAbertos: Array.isArray(estado?.processosAbertos) ? estado.processosAbertos : [],
+  });
 }
 
 function normalizarTrilhaProvaProcesso(valor) {
@@ -604,11 +627,13 @@ function formatarPartesDataHoraEmail(valor) {
 
 function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } = {}) {
   const compacto = modo !== 'completo';
+  const chaveInicialEmail = montarChaveCacheSecaoEmail();
+  const cacheInicialEmail = lerCacheSecaoEmail(chaveInicialEmail);
   const [aberta, setAberta] = useState(true);
-  const [carregando, setCarregando] = useState(true);
-  const [payloadEmail, setPayloadEmail] = useState(null);
-  const [emails, setEmails] = useState([]);
-  const [processosAbertos, setProcessosAbertos] = useState([]);
+  const [carregando, setCarregando] = useState(!cacheInicialEmail);
+  const [payloadEmail, setPayloadEmail] = useState(cacheInicialEmail?.payloadEmail || null);
+  const [emails, setEmails] = useState(cacheInicialEmail?.emails || []);
+  const [processosAbertos, setProcessosAbertos] = useState(cacheInicialEmail?.processosAbertos || []);
   const [selecoesProcesso, setSelecoesProcesso] = useState({});
   const [acaoEmAndamento, setAcaoEmAndamento] = useState('');
   const [detalheEmail, setDetalheEmail] = useState(null);
@@ -637,43 +662,65 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
     (id) => idsSelecionados.includes(id),
   );
 
-  const carregarEmails = async () => {
-    setCarregando(true);
+  const aplicarEstadoEmail = (estado) => {
+    setPayloadEmail(estado.payloadEmail || null);
+    setEmails(Array.isArray(estado.emails) ? estado.emails : []);
+    setProcessosAbertos(Array.isArray(estado.processosAbertos) ? estado.processosAbertos : []);
+  };
+
+  const carregarEmails = async ({ forcar = false } = {}) => {
+    const query = filtroTexto.trim();
+    const chaveCacheEmail = montarChaveCacheSecaoEmail({ mostrarIgnorados, query });
+    if (forcar) cacheSecoesEmail.clear();
+    const cacheEmail = !forcar ? lerCacheSecaoEmail(chaveCacheEmail) : null;
+
+    if (cacheEmail) {
+      aplicarEstadoEmail(cacheEmail);
+      setCarregando(false);
+      return;
+    }
+
+    const possuiDadosEmTela = Boolean(payloadEmail || emails.length || processosAbertos.length);
+    setCarregando(forcar || !possuiDadosEmTela);
     try {
       const [resultadoEmails, resultadoProcessos] = await Promise.allSettled([
         lerEmailsRecebidos({
-          limite: compacto ? 30 : 80,
+          limite: LIMITE_CACHE_EMAILS_RECEBIDOS,
           mostrarIgnorados,
-          query: filtroTexto.trim(),
+          query,
           apenasComAnexos: true,
-          refresh: true,
+          refresh: forcar,
         }),
-        lerProcessos(true),
+        lerProcessos({ forcar }),
       ]);
+      const proximoEstado = {
+        payloadEmail: null,
+        emails: [],
+        processosAbertos: [],
+      };
 
       if (resultadoEmails.status === 'fulfilled') {
         const payload = resultadoEmails.value || {};
-        setPayloadEmail(payload);
-        setEmails(Array.isArray(payload.items) ? payload.items : []);
+        proximoEstado.payloadEmail = payload;
+        proximoEstado.emails = Array.isArray(payload.items) ? payload.items : [];
       } else {
-        setPayloadEmail({
+        proximoEstado.payloadEmail = {
           configured: false,
           message:
             resultadoEmails.reason?.message || MENSAGEM_EMAIL_NAO_CONFIGURADO,
-        });
-        setEmails([]);
+        };
       }
 
       if (resultadoProcessos.status === 'fulfilled') {
-        setProcessosAbertos(
+        proximoEstado.processosAbertos =
           (Array.isArray(resultadoProcessos.value)
             ? resultadoProcessos.value
             : []
-          ).filter((processo) => !isProcessClosed(processo)),
-        );
-      } else {
-        setProcessosAbertos([]);
+          ).filter((processo) => !isProcessClosed(processo));
       }
+
+      gravarCacheSecaoEmail(chaveCacheEmail, proximoEstado);
+      aplicarEstadoEmail(proximoEstado);
     } finally {
       setCarregando(false);
     }
@@ -682,7 +729,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
   useEffect(() => {
     setPaginaAtual(1);
     carregarEmails();
-  }, [mostrarIgnorados, tamanhoPagina]);
+  }, [mostrarIgnorados]);
 
   useEffect(() => {
     const idsDisponiveis = new Set(emails.map((item) => String(item.id)));
@@ -702,7 +749,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
     setAcaoEmAndamento(chave);
     try {
       await acao();
-      await carregarEmails();
+      await carregarEmails({ forcar: true });
     } finally {
       setAcaoEmAndamento('');
     }
@@ -761,7 +808,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
       const anexo = Array.isArray(item.anexos) ? item.anexos[0] : null;
       const resposta = await baixarAnexoEmailRecebido(item.id, anexo?.id || '');
       abrirBlobEmNovaGuia(resposta.blob);
-      await carregarEmails();
+      await carregarEmails({ forcar: true });
     } catch (error) {
       registrarErroAcao(error, 'Não foi possível abrir o CV recebido.');
     } finally {
@@ -933,7 +980,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                 type="button"
                 class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
                 disabled=${carregando}
-                onClick=${carregarEmails}
+                onClick=${() => carregarEmails({ forcar: true })}
               >
                 <span class="material-symbols-outlined">refresh</span>
                 ${carregando ? 'Atualizando...' : 'Atualizar'}
@@ -1053,8 +1100,17 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
           : html`
                           <tr class="email-empty-row">
                             <td class="text-center text-muted py-4" colSpan=${compacto ? 4 : 8}>
-                              <span class="material-symbols-outlined">inbox</span>
-                              <span>${carregando ? 'Carregando currículos recebidos.' : 'Nenhum currículo recebido por e-mail para listar.'}</span>
+                              ${carregando
+                                ? html`
+                                    <${LoadingState}
+                                      titulo="Carregando currículos recebidos"
+                                      descricao="Buscando e-mails e anexos da caixa monitorada."
+                                    />
+                                  `
+                                : html`
+                                    <span class="material-symbols-outlined">inbox</span>
+                                    <span>Nenhum currículo recebido por e-mail para listar.</span>
+                                  `}
                             </td>
                           </tr>
                         `}
@@ -1406,7 +1462,7 @@ export function TelaInicio({ controlador }) {
     'usuário',
   );
 
-  const carregar = async () => {
+  const carregar = async ({ forcar = false } = {}) => {
     setCarregando(true);
     try {
       const [
@@ -1417,8 +1473,8 @@ export function TelaInicio({ controlador }) {
       ] =
         await Promise.allSettled([
           lerHistorico(),
-          lerProcessos(true),
-          lerCandidatosProcessos(true),
+          lerProcessos({ forcar }),
+          lerCandidatosProcessos({ forcar }),
           lerEntrevistas(),
         ]);
       const historico =
@@ -1675,7 +1731,7 @@ export function TelaInicio({ controlador }) {
           <button
             type="button"
             class="btn btn-outline-secondary rh-action-btn c24-top-refresh-btn"
-            onClick=${carregar}
+            onClick=${() => carregar({ forcar: true })}
           >
             <span class="material-symbols-outlined">refresh</span>
             Atualizar
@@ -1829,7 +1885,12 @@ export function TelaInicio({ controlador }) {
             `}
           >
             ${carregando
-      ? html`<div class="alert alert-secondary">Carregando provas recentes...</div>`
+      ? html`
+                    <${LoadingState}
+                      titulo="Carregando provas recentes"
+                      descricao="Buscando os últimos registros salvos."
+                    />
+                  `
       : recentes.length
         ? html`
                     <div class="rh-recent-grid">
@@ -2863,19 +2924,19 @@ export function TelaBancoTalentos({ controlador }) {
     tag: '',
   });
 
-  const carregar = async () => {
+  const carregar = async ({ forcar = false } = {}) => {
     setCarregando(true);
     setErro('');
 
     try {
       const [banco, processos] = await Promise.all([
         lerBancoTalentos({
-          forcar: true,
+          forcar,
           search: filtros.busca,
           skill: filtros.habilidade,
           tag: filtros.tag,
         }),
-        lerProcessos(true),
+        lerProcessos({ forcar }),
       ]);
 
       setLinhas(Array.isArray(banco) ? banco : []);
@@ -2929,7 +2990,7 @@ export function TelaBancoTalentos({ controlador }) {
     setErro('');
     try {
       await removerBancoTalentos(idBanco);
-      await carregar();
+      await carregar({ forcar: true });
     } catch (error) {
       setErro(
         error?.message || 'Não foi possível remover o candidato do banco.',
@@ -2970,7 +3031,7 @@ export function TelaBancoTalentos({ controlador }) {
         observacao_rh: formularioPerfil.observacao_rh,
       });
       setPerfilEdicao(null);
-      await carregar();
+      await carregar({ forcar: true });
     } catch (error) {
       setErro(error?.message || 'Não foi possível atualizar o perfil RH.');
     } finally {
@@ -3003,7 +3064,7 @@ export function TelaBancoTalentos({ controlador }) {
 
       setCandidatoParaUtilizar(null);
       setProcessoSelecionadoUso('');
-      await carregar();
+      await carregar({ forcar: true });
     } catch (error) {
       setErro(
         error?.message || 'Não foi possível reutilizar o candidato selecionado.',
@@ -3655,7 +3716,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
       return;
     }
 
-    const candidatosProcesso = await lerCandidatosProcessos(true);
+    const candidatosProcesso = await lerCandidatosProcessos();
     const vinculo = candidatosProcesso.find(
       (item) =>
         String(item.id_teste || '').trim() ===

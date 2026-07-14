@@ -22,6 +22,7 @@ from ..services.process_flow import (
     CANDIDATE_STATUS_TALENT_BANK,
     CANDIDATE_STATUS_WITHDREW,
     INTERVIEW_OPERATIONAL_STATUSES,
+    PROCESS_STATUS_CANCELED,
     build_approved_candidate_locked_message,
     build_process_closed_message,
     build_terminal_candidate_locked_message,
@@ -34,6 +35,7 @@ from ..services.process_flow import (
 )
 from .bootstrap import (
     build_process_where_clause,
+    ensure_process_inactivity_alerts_table,
     ensure_process_dossier_notes_table,
     ensure_pipeline_columns,
     ensure_process_columns,
@@ -149,6 +151,123 @@ class ProcessRepositoryMixin:
                 row["candidatos_concorrendo"] = int(contagem_por_ref.get(ref, 0))
                 row["quantidade_candidatos"] = row["candidatos_concorrendo"]
             return self._paginate_list(rows, page, page_size)
+        finally:
+            conn.close()
+
+    def monitor_process_inactivity(self, *, dias: int = 30) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_columns(cursor)
+            ensure_process_reference_columns(cursor)
+            ensure_process_inactivity_alerts_table(cursor)
+            cursor.execute(
+                """
+                SELECT
+                    id_processo,
+                    id_processo_ref,
+                    vaga,
+                    data_criacao,
+                    status,
+                    ultima_movimentacao_relevante_em,
+                    ultimo_alerta_inatividade_em
+                FROM processos_seletivos
+                """
+            )
+            processos = rows_to_dicts(cursor, cursor.fetchall())
+            alertas = []
+            for processo in processos:
+                status_atual = normalize_process_status(processo.get("status"))
+                if status_atual in {"Encerrado", "Cancelado", "Pausado"}:
+                    continue
+                abertura = processo.get("data_criacao")
+                ultima = processo.get("ultima_movimentacao_relevante_em") or abertura
+                if not ultima:
+                    continue
+                cursor.execute("SELECT DATEDIFF(day, ?, GETDATE())", (ultima,))
+                dias_sem_movimentacao = int((cursor.fetchone() or [0])[0] or 0)
+                if dias_sem_movimentacao < int(dias or 30):
+                    continue
+                cursor.execute(
+                    """
+                    SELECT TOP 1 id_alerta
+                    FROM processos_alertas_inatividade
+                    WHERE id_processo = ?
+                      AND ISNULL(id_processo_ref, '') = ISNULL(?, '')
+                      AND tipo = 'processo_sem_movimentacao'
+                      AND ISNULL(data_ultima_movimentacao, CONVERT(DATETIME, '19000101', 112))
+                          = ISNULL(?, CONVERT(DATETIME, '19000101', 112))
+                    ORDER BY criado_em DESC
+                    """,
+                    (
+                        normalize_text(processo.get("id_processo")),
+                        normalize_text(processo.get("id_processo_ref")),
+                        ultima,
+                    ),
+                )
+                if cursor.fetchone():
+                    continue
+
+                nome = normalize_text(processo.get("id_processo_ref")) or normalize_text(processo.get("id_processo"))
+                mensagem = (
+                    f"O processo seletivo '{nome}' permanece há {dias_sem_movimentacao} dias sem movimentações. "
+                    "Verifique se é necessário atualizar, pausar ou cancelar o processo."
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO processos_alertas_inatividade
+                    (
+                        id_processo,
+                        id_processo_ref,
+                        tipo,
+                        titulo,
+                        mensagem,
+                        destinatarios,
+                        status_envio,
+                        dias_sem_movimentacao,
+                        data_abertura,
+                        data_ultima_movimentacao,
+                        criado_em
+                    )
+                    OUTPUT INSERTED.id_alerta
+                    VALUES (?, ?, 'processo_sem_movimentacao', ?, ?, ?, ?, ?, ?, ?, GETDATE())
+                    """,
+                    (
+                        normalize_text(processo.get("id_processo")),
+                        normalize_text(processo.get("id_processo_ref")),
+                        "Processo sem movimentação",
+                        mensagem,
+                        "responsavel_do_processo;usuarios_autorizados",
+                        "notificacao_interna_registrada_email_pendente_configuracao",
+                        dias_sem_movimentacao,
+                        abertura,
+                        ultima,
+                    ),
+                )
+                id_alerta = int((cursor.fetchone() or [0])[0] or 0)
+                cursor.execute(
+                    """
+                    UPDATE processos_seletivos
+                    SET ultimo_alerta_inatividade_em = GETDATE()
+                    WHERE id_processo = ?
+                      AND ISNULL(id_processo_ref, '') = ISNULL(?, '')
+                    """,
+                    (
+                        normalize_text(processo.get("id_processo")),
+                        normalize_text(processo.get("id_processo_ref")),
+                    ),
+                )
+                alertas.append(
+                    {
+                        "id_alerta": id_alerta,
+                        "id_processo": processo.get("id_processo"),
+                        "id_processo_ref": processo.get("id_processo_ref"),
+                        "dias_sem_movimentacao": dias_sem_movimentacao,
+                        "status_envio": "notificacao_interna_registrada_email_pendente_configuracao",
+                    }
+                )
+            conn.commit()
+            return {"success": True, "alertas_criados": alertas, "total": len(alertas)}
         finally:
             conn.close()
 
@@ -288,7 +407,20 @@ class ProcessRepositoryMixin:
         finally:
             conn.close()
 
-    def close_process(self, id_processo: str) -> dict:
+    def close_process(
+        self,
+        id_processo: str,
+        *,
+        justificativa: str = "",
+        usuario_responsavel: str = "",
+    ) -> dict:
+        if normalize_text(justificativa):
+            return self.change_process_status(
+                id_processo,
+                novo_status="Encerrado",
+                justificativa=justificativa,
+                usuario_responsavel=usuario_responsavel,
+            )
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -314,6 +446,94 @@ class ProcessRepositoryMixin:
                 processo.get("id_processo_ref") or processo.get("id_processo"),
             )
             return {"success": True}
+        finally:
+            conn.close()
+
+    def change_process_status(
+        self,
+        id_processo: str,
+        *,
+        novo_status: str,
+        justificativa: str,
+        usuario_responsavel: str = "",
+        tempo_pausa: str = "",
+        pausa_previsao_termino: str = "",
+    ) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_columns(cursor)
+            ensure_process_reference_columns(cursor)
+            processo = get_process_row(cursor, id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
+
+            status_anterior = normalize_process_status(processo.get("status"))
+            status_novo = normalize_process_status(novo_status)
+            if status_anterior == status_novo:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"O processo já está com status {status_novo}.",
+                )
+
+            status_operacional_anterior = normalize_text(
+                processo.get("status_operacional_anterior")
+            )
+            status_retomada = (
+                status_operacional_anterior
+                if status_anterior == "Pausado" and status_operacional_anterior
+                else "Aberto"
+            )
+            status_final = status_retomada if status_novo == "Aberto" else status_novo
+            where_clause, params = build_process_where_clause(processo)
+            desativar_link = status_final in {"Encerrado", PROCESS_STATUS_CANCELED}
+            pausa_ativa = status_final == "Pausado"
+            retomando_pausa = status_anterior == "Pausado" and status_final != "Pausado"
+            cursor.execute(
+                f"""
+                UPDATE processos_seletivos
+                SET
+                    status = ?,
+                    status_anterior = ?,
+                    status_operacional_anterior = ?,
+                    justificativa_status = ?,
+                    status_alterado_por = ?,
+                    status_alterado_em = GETDATE(),
+                    ultima_movimentacao_relevante_em = GETDATE(),
+                    tempo_pausa = CASE WHEN ? = 1 THEN ? WHEN ? = 1 THEN NULL ELSE tempo_pausa END,
+                    pausa_inicio_em = CASE WHEN ? = 1 THEN GETDATE() ELSE pausa_inicio_em END,
+                    pausa_previsao_termino = CASE WHEN ? = 1 THEN ? WHEN ? = 1 THEN NULL ELSE pausa_previsao_termino END,
+                    pausa_retomada_em = CASE WHEN ? = 1 THEN GETDATE() ELSE pausa_retomada_em END,
+                    link_publico_ativo = CASE WHEN ? = 1 THEN 0 ELSE link_publico_ativo END,
+                    link_publico_desativado_em = CASE WHEN ? = 1 THEN GETDATE() ELSE link_publico_desativado_em END
+                WHERE {where_clause}
+                """,
+                (
+                    status_final,
+                    status_anterior,
+                    status_anterior if status_final == "Pausado" else status_operacional_anterior,
+                    normalize_text(justificativa),
+                    normalize_text(usuario_responsavel),
+                    1 if pausa_ativa else 0,
+                    normalize_text(tempo_pausa),
+                    1 if retomando_pausa else 0,
+                    1 if pausa_ativa else 0,
+                    1 if pausa_ativa else 0,
+                    normalize_text(pausa_previsao_termino) or None,
+                    1 if retomando_pausa else 0,
+                    1 if retomando_pausa else 0,
+                    1 if desativar_link else 0,
+                    1 if desativar_link else 0,
+                    *params,
+                ),
+            )
+            conn.commit()
+            return {
+                "success": True,
+                "id_processo": processo.get("id_processo_ref") or processo.get("id_processo"),
+                "status_anterior": status_anterior,
+                "status_novo": status_final,
+            }
         finally:
             conn.close()
 

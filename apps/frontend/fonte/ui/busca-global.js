@@ -77,7 +77,7 @@ const PAGINAS_BUSCA = [
     id: 'pagina-configuracoes',
     tela: 'screen-settings',
     titulo: 'Configurações do sistema',
-    descricao: 'Usuários, perfis, permissões, logs e regras reutilizáveis.',
+    descricao: 'Usuários, perfis, permissões e logs de auditoria.',
   },
 ];
 
@@ -257,9 +257,14 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
   return html`
     <div class="rh-global-search" ref=${caixaRef}>
       <div class="rh-modern-search-shell">
-        <span class="material-symbols-outlined">search</span>
+        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+        <label class="visually-hidden" for="rh-global-search-input">
+          Pesquisar candidatos, processos e informações
+        </label>
         <input
+          id="rh-global-search-input"
           type="text"
+          aria-label="Pesquisar candidatos, processos e informações"
           placeholder=${placeholderBusca}
           value=${termo}
           onFocus=${async () => {
