@@ -71,6 +71,13 @@ import {
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
 import { AcaoSair } from '../../shared/components/actions.js';
+import {
+  ModalCompartilharVaga,
+  REQUISITOS_PUBLICOS_PADRAO,
+  RESPONSABILIDADES_PUBLICAS_PADRAO,
+  montarItensPublicosPadrao,
+  montarTextoCompartilhamentoVaga,
+} from '../../shared/components/share-job-modal.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import {
   getCandidateActionState,
@@ -108,6 +115,7 @@ const MENSAGEM_EMAIL_NAO_CONFIGURADO =
 
 const TAMANHO_RELATORIO = 8;
 const LIMITE_CACHE_EMAILS_RECEBIDOS = 80;
+const TEMPO_CACHE_SECAO_EMAIL_MS = 60 * 60 * 1000;
 const cacheSecoesEmail = new Map();
 
 const COLUNAS_RELATORIO_PROCESSOS = [
@@ -194,6 +202,14 @@ const OPCOES_TOM_PROVA_PROCESSO = [
 ];
 
 const OPCAO_OUTRO_PROCESSO = 'Outro';
+const ETAPAS_PERSONALIZADAS_PROCESSO = [
+  { key: 'word', label: 'Word', termos: ['word'] },
+  { key: 'excel', label: 'Excel', termos: ['excel', 'planilha'] },
+  { key: 'redacao', label: 'Redação', termos: ['redacao', 'essay'] },
+  { key: 'conhecimentos_gerais', label: 'Conhecimentos Gerais', termos: ['geral', 'general'] },
+  { key: 'conhecimentos_tecnicos', label: 'Conhecimentos Técnicos', termos: ['tecnico', 'tech', 'sistema', 'ti'] },
+];
+const ETAPAS_BASE_PERSONALIZADAS_PROCESSO = ['word', 'excel', 'redacao'];
 
 function normalizarTextoPainel(valor) {
   return String(valor || '').trim();
@@ -216,11 +232,18 @@ function montarChaveCacheSecaoEmail({ mostrarIgnorados = false, query = '' } = {
 }
 
 function lerCacheSecaoEmail(chave) {
-  return cacheSecoesEmail.get(chave) || null;
+  const entrada = cacheSecoesEmail.get(chave) || null;
+  if (!entrada) return null;
+  if (Date.now() - Number(entrada.timestamp || 0) > TEMPO_CACHE_SECAO_EMAIL_MS) {
+    cacheSecoesEmail.delete(chave);
+    return null;
+  }
+  return entrada;
 }
 
 function gravarCacheSecaoEmail(chave, estado) {
   cacheSecoesEmail.set(chave, {
+    timestamp: Date.now(),
     payloadEmail: estado?.payloadEmail || null,
     emails: Array.isArray(estado?.emails) ? estado.emails : [],
     processosAbertos: Array.isArray(estado?.processosAbertos) ? estado.processosAbertos : [],
@@ -308,6 +331,104 @@ function obterCategoriasQuestoesProcesso(questoes = []) {
         .filter(Boolean),
     ),
   );
+}
+
+function obterChaveEtapaPersonalizadaQuestao(questao = {}) {
+  const tipo = normalizarBuscaPainel(questao.type || '');
+  const texto = normalizarBuscaPainel([
+    questao.stageKey,
+    questao.stage,
+    questao.category,
+    questao.title,
+    questao.description,
+  ].join(' '));
+  if (tipo.includes('essay') || tipo.includes('redacao') || texto.includes('redacao')) return 'redacao';
+  if (tipo === 'excel_external' || texto.includes('excel') || texto.includes('planilha')) return 'excel';
+  if (tipo === 'word' || texto.includes('word')) return 'word';
+  if (texto.includes('tecnico') || texto.includes('tech') || texto.includes('sistema') || texto.includes(' ti ')) {
+    return 'conhecimentos_tecnicos';
+  }
+  if (texto.includes('geral') || texto.includes('general') || texto.includes('conhecimento')) {
+    return 'conhecimentos_gerais';
+  }
+  return 'conhecimentos_gerais';
+}
+
+function contextoVagaEtapasPersonalizadas(formulario = {}, trilhaBlueprint = '') {
+  const texto = normalizarBuscaPainel([
+    formulario.vaga,
+    formulario.areaProva,
+    formulario.trilha,
+    trilhaBlueprint,
+  ].join(' '));
+  const tokens = texto.split(/[^a-z0-9]+/).filter(Boolean);
+  const possuiTokenTi = tokens.includes('ti');
+  return {
+    texto,
+    ti: possuiTokenTi || texto.includes('suporte tecnico') || trilhaBlueprint === 'ti',
+    estagiario: texto.includes('estagi'),
+    supervisor: texto.includes('supervisor'),
+    qualidade: texto.includes('qualidade'),
+    planejamento: texto.includes('planejamento'),
+  };
+}
+
+function obterEtapasDisponiveisPersonalizacaoProcesso(formulario = {}, trilhaBlueprint = '') {
+  const contexto = contextoVagaEtapasPersonalizadas(formulario, trilhaBlueprint);
+  const permiteGerais =
+    contexto.estagiario ||
+    contexto.supervisor ||
+    contexto.qualidade ||
+    contexto.planejamento ||
+    contexto.ti;
+  const permiteTecnicos =
+    contexto.qualidade ||
+    contexto.planejamento ||
+    contexto.ti ||
+    (contexto.estagiario && contexto.ti);
+  const permitidas = new Set([
+    ...ETAPAS_BASE_PERSONALIZADAS_PROCESSO,
+    ...(permiteGerais ? ['conhecimentos_gerais'] : []),
+    ...(permiteTecnicos ? ['conhecimentos_tecnicos'] : []),
+  ]);
+  return ETAPAS_PERSONALIZADAS_PROCESSO.filter((etapa) => permitidas.has(etapa.key));
+}
+
+function montarQuestoesEtapasPersonalizadasProcesso({
+  formulario,
+  trilhaBlueprint,
+  questoesPadrao = [],
+}) {
+  if (!formulario.personalizacaoInteligente) return questoesPadrao;
+  const selecionadas = Array.isArray(formulario.etapasPersonalizadas)
+    ? formulario.etapasPersonalizadas
+    : [];
+  return selecionadas.flatMap((etapaKey) => {
+    const nivelEtapa = formulario.manterNivelPadraoEtapas
+      ? formulario.nivelProva
+      : formulario.niveisEtapas?.[etapaKey];
+    const blueprintEtapa = resolverBlueprintProva(formulario.vaga, nivelEtapa, trilhaBlueprint);
+    const questoesEtapa = blueprintEtapa ? montarProvaPorBlueprint(blueprintEtapa) : [];
+    return questoesEtapa.filter((questao) => obterChaveEtapaPersonalizadaQuestao(questao) === etapaKey);
+  });
+}
+
+function montarEtapasPersonalizadasProcesso(questoesSelecionadas = [], selecionadas = []) {
+  return selecionadas
+    .map((etapaKey) => {
+      const meta = ETAPAS_PERSONALIZADAS_PROCESSO.find((item) => item.key === etapaKey);
+      const questionCount = questoesSelecionadas.filter(
+        (questao) => obterChaveEtapaPersonalizadaQuestao(questao) === etapaKey,
+      ).length;
+      if (!questionCount) return null;
+      return {
+        key: etapaKey,
+        label: meta?.label || etapaKey,
+        weight: selecionadas.length ? Number((100 / selecionadas.length).toFixed(2)) : 0,
+        questionCount,
+      };
+    })
+    .filter(Boolean);
 }
 
 function inferirPerfilOperacaoProcesso(formulario = {}) {
@@ -538,13 +659,23 @@ function PaginacaoCompacta({
   onChange,
   label,
   onVerTodos = null,
+  maxBotoes = 4,
 }) {
   const totalPaginas = Math.max(1, Number(paginacao?.totalPaginas || 1));
   const paginaAtual = Math.min(
     Math.max(1, Number(paginacao?.paginaAtual || 1)),
     totalPaginas,
   );
-  const paginas = Array.from({ length: totalPaginas }, (_, indice) => indice + 1);
+  const limiteBotoes = Math.max(1, Number(maxBotoes || 4));
+  const inicioJanela = Math.min(
+    Math.max(1, paginaAtual - Math.floor(limiteBotoes / 2)),
+    Math.max(1, totalPaginas - limiteBotoes + 1),
+  );
+  const fimJanela = Math.min(totalPaginas, inicioJanela + limiteBotoes - 1);
+  const paginas = Array.from(
+    { length: fimJanela - inicioJanela + 1 },
+    (_, indice) => inicioJanela + indice,
+  );
 
   return html`
     <footer class="c24-pagination">
@@ -1321,8 +1452,30 @@ export function TelaLogin({ controlador }) {
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [mensagemErro, setMensagemErro] = useState('');
+  const [autenticandoMicrosoft, setAutenticandoMicrosoft] = useState(false);
+  const [exibirLoginLocal, setExibirLoginLocal] = useState(false);
   const [tourReopenSignal, setTourReopenSignal] = useState(0);
   const tourLogin = obterTourLogin();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search || '');
+    if (params.get('microsoft') !== 'complete') return undefined;
+
+    let ativo = true;
+    setAutenticandoMicrosoft(true);
+    window.history.replaceState({}, '', '/login');
+    controlador.concluirLoginMicrosoft().then((resultado) => {
+      if (!ativo) return;
+      if (!resultado.ok) {
+        setMensagemErro(resultado.mensagem);
+        setExibirLoginLocal(true);
+      }
+      setAutenticandoMicrosoft(false);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   const enviar = async () => {
     const resultado = await controlador.fazerLogin(
@@ -1367,59 +1520,87 @@ export function TelaLogin({ controlador }) {
           <div class="rh-login-copy-block">
             <h2 class="rh-login-welcome-title">Acesso ao ambiente RH</h2>
             <p class="rh-login-welcome-text">
-              Entre com as credenciais para continuar.
+              ${exibirLoginLocal
+      ? 'A autenticação Microsoft não foi concluída. Use seu acesso local para continuar.'
+      : 'Entre com sua conta Microsoft para continuar.'}
             </p>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label rh-login-label">Login</label>
-            <div class="rh-login-input-wrap">
-              <span class="material-symbols-outlined rh-login-input-icon">
-                alternate_email
-              </span>
-              <input
-                class="form-control rh-login-input rh-login-input-modern"
-                placeholder="nome@empresa.com.br"
-                value=${usuario}
-                onInput=${(event) => setUsuario(event.target.value)}
-                type="text"
-              />
-            </div>
-          </div>
-
-          <div class="mb-2">
-            <div class="rh-login-label-row">
-              <label class="form-label rh-login-label mb-0">Senha</label>
-              <button class="rh-login-link-btn" tabindex="-1" type="button">
-                Ambiente restrito
-              </button>
-            </div>
-            <div class="rh-login-input-wrap">
-              <span class="material-symbols-outlined rh-login-input-icon">
-                lock
-              </span>
-              <input
-                class="form-control rh-login-input rh-login-input-modern"
-                placeholder="••••••••"
-                value=${senha}
-                onInput=${(event) => setSenha(event.target.value)}
-                type="password"
-              />
-            </div>
           </div>
 
           ${mensagemErro
       ? html`<div class="alert alert-danger mb-3">${mensagemErro}</div>`
       : null}
 
-          <button
-            class="btn rh-login-btn rh-login-btn-modern w-100"
+          <a
+            class="rh-login-microsoft-btn"
             data-tour-id="login-submit"
-            onClick=${enviar}
+            href="/auth/microsoft/login"
+            aria-busy=${autenticandoMicrosoft}
           >
-            <span>Acessar sistema</span>
-            <span class="material-symbols-outlined">arrow_forward</span>
-          </button>
+            <svg aria-hidden="true" class="rh-login-microsoft-icon" viewBox="0 0 24 24">
+              <path fill="#f35325" d="M1 1h10v10H1z"></path>
+              <path fill="#81bc06" d="M13 1h10v10H13z"></path>
+              <path fill="#05a6f0" d="M1 13h10v10H1z"></path>
+              <path fill="#ffba08" d="M13 13h10v10H13z"></path>
+            </svg>
+            <span>${autenticandoMicrosoft ? 'Validando conta Microsoft...' : 'Entrar com a Microsoft'}</span>
+          </a>
+
+          ${exibirLoginLocal
+      ? html`
+                <div class="rh-login-local-fallback">
+                  <div class="rh-login-divider" role="separator" aria-label="ou">
+                    <span>ou</span>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label rh-login-label">Login</label>
+                    <div class="rh-login-input-wrap">
+                      <span class="material-symbols-outlined rh-login-input-icon">
+                        alternate_email
+                      </span>
+                      <input
+                        autocomplete="username"
+                        class="form-control rh-login-input rh-login-input-modern"
+                        placeholder="nome@empresa.com.br"
+                        value=${usuario}
+                        onInput=${(event) => setUsuario(event.target.value)}
+                        type="text"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="mb-2">
+                    <div class="rh-login-label-row">
+                      <label class="form-label rh-login-label mb-0">Senha</label>
+                      <button class="rh-login-link-btn" tabindex="-1" type="button">
+                        Ambiente restrito
+                      </button>
+                    </div>
+                    <div class="rh-login-input-wrap">
+                      <span class="material-symbols-outlined rh-login-input-icon">
+                        lock
+                      </span>
+                      <input
+                        autocomplete="current-password"
+                        class="form-control rh-login-input rh-login-input-modern"
+                        placeholder="••••••••"
+                        value=${senha}
+                        onInput=${(event) => setSenha(event.target.value)}
+                        type="password"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    class="btn rh-login-btn rh-login-btn-modern w-100"
+                    onClick=${enviar}
+                  >
+                    <span>Acessar sistema</span>
+                    <span class="material-symbols-outlined">arrow_forward</span>
+                  </button>
+                </div>
+              `
+      : null}
 
           <div class="rh-login-help-row">
             <${BotaoAjudaTour}
@@ -2257,10 +2438,14 @@ export function TelaCriarProcesso({ controlador }) {
     nivelPersonalizacao: 'situacional',
     tomProva: 'Humanizado',
     situacaoPraticaOperacao: '',
+    etapasPersonalizadas: ETAPAS_PERSONALIZADAS_PROCESSO.map((item) => item.key),
+    manterNivelPadraoEtapas: true,
+    niveisEtapas: {},
   });
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [modalCompartilharAberto, setModalCompartilharAberto] = useState(false);
 
   const regras = obterRegrasFormularioProcesso(formulario.vaga);
   const trilhaEfetiva = regras.trilhaFixa || formulario.trilha;
@@ -2306,9 +2491,45 @@ export function TelaCriarProcesso({ controlador }) {
     () => montarEtapasBlueprintProcesso(blueprint),
     [blueprint],
   );
-  const categoriasProva = useMemo(
-    () => obterCategoriasQuestoesProcesso(questoes),
-    [questoes],
+  const etapasDisponiveisPersonalizacao = useMemo(
+    () => obterEtapasDisponiveisPersonalizacaoProcesso(formulario, trilhaBlueprint),
+    [formulario.vaga, formulario.areaProva, formulario.trilha, trilhaBlueprint],
+  );
+  const etapasSelecionadasPersonalizacao = useMemo(() => {
+    const disponiveis = new Set(etapasDisponiveisPersonalizacao.map((item) => item.key));
+    return (Array.isArray(formulario.etapasPersonalizadas) ? formulario.etapasPersonalizadas : [])
+      .filter((etapaKey) => disponiveis.has(etapaKey));
+  }, [formulario.etapasPersonalizadas, etapasDisponiveisPersonalizacao]);
+  const questoesConfiguradas = useMemo(
+    () => montarQuestoesEtapasPersonalizadasProcesso({
+      formulario: {
+        ...formulario,
+        etapasPersonalizadas: etapasSelecionadasPersonalizacao,
+      },
+      trilhaBlueprint,
+      questoesPadrao: questoes,
+    }),
+    [
+      formulario.personalizacaoInteligente,
+      etapasSelecionadasPersonalizacao,
+      formulario.manterNivelPadraoEtapas,
+      formulario.niveisEtapas,
+      formulario.vaga,
+      formulario.nivelProva,
+      trilhaBlueprint,
+      questoes,
+    ],
+  );
+  const etapasConfiguradasProva = useMemo(
+    () =>
+      formulario.personalizacaoInteligente
+        ? montarEtapasPersonalizadasProcesso(questoesConfiguradas, etapasSelecionadasPersonalizacao)
+        : etapasProva,
+    [formulario.personalizacaoInteligente, etapasSelecionadasPersonalizacao, questoesConfiguradas, etapasProva],
+  );
+  const categoriasConfiguradasProva = useMemo(
+    () => obterCategoriasQuestoesProcesso(questoesConfiguradas),
+    [questoesConfiguradas],
   );
   const opcoesAreasProva = useMemo(
     () => montarOpcoesComValorProcesso(OPCOES_AREAS_PROVA_PROCESSO, formulario.areaProva),
@@ -2329,25 +2550,59 @@ export function TelaCriarProcesso({ controlador }) {
       ...OPCOES_NIVEL_PROVA_PROCESSO,
     ];
   }, [formulario.nivelProva]);
-  const opcoesOperacoesPersonalizacao = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          [
-            ...OPCOES_OPERACOES,
-            formulario.operacao,
-            'CRF / Flamengo',
-            'Davita',
-            'Endoview',
-            'Newe Seguros',
-            'Central24Horas',
-          ]
-            .map((item) => normalizarTextoPainel(item))
-            .filter(Boolean),
-        ),
-      ),
-    [formulario.operacao],
+  const processoCompartilhamento = useMemo(
+    () => ({
+      vaga: formulario.vaga,
+      cargo: formulario.vaga,
+      data_encerramento: formulario.dataEncerramento,
+      operacao: formulario.operacao,
+      trilha: trilhaEfetiva,
+      status: 'Aberto',
+    }),
+    [formulario.vaga, formulario.dataEncerramento, formulario.operacao, trilhaEfetiva],
   );
+  const requisitosCompartilhamento = useMemo(
+    () => montarItensPublicosPadrao(REQUISITOS_PUBLICOS_PADRAO),
+    [],
+  );
+  const responsabilidadesCompartilhamento = useMemo(
+    () => montarItensPublicosPadrao(RESPONSABILIDADES_PUBLICAS_PADRAO),
+    [],
+  );
+  const textoCompartilhamentoVaga = useMemo(
+    () => montarTextoCompartilhamentoVaga({
+      processo: processoCompartilhamento,
+      requisitos: requisitosCompartilhamento,
+      responsabilidades: responsabilidadesCompartilhamento,
+    }),
+    [processoCompartilhamento, requisitosCompartilhamento, responsabilidadesCompartilhamento],
+  );
+
+  useEffect(() => {
+    if (!formulario.personalizacaoInteligente) return;
+    const disponiveis = etapasDisponiveisPersonalizacao.map((item) => item.key);
+    setFormulario((anterior) => {
+      const selecionadasAtuais = Array.isArray(anterior.etapasPersonalizadas)
+        ? anterior.etapasPersonalizadas
+        : [];
+      const selecionadasFiltradas = selecionadasAtuais.filter((etapaKey) => disponiveis.includes(etapaKey));
+      const proximasSelecionadas = selecionadasFiltradas.length ? selecionadasFiltradas : disponiveis;
+      const niveisEtapas = Object.fromEntries(
+        Object.entries(anterior.niveisEtapas || {}).filter(([etapaKey]) => disponiveis.includes(etapaKey)),
+      );
+      const mesmaSelecao =
+        proximasSelecionadas.length === selecionadasAtuais.length &&
+        proximasSelecionadas.every((etapaKey, indice) => etapaKey === selecionadasAtuais[indice]);
+      if (mesmaSelecao && Object.keys(niveisEtapas).length === Object.keys(anterior.niveisEtapas || {}).length) {
+        return anterior;
+      }
+      return {
+        ...anterior,
+        etapasPersonalizadas: proximasSelecionadas,
+        niveisEtapas,
+      };
+    });
+  }, [formulario.personalizacaoInteligente, etapasDisponiveisPersonalizacao]);
 
   const atualizarCampo = (campo, valor) => {
     setFormulario((anterior) => ({
@@ -2357,6 +2612,7 @@ export function TelaCriarProcesso({ controlador }) {
         ? {
           areaProva: '',
           nivelProva: '',
+          niveisEtapas: {},
         }
         : {}),
       ...(campo === 'areaProva'
@@ -2366,11 +2622,37 @@ export function TelaCriarProcesso({ controlador }) {
     setErro('');
   };
 
+  const alternarEtapaPersonalizada = (etapaKey, marcada) => {
+    setFormulario((anterior) => {
+      const atuais = Array.isArray(anterior.etapasPersonalizadas) ? anterior.etapasPersonalizadas : [];
+      const proximas = marcada
+        ? Array.from(new Set([...atuais, etapaKey]))
+        : atuais.filter((item) => item !== etapaKey);
+      const niveisEtapas = { ...(anterior.niveisEtapas || {}) };
+      if (!marcada) delete niveisEtapas[etapaKey];
+      return {
+        ...anterior,
+        etapasPersonalizadas: proximas,
+        niveisEtapas,
+      };
+    });
+    setErro('');
+  };
+
+  const atualizarNivelEtapaPersonalizada = (etapaKey, nivel) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      niveisEtapas: {
+        ...(anterior.niveisEtapas || {}),
+        [etapaKey]: nivel,
+      },
+    }));
+    setErro('');
+  };
+
   const montarDadosPersonalizacao = () => {
-    const clientes = montarListaComOutroProcesso(
-      formulario.clientesPersonalizacao,
-      formulario.clienteOutro,
-    );
+    const clienteOperacao = normalizarTextoPainel(formulario.operacao);
+    const clientes = clienteOperacao ? [clienteOperacao] : [];
     const tiposAtendimento = montarListaComOutroProcesso(
       formulario.tiposAtendimento,
       formulario.tipoAtendimentoOutro,
@@ -2384,8 +2666,8 @@ export function TelaCriarProcesso({ controlador }) {
       tipo_atendimento: tiposAtendimento,
       nivel_personalizacao: formulario.nivelPersonalizacao,
       tom_prova: normalizarTextoPainel(formulario.tomProva),
-      situacao_pratica: normalizarTextoPainel(formulario.situacaoPraticaOperacao),
-      situacao_pratica_operacao: normalizarTextoPainel(formulario.situacaoPraticaOperacao),
+      situacao_pratica: '',
+      situacao_pratica_operacao: '',
     };
   };
 
@@ -2406,7 +2688,7 @@ export function TelaCriarProcesso({ controlador }) {
     tiposAtendimento: personalizacao.tiposAtendimento,
     nivelPersonalizacao: personalizacao.nivel_personalizacao,
     tomProva: formulario.tomProva,
-    situacaoPratica: formulario.situacaoPraticaOperacao,
+    situacaoPratica: '',
     usuario:
       controlador?.estado?.nomeUsuarioAutenticado ||
       controlador?.estado?.usuarioAutenticado ||
@@ -2433,14 +2715,30 @@ export function TelaCriarProcesso({ controlador }) {
       !formulario.nivelProva ||
       !Number(formulario.tempoTotal) ||
       !blueprint ||
-      !questoes.length
+      !questoesConfiguradas.length
     ) {
       return 'Selecione área/trilha, nível e tempo com uma configuração de prova válida.';
     }
     if (formulario.personalizacaoInteligente) {
       const personalizacao = montarDadosPersonalizacao();
-      if (!personalizacao.clientes.length) {
-        return 'Selecione ao menos um Cliente/Operação para personalizar a prova.';
+      const etapasSelecionadas = etapasSelecionadasPersonalizacao;
+      if (!etapasSelecionadas.length) {
+        return 'Selecione ao menos uma etapa para compor a prova personalizada.';
+      }
+      const etapaSemQuestoes = etapasSelecionadas.find(
+        (etapaKey) => !questoesConfiguradas.some(
+          (questao) => obterChaveEtapaPersonalizadaQuestao(questao) === etapaKey,
+        ),
+      );
+      if (etapaSemQuestoes) {
+        const etapa = ETAPAS_PERSONALIZADAS_PROCESSO.find((item) => item.key === etapaSemQuestoes);
+        return `A etapa ${etapa?.label || etapaSemQuestoes} não possui questões para a vaga e nível selecionados.`;
+      }
+      if (!formulario.manterNivelPadraoEtapas) {
+        const pendenteNivel = etapasSelecionadas.some((etapaKey) => !formulario.niveisEtapas?.[etapaKey]);
+        if (pendenteNivel) {
+          return 'Defina o nível de todas as etapas selecionadas ou mantenha o nível padrão.';
+        }
       }
       if (!personalizacao.tiposAtendimento.length) {
         return 'Selecione ao menos um tipo de atendimento para personalizar a prova.';
@@ -2455,11 +2753,16 @@ export function TelaCriarProcesso({ controlador }) {
       ? montarConfiguracaoPersonalizacao(personalizacao)
       : null;
     const resultadoPersonalizacao = formulario.personalizacaoInteligente
-      ? gerarPersonalizacaoProva(questoes, configuracaoPersonalizacao)
+      ? gerarPersonalizacaoProva(questoesConfiguradas, configuracaoPersonalizacao)
       : null;
     const questoesSnapshot = resultadoPersonalizacao?.questoes?.length
       ? resultadoPersonalizacao.questoes
-      : questoes;
+      : questoesConfiguradas;
+    const niveisEtapasSelecionadas = Object.fromEntries(
+      etapasSelecionadasPersonalizacao
+        .map((etapaKey) => [etapaKey, formulario.niveisEtapas?.[etapaKey]])
+        .filter(([, nivel]) => normalizarTextoPainel(nivel)),
+    );
     const configuradaEm = new Date().toISOString();
 
     return {
@@ -2475,12 +2778,12 @@ export function TelaCriarProcesso({ controlador }) {
       tempo_minutos: Number(formulario.tempoTotal || 40),
       tipo_prova: formulario.tipoProva,
       quantidade_questoes: questoesSnapshot.length,
-      etapas: etapasProva,
-      categorias: categoriasProva,
+      etapas: etapasConfiguradasProva,
+      categorias: categoriasConfiguradasProva,
       questoes_snapshot: questoesSnapshot,
       observacoes_internas_rh: formulario.observacoesInternas,
       tom_prova: formulario.tomProva,
-      situacao_pratica_operacao: formulario.situacaoPraticaOperacao,
+      situacao_pratica_operacao: formulario.personalizacaoInteligente ? '' : formulario.situacaoPraticaOperacao,
       personalizacao,
       configuracao: {
         blueprint_key: blueprint?.key || '',
@@ -2501,10 +2804,13 @@ export function TelaCriarProcesso({ controlador }) {
             operacao: personalizacao.operacao,
             setor_cliente: personalizacao.operacao,
             tom_prova: formulario.tomProva,
-            situacao_pratica_operacao: formulario.situacaoPraticaOperacao,
+            situacao_pratica_operacao: '',
             tipos_atendimento: personalizacao.tiposAtendimento,
             perfil_operacao: configuracaoPersonalizacao?.perfilOperacao,
             nivel_personalizacao: configuracaoPersonalizacao?.nivelPersonalizacao,
+            etapas_selecionadas: etapasSelecionadasPersonalizacao,
+            manter_nivel_padrao: Boolean(formulario.manterNivelPadraoEtapas),
+            niveis_por_etapa: formulario.manterNivelPadraoEtapas ? {} : niveisEtapasSelecionadas,
             historico: resultadoPersonalizacao?.historico || null,
             alertas: resultadoPersonalizacao?.alertas || [],
           }
@@ -2514,6 +2820,11 @@ export function TelaCriarProcesso({ controlador }) {
             mensagem: 'Prova padrão configurada para este processo seletivo.',
           },
         entrevista_obrigatoria: false,
+        etapas_selecionadas: formulario.personalizacaoInteligente ? etapasSelecionadasPersonalizacao : [],
+        niveis_por_etapa: formulario.personalizacaoInteligente && !formulario.manterNivelPadraoEtapas
+          ? niveisEtapasSelecionadas
+          : {},
+        manter_nivel_padrao_etapas: Boolean(formulario.manterNivelPadraoEtapas),
       },
     };
   };
@@ -2725,7 +3036,7 @@ export function TelaCriarProcesso({ controlador }) {
                       <span class="material-symbols-outlined">fact_check</span>
                       <div>
                         <strong>${blueprint?.label || 'Blueprint não selecionado'}</strong>
-                        <small>${questoes.length ? `${questoes.length} questões em ${etapasProva.length} etapa(s)` : 'Escolha vaga, trilha e nível para montar a prova.'}</small>
+                        <small>${questoesConfiguradas.length ? `${questoesConfiguradas.length} questões em ${etapasConfiguradasProva.length} etapa(s)` : 'Escolha vaga, trilha, nível e etapas para montar a prova.'}</small>
                       </div>
                     </div>
                   </section>
@@ -2738,22 +3049,14 @@ export function TelaCriarProcesso({ controlador }) {
                     <label class="process-personalization-toggle">
                       <input type="checkbox" checked=${formulario.personalizacaoInteligente} onChange=${(event) => atualizarCampo('personalizacaoInteligente', event.target.checked)} />
                       <span>
-                        <strong>Personalizar prova por operação/cliente</strong>
-                        <small>Opcional. A prova padrão permanece disponível se esta opção ficar desmarcada.</small>
+                        <strong>Personalizar prova por atendimento</strong>
+                        <small>Opcional. Cliente/Operação será usado automaticamente a partir da vaga cadastrada.</small>
                       </span>
                     </label>
                     ${formulario.personalizacaoInteligente
           ? html`
                           <div class="process-create-form-grid mt-3">
-                            <label class="process-create-field">
-                              <span>Cliente/Operação</span>
-                              <select multiple value=${formulario.clientesPersonalizacao} onChange=${(event) => atualizarCampo('clientesPersonalizacao', lerValoresMultiselectProcesso(event))}>
-                                ${[...opcoesOperacoesPersonalizacao, OPCAO_OUTRO_PROCESSO].map(
-            (opcao) => html`<option key=${opcao} value=${opcao} selected=${formulario.clientesPersonalizacao.includes(opcao)}>${opcao}</option>`,
-          )}
-                              </select>
-                            </label>
-                            <label class="process-create-field">
+                            <label class="process-create-field is-wide">
                               <span>Tipo de atendimento</span>
                               <select multiple value=${formulario.tiposAtendimento} onChange=${(event) => atualizarCampo('tiposAtendimento', lerValoresMultiselectProcesso(event))}>
                                 ${[...TIPOS_ATENDIMENTO_PERSONALIZACAO, OPCAO_OUTRO_PROCESSO].map(
@@ -2761,14 +3064,6 @@ export function TelaCriarProcesso({ controlador }) {
           )}
                               </select>
                             </label>
-                            ${formulario.clientesPersonalizacao.includes(OPCAO_OUTRO_PROCESSO)
-              ? html`
-                                  <label class="process-create-field">
-                                    <span>Outro cliente/operação</span>
-                                    <input value=${formulario.clienteOutro} onInput=${(event) => atualizarCampo('clienteOutro', event.target.value)} />
-                                  </label>
-                                `
-              : null}
                             ${formulario.tiposAtendimento.includes(OPCAO_OUTRO_PROCESSO)
               ? html`
                                   <label class="process-create-field">
@@ -2793,10 +3088,58 @@ export function TelaCriarProcesso({ controlador }) {
               )}
                               </select>
                             </label>
-                            <label class="process-create-field is-wide">
-                              <span>Situação prática da operação</span>
-                              <textarea rows="3" value=${formulario.situacaoPraticaOperacao} placeholder="Ex.: candidato atuará com atendimento receptivo em operação de saúde." onInput=${(event) => atualizarCampo('situacaoPraticaOperacao', event.target.value)}></textarea>
+                            <div class="process-create-field is-wide process-stage-selector">
+                              <span>Etapas da prova</span>
+                              <div class="process-stage-checklist">
+                                ${etapasDisponiveisPersonalizacao.map(
+                (etapaOpcao) => html`
+                                  <label class="process-stage-check" key=${etapaOpcao.key}>
+                                    <input
+                                      type="checkbox"
+                                      checked=${formulario.etapasPersonalizadas.includes(etapaOpcao.key)}
+                                      onChange=${(event) => alternarEtapaPersonalizada(etapaOpcao.key, event.target.checked)}
+                                    />
+                                    <span>${etapaOpcao.label}</span>
+                                  </label>
+                                `,
+              )}
+                              </div>
+                            </div>
+                            <label class="process-personalization-toggle process-stage-default-level">
+                              <input
+                                type="checkbox"
+                                checked=${formulario.manterNivelPadraoEtapas}
+                                onChange=${(event) => atualizarCampo('manterNivelPadraoEtapas', event.target.checked)}
+                              />
+                              <span>
+                                <strong>Manter nível padrão</strong>
+                                <small>Usa o nível definido para a vaga em todas as etapas selecionadas.</small>
+                              </span>
                             </label>
+                            ${!formulario.manterNivelPadraoEtapas
+                ? html`
+                                <div class="process-create-field is-wide process-stage-levels">
+                                  <span>Nível por etapa</span>
+                                  <div class="process-stage-level-grid">
+                                    ${ETAPAS_PERSONALIZADAS_PROCESSO
+                    .filter((etapaOpcao) => etapasSelecionadasPersonalizacao.includes(etapaOpcao.key))
+                    .map(
+                      (etapaOpcao) => html`
+                                        <label class="process-create-field" key=${`nivel-${etapaOpcao.key}`}>
+                                          <span>${etapaOpcao.label}</span>
+                                          <select value=${formulario.niveisEtapas?.[etapaOpcao.key] || ''} onChange=${(event) => atualizarNivelEtapaPersonalizada(etapaOpcao.key, event.target.value)}>
+                                            <option value="">Selecione...</option>
+                                            ${opcoesNiveisProva.map(
+                        (opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`,
+                      )}
+                                          </select>
+                                        </label>
+                                      `,
+                    )}
+                                  </div>
+                                </div>
+                              `
+                : null}
                           </div>
                         `
           : null}
@@ -2822,6 +3165,7 @@ export function TelaCriarProcesso({ controlador }) {
           ['Prova', blueprint?.label || '-'],
           ['Tempo', `${formulario.tempoTotal || 0} min`],
           ['Personalização', formulario.personalizacaoInteligente ? 'Ativada' : 'Não ativada'],
+          ['Etapas', formulario.personalizacaoInteligente ? etapasConfiguradasProva.map((item) => item.label).join(', ') || '-' : 'Todas'],
         ].map(
           ([label, value]) => html`
                           <span key=${label}>
@@ -2851,7 +3195,7 @@ export function TelaCriarProcesso({ controlador }) {
               <div><dt>Encerramento</dt><dd>${formatarDataResumoProcesso(formulario.dataEncerramento)}</dd></div>
               <div><dt>Cliente</dt><dd>${formulario.operacao || '-'}</dd></div>
               <div><dt>Prova</dt><dd>${blueprint?.label || '-'}</dd></div>
-              <div><dt>Questões</dt><dd>${questoes.length || '-'}</dd></div>
+              <div><dt>Questões</dt><dd>${questoesConfiguradas.length || '-'}</dd></div>
             </dl>
             <div class="process-create-summary-note">
               <span class="material-symbols-outlined">verified</span>
@@ -2892,6 +3236,10 @@ export function TelaCriarProcesso({ controlador }) {
                   </button>
                 `
       : html`
+                  <button type="button" class="btn btn-outline-primary" disabled=${salvando} onClick=${() => setModalCompartilharAberto(true)}>
+                    <span class="material-symbols-outlined">share</span>
+                    Compartilhar vaga
+                  </button>
                   <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${criar}>
                     ${salvando ? 'Publicando...' : 'Publicar processo'}
                     <span class="material-symbols-outlined">check</span>
@@ -2900,6 +3248,14 @@ export function TelaCriarProcesso({ controlador }) {
           </div>
         </footer>
       </div>
+      <${ModalCompartilharVaga}
+        aberto=${modalCompartilharAberto}
+        processo=${processoCompartilhamento}
+        texto=${textoCompartilhamentoVaga}
+        requisitos=${requisitosCompartilhamento}
+        responsabilidades=${responsabilidadesCompartilhamento}
+        onClose=${() => setModalCompartilharAberto(false)}
+      />
     </${PainelRh}>
   `;
 }

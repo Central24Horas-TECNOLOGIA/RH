@@ -27,7 +27,7 @@ function TelaCarregando({
   `;
 }
 
-const importarGestao = () => import('../features/telas-gestao.js?v=20260714-cache-email-fix');
+const importarGestao = () => import('../features/telas-gestao.js?v=20260716-microsoft-login-fallback');
 const importarProcessos = () => import('../features/telas-processos.js');
 const importarProva = () => import('../features/telas-prova.js');
 
@@ -47,7 +47,7 @@ const TelaDetalhesCandidato = carregarTela(() => import('../features/candidatos/
 const TelaPipelineCandidatos = carregarTela(() => import('../features/tela-pipeline.js'), 'TelaPipelineCandidatos');
 const TelaEntrevistas = carregarTela(() => import('../features/tela-entrevistas.js'), 'TelaEntrevistas');
 const TelaCandidaturaPublica = carregarTela(() => import('../features/public-candidacy/index.js'), 'TelaCandidaturaPublica');
-const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js'), 'TelaConectaProvas');
+const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js?v=20260720-conecta-provas-etapas-vagas'), 'TelaConectaProvas');
 const TelaProvasResultados = carregarTela(() => import('../features/provas-geradas/index.js'), 'TelaProvasResultados');
 const TelaConfiguracoesSistema = carregarTela(
   () => import('../features/configuracoes/index.js?v=20260713-config-users-fix7'),

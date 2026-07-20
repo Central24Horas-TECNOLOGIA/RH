@@ -3,8 +3,10 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
 from datetime import datetime
 
+import pyodbc
 from fastapi import HTTPException, status
 
 from ..auth import AuthenticatedUser
@@ -30,6 +32,35 @@ from ..rbac import (
     sanitize_permissions,
 )
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts, safe_json_loads
+
+
+AUTH_PROVIDER_LOCAL = "local"
+AUTH_PROVIDER_MICROSOFT = "microsoft"
+_VALID_AUTH_PROVIDERS = {AUTH_PROVIDER_LOCAL, AUTH_PROVIDER_MICROSOFT}
+_EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _normalize_email(value) -> str:
+    return normalize_text(value).lower()
+
+
+def _normalize_auth_provider(value, *, default: str = AUTH_PROVIDER_LOCAL) -> str:
+    provider = normalize_text(value).lower() or default
+    if provider not in _VALID_AUTH_PROVIDERS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tipo de acesso inválido.",
+        )
+    return provider
+
+
+def _mask_email(value) -> str:
+    email = _normalize_email(value)
+    if "@" not in email:
+        return "conta-nao-identificada"
+    local, domain = email.split("@", 1)
+    visible = local[:1] if local else "*"
+    return f"{visible}***@{domain}"
 
 
 def _json_dump(value) -> str:
@@ -202,8 +233,12 @@ class SecurityRepositoryMixin:
             "perfil_nome": normalize_text(row.get("perfil_nome")) or role.name,
             "nivel": normalize_text(row.get("nivel")) or role.level,
             "status": status_value,
+            "provedor_autenticacao": _normalize_auth_provider(
+                row.get("provedor_autenticacao"),
+            ),
             "criado_em": row.get("criado_em"),
             "ultimo_acesso": row.get("ultimo_acesso_em"),
+            "ultimo_login_microsoft": row.get("ultimo_login_microsoft"),
             "criado_por": normalize_text(row.get("criado_por")),
             "atualizado_por": normalize_text(row.get("atualizado_por")),
             "atualizado_em": row.get("atualizado_em"),
@@ -350,6 +385,265 @@ class SecurityRepositoryMixin:
             )
             conn.commit()
             return result
+        finally:
+            conn.close()
+
+    def authenticate_microsoft_user(
+        self,
+        *,
+        microsoft_oid: str,
+        microsoft_tenant_id: str,
+        email: str = "",
+        nome: str = "",
+        origem: str = "",
+    ) -> dict:
+        safe_oid = normalize_text(microsoft_oid)
+        safe_tenant_id = normalize_text(microsoft_tenant_id)
+        safe_email = _normalize_email(email)
+        if not safe_oid or not safe_tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Não foi possível identificar sua conta Microsoft.",
+            )
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT TOP 1
+                    usuarios.id_usuario,
+                    usuarios.login,
+                    usuarios.nome,
+                    usuarios.email,
+                    usuarios.perfil_id,
+                    perfis.nome AS perfil_nome,
+                    perfis.nivel,
+                    usuarios.status,
+                    usuarios.microsoft_oid,
+                    usuarios.microsoft_tenant_id,
+                    usuarios.provedor_autenticacao,
+                    usuarios.ultimo_login_microsoft,
+                    usuarios.criado_em,
+                    usuarios.ultimo_acesso_em,
+                    usuarios.criado_por,
+                    usuarios.atualizado_por,
+                    usuarios.atualizado_em
+                FROM usuarios
+                LEFT JOIN perfis ON perfis.id_perfil = usuarios.perfil_id
+                WHERE usuarios.microsoft_oid = ?
+                  AND usuarios.microsoft_tenant_id = ?
+                ORDER BY usuarios.id_usuario
+                """,
+                (safe_oid, safe_tenant_id),
+            )
+            row = cursor.fetchone()
+            first_link = False
+
+            if row:
+                user_row = rows_to_dicts(cursor, [row])[0]
+            else:
+                if not safe_email:
+                    self._insert_audit_log(
+                        cursor,
+                        modulo="Autenticação",
+                        acao="login_microsoft_negado",
+                        entidade="usuario",
+                        entidade_id="conta-nao-identificada",
+                        justificativa="E-mail corporativo ausente no retorno da Microsoft.",
+                        origem=origem,
+                        sucesso=False,
+                    )
+                    conn.commit()
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Sua conta Microsoft foi autenticada, mas não possui autorização de acesso ao Conecta.",
+                    )
+
+                cursor.execute(
+                    """
+                    SELECT TOP 1
+                        usuarios.id_usuario,
+                        usuarios.login,
+                        usuarios.nome,
+                        usuarios.email,
+                        usuarios.perfil_id,
+                        perfis.nome AS perfil_nome,
+                        perfis.nivel,
+                        usuarios.status,
+                        usuarios.microsoft_oid,
+                        usuarios.microsoft_tenant_id,
+                        usuarios.provedor_autenticacao,
+                        usuarios.ultimo_login_microsoft,
+                        usuarios.criado_em,
+                        usuarios.ultimo_acesso_em,
+                        usuarios.criado_por,
+                        usuarios.atualizado_por,
+                        usuarios.atualizado_em
+                    FROM usuarios
+                    LEFT JOIN perfis ON perfis.id_perfil = usuarios.perfil_id
+                    WHERE LOWER(LTRIM(RTRIM(usuarios.email))) = LOWER(?)
+                    ORDER BY usuarios.id_usuario
+                    """,
+                    (safe_email,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    self._insert_audit_log(
+                        cursor,
+                        modulo="Autenticação",
+                        acao="login_microsoft_negado",
+                        entidade="usuario",
+                        entidade_id=_mask_email(safe_email),
+                        justificativa="Conta autenticada sem cadastro no Conecta.",
+                        origem=origem,
+                        sucesso=False,
+                    )
+                    conn.commit()
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Sua conta Microsoft foi autenticada, mas não possui autorização de acesso ao Conecta.",
+                    )
+
+                user_row = rows_to_dicts(cursor, [row])[0]
+                linked_oid = normalize_text(user_row.get("microsoft_oid"))
+                linked_tenant_id = normalize_text(user_row.get("microsoft_tenant_id"))
+                if (linked_oid or linked_tenant_id) and (
+                    linked_oid != safe_oid or linked_tenant_id.lower() != safe_tenant_id.lower()
+                ):
+                    user_context = self._serialize_system_user(user_row)
+                    self._insert_audit_log(
+                        cursor,
+                        user=user_context,
+                        modulo="Autenticação",
+                        acao="conflito_vinculo_microsoft",
+                        entidade="usuario",
+                        entidade_id=str(user_row.get("id_usuario") or ""),
+                        justificativa="Cadastro já vinculado a outra identidade Microsoft.",
+                        origem=origem,
+                        sucesso=False,
+                    )
+                    conn.commit()
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Não foi possível concluir o acesso. Contate o administrador do Conecta.",
+                    )
+                first_link = True
+
+            user_context = self._serialize_system_user(user_row)
+            if normalize_text(user_row.get("status")).lower() != "ativo":
+                self._insert_audit_log(
+                    cursor,
+                    user=user_context,
+                    modulo="Autenticação",
+                    acao="login_microsoft_negado",
+                    entidade="usuario",
+                    entidade_id=str(user_row.get("id_usuario") or ""),
+                    justificativa=f"Usuário com status {user_row.get('status') or 'indefinido'}.",
+                    origem=origem,
+                    sucesso=False,
+                )
+                conn.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Seu acesso ao Conecta está desativado.",
+                )
+
+            try:
+                cursor.execute(
+                    """
+                    UPDATE usuarios
+                    SET microsoft_oid = ?,
+                        microsoft_tenant_id = ?,
+                        provedor_autenticacao = ?,
+                        ultimo_login_microsoft = GETDATE(),
+                        ultimo_acesso_em = GETDATE(),
+                        atualizado_em = GETDATE()
+                    WHERE id_usuario = ?
+                    """,
+                    (
+                        safe_oid,
+                        safe_tenant_id,
+                        AUTH_PROVIDER_MICROSOFT,
+                        user_row.get("id_usuario"),
+                    ),
+                )
+            except pyodbc.IntegrityError as exc:
+                conn.rollback()
+                self.logger.warning(
+                    "Conflito de unicidade ao vincular login Microsoft ao usuario %s.",
+                    user_row.get("id_usuario"),
+                )
+                try:
+                    self.record_audit_log(
+                        user=user_context,
+                        modulo="Autenticação",
+                        acao="conflito_vinculo_microsoft",
+                        entidade="usuario",
+                        entidade_id=str(user_row.get("id_usuario") or ""),
+                        justificativa="Identidade Microsoft já vinculada a outro cadastro.",
+                        origem=origem,
+                        sucesso=False,
+                    )
+                except Exception:
+                    pass
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Não foi possível concluir o acesso. Contate o administrador do Conecta.",
+                ) from exc
+
+            permissions = self._get_role_permissions_from_db(cursor, user_row.get("perfil_id"))
+            result = self._serialize_system_user(
+                {
+                    **user_row,
+                    "provedor_autenticacao": AUTH_PROVIDER_MICROSOFT,
+                },
+                permissions,
+            )
+            if first_link:
+                self._insert_audit_log(
+                    cursor,
+                    user=result,
+                    modulo="Autenticação",
+                    acao="vincular_conta_microsoft",
+                    entidade="usuario",
+                    entidade_id=str(user_row.get("id_usuario") or ""),
+                    valor_novo={"provedor_autenticacao": AUTH_PROVIDER_MICROSOFT},
+                    origem=origem,
+                    sucesso=True,
+                )
+            self._insert_audit_log(
+                cursor,
+                user=result,
+                modulo="Autenticação",
+                acao="login_microsoft",
+                entidade="usuario",
+                entidade_id=str(user_row.get("id_usuario") or ""),
+                origem=origem,
+                sucesso=True,
+            )
+            conn.commit()
+            return result
+        except HTTPException:
+            raise
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def get_system_user_for_session(self, id_usuario: int) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            user_row = self._get_system_user_by_id(cursor, id_usuario)
+            if normalize_text(user_row.get("status")).lower() != "ativo":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Seu acesso ao Conecta está desativado.",
+                )
+            permissions = self._get_role_permissions_from_db(cursor, user_row.get("perfil_id"))
+            return self._serialize_system_user(user_row, permissions)
         finally:
             conn.close()
 
@@ -563,6 +857,8 @@ class SecurityRepositoryMixin:
                     perfis.nome AS perfil_nome,
                     perfis.nivel,
                     usuarios.status,
+                    usuarios.provedor_autenticacao,
+                    usuarios.ultimo_login_microsoft,
                     usuarios.criado_em,
                     usuarios.ultimo_acesso_em,
                     usuarios.criado_por,
@@ -597,14 +893,30 @@ class SecurityRepositoryMixin:
 
     def create_system_user(self, data: dict, *, actor: AuthenticatedUser | dict | None = None) -> dict:
         safe_name = normalize_text(data.get("nome"))
-        safe_email = normalize_text(data.get("email"))
+        safe_email = _normalize_email(data.get("email"))
         safe_login = normalize_text(data.get("login")) or safe_email
         safe_password = normalize_text(data.get("senha") or data.get("password"))
         role = get_role_definition(data.get("perfil") or data.get("perfil_id") or ROLE_INTERN)
         safe_status = normalize_text(data.get("status")) or "Ativo"
+        auth_provider = _normalize_auth_provider(data.get("provedor_autenticacao"))
 
-        if not safe_name or not safe_email or not safe_login or not safe_password:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nome, e-mail, login e senha são obrigatórios.")
+        if not safe_name or not safe_email or not safe_login:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Nome, e-mail e login são obrigatórios.",
+            )
+        if not _EMAIL_PATTERN.fullmatch(safe_email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Informe um e-mail válido.",
+            )
+        if auth_provider == AUTH_PROVIDER_LOCAL and not safe_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A senha é obrigatória para usuários com acesso Local.",
+            )
+
+        password_hash = hash_password(safe_password) if safe_password else None
 
         actor_info = _actor_payload(actor)
         conn = self._connect()
@@ -620,13 +932,14 @@ class SecurityRepositoryMixin:
                     perfil_id,
                     status,
                     senha_hash,
+                    provedor_autenticacao,
                     criado_por,
                     atualizado_por,
                     criado_em,
                     atualizado_em
                 )
                 OUTPUT INSERTED.id_usuario
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
                 """,
                 (
                     safe_login,
@@ -634,7 +947,8 @@ class SecurityRepositoryMixin:
                     safe_email,
                     role.id,
                     safe_status,
-                    hash_password(safe_password),
+                    password_hash,
+                    auth_provider,
                     actor_info.get("email") or actor_info.get("nome"),
                     actor_info.get("email") or actor_info.get("nome"),
                 ),
@@ -653,6 +967,7 @@ class SecurityRepositoryMixin:
                     "login": safe_login,
                     "perfil": role.id,
                     "status": safe_status,
+                    "provedor_autenticacao": auth_provider,
                 },
                 sucesso=True,
             )
@@ -673,6 +988,8 @@ class SecurityRepositoryMixin:
                 perfis.nome AS perfil_nome,
                 perfis.nivel,
                 usuarios.status,
+                usuarios.provedor_autenticacao,
+                usuarios.ultimo_login_microsoft,
                 usuarios.criado_em,
                 usuarios.ultimo_acesso_em,
                 usuarios.criado_por,
@@ -695,12 +1012,22 @@ class SecurityRepositoryMixin:
             cursor = conn.cursor()
             previous = self._serialize_system_user(self._get_system_user_by_id(cursor, id_usuario))
             role = get_role_definition(data.get("perfil") or data.get("perfil_id") or previous["perfil"])
+            requested_email = _normalize_email(data.get("email")) or previous["email"]
+            if not _EMAIL_PATTERN.fullmatch(requested_email):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Informe um e-mail válido.",
+                )
             new_values = {
                 "login": normalize_text(data.get("login")) or previous["login"],
                 "nome": normalize_text(data.get("nome")) or previous["nome"],
-                "email": normalize_text(data.get("email")) or previous["email"],
+                "email": requested_email,
                 "perfil_id": role.id,
                 "status": normalize_text(data.get("status")) or previous["status"],
+                "provedor_autenticacao": _normalize_auth_provider(
+                    data.get("provedor_autenticacao"),
+                    default=previous["provedor_autenticacao"],
+                ),
             }
             actor_info = _actor_payload(actor)
             cursor.execute(
@@ -712,6 +1039,7 @@ class SecurityRepositoryMixin:
                     email = ?,
                     perfil_id = ?,
                     status = ?,
+                    provedor_autenticacao = ?,
                     atualizado_por = ?,
                     atualizado_em = GETDATE()
                 WHERE id_usuario = ?
@@ -722,11 +1050,17 @@ class SecurityRepositoryMixin:
                     new_values["email"],
                     new_values["perfil_id"],
                     new_values["status"],
+                    new_values["provedor_autenticacao"],
                     actor_info.get("email") or actor_info.get("nome"),
                     int(id_usuario),
                 ),
             )
-            action = "alterar_perfil" if previous["perfil"] != role.id else "editar_usuario"
+            if previous["provedor_autenticacao"] != new_values["provedor_autenticacao"]:
+                action = "alterar_tipo_autenticacao"
+            elif previous["perfil"] != role.id:
+                action = "alterar_perfil"
+            else:
+                action = "editar_usuario"
             self._insert_audit_log(
                 cursor,
                 user=actor,

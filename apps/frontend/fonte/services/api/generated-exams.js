@@ -1,14 +1,28 @@
 import { invalidarCacheApi, lerCache, gravarCache, requisitar } from './core.js';
 
 const CACHE_PROVAS_GERADAS = 'provas-geradas';
+const TEMPO_CACHE_PROVAS_GERADAS_MS = 60 * 60 * 1000;
+const requisicoesEmAndamento = new Map();
 
-export async function listarProvasGeradas() {
-  const cache = lerCache(CACHE_PROVAS_GERADAS);
-  if (cache) return cache;
+export async function listarProvasGeradas(opcoes = {}) {
+  const forcar = typeof opcoes === 'boolean' ? opcoes : Boolean(opcoes?.forcar);
+  if (forcar) {
+    invalidarCacheApi(CACHE_PROVAS_GERADAS);
+  }
+  const cache = lerCache(CACHE_PROVAS_GERADAS, { sensivel: true, ttlMs: TEMPO_CACHE_PROVAS_GERADAS_MS });
+  if (!forcar && cache) return cache;
+  if (requisicoesEmAndamento.has(CACHE_PROVAS_GERADAS)) {
+    return requisicoesEmAndamento.get(CACHE_PROVAS_GERADAS);
+  }
 
-  const dados = await requisitar('/generated-exams');
-  gravarCache(CACHE_PROVAS_GERADAS, dados);
-  return dados;
+  const requisicao = requisitar('/generated-exams')
+    .then((dados) => {
+      gravarCache(CACHE_PROVAS_GERADAS, dados, { sensivel: true, ttlMs: TEMPO_CACHE_PROVAS_GERADAS_MS });
+      return dados;
+    })
+    .finally(() => requisicoesEmAndamento.delete(CACHE_PROVAS_GERADAS));
+  requisicoesEmAndamento.set(CACHE_PROVAS_GERADAS, requisicao);
+  return requisicao;
 }
 
 export async function criarProvaGerada(payload) {
@@ -157,6 +171,32 @@ export async function salvarRespostasConectaProvas(token, respostas) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, respostas }),
+  }, { autenticado: false });
+}
+
+export async function concluirEtapaConectaProvas(token, respostas, etapaChave, questaoIndice) {
+  return requisitar('/conecta-provas-api/concluir-etapa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      respostas,
+      etapa_chave: etapaChave,
+      questao_indice: questaoIndice,
+    }),
+  }, { autenticado: false });
+}
+
+export async function interromperEtapaConectaProvas(token, respostas, etapaChave, questaoIndice) {
+  return requisitar('/conecta-provas-api/interromper-etapa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      respostas,
+      etapa_chave: etapaChave,
+      questao_indice: questaoIndice,
+    }),
   }, { autenticado: false });
 }
 

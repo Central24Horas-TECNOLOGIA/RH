@@ -34,6 +34,7 @@ export {
   salvarSessaoAutenticacao,
 } from './services/api/core.js';
 export {
+  concluirLoginMicrosoftApi,
   encerrarSessaoApi,
   fazerLoginApi,
   verificarSessaoApi,
@@ -52,10 +53,12 @@ export {
   atualizarProvaGerada,
   cancelarProvaGerada,
   confirmarDadosConectaProvas,
+  concluirEtapaConectaProvas,
   criarProvaGerada,
   deletarProvaGerada,
   finalizarConectaProvas,
   iniciarConectaProvas,
+  interromperEtapaConectaProvas,
   lerProvaGerada,
   lerSessaoConectaProvas,
   listarProvasGeradas,

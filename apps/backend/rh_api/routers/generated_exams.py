@@ -266,6 +266,22 @@ def public_save_answers(
     return repository.public_save_answers(payload.model_dump())
 
 
+@public_router.post("/concluir-etapa")
+def public_complete_stage(
+    payload: PublicExamAnswersRequest,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.public_complete_stage(payload.model_dump())
+
+
+@public_router.post("/interromper-etapa")
+def public_interrupt_stage(
+    payload: PublicExamAnswersRequest,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.public_interrupt_stage(payload.model_dump())
+
+
 @public_router.post("/revisao")
 def public_mark_review(
     payload: PublicExamAnswersRequest,

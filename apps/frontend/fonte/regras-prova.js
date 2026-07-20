@@ -1,6 +1,6 @@
-﻿import { ROTULOS_ETAPAS } from './perguntas.js';
+﻿import { ROTULOS_ETAPAS } from './rotulos-etapas.js';
 import { obterDadosBaseExcel } from './features/prova/services/excel-base-data.js';
-import { corrigirRespostaDiscursivaInteligente } from './features/prova/services/personalizacao-inteligente.js';
+import { corrigirRespostaDiscursivaInteligente } from './features/prova/services/analise-resposta.js';
 import {
   baixarBlob,
   contarFrases,
@@ -1452,12 +1452,73 @@ function tituloTemCentralizacaoNoHtml(html, textoTitulo) {
   );
 }
 
-export function avaliarRespostaTexto(resposta, esperado, pontos) {
+function htmlTemItalico(html) {
+  return /<(i|em)[^>]*>[\s\S]*?<\/(i|em)>/i.test(html) ||
+    /font-style\s*:\s*italic/i.test(html);
+}
+
+function htmlTemSublinhado(html) {
+  return /<u[^>]*>[\s\S]*?<\/u>/i.test(html) ||
+    /text-decoration(?:-line)?\s*:[^;"']*underline/i.test(html);
+}
+
+function htmlTemTachado(html) {
+  return /<(s|strike|del)[^>]*>[\s\S]*?<\/(s|strike|del)>/i.test(html) ||
+    /text-decoration(?:-line)?\s*:[^;"']*line-through/i.test(html);
+}
+
+function obterAlinhamentosNoHtml(html) {
+  const alinhamentos = new Set();
+  const regex = /(?:text-align\s*:\s*|align\s*=\s*["']?)(left|center|right|justify)/gi;
+  let match = regex.exec(html);
+  while (match) {
+    alinhamentos.add(match[1].toLowerCase());
+    match = regex.exec(html);
+  }
+  if (!alinhamentos.size) alinhamentos.add('left');
+  return [...alinhamentos];
+}
+
+function obterTamanhosFonteNoHtml(html) {
+  const tamanhos = new Set();
+  const mapaFontSizeLegado = { 2: 12, 3: 14, 4: 16, 5: 18, 6: 24 };
+  const regexFont = /<font[^>]*\bsize\s*=\s*["']?([2-6])["']?/gi;
+  const regexCss = /font-size\s*:\s*(12|14|16|18|24)(?:px|pt)?/gi;
+  let match = regexFont.exec(html);
+  while (match) {
+    tamanhos.add(mapaFontSizeLegado[Number(match[1])]);
+    match = regexFont.exec(html);
+  }
+  match = regexCss.exec(html);
+  while (match) {
+    tamanhos.add(Number(match[1]));
+    match = regexCss.exec(html);
+  }
+  return [...tamanhos].filter(Boolean).sort((a, b) => a - b);
+}
+
+export function obterFormatacoesAplicadas(resposta = {}) {
+  const html = String(resposta?.content || '');
+  return {
+    negrito: htmlTemNegrito(html),
+    italico: htmlTemItalico(html),
+    sublinhado: htmlTemSublinhado(html),
+    tachado: htmlTemTachado(html),
+    tamanhosFonte: obterTamanhosFonteNoHtml(html),
+    alinhamentos: obterAlinhamentosNoHtml(html),
+    lista: /<(ul|ol)[^>]*>/i.test(html),
+    listaOrdenada: /<ol[^>]*>/i.test(html),
+    listaNaoOrdenada: /<ul[^>]*>/i.test(html),
+  };
+}
+
+export function avaliarRespostaTexto(resposta, esperado = {}, pontos) {
   if (!resposta || !resposta.content) return 0;
 
   const html = resposta.content;
   const textoPlano = removerHtml(html);
   const textoMaiusculo = textoPlano.toUpperCase();
+  const formatacoes = obterFormatacoesAplicadas(resposta);
 
   if (textoPlano.trim().length < 5) return 0;
 
@@ -1488,7 +1549,12 @@ export function avaliarRespostaTexto(resposta, esperado, pontos) {
       : null,
     esperado.requiresList
       ? {
-        ok: /<(ul|ol)[^>]*>/i.test(html) || /^\s*[-*•]\s+/m.test(textoPlano),
+        ok:
+          esperado.requiredListType === 'ordered'
+            ? formatacoes.listaOrdenada || /^\s*\d+[.)]\s+/m.test(textoPlano)
+            : esperado.requiredListType === 'unordered'
+              ? formatacoes.listaNaoOrdenada || /^\s*[-*•]\s+/m.test(textoPlano)
+              : formatacoes.lista || /^\s*[-*•]\s+/m.test(textoPlano),
         weight: 1.5,
       }
       : null,
@@ -1502,6 +1568,21 @@ export function avaliarRespostaTexto(resposta, esperado, pontos) {
       }
       : null,
     esperado.anyBold ? { ok: htmlTemNegrito(html), weight: 1.2 } : null,
+    esperado.requiresItalic ? { ok: formatacoes.italico, weight: 1.2 } : null,
+    esperado.requiresUnderline ? { ok: formatacoes.sublinhado, weight: 1.2 } : null,
+    esperado.requiresStrike ? { ok: formatacoes.tachado, weight: 1.2 } : null,
+    esperado.requiredFontSize
+      ? {
+        ok: formatacoes.tamanhosFonte.includes(Number(esperado.requiredFontSize)),
+        weight: 1.2,
+      }
+      : null,
+    esperado.requiredAlignment
+      ? {
+        ok: formatacoes.alinhamentos.includes(String(esperado.requiredAlignment)),
+        weight: 1.5,
+      }
+      : null,
     esperado.minSentences
       ? { ok: contarFrases(textoPlano) >= esperado.minSentences, weight: 1.3 }
       : null,
@@ -3358,9 +3439,15 @@ export function finalizarProva({ questoes, respostas, blueprint }) {
 
     if (questao.type === 'word') {
       const score = avaliarRespostaTexto(resposta, questao.expected, questao.points);
+      const respostaParaAnalise = resposta
+        ? {
+          ...resposta,
+          formatacoesAplicadas: obterFormatacoesAplicadas(resposta),
+        }
+        : resposta;
       const correcaoInteligente = corrigirRespostaDiscursivaInteligente(
         questao,
-        resposta,
+        respostaParaAnalise,
         score,
         questao.points,
       );

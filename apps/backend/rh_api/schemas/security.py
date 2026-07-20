@@ -12,6 +12,7 @@ class UserCreateRequest(BaseSchema):
     senha: str = Field(default="")
     perfil: str = Field(default="estagiario")
     status: str = Field(default="Ativo")
+    provedor_autenticacao: str = Field(default="local")
 
 
 class UserUpdateRequest(BaseSchema):
@@ -20,6 +21,7 @@ class UserUpdateRequest(BaseSchema):
     login: str = Field(default="")
     perfil: str = Field(default="")
     status: str = Field(default="")
+    provedor_autenticacao: str = Field(default="")
     justificativa: str = Field(default="")
 
 

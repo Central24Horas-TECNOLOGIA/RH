@@ -1,4 +1,4 @@
-import { ROTULOS_ETAPAS } from '../perguntas.js';
+import { ROTULOS_ETAPAS } from '../rotulos-etapas.js';
 import { canonicalizeCandidateStatus } from './process-flow.js';
 
 export function formatarTempoRestante(segundosTotais) {

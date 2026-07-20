@@ -69,6 +69,10 @@ import {
 } from '../../shared/browser-utils.js';
 import { AcaoSair } from '../../shared/components/actions.js';
 import {
+  ModalCompartilharVaga,
+  montarTextoCompartilhamentoVaga,
+} from '../../shared/components/share-job-modal.js';
+import {
   DOCUMENTOS_APROVACAO_PADRAO,
   ModalAprovacaoCandidato,
   atualizarDocumentosNaMensagem,
@@ -618,39 +622,6 @@ function obterItensTextoProcesso(valor) {
       .map((item) => String(item).trim());
   }
   return quebrarListaTexto(valor);
-}
-
-function montarTextoCompartilhamentoVaga({ processo = {}, requisitos = [], responsabilidades = [], url = '' } = {}) {
-  const linhas = [];
-  const tituloVaga = String(processo?.vaga || processo?.cargo || 'Processo seletivo')
-    .trim()
-    .toUpperCase();
-  linhas.push(`*PROCESSO SELETIVO - ${tituloVaga}*`);
-  linhas.push('Não perca a oportunidade de fazer parte do nosso time 🚀');
-
-  const requisitosTexto = obterItensTextoProcesso(requisitos)
-    .filter((item) => item && item !== '-')
-    .slice(0, 8);
-  const responsabilidadesTexto = obterItensTextoProcesso(responsabilidades)
-    .filter((item) => item && item !== '-')
-    .slice(0, 8);
-  if (requisitosTexto.length) {
-    linhas.push('', 'Requisitos:');
-    requisitosTexto.forEach((item) => linhas.push(`✅ ${item}`));
-  }
-  if (responsabilidadesTexto.length) {
-    linhas.push('', 'Responsabilidades:');
-    responsabilidadesTexto.forEach((item) => linhas.push(`- ${item}`));
-  }
-  const dataInscricao = formatarDataCurta(
-    processo?.data_limite_inscricao || processo?.data_encerramento || processo?.data_fim,
-  );
-  linhas.push('', 'Inscreva-se em nosso site: https://central24horas.com.br/trabalhe-conosco');
-  if (temValorProcesso(dataInscricao) && dataInscricao !== '-') {
-    linhas.push('', `*Inscrições até: ${dataInscricao}*`);
-  }
-
-  return linhas.join('\n');
 }
 
 function adicionarMesesData(data, meses) {
@@ -3860,7 +3831,7 @@ export function TelaProcessos({ controlador }) {
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
-        kicker="RecruitPro"
+        kicker="Receptivo"
         title="Processos Seletivos"
         description="Gerencie processos, etapas, candidatos, entrevistas e decisões finais."
         actions=${controlador.possuiPermissao('vagas.criar')
@@ -5910,7 +5881,6 @@ export function TelaDetalhesProcesso({ controlador }) {
     useState(false);
   const [feedbackLinkPublico, setFeedbackLinkPublico] = useState('');
   const [modalCompartilharVagaAberto, setModalCompartilharVagaAberto] = useState(false);
-  const [feedbackCompartilhamentoVaga, setFeedbackCompartilhamentoVaga] = useState('');
   const [observacoesPublicasVaga, setObservacoesPublicasVaga] = useState('');
   const [requisitosPublicos, setRequisitosPublicos] = useState(() =>
     montarItensPublicosPadrao(REQUISITOS_PUBLICOS_PADRAO),
@@ -8570,18 +8540,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
   };
 
   const compartilharVaga = async () => {
-    setFeedbackCompartilhamentoVaga('');
     setModalCompartilharVagaAberto(true);
-  };
-
-  const copiarTextoCompartilhamentoVaga = async () => {
-    try {
-      await copiarTexto(textoCompartilhamentoVaga);
-      setFeedbackCompartilhamentoVaga('Texto da vaga copiado para a área de transferência.');
-      setFeedbackLinkPublico('Texto da vaga copiado.');
-    } catch (error) {
-      setFeedbackCompartilhamentoVaga('Não foi possível copiar agora. Selecione o texto e copie manualmente.');
-    }
   };
 
   const montarAcoesCabecalhoDetalhe = () => {
@@ -9030,42 +8989,15 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         onAnalisar=${enviarCv}
       />
 
-      <${ModalPadrao}
+      <${ModalCompartilharVaga}
         aberto=${modalCompartilharVagaAberto}
-        titulo="Compartilhar vaga"
-        subtitulo=${processo?.vaga || 'Processo seletivo'}
+        processo=${processo}
+        texto=${textoCompartilhamentoVaga}
+        requisitos=${requisitosPublicos}
+        responsabilidades=${responsabilidadesPublicas}
         onClose=${() => setModalCompartilharVagaAberto(false)}
-      >
-        <div class="rh-details-body process-share-modal">
-          <p>Revise o texto antes de enviar aos candidatos.</p>
-          <textarea
-            class="form-control"
-            rows="12"
-            readOnly
-            value=${textoCompartilhamentoVaga}
-            onFocus=${(event) => event.currentTarget.select()}
-          ></textarea>
-          ${feedbackCompartilhamentoVaga
-      ? html`<div class="alert alert-success">${feedbackCompartilhamentoVaga}</div>`
-      : null}
-        </div>
-        <footer class="rh-modal-footer">
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            onClick=${() => setModalCompartilharVagaAberto(false)}
-          >
-            Fechar
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            onClick=${copiarTextoCompartilhamentoVaga}
-          >
-            <span class="material-symbols-outlined">content_copy</span>Copiar texto da vaga
-          </button>
-        </footer>
-      </${ModalPadrao}>
+        onCopied=${() => setFeedbackLinkPublico('Texto da vaga copiado.')}
+      />
 
       ${false ? html`
       <${PageIntro}

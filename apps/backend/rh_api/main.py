@@ -12,8 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
-from .config import get_settings
+from .config import ConfigurationError, get_settings
 from .logging_config import configure_logging
 from .repositories import (
     bootstrap_runtime_schema,
@@ -41,6 +42,17 @@ from conecta.interfaces.http.middlewares.request_context import (
 configure_logging()
 logger = logging.getLogger(__name__)
 FRONTEND_ASSET_DIRS = ("estilos", "fonte", "Exames")
+
+
+def validate_web_session_configuration(settings) -> None:
+    if not settings.session_secret_key:
+        raise ConfigurationError(
+            "FLASK_SECRET_KEY ou RH_SESSION_SECRET_KEY deve ser definida para a aplicação Web."
+        )
+
+
+def session_cookie_secure(settings) -> bool:
+    return not settings.is_development
 
 
 def _serialize_validation_value(value):
@@ -198,6 +210,7 @@ def _register_frontend_routes(app: FastAPI, settings) -> None:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    validate_web_session_configuration(settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -220,6 +233,16 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="Conecta C24h API", lifespan=lifespan)
 
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret_key,
+        session_cookie="conecta_microsoft_session",
+        max_age=600,
+        path="/",
+        same_site="lax",
+        https_only=session_cookie_secure(settings),
+        domain=None,
+    )
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 

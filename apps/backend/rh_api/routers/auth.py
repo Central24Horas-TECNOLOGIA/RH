@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import hmac
 import logging
+import re
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 
-from ..auth import AuthenticatedUser, authenticate_session
+from ..auth import (
+    AuthenticatedUser,
+    authenticate_session,
+    create_session_for_user_record,
+)
 from ..dependencies import get_current_user, get_repository
 from ..repositories import DatabaseRepository
 from ..schemas.auth import (
@@ -16,12 +24,135 @@ from ..schemas.auth import (
 )
 from ..schemas.common import SuccessResponse
 from ..config import get_settings
+from ..services.microsoft_auth_service import (
+    MicrosoftAuthConfigurationError,
+    create_microsoft_client,
+)
 from conecta.infrastructure.security.rate_limit import InMemoryRateLimiter
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 login_limiter = InMemoryRateLimiter()
+MICROSOFT_FLOW_SESSION_KEY = "microsoft_auth_flow"
+MICROSOFT_USER_SESSION_KEY = "microsoft_user_id"
+MICROSOFT_ERROR_SESSION_KEY = "microsoft_auth_error"
+MICROSOFT_PROVIDER_SESSION_KEY = "auth_provider"
+MICROSOFT_LOGIN_RESULT_URL = "/login?microsoft=complete"
+_SENSITIVE_LOG_PARAMETER = re.compile(
+    r"(?i)\b(access_token|id_token|refresh_token|client_secret|password|pwd|code)\s*=\s*([^&;\s]+)"
+)
+_URL_WITH_QUERY = re.compile(r"(https?://[^\s?]+)\?[^\s]+", re.IGNORECASE)
+_MSAL_ERROR_DIAGNOSIS = {
+    "70002": "Credenciais do aplicativo inválidas.",
+    "7000215": "Client Secret inválido.",
+    "700016": "Client ID incorreto ou aplicativo não encontrado no tenant.",
+    "50011": "URI de redirecionamento diferente da cadastrada.",
+    "65001": "Consentimento não concedido.",
+    "90094": "Consentimento de administrador necessário.",
+    "53003": "Acesso bloqueado por política de Acesso Condicional.",
+}
+
+
+def _sanitize_microsoft_log_value(value, *, limit: int = 500) -> str:
+    text = re.sub(r"[\r\n\t]+", " ", str(value or "")).strip()
+    text = _SENSITIVE_LOG_PARAMETER.sub(r"\1=[REDACTED]", text)
+    text = _URL_WITH_QUERY.sub(r"\1?[REDACTED]", text)
+    return text[:limit]
+
+
+def _normalize_msal_error_codes(value) -> tuple[str, ...]:
+    raw_codes = value if isinstance(value, (list, tuple, set)) else [value]
+    codes = []
+    for raw_code in raw_codes:
+        safe_code = re.sub(r"[^A-Za-z0-9_-]", "", str(raw_code or ""))[:32]
+        if safe_code:
+            codes.append(safe_code)
+        if len(codes) >= 10:
+            break
+    return tuple(codes)
+
+
+def _diagnose_msal_error(error: str, error_codes: tuple[str, ...]) -> str:
+    if error.lower() == "access_denied":
+        return "Usuário cancelou ou recusou o login."
+    for error_code in error_codes:
+        normalized_code = error_code.upper().removeprefix("AADSTS")
+        if normalized_code in _MSAL_ERROR_DIAGNOSIS:
+            return _MSAL_ERROR_DIAGNOSIS[normalized_code]
+    if error.lower() == "invalid_client":
+        return "Credencial do aplicativo rejeitada pela Microsoft."
+    return "Erro Microsoft não classificado."
+
+
+def _log_msal_error(result: dict) -> tuple[str, tuple[str, ...]]:
+    error = _sanitize_microsoft_log_value(result.get("error"), limit=80) or "resultado_invalido"
+    error_codes = _normalize_msal_error_codes(result.get("error_codes"))
+    logger.error(
+        (
+            "Falha na autenticação Microsoft: error=%s | error_codes=%s | "
+            "correlation_id=%s | trace_id=%s | description=%s | diagnostico=%s"
+        ),
+        error,
+        error_codes,
+        _sanitize_microsoft_log_value(result.get("correlation_id"), limit=120),
+        _sanitize_microsoft_log_value(result.get("trace_id"), limit=120),
+        _sanitize_microsoft_log_value(result.get("error_description")),
+        _diagnose_msal_error(error, error_codes),
+    )
+    return error, error_codes
+
+
+def _request_origin(request: Request | None) -> str:
+    if request and request.client:
+        return request.client.host
+    return ""
+
+
+def _audit_microsoft_event(
+    repository,
+    *,
+    action: str,
+    request: Request | None,
+    success: bool,
+    user=None,
+    entity_id: str = "",
+    reason: str = "",
+) -> None:
+    if not hasattr(repository, "record_audit_log"):
+        return
+    try:
+        repository.record_audit_log(
+            user=user,
+            modulo="Autenticação",
+            acao=action,
+            entidade="usuario",
+            entidade_id=entity_id,
+            justificativa=reason,
+            origem=_request_origin(request),
+            sucesso=success,
+        )
+    except Exception:
+        return
+
+
+def _redirect_microsoft_result(request: Request, message: str = "") -> RedirectResponse:
+    if message:
+        request.session[MICROSOFT_ERROR_SESSION_KEY] = message
+    return RedirectResponse(MICROSOFT_LOGIN_RESULT_URL, status_code=status.HTTP_302_FOUND)
+
+
+def _build_login_response(token: str, user: AuthenticatedUser) -> LoginResponse:
+    return LoginResponse(
+        access_token=token,
+        usuario=user.username,
+        nome=user.nome,
+        email=user.email,
+        perfil=user.perfil,
+        perfil_nome=user.perfil_nome,
+        nivel=user.nivel,
+        permissoes=sorted(user.permissions),
+    )
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -50,16 +181,289 @@ def login(
         mfa_code=payload.mfa_code,
     )
     login_limiter.reset(limiter_key)
-    return LoginResponse(
-        access_token=token,
-        usuario=user.username,
-        nome=user.nome,
-        email=user.email,
-        perfil=user.perfil,
-        perfil_nome=user.perfil_nome,
-        nivel=user.nivel,
-        permissoes=sorted(user.permissions),
+    return _build_login_response(token, user)
+
+
+@router.get("/microsoft/login", include_in_schema=False)
+def microsoft_login(
+    request: Request,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    settings = get_settings()
+    callback_url = urlparse(settings.microsoft_redirect_uri)
+    request_host = str(request.url.hostname or "").strip().lower()
+    callback_host = str(callback_url.hostname or "").strip().lower()
+    if (
+        settings.is_development
+        and request_host == "127.0.0.1"
+        and callback_host == "localhost"
+    ):
+        canonical_login_url = (
+            f"{callback_url.scheme}://{callback_url.netloc}/auth/microsoft/login"
+        )
+        logger.info(
+            "Normalizando origem do login Microsoft para o host do callback configurado."
+        )
+        return RedirectResponse(canonical_login_url, status_code=status.HTTP_302_FOUND)
+
+    request.session.pop(MICROSOFT_FLOW_SESSION_KEY, None)
+    request.session.pop(MICROSOFT_USER_SESSION_KEY, None)
+    request.session.pop(MICROSOFT_ERROR_SESSION_KEY, None)
+    try:
+        logger.info(
+            (
+                "Configuração Microsoft carregada: client_id_presente=%s | "
+                "tenant_id_presente=%s | client_secret_presente=%s | "
+                "authority_presente=%s | redirect_uri=%s"
+            ),
+            bool(settings.microsoft_client_id),
+            bool(settings.microsoft_tenant_id),
+            bool(settings.microsoft_client_secret),
+            bool(settings.microsoft_authority),
+            settings.microsoft_redirect_uri,
+        )
+        client = create_microsoft_client(settings)
+        flow = client.initiate_auth_code_flow(
+            scopes=list(settings.microsoft_scopes),
+            redirect_uri=settings.microsoft_redirect_uri,
+        )
+        if not isinstance(flow, dict) or not flow.get("auth_uri"):
+            raise RuntimeError("Fluxo MSAL sem URL de autorização.")
+        request.session[MICROSOFT_FLOW_SESSION_KEY] = flow
+        logger.info(
+            "Login Microsoft iniciado: flow_salvo=%s | host=%s | scheme=%s",
+            MICROSOFT_FLOW_SESSION_KEY in request.session,
+            request.url.netloc,
+            request.url.scheme,
+        )
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_iniciado",
+            request=request,
+            success=True,
+        )
+        return RedirectResponse(flow["auth_uri"], status_code=status.HTTP_302_FOUND)
+    except MicrosoftAuthConfigurationError as exc:
+        logger.warning("Login Microsoft indisponível por configuração: %s", exc)
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_falha_tecnica",
+            request=request,
+            success=False,
+            reason="Configuração Microsoft incompleta ou inválida.",
+        )
+        return _redirect_microsoft_result(
+            request,
+            "O login Microsoft ainda não está configurado neste ambiente.",
+        )
+    except Exception as exc:
+        logger.error(
+            "Falha ao iniciar login Microsoft (%s).",
+            type(exc).__name__,
+        )
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_falha_tecnica",
+            request=request,
+            success=False,
+            reason="Falha ao iniciar o fluxo MSAL.",
+        )
+        return _redirect_microsoft_result(
+            request,
+            "A autenticação Microsoft não foi concluída.",
+        )
+
+
+@router.get("/microsoft/callback", include_in_schema=False)
+def microsoft_callback(
+    request: Request,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    flow = request.session.get(MICROSOFT_FLOW_SESSION_KEY)
+    logger.info(
+        "Callback Microsoft recebido: flow_encontrado=%s | host=%s | scheme=%s",
+        isinstance(flow, dict),
+        request.url.netloc,
+        request.url.scheme,
     )
+    if not isinstance(flow, dict):
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_fluxo_expirado",
+            request=request,
+            success=False,
+            reason="Fluxo Microsoft ausente ou expirado.",
+        )
+        return _redirect_microsoft_result(
+            request,
+            "O fluxo de autenticação expirou. Tente novamente.",
+        )
+
+    settings = get_settings()
+    try:
+        client = create_microsoft_client(settings)
+        result = client.acquire_token_by_auth_code_flow(
+            flow,
+            dict(request.query_params),
+        )
+    except ValueError:
+        request.session.pop(MICROSOFT_FLOW_SESSION_KEY, None)
+        logger.warning("Retorno Microsoft recusado por state, nonce ou código inválido.")
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_falha_tecnica",
+            request=request,
+            success=False,
+            reason="Retorno MSAL inválido.",
+        )
+        return _redirect_microsoft_result(
+            request,
+            "Não foi possível validar o retorno da Microsoft.",
+        )
+    except Exception as exc:
+        request.session.pop(MICROSOFT_FLOW_SESSION_KEY, None)
+        logger.error(
+            "Falha técnica no callback Microsoft: tipo=%s | detalhe=%s",
+            type(exc).__name__,
+            _sanitize_microsoft_log_value(exc),
+        )
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_falha_tecnica",
+            request=request,
+            success=False,
+            reason="Falha técnica no callback MSAL.",
+        )
+        return _redirect_microsoft_result(
+            request,
+            "A autenticação Microsoft não foi concluída.",
+        )
+
+    request.session.pop(MICROSOFT_FLOW_SESSION_KEY, None)
+
+    if not isinstance(result, dict) or result.get("error"):
+        safe_result = result if isinstance(result, dict) else {"error": "resultado_invalido"}
+        error_code, error_codes = _log_msal_error(safe_result)
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_falha_tecnica",
+            request=request,
+            success=False,
+            reason=(
+                f"MSAL retornou erro {error_code}; "
+                f"códigos={','.join(error_codes) or 'ausentes'}."
+            ),
+        )
+        return _redirect_microsoft_result(
+            request,
+            "O login Microsoft foi cancelado."
+            if error_code.lower() == "access_denied"
+            else "A autenticação Microsoft não foi concluída.",
+        )
+
+    claims = result.get("id_token_claims")
+    if not isinstance(claims, dict):
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_falha_tecnica",
+            request=request,
+            success=False,
+            reason="Retorno Microsoft sem claims de identidade.",
+        )
+        return _redirect_microsoft_result(
+            request,
+            "Não foi possível identificar sua conta Microsoft.",
+        )
+
+    microsoft_oid = str(claims.get("oid") or "").strip()
+    microsoft_tenant_id = str(claims.get("tid") or "").strip()
+    if not microsoft_oid or not microsoft_tenant_id:
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_falha_tecnica",
+            request=request,
+            success=False,
+            reason="Retorno Microsoft sem OID ou tenant.",
+        )
+        return _redirect_microsoft_result(
+            request,
+            "Não foi possível identificar sua conta Microsoft.",
+        )
+    if not hmac.compare_digest(
+        microsoft_tenant_id.lower(),
+        settings.microsoft_tenant_id.strip().lower(),
+    ):
+        logger.warning("Login Microsoft recusado por tenant diferente do configurado.")
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_tenant_negado",
+            request=request,
+            success=False,
+            reason="Tenant diferente do tenant autorizado.",
+        )
+        return _redirect_microsoft_result(
+            request,
+            "Esta conta não pertence à organização autorizada.",
+        )
+
+    email = str(claims.get("email") or claims.get("preferred_username") or "").strip()
+    name = str(claims.get("name") or "").strip()
+    try:
+        user_record = repository.authenticate_microsoft_user(
+            microsoft_oid=microsoft_oid,
+            microsoft_tenant_id=microsoft_tenant_id,
+            email=email,
+            nome=name,
+            origem=_request_origin(request),
+        )
+    except HTTPException as exc:
+        return _redirect_microsoft_result(request, str(exc.detail))
+    except Exception as exc:
+        logger.error(
+            "Falha ao autorizar usuário Microsoft no Conecta: tipo=%s | detalhe=%s",
+            type(exc).__name__,
+            _sanitize_microsoft_log_value(exc),
+        )
+        _audit_microsoft_event(
+            repository,
+            action="login_microsoft_falha_tecnica",
+            request=request,
+            success=False,
+            reason="Falha interna ao autorizar usuário Microsoft.",
+        )
+        return _redirect_microsoft_result(
+            request,
+            "A autenticação Microsoft não foi concluída.",
+        )
+
+    request.session[MICROSOFT_USER_SESSION_KEY] = int(user_record["id_usuario"])
+    request.session[MICROSOFT_PROVIDER_SESSION_KEY] = "microsoft"
+    logger.info(
+        "Login Microsoft concluído para o usuário interno %s.",
+        user_record.get("id_usuario"),
+    )
+    return _redirect_microsoft_result(request)
+
+
+@router.post("/microsoft/complete", response_model=LoginResponse)
+def complete_microsoft_login(
+    request: Request,
+    repository: DatabaseRepository = Depends(get_repository),
+) -> LoginResponse:
+    error_message = str(request.session.pop(MICROSOFT_ERROR_SESSION_KEY, "") or "")
+    if error_message:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_message)
+
+    id_usuario = request.session.pop(MICROSOFT_USER_SESSION_KEY, None)
+    if not id_usuario:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="O fluxo de autenticação expirou. Tente novamente.",
+        )
+
+    user_record = repository.get_system_user_for_session(int(id_usuario))
+    token, user = create_session_for_user_record(user_record)
+    return _build_login_response(token, user)
 
 
 @router.get("/me", response_model=SessionResponse)
@@ -99,9 +503,17 @@ def enable_mfa(
 
 @router.post("/logout", response_model=SuccessResponse)
 def logout(
+    request: Request,
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ) -> SuccessResponse:
+    for key in (
+        MICROSOFT_FLOW_SESSION_KEY,
+        MICROSOFT_USER_SESSION_KEY,
+        MICROSOFT_ERROR_SESSION_KEY,
+        MICROSOFT_PROVIDER_SESSION_KEY,
+    ):
+        request.session.pop(key, None)
     logger.info("Logout solicitado para o usuario '%s'.", user.username)
     if hasattr(repository, "record_audit_log"):
         repository.record_audit_log(

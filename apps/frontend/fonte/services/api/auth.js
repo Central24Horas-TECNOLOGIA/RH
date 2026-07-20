@@ -21,6 +21,20 @@ export async function fazerLoginApi(usuario, senha, mfaCode = '') {
   return resultado;
 }
 
+export async function concluirLoginMicrosoftApi() {
+  const resultado = await requisitar(
+    '/auth/microsoft/complete',
+    {
+      method: 'POST',
+      credentials: 'include',
+    },
+    { autenticado: false },
+  );
+
+  salvarSessaoAutenticacao(resultado.access_token, resultado);
+  return resultado;
+}
+
 export async function verificarSessaoApi() {
   const sessao = await requisitar('/auth/me', { method: 'GET' });
   salvarSessaoAutenticacao(lerSessaoAutenticacao().token, sessao);

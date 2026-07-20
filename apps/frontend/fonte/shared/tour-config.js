@@ -286,15 +286,15 @@ export function obterTourLogin() {
       },
       {
         target: '#screen-login [data-tour-id="login-panel"]',
-        title: 'Credenciais de acesso',
+        title: 'Conta Microsoft',
         text:
-          'Informe login e senha corporativos para liberar o console com os módulos protegidos do RH.',
+          'Use sua conta corporativa Microsoft para acessar os módulos protegidos do RH.',
       },
       {
         target: '#screen-login [data-tour-id="login-submit"]',
         title: 'Entrada segura',
         text:
-          'Use este botão para validar a sessão e seguir para o painel principal da plataforma.',
+          'Entre com a Microsoft. Se a autenticação não for concluída, o acesso local por login e senha será disponibilizado.',
       },
     ],
   };

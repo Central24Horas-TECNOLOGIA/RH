@@ -17,6 +17,7 @@ class ConfigurationError(RuntimeError):
 
 def _normalize_environment(value: str) -> str:
     aliases = {
+        "local": "dev",
         "development": "dev",
         "desenvolvimento": "dev",
         "homologation": "hml",
@@ -158,6 +159,13 @@ class Settings:
     auth_token_ttl_minutes: int
     auth_login_rate_limit: int
     auth_login_rate_window_seconds: int
+    session_secret_key: str
+    microsoft_client_id: str
+    microsoft_tenant_id: str
+    microsoft_client_secret: str
+    microsoft_authority: str
+    microsoft_redirect_uri: str
+    microsoft_scopes: tuple[str, ...]
     mfa_issuer: str
     mfa_encryption_key: str
     cors_allow_origins: list[str]
@@ -223,11 +231,28 @@ class Settings:
             and bool(self.ai_model)
         )
 
+    @property
+    def microsoft_auth_configured(self) -> bool:
+        return all(
+            (
+                self.microsoft_client_id,
+                self.microsoft_tenant_id,
+                self.microsoft_client_secret,
+                self.microsoft_authority,
+                self.microsoft_redirect_uri,
+            )
+        )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     _load_dotenv()
     email_inbox_protocol = _env("RH_EMAIL_INBOX_PROTOCOL", default="imap")
+    auth_token_secret = _env("RH_AUTH_TOKEN_SECRET") or secrets.token_urlsafe(32)
+    microsoft_tenant_id = _env("MICROSOFT_TENANT_ID")
+    microsoft_authority = _env("MICROSOFT_AUTHORITY")
+    if microsoft_tenant_id:
+        microsoft_authority = f"https://login.microsoftonline.com/{microsoft_tenant_id}"
 
     settings = Settings(
         service_name=_env("RH_SERVICE_NAME", default="conecta-api"),
@@ -263,7 +288,7 @@ def get_settings() -> Settings:
         ),
         auth_user=_env("RH_AUTH_USER", default="rh"),
         auth_password=os.getenv("RH_AUTH_PASSWORD", ""),
-        auth_token_secret=_env("RH_AUTH_TOKEN_SECRET") or secrets.token_urlsafe(32),
+        auth_token_secret=auth_token_secret,
         auth_token_ttl_minutes=_read_int_env(
             "RH_AUTH_TOKEN_TTL_MINUTES", default=480, minimum=1
         ),
@@ -273,6 +298,13 @@ def get_settings() -> Settings:
         auth_login_rate_window_seconds=_read_int_env(
             "RH_AUTH_LOGIN_RATE_WINDOW_SECONDS", default=60, minimum=10, maximum=3600
         ),
+        session_secret_key=_env("FLASK_SECRET_KEY", "RH_SESSION_SECRET_KEY"),
+        microsoft_client_id=_env("MICROSOFT_CLIENT_ID"),
+        microsoft_tenant_id=microsoft_tenant_id,
+        microsoft_client_secret=os.getenv("MICROSOFT_CLIENT_SECRET", "").strip(),
+        microsoft_authority=microsoft_authority.rstrip("/"),
+        microsoft_redirect_uri=_env("MICROSOFT_REDIRECT_URI"),
+        microsoft_scopes=("User.Read",),
         mfa_issuer=_env("RH_MFA_ISSUER", default="Conecta"),
         mfa_encryption_key=os.getenv("RH_MFA_ENCRYPTION_KEY", "").strip(),
         cors_allow_origins=_split_csv(_env("RH_CORS_ALLOW_ORIGINS")),

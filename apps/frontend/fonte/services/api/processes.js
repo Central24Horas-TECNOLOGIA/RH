@@ -7,7 +7,8 @@ import {
   requisitar,
 } from './core.js';
 
-const TEMPO_CACHE_EMAIL_INBOX_MS = 1800000;
+const TEMPO_CACHE_EMAIL_INBOX_MS = 60 * 60 * 1000;
+const requisicoesEmailEmAndamento = new Map();
 
 function normalizarOpcoesListagem(opcoesOuForcar = false) {
   if (typeof opcoesOuForcar === 'boolean') {
@@ -487,6 +488,9 @@ export async function lerEmailsRecebidosProcesso(idProcesso, limite = 12, forcar
     id_processo: idProcesso,
     limit: limite,
   });
+  if (forcar) {
+    invalidarCacheApi(chaveCache);
+  }
   if (!forcar) {
     const emCache = lerCache(chaveCache, {
       sensivel: true,
@@ -494,16 +498,24 @@ export async function lerEmailsRecebidosProcesso(idProcesso, limite = 12, forcar
     });
     if (emCache) return emCache;
   }
+  if (requisicoesEmailEmAndamento.has(chaveCache)) {
+    return requisicoesEmailEmAndamento.get(chaveCache);
+  }
 
-  const dados = await requisitar(
+  const requisicao = requisitar(
     `/processes/${encodeURIComponent(idProcesso)}/email-inbox?${params.toString()}`,
     { method: 'GET' },
-  );
-  gravarCache(chaveCache, Array.isArray(dados) ? dados : [], {
-    sensivel: true,
-    ttlMs: TEMPO_CACHE_EMAIL_INBOX_MS,
-  });
-  return dados;
+  )
+    .then((dados) => {
+      gravarCache(chaveCache, Array.isArray(dados) ? dados : [], {
+        sensivel: true,
+        ttlMs: TEMPO_CACHE_EMAIL_INBOX_MS,
+      });
+      return dados;
+    })
+    .finally(() => requisicoesEmailEmAndamento.delete(chaveCache));
+  requisicoesEmailEmAndamento.set(chaveCache, requisicao);
+  return requisicao;
 }
 
 export async function analisarCvEmailRecebido(idProcesso, payload) {
@@ -537,6 +549,9 @@ export async function lerEmailsRecebidos({
   if (query) params.set('query', query);
   if (query) paramsCache.set('query', query);
   const chaveCache = montarChaveCacheApi('email-inbox', Object.fromEntries(paramsCache.entries()));
+  if (refresh) {
+    invalidarCacheApi(chaveCache);
+  }
   if (!refresh) {
     const emCache = lerCache(chaveCache, {
       sensivel: true,
@@ -544,13 +559,21 @@ export async function lerEmailsRecebidos({
     });
     if (emCache) return emCache;
   }
+  if (requisicoesEmailEmAndamento.has(chaveCache)) {
+    return requisicoesEmailEmAndamento.get(chaveCache);
+  }
 
-  const dados = await requisitar(`/email-inbox/messages?${params.toString()}`, { method: 'GET' });
-  gravarCache(chaveCache, dados, {
-    sensivel: true,
-    ttlMs: TEMPO_CACHE_EMAIL_INBOX_MS,
-  });
-  return dados;
+  const requisicao = requisitar(`/email-inbox/messages?${params.toString()}`, { method: 'GET' })
+    .then((dados) => {
+      gravarCache(chaveCache, dados, {
+        sensivel: true,
+        ttlMs: TEMPO_CACHE_EMAIL_INBOX_MS,
+      });
+      return dados;
+    })
+    .finally(() => requisicoesEmailEmAndamento.delete(chaveCache));
+  requisicoesEmailEmAndamento.set(chaveCache, requisicao);
+  return requisicao;
 }
 
 export async function lerDetalheEmailRecebido(idEmail, forcar = false) {

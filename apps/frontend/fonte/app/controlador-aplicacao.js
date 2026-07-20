@@ -32,6 +32,7 @@ import {
   criarProcesso,
   desativarLinkPublicoCandidatura,
   dispensarPreAnaliseCv,
+  concluirLoginMicrosoftApi,
   encerrarSessaoApi,
   encerrarProcesso,
   excluirCardPipeline,
@@ -347,6 +348,11 @@ export function navegarParaTela(tela, opcoes = {}) {
 
   window.history.pushState(null, '', caminho);
   window.dispatchEvent(eventoNavegacao);
+}
+
+function rotaAtualEhPublica() {
+  const telaAtual = obterTelaPorHash(obterRotaAtual());
+  return telaAtual === 'screen-public-candidacy' || telaAtual === 'screen-conecta-provas';
 }
 
 export function usarTelaAtual(autenticado) {
@@ -894,7 +900,9 @@ export function useControladorAplicacao() {
 
         limparEstadoPersistido();
         setEstado(criarEstadoInicial());
-        navegarParaTela('screen-login', { replace: true });
+        if (!rotaAtualEhPublica()) {
+          navegarParaTela('screen-login', { replace: true });
+        }
       }
     };
 
@@ -903,7 +911,9 @@ export function useControladorAplicacao() {
     const aoExpirarSessao = () => {
       limparEstadoPersistido();
       setEstado(criarEstadoInicial());
-      navegarParaTela('screen-login', { replace: true });
+      if (!rotaAtualEhPublica()) {
+        navegarParaTela('screen-login', { replace: true });
+      }
     };
 
     window.addEventListener(EVENTO_AUTENTICACAO_EXPIRADA, aoExpirarSessao);
@@ -1055,24 +1065,29 @@ export function useControladorAplicacao() {
     });
   };
 
+  const aplicarSessaoAutenticada = (sessao, usuarioFallback = '', estadoExtra = {}) => {
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      autenticado: true,
+      validandoSessao: false,
+      usuarioAutenticado: sessao?.usuario || usuarioFallback,
+      nomeUsuarioAutenticado: sessao?.nome || sessao?.usuario || usuarioFallback,
+      emailUsuarioAutenticado: sessao?.email || '',
+      perfilUsuario: sessao?.perfil || '',
+      perfilUsuarioNome: sessao?.perfil_nome || '',
+      nivelPerfilUsuario: sessao?.nivel || '',
+      permissoesUsuario: Array.isArray(sessao?.permissoes)
+        ? sessao.permissoes
+        : [],
+      avisoAcessoNegado: '',
+      ...estadoExtra,
+    }));
+  };
+
   const fazerLogin = async (usuario, senha, mfaCode = '') => {
     try {
       const sessao = await fazerLoginApi(usuario, senha, mfaCode);
-      atualizarEstado((anterior) => ({
-        ...anterior,
-        autenticado: true,
-        validandoSessao: false,
-        usuarioAutenticado: sessao?.usuario || usuario,
-        nomeUsuarioAutenticado: sessao?.nome || sessao?.usuario || usuario,
-        emailUsuarioAutenticado: sessao?.email || '',
-        perfilUsuario: sessao?.perfil || '',
-        perfilUsuarioNome: sessao?.perfil_nome || '',
-        nivelPerfilUsuario: sessao?.nivel || '',
-        permissoesUsuario: Array.isArray(sessao?.permissoes)
-          ? sessao.permissoes
-          : [],
-        avisoAcessoNegado: '',
-      }));
+      aplicarSessaoAutenticada(sessao, usuario);
       navegarParaTela('screen-menu');
       return { ok: true };
     } catch (error) {
@@ -1083,25 +1098,24 @@ export function useControladorAplicacao() {
     }
   };
 
+  const concluirLoginMicrosoft = async () => {
+    try {
+      const sessao = await concluirLoginMicrosoftApi();
+      aplicarSessaoAutenticada(sessao);
+      navegarParaTela('screen-menu', { replace: true });
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        mensagem: error?.message || 'A autenticação Microsoft não foi concluída.',
+      };
+    }
+  };
+
   const autenticarAcessoAdministrativo = async (usuario, senha) => {
     try {
       const sessao = await fazerLoginApi(usuario, senha);
-      atualizarEstado((anterior) => ({
-        ...anterior,
-        autenticado: true,
-        validandoSessao: false,
-        usuarioAutenticado: sessao?.usuario || usuario,
-        nomeUsuarioAutenticado: sessao?.nome || sessao?.usuario || usuario,
-        emailUsuarioAutenticado: sessao?.email || '',
-        perfilUsuario: sessao?.perfil || '',
-        perfilUsuarioNome: sessao?.perfil_nome || '',
-        nivelPerfilUsuario: sessao?.nivel || '',
-        permissoesUsuario: Array.isArray(sessao?.permissoes)
-          ? sessao.permissoes
-          : [],
-        avisoAcessoNegado: '',
-        acessoRhLiberadoAposProva: true,
-      }));
+      aplicarSessaoAutenticada(sessao, usuario, { acessoRhLiberadoAposProva: true });
       return { ok: true };
     } catch (error) {
       return {
@@ -1677,6 +1691,7 @@ export function useControladorAplicacao() {
     blueprint,
     regrasCandidato: montarResumoRegrasDoCandidato(blueprint, estado.candidato),
     fazerLogin,
+    concluirLoginMicrosoft,
     autenticarAcessoAdministrativo,
     sair,
     exigirNovoLogin,

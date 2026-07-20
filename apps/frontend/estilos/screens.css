@@ -137,8 +137,21 @@
   place-items: center;
   padding: 24px;
   background:
-    linear-gradient(135deg, rgba(8, 27, 54, 0.9), rgba(28, 81, 125, 0.78)),
-    url('./Fundo-azul.png') center/cover fixed;
+    url('./Fundo Provas.png') center/cover fixed;
+}
+
+.conecta-provas-shell.is-access-view {
+  place-items: start center;
+  background:
+    url('./Fundo Provas inicial.png') center top/cover fixed;
+}
+
+.conecta-provas-shell.is-access-view .conecta-provas-card {
+  margin-top: clamp(210px, 24vh, 280px);
+}
+
+.conecta-provas-shell.is-access-view .conecta-provas-brand {
+  display: none;
 }
 
 .conecta-provas-card {
@@ -336,10 +349,31 @@
 .conecta-provas-question-text p {
   margin: 0 0 10px;
   line-height: 1.58;
+  white-space: pre-line;
 }
 
 .conecta-provas-question-text p:last-child {
   margin-bottom: 0;
+}
+
+.conecta-provas-question-heading {
+  margin-top: 16px;
+  color: #172033;
+  font-weight: 750;
+}
+
+.conecta-provas-question-quote {
+  border-left: 4px solid var(--rh-primary, #1b5fc1);
+  border-radius: 6px;
+  padding: 12px 14px;
+  background: #f7f9fc;
+  color: #27364f;
+}
+
+.conecta-provas-question-command {
+  margin-top: 16px;
+  color: #172033;
+  font-weight: 750;
 }
 
 .conecta-provas-options {
@@ -873,6 +907,60 @@
   gap: 0.55rem;
   font-weight: 700;
   color: white;
+}
+
+.rh-login-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.9rem 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.rh-login-divider::before,
+.rh-login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.rh-login-microsoft-btn {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--color-text);
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rh-login-microsoft-btn:hover {
+  border-color: var(--color-primary);
+  background: #f7f9fc;
+  color: var(--color-primary);
+}
+
+.rh-login-microsoft-btn:focus-visible {
+  outline: 3px solid rgba(31, 97, 184, 0.25);
+  outline-offset: 2px;
+}
+
+.rh-login-microsoft-btn[aria-busy='true'] {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.rh-login-microsoft-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
 }
 
 .rh-login-help-row {
@@ -2658,12 +2746,18 @@
   table-layout: fixed;
 }
 
-#screen-menu .mailbox-card-compact .email-table th,
-#screen-menu .mailbox-card-compact .email-table td {
+#screen-menu .mailbox-card-compact .email-table th {
   min-width: 0;
   padding: 0.55rem 0.42rem;
   overflow-wrap: anywhere;
 }
+
+#screen-menu .mailbox-card-compact .email-table td {
+    min-width: 0;
+    width: 100%;
+    overflow-wrap: anywhere;
+}
+
 
 #screen-menu .mailbox-card-compact .email-sender-cell strong,
 #screen-menu .mailbox-card-compact .email-subject-cell > div,
@@ -3055,6 +3149,41 @@
 
 .process-create-field select[multiple] {
   min-height: 112px;
+}
+
+.process-stage-selector,
+.process-stage-levels {
+  gap: 0.55rem;
+}
+
+.process-stage-checklist,
+.process-stage-level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.55rem;
+}
+
+.process-stage-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 38px;
+  padding: 0.48rem 0.62rem;
+  border: 1px solid rgba(185, 199, 219, 0.98);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--color-text);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.process-stage-check input {
+  width: 16px;
+  min-height: 16px;
+}
+
+.process-stage-default-level {
+  grid-column: 1 / -1;
 }
 
 .process-create-field input:focus,
@@ -9422,6 +9551,60 @@
   line-height: 1.5;
 }
 
+.process-share-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.process-share-list-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(185, 199, 219, 0.98);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.process-share-list-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.88rem;
+  font-weight: 850;
+}
+
+.process-share-list-card h3 .material-symbols-outlined {
+  color: var(--rh-primary, #1b5fc1);
+  font-size: 1.05rem;
+}
+
+.process-share-list-card ul {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.process-share-list-card li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 0.38rem;
+  align-items: start;
+  color: #45577a;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.process-share-list-card li .material-symbols-outlined {
+  color: #1f7a55;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
 #screen-processes .rh-status-pill,
 #screen-processes-open .rh-status-pill,
 #screen-processes-closed .rh-status-pill,
@@ -13571,6 +13754,9 @@
 #screen-processes .process-progress-card.rh-section-card {
   padding: 0;
   border: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0px;
   background: transparent;
   box-shadow: none;
 }

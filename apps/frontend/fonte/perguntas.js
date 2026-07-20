@@ -3,6 +3,7 @@
   getQuestoesParaBlueprint,
   obterResumoBancoQuestoes,
 } from './banco-questoes.js';
+import { ROTULOS_ETAPAS as STAGE_LABELS } from './rotulos-etapas.js';
 
 function wordQ(
   stageKey,
@@ -284,29 +285,6 @@ const ROLE_LEVEL_SUGGESTIONS = JOB_PROFILE_OPTIONS.reduce(
     Estagiario: '2',
   },
 );
-
-const STAGE_LABELS = {
-  word_basic: 'Word',
-  word_advanced: 'Word',
-  excel_basic: 'Excel',
-  excel_mid: 'Excel',
-  excel_advanced: 'Excel',
-  general_basic: 'Conhecimentos Gerais',
-  general_adv_people: 'Conhecimentos Gerais: Boas Práticas e Gestão de Pessoas',
-  general_advanced: 'Conhecimentos Gerais',
-  tech_ti_basic: 'Conhecimentos Técnicos: TI',
-  tech_rh_basic: 'Conhecimentos Técnicos: RH',
-  tech_adm_basic: 'Conhecimentos Técnicos: Avançado',
-  tech_commercial_basic: 'Conhecimentos Técnicos: Comercial',
-  tech_finance_basic: 'Conhecimentos Técnicos: Financeiro',
-  tech_operation_basic: 'Conhecimentos Técnicos: Operação',
-  tech_ti_specific: 'Conhecimentos Técnicos Específicos - TI',
-  tech_adm_specific: 'Conhecimentos Técnicos Específicos - Administração',
-  writing_logic: 'Avaliação de Escrita e Lógica',
-  professional_essay: 'Redação',
-  analysis_eval: 'Avaliação de Análise',
-  tech_logic: 'Avaliação Técnica e Lógica',
-};
 
 const LIMITE_LINHAS_REDACAO = 20;
 const LIMITE_CARACTERES_REDACAO = 2200;

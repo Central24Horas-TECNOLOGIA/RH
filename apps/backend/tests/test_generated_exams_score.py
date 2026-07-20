@@ -17,7 +17,12 @@ from rh_api.routers.generated_exams import (
     public_finalize_exam,
     update_generated_exam,
 )
-from rh_api.repositories.generated_exams import _is_public_answer_complete, _map_rh_decision_to_candidate_status
+from rh_api.repositories.generated_exams import (
+    GeneratedExamRepositoryMixin,
+    _is_public_answer_complete,
+    _map_rh_decision_to_candidate_status,
+    _public_question_payload,
+)
 from rh_api.schemas.generated_exams import (
     GeneratedExamCreateRequest,
     PublicExamAccessRequest,
@@ -208,6 +213,72 @@ class GeneratedExamsAndScoreTests(unittest.TestCase):
                 },
             )
         )
+
+    def test_public_question_payload_never_exposes_internal_analysis_data(self):
+        public_question = _public_question_payload(
+            {
+                "type": "word",
+                "title": "Questão discursiva",
+                "description": "Explique a rotina e aplique alinhamento justificado.",
+                "rubricaInterna": "Aceitar também a resposta equivalente X.",
+                "oQueDeveSerAvaliado": "Clareza, conteúdo e alinhamento justificado.",
+                "gabaritoInterno": "Resposta X",
+                "respostaEsperadaInterna": "Resposta X",
+                "criteriosAvaliacao": ["Clareza", "Alinhamento"],
+                "expected": {
+                    "requiredAlignment": "justify",
+                    "rubric": ["Não revelar"],
+                },
+                "gabarito": {"tipo": "rubrica", "criterios": ["Não revelar"]},
+            }
+        )
+
+        self.assertEqual(
+            public_question["description"],
+            "Explique a rotina e aplique alinhamento justificado.",
+        )
+        for internal_field in (
+            "rubricaInterna",
+            "oQueDeveSerAvaliado",
+            "gabaritoInterno",
+            "respostaEsperadaInterna",
+            "criteriosAvaliacao",
+            "expected",
+            "gabarito",
+        ):
+            self.assertNotIn(internal_field, public_question)
+
+    def test_interrupted_stage_is_zeroed_in_grade_summary(self):
+        repository = GeneratedExamRepositoryMixin()
+        grade = repository._grade_answers(
+            [
+                {
+                    "type": "multiple",
+                    "stageKey": "general_basic",
+                    "stage": "Conhecimentos Gerais",
+                    "options": ["A", "B"],
+                    "answer": 0,
+                    "points": 10,
+                }
+            ],
+            [{"selected": 0}],
+            [{"key": "general_basic", "label": "Conhecimentos Gerais", "weight": 100}],
+            {
+                "estado_etapas_publicas": {
+                    "conhecimentos_gerais": {
+                        "status": "interrompida",
+                        "invalidada": True,
+                        "nota_zerada": True,
+                    }
+                }
+            },
+        )
+
+        self.assertEqual(grade["nota_objetiva"], 0)
+        self.assertEqual(grade["nota_final_prova"], 0)
+        self.assertEqual(grade["resumo_etapas"][0]["rawScore"], 0)
+        self.assertTrue(grade["resumo_etapas"][0]["interrupted"])
+        self.assertEqual(grade["resumo_etapas"][0]["status"], "Etapa interrompida - nota zerada")
 
     def test_generated_exam_router_forwards_update_and_delete(self):
         repository = FakeGeneratedExamRepository()

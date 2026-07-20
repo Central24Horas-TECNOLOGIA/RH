@@ -237,6 +237,12 @@ INTERNAL_QUESTION_FIELDS = {
     "criterios_avaliacao",
     "respostaEsperadaInterna",
     "resposta_esperada_interna",
+    "rubricaInterna",
+    "rubrica_interna",
+    "oQueDeveSerAvaliado",
+    "o_que_deve_ser_avaliado",
+    "gabaritoInterno",
+    "gabarito_interno",
     "personalizacaoInteligente",
     "prompt",
     "promptInterno",
@@ -515,7 +521,74 @@ class GeneratedExamRepositoryMixin:
         }
 
     @staticmethod
+    def _public_stage_key_for_question(question: dict, index: int = 0) -> str:
+        q_type = normalize_text(question.get("type"))
+        label = normalize_compare_text(
+            question.get("stageKey")
+            or question.get("stage")
+            or question.get("category")
+            or question.get("title")
+            or ""
+        )
+        if q_type in {"essay", "redacao", "professional_essay"} or "redacao" in label:
+            return "redacao"
+        if q_type == "excel_external" or "excel" in label:
+            return "excel"
+        if q_type == "word" or "word" in label:
+            return "word"
+        if any(term in label for term in ("tech", "tecnico")):
+            return "conhecimentos_tecnicos"
+        if any(term in label for term in ("general", "geral")):
+            return "conhecimentos_gerais"
+        if "conhecimento" in label:
+            return "conhecimentos"
+        raw_key = normalize_compare_text(question.get("stageKey") or question.get("stage") or "")
+        return re.sub(r"[^a-z0-9]+", "-", raw_key).strip("-") or f"etapa-{index + 1}"
+
+    @staticmethod
+    def _public_stage_indices(questions: list[dict], stage_key: str) -> list[int]:
+        normalized_key = normalize_compare_text(stage_key)
+        return [
+            index
+            for index, question in enumerate(questions)
+            if GeneratedExamRepositoryMixin._public_stage_key_for_question(question, index) == normalized_key
+        ]
+
+    @staticmethod
+    def _internal_stage_states(config: dict | None) -> dict:
+        states = (config or {}).get("estado_etapas_publicas")
+        return states if isinstance(states, dict) else {}
+
+    @staticmethod
+    def _sanitize_public_config(config: dict | None) -> dict:
+        public_config = dict(config or {})
+        states = GeneratedExamRepositoryMixin._internal_stage_states(public_config)
+        public_states: dict[str, dict[str, Any]] = {}
+        for key, state in states.items():
+            if not isinstance(state, dict):
+                continue
+            status_value = normalize_compare_text(state.get("status"))
+            if status_value == "interrompida":
+                public_states[str(key)] = {"status": "realizada", "indisponivel": True}
+            elif status_value == "concluida":
+                public_states[str(key)] = {"status": "concluida"}
+        public_config.pop("estado_etapas_publicas", None)
+        if public_states:
+            public_config["estado_etapas_candidato"] = public_states
+        return public_config
+
+    @staticmethod
+    def _set_stage_state(config: dict | None, stage_key: str, state: dict) -> dict:
+        next_config = dict(config or {})
+        states = dict(GeneratedExamRepositoryMixin._internal_stage_states(next_config))
+        previous = states.get(stage_key) if isinstance(states.get(stage_key), dict) else {}
+        states[stage_key] = {**previous, **state}
+        next_config["estado_etapas_publicas"] = states
+        return next_config
+
+    @staticmethod
     def _exam_public_payload(row: dict) -> dict:
+        config = safe_json_loads(row.get("configuracao_json"), {})
         return {
             "token": normalize_text(row.get("token_sessao_publica")),
             "status": normalize_text(row.get("status")),
@@ -536,7 +609,7 @@ class GeneratedExamRepositoryMixin:
                 "etapas": safe_json_loads(row.get("etapas_json"), []),
                 "categorias": safe_json_loads(row.get("categorias_json"), []),
                 "questoes": _public_questions_payload(safe_json_loads(row.get("questoes_json"), [])),
-                "configuracao": safe_json_loads(row.get("configuracao_json"), {}),
+                "configuracao": GeneratedExamRepositoryMixin._sanitize_public_config(config),
                 "instrucoes_operacao": normalize_text(row.get("instrucoes_operacao")),
                 "iniciada_em": _format_datetime(row.get("iniciada_em")),
                 "finalizada": normalize_text(row.get("status")) in {
@@ -1508,7 +1581,109 @@ class GeneratedExamRepositoryMixin:
         finally:
             conn.close()
 
-    def _grade_answers(self, questions: list[dict], answers: list[Any], etapas_config: list[dict]) -> dict:
+    def public_complete_stage(self, data: dict) -> dict:
+        answers = data.get("respostas") or []
+        stage_key = normalize_compare_text(data.get("etapa_chave"))
+        question_index = data.get("questao_indice")
+        if not isinstance(answers, list):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Respostas invÃ¡lidas.")
+        if not stage_key or question_index is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa invÃ¡lida para conclusÃ£o.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_by_token(cursor, data.get("token"))
+            if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova jÃ¡ finalizada.")
+            questions = safe_json_loads(row.get("questoes_json"), [])
+            indices = self._public_stage_indices(questions, stage_key)
+            if not indices:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa nÃ£o encontrada.")
+            if int(question_index) != int(indices[-1]):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A etapa sÃ³ pode ser concluÃ­da na Ãºltima questÃ£o.")
+
+            config = safe_json_loads(row.get("configuracao_json"), {})
+            current_state = self._internal_stage_states(config).get(stage_key) or {}
+            if normalize_compare_text(current_state.get("status")) == "interrompida":
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Etapa indisponÃ­vel.")
+
+            self._save_answer_rows(cursor, row, answers, questions)
+            next_config = self._set_stage_state(
+                config,
+                stage_key,
+                {
+                    "status": "concluida",
+                    "concluida": True,
+                    "finalizada_em": datetime.now().isoformat(),
+                    "questao_indice": int(question_index),
+                },
+            )
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET status = ?, configuracao_json = ?, atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (EXAM_STATUS_IN_PROGRESS, _json_dumps(next_config), int(row.get("id_prova") or 0)),
+            )
+            conn.commit()
+            return {"success": True, "etapa": {"key": stage_key, "status": "concluida"}}
+        finally:
+            conn.close()
+
+    def public_interrupt_stage(self, data: dict) -> dict:
+        answers = data.get("respostas") or []
+        stage_key = normalize_compare_text(data.get("etapa_chave"))
+        question_index = data.get("questao_indice")
+        if not isinstance(answers, list):
+            answers = []
+        if not stage_key:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa invÃ¡lida para interrupÃ§Ã£o.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_by_token(cursor, data.get("token"))
+            if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
+                return {"success": True, "etapa": {"key": stage_key, "status": "realizada"}}
+            questions = safe_json_loads(row.get("questoes_json"), [])
+            if not self._public_stage_indices(questions, stage_key):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa nÃ£o encontrada.")
+            config = safe_json_loads(row.get("configuracao_json"), {})
+            current_state = self._internal_stage_states(config).get(stage_key) or {}
+            if normalize_compare_text(current_state.get("status")) == "interrompida":
+                return {"success": True, "etapa": {"key": stage_key, "status": "realizada"}}
+
+            self._save_answer_rows(cursor, row, answers, questions)
+            next_config = self._set_stage_state(
+                config,
+                stage_key,
+                {
+                    "status": "interrompida",
+                    "interrompida": True,
+                    "invalidada": True,
+                    "nota_zerada": True,
+                    "interrompida_em": datetime.now().isoformat(),
+                    "questao_indice": int(question_index) if question_index is not None else None,
+                },
+            )
+            cursor.execute(
+                """
+                UPDATE dbo.provas_geradas
+                SET status = ?, configuracao_json = ?, atualizado_em = GETDATE()
+                WHERE id_prova = ?
+                """,
+                (EXAM_STATUS_IN_PROGRESS, _json_dumps(next_config), int(row.get("id_prova") or 0)),
+            )
+            conn.commit()
+            return {"success": True, "etapa": {"key": stage_key, "status": "realizada"}}
+        finally:
+            conn.close()
+
+    def _grade_answers(self, questions: list[dict], answers: list[Any], etapas_config: list[dict], configuracao: dict | None = None) -> dict:
         graded = []
         categories: dict[str, dict[str, float]] = {}
         stage_map: dict[str, dict[str, Any]] = {}
@@ -1529,6 +1704,12 @@ class GeneratedExamRepositoryMixin:
             for item in etapas_config
             if isinstance(item, dict)
         }
+        stage_states = self._internal_stage_states(configuracao or {})
+        interrupted_stage_keys = {
+            normalize_compare_text(key)
+            for key, state in stage_states.items()
+            if isinstance(state, dict) and normalize_compare_text(state.get("status")) == "interrompida"
+        }
 
         for index, question in enumerate(questions):
             answer = answers[index] if index < len(answers) else None
@@ -1537,6 +1718,9 @@ class GeneratedExamRepositoryMixin:
             score = 0.0
             correct = None
             manual = False
+            stage_key = normalize_text(question.get("stageKey") or "geral")
+            public_stage_key = self._public_stage_key_for_question(question, index)
+            stage_interrupted = public_stage_key in interrupted_stage_keys
 
             if q_type == "multiple":
                 selected = answer.get("selected") if isinstance(answer, dict) else answer
@@ -1598,7 +1782,17 @@ class GeneratedExamRepositoryMixin:
                     communication_score += min(points, max(0, len(text) / 80))
                 communication_max += points
 
-            stage_key = normalize_text(question.get("stageKey") or "geral")
+            if stage_interrupted:
+                if q_type in {"multiple", "compact_choice_group"}:
+                    objective_score = max(0.0, objective_score - score)
+                elif q_type == "excel_external":
+                    excel_score = max(0.0, excel_score - score)
+                else:
+                    communication_score = max(0.0, communication_score - score)
+                score = 0.0
+                correct = False
+                manual = False
+
             stage = stage_map.setdefault(
                 stage_key,
                 {
@@ -1616,6 +1810,11 @@ class GeneratedExamRepositoryMixin:
             stage["questionCount"] += 1
             if manual:
                 stage["pendings"] += 1
+            if stage_interrupted:
+                stage["status"] = "Etapa interrompida - nota zerada"
+                stage["invalidated"] = True
+                stage["interrupted"] = True
+                stage["zeroed"] = True
 
             category = normalize_text(question.get("stage") or question.get("category") or question.get("stageKey") or "Geral")
             category_bucket = categories.setdefault(category, {"score": 0.0, "max": 0.0})
@@ -1630,7 +1829,14 @@ class GeneratedExamRepositoryMixin:
                 lgpd_score += score
                 lgpd_max += points
 
-            graded.append({"score": score, "max": points, "correct": correct, "pendingManual": manual})
+            graded.append({
+                "score": score,
+                "max": points,
+                "correct": correct,
+                "pendingManual": manual,
+                "stageKey": stage_key,
+                "interrupted": stage_interrupted,
+            })
 
         resumo_etapas = []
         for stage in stage_map.values():
@@ -1651,6 +1857,7 @@ class GeneratedExamRepositoryMixin:
             key: round((value["score"] / value["max"]) * 100, 2) if value["max"] else 0
             for key, value in categories.items()
         }
+        pending_manual = any(item.get("pendingManual") and not item.get("interrupted") for item in graded)
         return {
             "graded": graded,
             "nota_objetiva": nota_objetiva,
@@ -1679,8 +1886,17 @@ class GeneratedExamRepositoryMixin:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova já finalizada.")
             questions = safe_json_loads(row.get("questoes_json"), [])
             etapas_config = safe_json_loads(row.get("etapas_json"), [])
+            configuracao = safe_json_loads(row.get("configuracao_json"), {})
+            stage_states = self._internal_stage_states(configuracao)
+            interrupted_stage_keys = {
+                normalize_compare_text(key)
+                for key, state in stage_states.items()
+                if isinstance(state, dict) and normalize_compare_text(state.get("status")) == "interrompida"
+            }
             missing_required = []
             for index, question in enumerate(questions):
+                if self._public_stage_key_for_question(question, index) in interrupted_stage_keys:
+                    continue
                 answer = answers[index] if index < len(answers) else None
                 if not _is_public_answer_complete(question, answer):
                     missing_required.append(index + 1)
@@ -1690,7 +1906,7 @@ class GeneratedExamRepositoryMixin:
                     detail=f"Existem respostas obrigatórias pendentes: {', '.join(map(str, missing_required))}.",
                 )
 
-            grade = self._grade_answers(questions, answers, etapas_config)
+            grade = self._grade_answers(questions, answers, etapas_config, configuracao)
             if missing_required:
                 grade["pendente_avaliacao_manual"] = True
                 grade["resumo_etapas"] = [

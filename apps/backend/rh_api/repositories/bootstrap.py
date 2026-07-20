@@ -86,7 +86,11 @@ def ensure_security_tables(cursor, settings: Settings) -> None:
                 email NVARCHAR(180) NOT NULL,
                 perfil_id NVARCHAR(40) NOT NULL,
                 status NVARCHAR(30) NOT NULL CONSTRAINT DF_usuarios_status DEFAULT 'Ativo',
-                senha_hash NVARCHAR(500) NOT NULL,
+                senha_hash NVARCHAR(500) NULL,
+                microsoft_oid NVARCHAR(64) NULL,
+                microsoft_tenant_id NVARCHAR(64) NULL,
+                provedor_autenticacao NVARCHAR(30) NULL CONSTRAINT DF_usuarios_provedor_autenticacao DEFAULT 'local',
+                ultimo_login_microsoft DATETIME NULL,
                 mfa_enabled BIT NOT NULL CONSTRAINT DF_usuarios_mfa_enabled DEFAULT 0,
                 mfa_secret_encrypted NVARCHAR(1000) NULL,
                 criado_por NVARCHAR(180) NULL,
@@ -278,6 +282,23 @@ def ensure_security_tables(cursor, settings: Settings) -> None:
         )
         BEGIN
             CREATE UNIQUE INDEX UX_usuarios_email ON dbo.usuarios(email)
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.usuarios', 'microsoft_oid') IS NOT NULL
+           AND COL_LENGTH('dbo.usuarios', 'microsoft_tenant_id') IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1
+               FROM sys.indexes
+               WHERE name = 'UX_usuarios_microsoft_identity'
+                 AND object_id = OBJECT_ID('dbo.usuarios')
+           )
+        BEGIN
+            CREATE UNIQUE INDEX UX_usuarios_microsoft_identity
+            ON dbo.usuarios(microsoft_oid, microsoft_tenant_id)
+            WHERE microsoft_oid IS NOT NULL AND microsoft_tenant_id IS NOT NULL
         END
         """
     )

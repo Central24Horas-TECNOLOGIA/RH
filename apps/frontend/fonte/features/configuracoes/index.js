@@ -37,6 +37,7 @@ const FORM_USUARIO_INICIAL = {
   senha: '',
   perfil: 'estagiario',
   status: 'Ativo',
+  provedor_autenticacao: 'microsoft',
   justificativa: '',
 };
 
@@ -482,6 +483,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       login: textoSeguro(usuario.login, ''),
       perfil: textoSeguro(usuario.perfil || usuario.perfil_id, FORM_USUARIO_INICIAL.perfil),
       status: textoSeguro(usuario.status, FORM_USUARIO_INICIAL.status),
+      provedor_autenticacao: textoSeguro(usuario.provedor_autenticacao, 'local'),
       senha: '',
       justificativa: '',
     });
@@ -572,6 +574,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       login: textoSeguro(usuario.login, ''),
       perfil: textoSeguro(usuario.perfil || usuario.perfil_id, FORM_USUARIO_INICIAL.perfil),
       status: textoSeguro(usuario.status, FORM_USUARIO_INICIAL.status),
+      provedor_autenticacao: textoSeguro(usuario.provedor_autenticacao, 'local'),
       senha: '',
       justificativa: '',
     });
@@ -593,7 +596,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
 
   const salvarUsuario = async (event) => {
     event.preventDefault();
-    const email = String(formUsuario.email || '').trim();
+    const email = String(formUsuario.email || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setErro('Informe um e-mail válido.');
       return;
@@ -608,6 +611,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         login: formUsuario.login || email,
         perfil: formUsuario.perfil,
         status: formUsuario.status,
+        provedor_autenticacao: formUsuario.provedor_autenticacao,
         justificativa: formUsuario.justificativa,
       };
       if (formUsuario.id_usuario) {
@@ -1115,6 +1119,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     const podeSalvar = formUsuario.id_usuario ? podeEditar : podeCriar;
     const totalUsuarios = usuariosFiltrados.length;
     const statusAtivo = normalizarBusca(formUsuario.status) === 'ativo';
+    const acessoMicrosoft = normalizarBusca(formUsuario.provedor_autenticacao) === 'microsoft';
     const nomeDrawer = formUsuario.nome || formUsuario.email || (criandoUsuario ? 'Novo usuário' : 'Usuário');
     const linhasUsuarios = paginacaoUsuarios.itens.map((usuario) => ({
       usuario,
@@ -1389,6 +1394,22 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                           ${perfis.map((perfil) => html`<option key=${perfil.id} value=${perfil.id}>${perfil.nome}</option>`)}
                         </select>
                       </label>
+                      <label>
+                        <span>Tipo de acesso</span>
+                        <select
+                          class="form-select"
+                          required
+                          value=${formUsuario.provedor_autenticacao}
+                          onChange=${(event) => setFormUsuario({
+                            ...formUsuario,
+                            provedor_autenticacao: event.target.value,
+                            senha: event.target.value === 'microsoft' ? '' : formUsuario.senha,
+                          })}
+                        >
+                          <option value="microsoft">Microsoft</option>
+                          <option value="local">Local</option>
+                        </select>
+                      </label>
                       <label class="users-toggle-row">
                         <span>${statusAtivo ? 'Usuário ativo' : 'Usuário inativo'}</span>
                         <button
@@ -1401,7 +1422,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                           <i></i>
                         </button>
                       </label>
-                      ${criandoUsuario
+                      ${criandoUsuario && !acessoMicrosoft
             ? html`
                             <label>
                               <span>Senha inicial</span>

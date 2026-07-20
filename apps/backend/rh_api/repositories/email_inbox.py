@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import HTTPException, status
@@ -48,6 +48,7 @@ from .bootstrap import (
 
 
 EMAIL_INBOX_QUEUE_PROCESS_ID = "EMAIL_INBOX"
+EMAIL_INBOX_RETENTION_DAYS = 60
 
 
 def _parse_datetime(value) -> datetime | None:
@@ -66,6 +67,13 @@ def _format_datetime(value) -> str:
     if isinstance(value, datetime):
         return value.isoformat()
     return normalize_text(value)
+
+
+def _is_older_than_email_inbox_retention(value) -> bool:
+    parsed = _parse_datetime(value)
+    if not parsed:
+        return False
+    return parsed < datetime.now() - timedelta(days=EMAIL_INBOX_RETENTION_DAYS)
 
 
 def _friendly_detected(value: str) -> str:
@@ -224,6 +232,93 @@ class EmailInboxRepositoryMixin:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail recebido não encontrado.")
         return rows[0]
 
+    def _delete_email_inbox_saved_files(self, row: dict) -> None:
+        service = self._email_inbox_service()
+        try:
+            root = service.attachments_root.resolve()
+        except OSError:
+            return
+
+        paths = [
+            normalize_text(row.get("caminho_anexo")),
+            normalize_text(row.get("metadata_path")),
+        ]
+        attachments = safe_json_loads(row.get("attachments_json"), [])
+        if isinstance(attachments, list):
+            paths.extend(
+                normalize_text(attachment.get("path"))
+                for attachment in attachments
+                if isinstance(attachment, dict)
+            )
+
+        touched_dirs: set[Path] = set()
+        for raw_path in paths:
+            if not raw_path:
+                continue
+            path = Path(raw_path)
+            try:
+                resolved = path.resolve()
+            except OSError:
+                continue
+            if root not in [resolved, *resolved.parents] or not resolved.is_file():
+                continue
+            try:
+                touched_dirs.add(resolved.parent)
+                resolved.unlink()
+            except OSError as exc:
+                self.logger.warning("Nao foi possivel excluir arquivo salvo do e-mail vencido: %s erro=%s", resolved, exc)
+
+        for directory in sorted(touched_dirs, key=lambda item: len(item.parts), reverse=True):
+            current = directory
+            while current != root and root in current.parents:
+                try:
+                    current.rmdir()
+                except OSError:
+                    break
+                current = current.parent
+
+    def _purge_expired_email_inbox_items(self, cursor) -> int:
+        ensure_email_inbox_items_table(cursor)
+        cursor.execute(
+            """
+            SELECT
+                id,
+                message_uid,
+                caminho_anexo,
+                attachments_json,
+                metadata_path
+            FROM email_inbox_items
+            WHERE COALESCE(atualizado_em, criado_em, data_recebimento, GETDATE()) < DATEADD(day, ?, GETDATE())
+            """,
+            (-EMAIL_INBOX_RETENTION_DAYS,),
+        )
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        deleted = 0
+        for row in rows:
+            item_id = normalize_text(row.get("id"))
+            if not item_id:
+                continue
+            uid = normalize_text(row.get("message_uid"))
+            if uid:
+                try:
+                    self._email_inbox_service().delete_message(uid)
+                except EmailInboxUnavailable as exc:
+                    self.logger.warning(
+                        "Nao foi possivel excluir e-mail vencido no IMAP. O registro local sera removido. item_id=%s erro=%s",
+                        item_id,
+                        exc.message,
+                    )
+                except Exception as exc:
+                    self.logger.warning(
+                        "Falha inesperada ao excluir e-mail vencido no IMAP. O registro local sera removido. item_id=%s erro=%s",
+                        item_id,
+                        exc,
+                    )
+            self._delete_email_inbox_saved_files(row)
+            cursor.execute("DELETE FROM email_inbox_items WHERE id = ?", (item_id,))
+            deleted += 1
+        return deleted
+
     def _upsert_email_inbox_summary(self, cursor, item: dict) -> None:
         ensure_email_inbox_items_table(cursor)
         item_id = normalize_text(item.get("id"))
@@ -307,8 +402,7 @@ class EmailInboxRepositoryMixin:
                     nome_anexo = COALESCE(NULLIF(nome_anexo, ''), ?),
                     content_type = COALESCE(NULLIF(content_type, ''), ?),
                     tamanho_anexo = CASE WHEN ISNULL(tamanho_anexo, 0) = 0 THEN ? ELSE tamanho_anexo END,
-                    attachments_json = ?,
-                    atualizado_em = GETDATE()
+                    attachments_json = ?
                 WHERE id = ?
                 """,
                 (*params, item_id),
@@ -461,7 +555,24 @@ class EmailInboxRepositoryMixin:
         try:
             cursor = conn.cursor()
             ensure_email_inbox_items_table(cursor)
+            deleted_expired = self._purge_expired_email_inbox_items(cursor)
             for item in items:
+                item_id = normalize_text(item.get("id"))
+                if item_id and _is_older_than_email_inbox_retention(item.get("data_recebimento")):
+                    cursor.execute("SELECT 1 FROM email_inbox_items WHERE id = ?", (item_id,))
+                    if not cursor.fetchone():
+                        uid = normalize_text(item.get("message_uid") or item.get("uid"))
+                        if uid:
+                            try:
+                                self._email_inbox_service().delete_message(uid)
+                            except EmailInboxUnavailable as exc:
+                                self.logger.warning(
+                                    "Nao foi possivel excluir e-mail antigo no IMAP antes do cadastro local. uid=%s erro=%s",
+                                    uid,
+                                    exc.message,
+                                )
+                        deleted_expired += 1
+                        continue
                 self._upsert_email_inbox_summary(cursor, item)
             conn.commit()
             listed = self._list_email_inbox_rows(
@@ -477,6 +588,8 @@ class EmailInboxRepositoryMixin:
         return {
             **status_payload,
             "message": message,
+            "retention_days": EMAIL_INBOX_RETENTION_DAYS,
+            "deleted_expired": deleted_expired,
             "items": listed,
         }
 

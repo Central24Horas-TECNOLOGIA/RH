@@ -1,6 +1,6 @@
 {
   "versao": 1,
-  "ultima_atualizacao": "2026-06-19",
+  "ultima_atualizacao": "2026-07-17",
   "descricao": "Banco reformulado importado dos DOCX enviados. Excel permanece fora deste arquivo.",
   "arquivos_origem": [
     {
@@ -34,6 +34,14 @@
     {
       "arquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "sha256": "7b74ace6db2cb2842415cff5f69bca3af26f90317d61e129b9ce41df0fd39134"
+    },
+    {
+      "arquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx",
+      "sha256": "d6bfce678ca3656165b772cf0f42155ce334ce78e54c0e850b1be8cb7a14b8a6"
+    },
+    {
+      "arquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "sha256": "c90a1a899cb32b6f938208c48bc364fb073466503c6feb1cb192b7bf10b8b497"
     },
     {
       "arquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
@@ -86,6 +94,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -129,6 +140,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -172,6 +186,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -215,6 +232,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -258,6 +278,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -283,7 +306,10 @@
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Raciocínio morfológico (substituição de verbos genéricos como \"fazer\", \"achar\" e \"falar\" por \"executar/realizar\", \"localizar/contatar\" e \"notificar/reportar\"); correção do artigo e adjetivo deslocado (\"os erros\" por \"quaisquer falhas\" / \"ruins\" por \"maus ou negativos\"); e o comando de alinhamento Justificado.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Raciocínio morfológico (substituição de verbos genéricos como \"fazer\", \"achar\" e \"falar\" por \"executar/realizar\", \"localizar/contatar\" e \"notificar/reportar\"); correção do artigo e adjetivo deslocado (\"os erros\" por \"quaisquer falhas\" / \"ruins\" por \"maus ou negativos\"); e o comando de alinhamento Justificado.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -310,6 +336,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -353,6 +382,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -396,6 +428,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -422,6 +457,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Tema livre",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx",
       "fontesOrigem": [
@@ -465,6 +503,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - NEUTRAS.docx",
       "fontesOrigem": [
@@ -508,6 +549,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - NEUTRAS.docx",
       "fontesOrigem": [
@@ -551,6 +595,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - NEUTRAS.docx",
       "fontesOrigem": [
@@ -594,6 +641,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - NEUTRAS.docx",
       "fontesOrigem": [
@@ -637,6 +687,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - NEUTRAS.docx",
       "fontesOrigem": [
@@ -949,6 +1002,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - NEUTRAS.docx",
       "fontesOrigem": [
@@ -1317,6 +1373,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - NEUTRAS.docx",
       "fontesOrigem": [
@@ -1343,6 +1402,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - NEUTRAS.docx",
       "fontesOrigem": [
@@ -1386,6 +1448,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -1429,6 +1494,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -1472,6 +1540,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -1515,6 +1586,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -1558,6 +1632,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -1870,6 +1947,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2238,6 +2318,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2264,6 +2347,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2285,11 +2371,14 @@
       "nivel": "intermediario",
       "numero": 1,
       "titulo": "Redação",
-      "enunciado": "\"Diferença entre jogar NUM time e jogar COMO um time: o papel do Supervisor na transformação do individualismo em sinergia operacional.\"\n\nInstruções:Elabore um texto dissertativo-argumentativo de no mínimo 20 linhas, abordando obrigatoriamente:\n\nA diferença entre bater metas individuais e garantir o resultado coletivo da operação (SLA, Fila e Absenteísmo).\n\nAções práticas do Supervisor para engajar colaboradores individualistas a trabalharem em equipe.\n\nQuestões Múltiplas escolha",
+      "enunciado": "\"Diferença entre jogar NUM time e jogar COMO um time: o papel do Supervisor na transformação do individualismo em sinergia operacional.\"\n\nInstruções:Elabore um texto dissertativo-argumentativo de no mínimo 20 linhas, abordando obrigatoriamente:\n\nA diferença entre bater metas individuais e garantir o resultado coletivo da operação (SLA, Fila e Absenteísmo).\n\nAções práticas do Supervisor para engajar colaboradores individualistas a trabalharem em equipe.",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Diferença entre jogar NUM time e jogar COMO um time: o papel do Supervisor na transformação do individualismo em sinergia operacional.",
+      "instrucoesRedacao": "Elabore um texto dissertativo-argumentativo de no mínimo 20 linhas, abordando obrigatoriamente:",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2333,6 +2422,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2376,6 +2468,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2419,6 +2514,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2462,6 +2560,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2505,6 +2606,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2548,6 +2652,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2591,6 +2698,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2617,6 +2727,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
@@ -2660,10 +2773,330 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx",
       "fontesOrigem": [
         "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_neutra_redacao_geral_q01_essay",
+      "base_neutra_id": null,
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "redacao",
+      "tipo": "essay",
+      "origem": "neutra",
+      "cliente_id": null,
+      "cliente": null,
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Redação",
+      "enunciado": "Planejamento Estratégico\n\nTema:\n\n\"O Planejamento (WFM) como cérebro da operação: Como o equilíbrio entre dimensionamento, tráfego e gestão de pessoas garante a sustentabilidade do negócio?\"\n\nInstruções:Elabore um texto dissertativo-argumentativo de no mínimo 20 linhas, abordando obrigatoriamente:\n\nA importância de uma visão analítica para compreender que uma falha no dimensionamento (falta de pessoas) ou no tráfego impacta diretamente o SLA, o Abandono e o bem-estar da equipe.\n\nComo o Analista de Planejamento atua como o elo entre os custos da empresa e a satisfação do cliente, utilizando dados para identificar gargalos como o Absenteísmo e o Turnover.\n\nAções práticas para alinhar o Planejamento com a Operação e o RH, buscando um padrão de excelência onde as metas sejam batidas sem sobrecarregar o colaborador.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "O Planejamento (WFM) como cérebro da operação: Como o equilíbrio entre dimensionamento, tráfego e gestão de pessoas garante a sustentabilidade do negócio?",
+      "instrucoesRedacao": "Elabore um texto dissertativo-argumentativo de no mínimo 20 linhas, abordando obrigatoriamente:",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_neutra_word_geral_q01_multiple_choice",
+      "base_neutra_id": null,
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "neutra",
+      "cliente_id": null,
+      "cliente": null,
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Questão 1",
+      "enunciado": "No Planejamento, é comum criar relatórios mensais de performance (Book de Indicadores) com muitas seções. Para garantir que a capa não tenha numeração, o sumário use algarismos romanos e o corpo do texto comece na página 1, qual o procedimento técnico correto?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Inserir Quebras de Página e usar o Pincel de Formatação para ocultar os números."
+        },
+        {
+          "id": "B",
+          "texto": "Inserir Quebras de Seção (Próxima Página) e desmarcar a opção \"Vincular ao Anterior\" nas propriedades de Cabeçalho e Rodapé."
+        },
+        {
+          "id": "C",
+          "texto": "Criar três arquivos Word diferentes e juntá-los apenas na hora de converter para PDF."
+        },
+        {
+          "id": "D",
+          "texto": "Usar a tecla \"Enter\" até o texto mudar de página, garantindo que o Word entenda a divisão."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_neutra_word_geral_q02_multiple_choice",
+      "base_neutra_id": null,
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "neutra",
+      "cliente_id": null,
+      "cliente": null,
+      "area": null,
+      "nivel": "avancado",
+      "numero": 2,
+      "titulo": "Questão 2",
+      "enunciado": "Você está redigindo uma proposta técnica de dimensionamento e precisa que o supervisor valide os cálculos. Para que você consiga visualizar exatamente o que ele alterou no texto e nos valores, podendo aceitar ou rejeitar cada edição, qual recurso deve estar ativo?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Restringir Edição."
+        },
+        {
+          "id": "B",
+          "texto": "Controlar Alterações (na guia Revisão)."
+        },
+        {
+          "id": "C",
+          "texto": "Comparar Lado a Lado."
+        },
+        {
+          "id": "D",
+          "texto": "Proteger Documento com Senha."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_neutra_word_geral_q03_multiple_choice",
+      "base_neutra_id": null,
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "neutra",
+      "cliente_id": null,
+      "cliente": null,
+      "area": null,
+      "nivel": "avancado",
+      "numero": 3,
+      "titulo": "Questão 3",
+      "enunciado": "Um Analista de Planejamento precisa enviar escalas de folga personalizadas para 500 colaboradores. Os dados de nome, horário e folga estão em uma planilha Excel. Qual recurso do Word permite gerar esses 500 documentos/e-mails de forma automática?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "B",
+          "texto": "Macros de Sistema."
+        },
+        {
+          "id": "C",
+          "texto": "Mala Direta (guia Correspondências)."
+        },
+        {
+          "id": "D",
+          "texto": "Partes Rápidas (Campo FileName)."
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_neutra_word_geral_q04_multiple_choice",
+      "base_neutra_id": null,
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "neutra",
+      "cliente_id": null,
+      "cliente": null,
+      "area": null,
+      "nivel": "avancado",
+      "numero": 4,
+      "titulo": "Questão 4",
+      "enunciado": "Você precisa criar um modelo de \"Solicitação de Alteração de Escala\" onde os gestores podem apenas preencher os campos de data e motivo, mas não podem alterar o texto jurídico e as regras de compliance do documento. Qual o recurso indicado?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Salvar como PDF."
+        },
+        {
+          "id": "B",
+          "texto": "Guia Revisão > Restringir Edição > Preenchimento de formulários."
+        },
+        {
+          "id": "C",
+          "texto": "Guia Design > Marca D’água com aviso de \"Proibido Editar\"."
+        },
+        {
+          "id": "D",
+          "texto": "Ocultar a faixa de opções do Word via comando de TI."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_neutra_word_geral_q05_multiple_choice",
+      "base_neutra_id": null,
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "neutra",
+      "cliente_id": null,
+      "cliente": null,
+      "area": null,
+      "nivel": "avancado",
+      "numero": 5,
+      "titulo": "Questão 5",
+      "enunciado": "Em um documento de Planejamento Estratégico, você cita um gráfico de Erlang que está no anexo ao final do arquivo. Para que a frase \"veja o gráfico na página 40\" se atualize sozinha caso o gráfico mude para a página 45 após novas inserções, você utiliza:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Hiperlink de Internet."
+        },
+        {
+          "id": "B",
+          "texto": "Nota de Rodapé."
+        },
+        {
+          "id": "C",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "D",
+          "texto": "Marcador de Texto manual. Parte 2: Questões Discursivas (Cenário Operacional - Planejamento) Instruções: Responda demonstrando sua capacidade analítica, foco em métricas e visão de eficiência operacional."
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_neutra_word_geral_q06_word_discursive",
+      "base_neutra_id": null,
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "neutra",
+      "cliente_id": null,
+      "cliente": null,
+      "area": null,
+      "nivel": "avancado",
+      "numero": 6,
+      "titulo": "Questão 6",
+      "enunciado": "Gestão de Crise e Impacto no SLA\n\nCenário: Meio-dia de segunda-feira, pico de chamadas. O sistema cai por 40 minutos. A fila dispara, o TMA triplica e o SLA (Nível de Serviço) desaba. O Coordenador exige justificativas.\n\nDisserte sobre: Como o Planejamento atua tecnicamente durante essa queda de sistema? Quais orientações de \"fluxo de chamadas\" você daria para a operação e como você gerenciaria a pressão da coordenação explicando o impacto previsto para o restante do dia (recuperação de meta)?",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_neutra_word_geral_q07_word_discursive",
+      "base_neutra_id": null,
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "neutra",
+      "cliente_id": null,
+      "cliente": null,
+      "area": null,
+      "nivel": "avancado",
+      "numero": 7,
+      "titulo": "Questão 7",
+      "enunciado": "Conflito de Processos vs. Operação\n\nCenário: Durante a crise acima, um operador se recusa a seguir o log de contingência manual alegando que \"anotar papel não resolve a fila\".\n\nDisserte sobre: No papel de Planejamento, como você explica para a liderança e para o colaborador que o registro (mesmo manual) é vital para o Dimensionamento Futuro e para a análise de impacto, sem desmotivar a equipe que está sob estresse?",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx"
       ]
     },
     {
@@ -2703,6 +3136,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -2746,6 +3182,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -2789,6 +3228,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -2832,6 +3274,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -2875,6 +3320,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -2918,6 +3366,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -2961,6 +3412,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -3004,6 +3458,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -3047,6 +3504,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -3090,6 +3550,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx",
       "fontesOrigem": [
@@ -3133,6 +3596,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3176,6 +3642,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3219,6 +3688,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3262,6 +3734,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3305,6 +3780,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3348,6 +3826,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3391,6 +3872,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3434,6 +3918,9 @@
       "itens": [],
       "gabarito": "D",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3477,6 +3964,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3520,6 +4010,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx",
       "fontesOrigem": [
@@ -3563,6 +4056,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3606,6 +4102,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3649,6 +4148,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3692,6 +4194,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3735,6 +4240,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3778,6 +4286,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3821,6 +4332,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3864,6 +4378,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3907,6 +4424,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3950,6 +4470,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx",
       "fontesOrigem": [
@@ -3995,6 +4518,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4038,6 +4564,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4081,6 +4610,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4124,6 +4656,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4167,6 +4702,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4188,11 +4726,14 @@
       "nivel": "basico",
       "numero": 6,
       "titulo": "Questão 6",
-      "enunciado": "Digite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos cadastros de sócios-torcedores. É fundamental encontrar os erros de digitação antes do envio das informações ao setor responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o atendimento.”",
+      "enunciado": "Discursiva\n\nDigite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos cadastros de sócios-torcedores. É fundamental encontrar os erros de digitação antes do envio das informações ao setor responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o atendimento.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4214,11 +4755,14 @@
       "nivel": "basico",
       "numero": 7,
       "titulo": "Questão 7",
-      "enunciado": "O texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os cadastros dos sócios-torcedores, separo as solicitações por tipo de atendimento e imprimo os relatórios de atualização cadastral. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
+      "enunciado": "Discursiva\n\nO texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os cadastros dos sócios-torcedores, separo as solicitações por tipo de atendimento e imprimo os relatórios de atualização cadastral. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4262,6 +4806,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4305,6 +4852,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4348,6 +4898,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4391,6 +4944,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4434,6 +4990,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4477,6 +5036,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4520,6 +5082,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4541,11 +5106,14 @@
       "nivel": "basico",
       "numero": 6,
       "titulo": "Questão 6",
-      "enunciado": "Digite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos relatórios de agendamento dos pacientes. É fundamental encontrar os erros de digitação antes do envio das informações para a equipe responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o atendimento.”",
+      "enunciado": "Discursiva\n\nDigite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos relatórios de agendamento dos pacientes. É fundamental encontrar os erros de digitação antes do envio das informações para a equipe responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o atendimento.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4567,11 +5135,14 @@
       "nivel": "basico",
       "numero": 7,
       "titulo": "Questão 7",
-      "enunciado": "O texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os registros de agendamento, separo as solicitações por clínica e imprimo os comprovantes de encaminhamento dos pacientes. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
+      "enunciado": "Discursiva\n\nO texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os registros de agendamento, separo as solicitações por clínica e imprimo os comprovantes de encaminhamento dos pacientes. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4615,6 +5186,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4658,6 +5232,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4701,6 +5278,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4744,6 +5324,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4787,6 +5370,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4830,6 +5416,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4873,6 +5462,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4894,11 +5486,14 @@
       "nivel": "basico",
       "numero": 6,
       "titulo": "Questão 6",
-      "enunciado": "Digite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos relatórios de consultas e exames agendados. É fundamental encontrar os erros de digitação antes do envio das informações para a equipe responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o atendimento.”",
+      "enunciado": "Discursiva\n\nDigite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos relatórios de consultas e exames agendados. É fundamental encontrar os erros de digitação antes do envio das informações para a equipe responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o atendimento.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4920,11 +5515,14 @@
       "nivel": "basico",
       "numero": 7,
       "titulo": "Questão 7",
-      "enunciado": "O texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os registros de exames, separo as solicitações por data de atendimento e imprimo as orientações para os pacientes. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
+      "enunciado": "Discursiva\n\nO texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os registros de exames, separo as solicitações por data de atendimento e imprimo as orientações para os pacientes. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -4968,6 +5566,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5011,6 +5612,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5054,6 +5658,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5097,6 +5704,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5140,6 +5750,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5183,6 +5796,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5226,6 +5842,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5247,11 +5866,14 @@
       "nivel": "basico",
       "numero": 6,
       "titulo": "Questão 6",
-      "enunciado": "Digite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos registros de ocorrências operacionais. É fundamental encontrar os erros de digitação antes do envio das informações para a equipe responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o acompanhamento da operação.”",
+      "enunciado": "Discursiva\n\nDigite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos registros de ocorrências operacionais. É fundamental encontrar os erros de digitação antes do envio das informações para a equipe responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o acompanhamento da operação.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5273,11 +5895,14 @@
       "nivel": "basico",
       "numero": 7,
       "titulo": "Questão 7",
-      "enunciado": "O texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os registros de ocorrências, separo as solicitações por prioridade e imprimo os comunicados de acompanhamento operacional. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
+      "enunciado": "Discursiva\n\nO texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os registros de ocorrências, separo as solicitações por prioridade e imprimo os comunicados de acompanhamento operacional. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5321,6 +5946,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5364,6 +5992,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5407,6 +6038,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5450,6 +6084,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5493,6 +6130,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5536,6 +6176,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5579,6 +6222,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5600,11 +6246,14 @@
       "nivel": "basico",
       "numero": 6,
       "titulo": "Questão 6",
-      "enunciado": "Digite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos registros de ocorrências de seguro. É fundamental encontrar os erros de digitação antes do envio das informações para a equipe responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o atendimento.”",
+      "enunciado": "Discursiva\n\nDigite o texto abaixo substituindo as palavras em negrito por sinônimos ou termos equivalentes que mantenham o sentido formal e a concordância gramatical da frase. Após digitar, selecione todo o texto e aplique o alinhamento Justificado.\n\n“O jovem aprendiz deve fazer a conferência dos registros de ocorrências de seguro. É fundamental encontrar os erros de digitação antes do envio das informações para a equipe responsável. Caso surja alguma dúvida, ele precisa achar o supervisor para falar sobre o problema, pois fazer tarefas com pressa costuma gerar ruins resultados para o atendimento.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Substituição adequada de verbos genéricos, como “fazer”, “achar” e “falar”, por termos mais formais, como “realizar”, “executar”, “localizar”, “contatar”, “comunicar”, “informar” ou “reportar”; correção gramatical da frase; manutenção do sentido original; e aplicação do alinhamento Justificado.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5626,11 +6275,14 @@
       "nivel": "basico",
       "numero": 7,
       "titulo": "Questão 7",
-      "enunciado": "O texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os registros de ocorrências de seguro, separo os documentos por tipo de solicitação e imprimo os protocolos de acompanhamento. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
+      "enunciado": "Discursiva\n\nO texto abaixo foi escrito por um funcionário na 1ª pessoa do singular e no tempo Presente. Transcreva todo o parágrafo para o Passado, no Pretérito Perfeito, e mude o foco para a 3ª pessoa do singular, simulando que você está relatando o dia de um colega.\n\nTexto para digitar:\n\n“Eu organizo os registros de ocorrências de seguro, separo os documentos por tipo de solicitação e imprimo os protocolos de acompanhamento. Depois, atualizo a planilha de controle e submeto o arquivo final para a validação da supervisão.”",
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Mudança correta da 1ª pessoa para a 3ª pessoa do singular; uso adequado do Pretérito Perfeito; preservação do sentido do texto; concordância verbal; digitação correta; e organização do parágrafo.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5674,6 +6326,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5717,6 +6372,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Jovem Aprendiz/JP - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -5726,7 +6384,9 @@
     {
       "id": "estagiario_personalizada_word_rh_q01_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q01_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q01_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q01_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -5760,6 +6420,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -5769,7 +6432,9 @@
     {
       "id": "estagiario_personalizada_word_rh_q02_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q02_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q02_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q02_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -5803,6 +6468,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -5812,7 +6480,9 @@
     {
       "id": "estagiario_personalizada_word_rh_q03_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q03_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q03_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q03_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -5846,6 +6516,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -5855,7 +6528,9 @@
     {
       "id": "estagiario_personalizada_word_rh_q04_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q04_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q04_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q04_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -5889,6 +6564,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -5898,7 +6576,9 @@
     {
       "id": "estagiario_personalizada_word_rh_q05_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q05_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q05_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q05_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -5932,6 +6612,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -6246,6 +6929,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "esta questão não possui gabarito único. Deve ser avaliada pela coerência, maturidade, postura profissional, capacidade de aprender, comunicação e compatibilidade com uma rotina de estágio em RH.",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -6616,6 +7302,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -6642,6 +7331,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -6651,7 +7343,9 @@
     {
       "id": "estagiario_personalizada_word_ti_q01_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q01_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q01_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q01_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -6685,6 +7379,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -6694,7 +7391,9 @@
     {
       "id": "estagiario_personalizada_word_ti_q02_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q02_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q02_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q02_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -6728,6 +7427,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -6737,7 +7439,9 @@
     {
       "id": "estagiario_personalizada_word_ti_q03_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q03_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q03_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q03_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -6771,6 +7475,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -6780,7 +7487,9 @@
     {
       "id": "estagiario_personalizada_word_ti_q04_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q04_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q04_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q04_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -6814,6 +7523,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -6823,7 +7535,9 @@
     {
       "id": "estagiario_personalizada_word_ti_q05_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q05_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q05_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q05_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -6857,6 +7571,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -7171,6 +7888,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "esta questão não possui gabarito único. Deve ser avaliada pela coerência, maturidade, postura profissional, capacidade de aprender, comunicação e compatibilidade com uma rotina de estágio em TI.",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -7541,6 +8261,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -7567,6 +8290,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -7576,7 +8302,9 @@
     {
       "id": "estagiario_personalizada_word_comercial_q01_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q01_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q01_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q01_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -7610,6 +8338,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -7619,7 +8350,9 @@
     {
       "id": "estagiario_personalizada_word_comercial_q02_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q02_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q02_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q02_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -7653,6 +8386,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -7662,7 +8398,9 @@
     {
       "id": "estagiario_personalizada_word_comercial_q03_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q03_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q03_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q03_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -7696,6 +8434,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -7705,7 +8446,9 @@
     {
       "id": "estagiario_personalizada_word_comercial_q04_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q04_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q04_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q04_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -7739,6 +8482,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -7748,7 +8494,9 @@
     {
       "id": "estagiario_personalizada_word_comercial_q05_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q05_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q05_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q05_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -7782,6 +8530,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -8096,6 +8847,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "esta questão não possui gabarito único. Deve ser avaliada pela coerência, maturidade, postura profissional, capacidade de aprender, comunicação e compatibilidade com uma rotina de estágio na área comercial.",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -8466,6 +9220,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -8492,6 +9249,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -8501,7 +9261,9 @@
     {
       "id": "estagiario_personalizada_word_financeiro_q01_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q01_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q01_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q01_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -8535,6 +9297,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -8544,7 +9309,9 @@
     {
       "id": "estagiario_personalizada_word_financeiro_q02_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q02_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q02_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q02_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -8578,6 +9345,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -8587,7 +9357,9 @@
     {
       "id": "estagiario_personalizada_word_financeiro_q03_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q03_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q03_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q03_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -8621,6 +9393,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -8630,7 +9405,9 @@
     {
       "id": "estagiario_personalizada_word_financeiro_q04_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q04_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q04_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q04_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -8664,6 +9441,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -8673,7 +9453,9 @@
     {
       "id": "estagiario_personalizada_word_financeiro_q05_multiple_choice",
       "base_neutra_id": "estagiario_neutra_word_geral_q05_multiple_choice",
-      "aliases_base_neutra": ["operador_neutra_word_geral_q05_multiple_choice"],
+      "aliases_base_neutra": [
+        "operador_neutra_word_geral_q05_multiple_choice"
+      ],
       "ativo": true,
       "cargo": "estagiario",
       "etapa": "word",
@@ -8707,6 +9489,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -9021,6 +9806,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "esta questão não possui gabarito único. Deve ser avaliada pela coerência, maturidade, postura profissional, capacidade de aprender, atenção a detalhes e compatibilidade com uma rotina de estágio no setor financeiro.",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -9047,6 +9835,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -9073,6 +9864,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Estagiário/ESTAGIARIO - PERSONALIZADAS.docx",
       "fontesOrigem": [
@@ -9116,6 +9910,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -9159,6 +9956,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -9202,6 +10002,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -9245,6 +10048,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -9288,6 +10094,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -9600,6 +10409,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "esta questão não possui gabarito único. Deve ser avaliada pela coerência, maturidade, postura profissional e compatibilidade com rotina de atendimento e trabalho em equipe.",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -9968,6 +10780,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -9994,6 +10809,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -10037,6 +10855,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -10080,6 +10901,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -10123,6 +10947,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -10166,6 +10993,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -10209,6 +11039,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -10521,6 +11354,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "esta questão não possui gabarito único. Deve ser avaliada pela coerência, maturidade, postura profissional e compatibilidade com rotina de atendimento, cuidado com informações e trabalho em equipe.",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -10889,6 +11725,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -10915,6 +11754,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -10958,6 +11800,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11001,6 +11846,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11044,6 +11892,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11087,6 +11938,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11130,6 +11984,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11442,6 +12299,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "esta questão não possui gabarito único. Deve ser avaliada pela coerência, maturidade, postura profissional e compatibilidade com rotina de atendimento, organização de informações e trabalho em equipe.",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11810,6 +12670,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11836,6 +12699,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11879,6 +12745,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11922,6 +12791,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -11965,6 +12837,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12008,6 +12883,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12051,6 +12929,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12363,6 +13244,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "esta questão não possui gabarito único. Deve ser avaliada pela coerência, maturidade, postura profissional e compatibilidade com rotina operacional, registro correto de informações e trabalho em equipe.",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12731,6 +13615,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12757,6 +13644,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12800,6 +13690,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12843,6 +13736,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12886,6 +13782,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12929,6 +13828,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -12972,6 +13874,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13284,6 +14189,9 @@
       ],
       "gabarito": null,
       "rubricaInterna": "esta questão não possui gabarito único. Deve ser avaliada pela coerência, maturidade, postura profissional e compatibilidade com rotina de atendimento, documentação e trabalho em equipe.",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13652,6 +14560,9 @@
         "20": "B"
       },
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13678,6 +14589,9 @@
       "itens": [],
       "gabarito": null,
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "Sabemos que as escolhas em nossas vidas têm uma motivação, ou seja, algo que nos impulsiona, orienta nossas atitudes e influencia nossos objetivos pessoais e profissionais.",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13721,6 +14635,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13764,6 +14681,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13807,6 +14727,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13850,6 +14773,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13893,6 +14819,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13936,6 +14865,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -13979,6 +14911,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14004,7 +14939,10 @@
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Capacidade de priorização, controle emocional, comunicação com a equipe, respeito às normas, tomada de decisão, gestão de SLA, análise de indicadores, postura de liderança e autocrítica.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Capacidade de priorização, controle emocional, comunicação com a equipe, respeito às normas, tomada de decisão, gestão de SLA, análise de indicadores, postura de liderança e autocrítica.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14048,6 +14986,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14091,6 +15032,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14134,6 +15078,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14177,6 +15124,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14220,6 +15170,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14263,6 +15216,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14306,6 +15262,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14349,6 +15308,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14374,7 +15336,10 @@
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Capacidade de priorização, controle emocional, comunicação humanizada, respeito às normas, tomada de decisão, gestão de SLA, cuidado com informações sensíveis, análise de indicadores, postura de liderança e autocrítica.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Capacidade de priorização, controle emocional, comunicação humanizada, respeito às normas, tomada de decisão, gestão de SLA, cuidado com informações sensíveis, análise de indicadores, postura de liderança e autocrítica.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14418,6 +15383,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14461,6 +15429,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14504,6 +15475,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14547,6 +15521,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14590,6 +15567,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14633,6 +15613,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14676,6 +15659,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14719,6 +15705,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14744,7 +15733,10 @@
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Capacidade de priorização, controle emocional, comunicação clara, respeito às normas, tomada de decisão, gestão de SLA, cuidado com informações do paciente, análise de indicadores, postura de liderança e autocrítica.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Capacidade de priorização, controle emocional, comunicação clara, respeito às normas, tomada de decisão, gestão de SLA, cuidado com informações do paciente, análise de indicadores, postura de liderança e autocrítica.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14788,6 +15780,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14831,6 +15826,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14874,6 +15872,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14917,6 +15918,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -14960,6 +15964,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15003,6 +16010,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15046,6 +16056,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15089,6 +16102,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15114,7 +16130,10 @@
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Capacidade de priorização, controle emocional, comunicação objetiva, respeito às normas, tomada de decisão, gestão de SLA, escalonamento adequado, análise de indicadores, postura de liderança e autocrítica.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Capacidade de priorização, controle emocional, comunicação objetiva, respeito às normas, tomada de decisão, gestão de SLA, escalonamento adequado, análise de indicadores, postura de liderança e autocrítica.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15158,6 +16177,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15201,6 +16223,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15244,6 +16269,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15287,6 +16315,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15330,6 +16361,9 @@
       "itens": [],
       "gabarito": "C",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15373,6 +16407,9 @@
       "itens": [],
       "gabarito": "A",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15416,6 +16453,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15459,6 +16499,9 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15484,7 +16527,10 @@
       "alternativas": [],
       "itens": [],
       "gabarito": null,
-      "rubricaInterna": "Capacidade de priorização, controle emocional, comunicação profissional, respeito às normas, tomada de decisão, gestão de SLA, acompanhamento de protocolos, análise de indicadores, postura de liderança e autocrítica.",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "Capacidade de priorização, controle emocional, comunicação profissional, respeito às normas, tomada de decisão, gestão de SLA, acompanhamento de protocolos, análise de indicadores, postura de liderança e autocrítica.",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
@@ -15528,10 +16574,1598 @@
       "itens": [],
       "gabarito": "B",
       "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
       "exibirParaCandidato": true,
       "origemArquivo": "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx",
       "fontesOrigem": [
         "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_redacao_crf_q01_essay",
+      "base_neutra_id": "planejamento_neutra_redacao_geral_q01_essay",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "redacao",
+      "tipo": "essay",
+      "origem": "personalizada",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Redação",
+      "enunciado": "Planejamento Estratégico\n\nTema\n\n“O Planejamento como cérebro da operação de atendimento ao sócio-torcedor: como o equilíbrio entre dimensionamento, tráfego e gestão de pessoas garante a sustentabilidade do serviço?”\n\nInstruções\n\nElabore um texto dissertativo-argumentativo de, no mínimo, 20 linhas, abordando obrigatoriamente:\n\nA importância de uma visão analítica para compreender como falhas no dimensionamento ou na previsão do volume de contatos impactam diretamente o SLA, o abandono e o bem-estar da equipe.\n\nComo campanhas, jogos, abertura de vendas, alterações em benefícios e períodos de renovação podem provocar mudanças relevantes no volume de contatos dos sócios-torcedores.\n\nComo o Analista de Planejamento atua como elo entre os custos da operação e a satisfação dos sócios, utilizando dados para identificar gargalos como absenteísmo, turnover, desvios de escala e baixa aderência.\n\nAções práticas para integrar Planejamento, Operação e RH, garantindo o cumprimento das metas sem sobrecarregar os operadores.\n\nA importância de utilizar dados históricos e informações sobre eventos futuros para prever corretamente a demanda.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "O Planejamento como cérebro da operação de atendimento ao sócio-torcedor: como o equilíbrio entre dimensionamento, tráfego e gestão de pessoas garante a sustentabilidade do serviço?",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_crf_q01_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q01_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Questão 1",
+      "enunciado": "O Planejamento da operação CRF produz mensalmente um Book de Indicadores com dados de volume de contatos, SLA, abandono, TMA, absenteísmo, aderência e dimensionamento.\nPara garantir que a capa não tenha numeração, o sumário utilize algarismos romanos e o conteúdo principal comece na página 1, qual é o procedimento técnico correto no Word?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Inserir Quebras de Página e utilizar o Pincel de Formatação para ocultar os números."
+        },
+        {
+          "id": "B",
+          "texto": "Inserir Quebras de Seção — Próxima Página — e desmarcar “Vincular ao Anterior” nas propriedades de Cabeçalho e Rodapé."
+        },
+        {
+          "id": "C",
+          "texto": "Criar três documentos diferentes e uni-los somente durante a conversão para PDF."
+        },
+        {
+          "id": "D",
+          "texto": "Pressionar a tecla Enter até que cada conteúdo seja deslocado para a página seguinte."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_crf_q02_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q02_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 2,
+      "titulo": "Questão 2",
+      "enunciado": "Você está elaborando uma proposta de dimensionamento para um período de grande volume de contatos relacionado a uma campanha ou evento do clube.\nO supervisor precisa validar os cálculos e alterar algumas premissas. Para que você consiga visualizar exatamente o que foi modificado e possa aceitar ou rejeitar cada alteração, qual recurso deve estar ativo?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Restringir Edição."
+        },
+        {
+          "id": "B",
+          "texto": "Controlar Alterações, na guia Revisão."
+        },
+        {
+          "id": "C",
+          "texto": "Comparar Lado a Lado."
+        },
+        {
+          "id": "D",
+          "texto": "Proteger Documento com Senha."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_crf_q03_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q03_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 3,
+      "titulo": "Questão 3",
+      "enunciado": "O Planejamento precisa enviar escalas personalizadas para 500 operadores da central de atendimento ao sócio-torcedor.\nOs dados de nome, matrícula, equipe, horário, intervalo e folga estão armazenados em uma planilha do Excel.\nQual recurso do Word permite gerar automaticamente os documentos ou e-mails individuais?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "B",
+          "texto": "Macros de Sistema."
+        },
+        {
+          "id": "C",
+          "texto": "Mala Direta, na guia Correspondências."
+        },
+        {
+          "id": "D",
+          "texto": "Partes Rápidas — Campo FileName."
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_crf_q04_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q04_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 4,
+      "titulo": "Questão 4",
+      "enunciado": "O Analista de Planejamento precisa criar um formulário de solicitação de troca de horário ou alteração de escala.\nOs supervisores devem preencher apenas os campos de nome, matrícula, data, horário solicitado e justificativa. As regras de aprovação e compliance não podem ser alteradas.\nQual recurso deve ser utilizado?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Salvar o documento diretamente como PDF."
+        },
+        {
+          "id": "B",
+          "texto": "Revisão > Restringir Edição > Preenchimento de formulários."
+        },
+        {
+          "id": "C",
+          "texto": "Design > Marca d’água com a mensagem “Proibido editar”."
+        },
+        {
+          "id": "D",
+          "texto": "Ocultar a faixa de opções do Word."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_crf_q05_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q05_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 5,
+      "titulo": "Questão 5",
+      "enunciado": "Em um documento de Planejamento Estratégico, você menciona um gráfico de dimensionamento referente a um período de campanha. O gráfico está inicialmente na página 40.\nPara que a frase “veja o gráfico na página 40” seja atualizada automaticamente caso ele seja deslocado para a página 45, você deve utilizar:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Hiperlink de Internet."
+        },
+        {
+          "id": "B",
+          "texto": "Nota de Rodapé."
+        },
+        {
+          "id": "C",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "D",
+          "texto": "Marcador de Texto manual. Parte 3 — Questões discursivas"
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_crf_q06_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q06_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 6,
+      "titulo": "Questão 6",
+      "enunciado": "Gestão de crise e impacto no SLA\n\nCenário\n\nÉ segunda-feira, meio-dia, período de alto volume na central de atendimento ao sócio-torcedor. O sistema utilizado para consultar cadastros, pagamentos e benefícios fica indisponível durante 40 minutos.\n\nA fila aumenta rapidamente, o TMA triplica, o abandono cresce e o SLA apresenta uma queda acentuada. O Coordenador de Operações exige uma justificativa imediata e questiona se a meta ainda poderá ser recuperada no restante do dia.\n\nDisserte sobre\n\nComo o Planejamento deve atuar tecnicamente durante a indisponibilidade?\n\nExplique:\n\nQuais indicadores devem ser acompanhados em tempo real.\n\nComo calcular ou estimar o impacto da indisponibilidade sobre o SLA e o abandono.\n\nQuais ajustes de pausas, intervalos, atividades administrativas ou movimentações podem ser avaliados.\n\nQue orientações de fluxo devem ser fornecidas à Operação.\n\nComo apresentar à coordenação uma projeção realista de recuperação da meta sem prometer um resultado inviável.\n\nComo eventos, campanhas ou jogos próximos devem ser considerados na análise do restante do dia.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_crf_q07_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q07_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "crf",
+      "cliente": "CRF",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 7,
+      "titulo": "Questão 7",
+      "enunciado": "Conflito entre processo e operação\n\nCenário\n\nDurante a mesma indisponibilidade, um operador se recusa a registrar manualmente os contatos e as solicitações dos sócios. Ele afirma que “anotar não reduz a fila e não resolve o problema do cliente”.\n\nDisserte sobre\n\nComo o Analista de Planejamento explicaria à liderança e ao colaborador que o registro de contingência é necessário para:\n\nMensurar o volume real recebido.\n\nIdentificar os motivos dos contatos.\n\nCalcular a demanda represada.\n\nEstimar possíveis retornos dos sócios.\n\nAvaliar o impacto no dimensionamento futuro.\n\nJustificar os desvios de SLA, abandono e TMA.\n\nExplique também como defender o procedimento sem desmotivar uma equipe que já se encontra sob forte pressão.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_redacao_davita_q01_essay",
+      "base_neutra_id": "planejamento_neutra_redacao_geral_q01_essay",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "redacao",
+      "tipo": "essay",
+      "origem": "personalizada",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Redação",
+      "enunciado": "Planejamento Estratégico\n\nTema\n\n“O Planejamento como cérebro da Central de Agendamentos: como o equilíbrio entre dimensionamento, disponibilidade das clínicas e gestão de pessoas garante a sustentabilidade da operação?”\n\nInstruções\n\nElabore um texto dissertativo-argumentativo de, no mínimo, 20 linhas, abordando obrigatoriamente:\n\nComo uma falha na previsão do volume ou no dimensionamento pode aumentar o tempo de espera, o abandono e a sobrecarga dos operadores.\n\nA importância de considerar horários de pico, campanhas de agendamento, disponibilidade das clínicas e comportamento histórico dos pacientes.\n\nComo o Analista de Planejamento equilibra custos, quantidade de posições e qualidade do atendimento.\n\nComo dados de absenteísmo, turnover, aderência e produtividade ajudam a identificar riscos operacionais.\n\nA importância da integração entre Planejamento, Operação, RH e áreas responsáveis pelas agendas das clínicas.\n\nAções práticas para atingir as metas de SLA sem reduzir a qualidade das orientações fornecidas aos pacientes.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "O Planejamento como cérebro da Central de Agendamentos: como o equilíbrio entre dimensionamento, disponibilidade das clínicas e gestão de pessoas garante a sustentabilidade da operação?",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_davita_q01_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q01_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Questão 1",
+      "enunciado": "A Central de Agendamentos produz um Book de Indicadores mensal com dados de chamadas recebidas, agendamentos, reagendamentos, cancelamentos, SLA, abandono, TMA e produtividade.\nPara que a capa não tenha número, o sumário utilize algarismos romanos e o relatório comece na página 1, qual procedimento deve ser utilizado?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Inserir Quebras de Página e ocultar manualmente os números."
+        },
+        {
+          "id": "B",
+          "texto": "Inserir Quebras de Seção — Próxima Página — e desmarcar “Vincular ao Anterior”."
+        },
+        {
+          "id": "C",
+          "texto": "Criar três documentos e juntá-los depois."
+        },
+        {
+          "id": "D",
+          "texto": "Utilizar a tecla Enter para dividir as partes."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_davita_q02_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q02_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 2,
+      "titulo": "Questão 2",
+      "enunciado": "Você está redigindo uma proposta de dimensionamento para uma campanha de agendamento de consultas.\nO supervisor precisa validar as premissas de volume, produtividade e disponibilidade. Qual recurso permite visualizar, aceitar ou rejeitar cada alteração realizada no documento?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Restringir Edição."
+        },
+        {
+          "id": "B",
+          "texto": "Controlar Alterações, na guia Revisão."
+        },
+        {
+          "id": "C",
+          "texto": "Comparar Lado a Lado."
+        },
+        {
+          "id": "D",
+          "texto": "Proteger Documento com Senha."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_davita_q03_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q03_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 3,
+      "titulo": "Questão 3",
+      "enunciado": "O Planejamento precisa enviar escalas individualizadas para 500 colaboradores da Central de Agendamentos.\nAs informações estão em uma planilha Excel. Qual recurso permite gerar os documentos ou e-mails automaticamente?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "B",
+          "texto": "Macros de Sistema."
+        },
+        {
+          "id": "C",
+          "texto": "Mala Direta."
+        },
+        {
+          "id": "D",
+          "texto": "Partes Rápidas."
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_davita_q04_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q04_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 4,
+      "titulo": "Questão 4",
+      "enunciado": "Você precisa criar um formulário de alteração de escala no qual os gestores possam preencher somente data, horário, colaborador e justificativa.\nAs regras de aprovação e compliance não podem ser modificadas.\nQual recurso deve ser utilizado?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Salvar como PDF."
+        },
+        {
+          "id": "B",
+          "texto": "Revisão > Restringir Edição > Preenchimento de formulários."
+        },
+        {
+          "id": "C",
+          "texto": "Inserir uma marca d’água."
+        },
+        {
+          "id": "D",
+          "texto": "Ocultar a faixa de opções."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_davita_q05_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q05_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 5,
+      "titulo": "Questão 5",
+      "enunciado": "Em um documento estratégico, você menciona um gráfico de Erlang utilizado no dimensionamento da Central. O gráfico está no anexo, inicialmente na página 40.\nPara atualizar automaticamente a indicação da página após alterações no documento, deve-se utilizar:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Hiperlink de Internet."
+        },
+        {
+          "id": "B",
+          "texto": "Nota de Rodapé."
+        },
+        {
+          "id": "C",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "D",
+          "texto": "Marcador manual. Parte 3 — Questões discursivas"
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_davita_q06_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q06_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 6,
+      "titulo": "Questão 6",
+      "enunciado": "Gestão de crise e impacto no SLA\n\nCenário\n\nÉ segunda-feira, meio-dia, período de alto volume de contatos para agendamento, reagendamento e confirmação de consultas.\n\nO sistema utilizado para consultar as agendas das clínicas fica indisponível por 40 minutos. A fila aumenta, o TMA triplica, o abandono cresce e o SLA cai rapidamente.\n\nO Coordenador exige uma justificativa e pergunta se a meta poderá ser recuperada até o final do dia.\n\nDisserte sobre\n\nComo o Planejamento deve atuar durante essa indisponibilidade?\n\nAborde:\n\nMonitoramento do volume, fila, TMA, abandono e SLA.\n\nEstimativa da demanda não atendida e dos retornos esperados.\n\nAjustes temporários em pausas, intervalos e atividades administrativas.\n\nAvaliação da possibilidade de movimentação de operadores capacitados.\n\nComunicação de uma projeção realista à coordenação.\n\nImpacto da indisponibilidade sobre os próximos intervalos e horários de pico.\n\nNecessidade de considerar a capacidade e a disponibilidade das clínicas.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_davita_q07_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q07_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "davita",
+      "cliente": "Davita",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 7,
+      "titulo": "Questão 7",
+      "enunciado": "Conflito entre processo e operação\n\nCenário\n\nDurante a indisponibilidade, um operador se recusa a registrar manualmente os dados básicos dos pacientes e os tipos de solicitação.\n\nEle afirma que “anotar o pedido não garante que a consulta será agendada”.\n\nDisserte sobre\n\nComo o Planejamento explicaria a importância dos registros para:\n\nIdentificar a demanda acumulada.\n\nMedir o volume real de solicitações.\n\nOrganizar a retomada dos agendamentos.\n\nEstimar os contatos repetidos.\n\nRecalcular o dimensionamento.\n\nAvaliar a necessidade de horas adicionais ou reforço temporário.\n\nExplique como preservar o engajamento do colaborador e reconhecer que o processo de contingência deve ser simples, rápido e funcional.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_redacao_endoview_q01_essay",
+      "base_neutra_id": "planejamento_neutra_redacao_geral_q01_essay",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "redacao",
+      "tipo": "essay",
+      "origem": "personalizada",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Redação",
+      "enunciado": "Planejamento Estratégico\n\nTema\n\n“O Planejamento como cérebro da Central de Agendamento de Exames: como dimensionamento, previsão de demanda e gestão de pessoas garantem eficiência e segurança operacional?”\n\nInstruções\n\nElabore um texto dissertativo-argumentativo de, no mínimo, 20 linhas, abordando obrigatoriamente:\n\nComo erros de previsão ou falta de operadores impactam o SLA, o abandono e a experiência dos pacientes.\n\nA necessidade de considerar diferentes tipos de exames, unidades, horários e variações de demanda.\n\nComo indisponibilidades de agenda, mudanças em procedimentos ou campanhas podem alterar o volume de contatos.\n\nO papel do Planejamento na conciliação entre custos, produtividade e qualidade do atendimento.\n\nComo absenteísmo, turnover, aderência e ocupação devem ser analisados de maneira integrada.\n\nAções conjuntas entre Planejamento, Operação e RH para cumprir as metas sem sobrecarregar a equipe.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "O Planejamento como cérebro da Central de Agendamento de Exames: como dimensionamento, previsão de demanda e gestão de pessoas garantem eficiência e segurança operacional?",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_endoview_q01_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q01_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Questão 1",
+      "enunciado": "O Planejamento da Central Endoview elabora um relatório mensal com dados de volume, agendamentos, reagendamentos, cancelamentos, SLA, abandono, TMA e produtividade.\nPara configurar capa sem numeração, sumário em algarismos romanos e conteúdo começando na página 1, deve-se:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Inserir Quebras de Página e ocultar manualmente os números."
+        },
+        {
+          "id": "B",
+          "texto": "Inserir Quebras de Seção — Próxima Página — e desmarcar “Vincular ao Anterior”."
+        },
+        {
+          "id": "C",
+          "texto": "Criar arquivos separados."
+        },
+        {
+          "id": "D",
+          "texto": "Pressionar Enter até mudar de página."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_endoview_q02_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q02_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 2,
+      "titulo": "Questão 2",
+      "enunciado": "Você está elaborando uma proposta de dimensionamento para um aumento previsto no volume de agendamentos de exames.\nPara acompanhar exatamente as alterações feitas pelo supervisor e aceitar ou rejeitar cada uma, deve utilizar:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Restringir Edição."
+        },
+        {
+          "id": "B",
+          "texto": "Controlar Alterações."
+        },
+        {
+          "id": "C",
+          "texto": "Comparar Lado a Lado."
+        },
+        {
+          "id": "D",
+          "texto": "Proteger Documento com Senha."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_endoview_q03_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q03_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 3,
+      "titulo": "Questão 3",
+      "enunciado": "O Planejamento precisa enviar escalas personalizadas para 500 operadores, utilizando os dados armazenados no Excel.\nQual recurso permite automatizar esse processo?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "B",
+          "texto": "Macros de Sistema."
+        },
+        {
+          "id": "C",
+          "texto": "Mala Direta."
+        },
+        {
+          "id": "D",
+          "texto": "Partes Rápidas."
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_endoview_q04_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q04_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 4,
+      "titulo": "Questão 4",
+      "enunciado": "Você precisa criar um formulário de solicitação de alteração de escala. Os gestores poderão preencher somente data, horário, motivo e identificação do colaborador.\nQual é o recurso adequado?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Salvar como PDF."
+        },
+        {
+          "id": "B",
+          "texto": "Revisão > Restringir Edição > Preenchimento de formulários."
+        },
+        {
+          "id": "C",
+          "texto": "Inserir marca d’água."
+        },
+        {
+          "id": "D",
+          "texto": "Ocultar a faixa de opções."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_endoview_q05_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q05_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 5,
+      "titulo": "Questão 5",
+      "enunciado": "Um gráfico de Erlang utilizado no dimensionamento está inicialmente na página 40 do relatório.\nPara que a referência à página seja atualizada automaticamente após novas inserções, deve-se utilizar:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Hiperlink de Internet."
+        },
+        {
+          "id": "B",
+          "texto": "Nota de Rodapé."
+        },
+        {
+          "id": "C",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "D",
+          "texto": "Marcador manual. Parte 3 — Questões discursivas"
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_endoview_q06_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q06_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 6,
+      "titulo": "Questão 6",
+      "enunciado": "Gestão de crise e impacto no SLA\n\nCenário\n\nÉ segunda-feira, meio-dia, período de alta demanda para agendamento e confirmação de exames.\n\nO sistema de agendas fica indisponível durante 40 minutos. O TMA triplica, o volume em fila aumenta, o abandono cresce e o SLA cai.\n\nA coordenação exige uma projeção sobre a recuperação da meta.\n\nDisserte sobre\n\nExplique como o Planejamento deve:\n\nMonitorar a evolução da fila e os principais indicadores.\n\nEstimar o volume represado.\n\nCalcular os possíveis retornos dos pacientes.\n\nAvaliar alterações temporárias em pausas e atividades auxiliares.\n\nIdentificar operadores capacitados que possam apoiar a fila.\n\nProjetar a recuperação do SLA ao longo do dia.\n\nConsiderar limitações de agendas, unidades e horários de exames.\n\nComunicar à coordenação os riscos de uma recuperação forçada.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_endoview_q07_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q07_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "endoview",
+      "cliente": "Endoview",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 7,
+      "titulo": "Questão 7",
+      "enunciado": "Conflito entre processo e operação\n\nCenário\n\nDurante a indisponibilidade, um operador se recusa a registrar manualmente os pedidos dos pacientes, afirmando que “a anotação não disponibiliza nenhum horário de exame”.\n\nDisserte sobre\n\nComo o Planejamento demonstraria que o registro é essencial para:\n\nQuantificar a demanda reprimida.\n\nIdentificar os tipos de exames procurados.\n\nEstimar o volume de retornos.\n\nOrganizar a retomada dos atendimentos.\n\nAvaliar a necessidade de reforço.\n\nAprimorar previsões futuras.\n\nExplique como o procedimento pode ser aplicado sem aumentar excessivamente o TMA e sem desconsiderar o estresse da equipe.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_redacao_brava_q01_essay",
+      "base_neutra_id": "planejamento_neutra_redacao_geral_q01_essay",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "redacao",
+      "tipo": "essay",
+      "origem": "personalizada",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Redação",
+      "enunciado": "Planejamento Estratégico\n\nTema\n\n“O Planejamento como cérebro de uma operação de urgência: como dimensionamento, tráfego e gestão de pessoas garantem capacidade de resposta e sustentabilidade?”\n\nInstruções\n\nElabore um texto dissertativo-argumentativo de, no mínimo, 20 linhas, abordando obrigatoriamente:\n\nOs desafios de prever o volume em uma operação sujeita a incidentes, urgências e variações inesperadas de demanda.\n\nComo o subdimensionamento pode aumentar o SLA, o abandono, o tempo de espera e o risco operacional.\n\nComo o Planejamento deve equilibrar custos, capacidade de resposta e qualidade do atendimento.\n\nA importância de acompanhar absenteísmo, turnover, ocupação, aderência e disponibilidade de operadores capacitados.\n\nComo Planejamento, Operação, RH e áreas técnicas devem atuar de forma integrada.\n\nAções para evitar a sobrecarga dos operadores em períodos críticos.\n\nA importância de construir cenários de contingência para eventos de alta demanda.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "O Planejamento como cérebro de uma operação de urgência: como dimensionamento, tráfego e gestão de pessoas garantem capacidade de resposta e sustentabilidade?",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_brava_q01_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q01_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Questão 1",
+      "enunciado": "O Planejamento da Central Brava produz um Book de Indicadores com volume de casos, distribuição por horário, SLA, abandono, TMA, ocupação e aderência.\nPara configurar capa sem número, sumário em algarismos romanos e conteúdo principal iniciando na página 1, deve-se:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Inserir Quebras de Página e ocultar os números."
+        },
+        {
+          "id": "B",
+          "texto": "Inserir Quebras de Seção — Próxima Página — e desmarcar “Vincular ao Anterior”."
+        },
+        {
+          "id": "C",
+          "texto": "Criar três documentos separados."
+        },
+        {
+          "id": "D",
+          "texto": "Utilizar a tecla Enter para separar as partes."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_brava_q02_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q02_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 2,
+      "titulo": "Questão 2",
+      "enunciado": "Você está elaborando uma proposta técnica de contingência e dimensionamento para situações de alta demanda.\nPara acompanhar todas as alterações realizadas pelo supervisor, deve utilizar:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Restringir Edição."
+        },
+        {
+          "id": "B",
+          "texto": "Controlar Alterações."
+        },
+        {
+          "id": "C",
+          "texto": "Comparar Lado a Lado."
+        },
+        {
+          "id": "D",
+          "texto": "Proteger Documento com Senha."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_brava_q03_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q03_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 3,
+      "titulo": "Questão 3",
+      "enunciado": "O Planejamento precisa distribuir escalas personalizadas para 500 colaboradores, utilizando dados de uma planilha Excel.\nQual recurso automatiza a criação dos documentos?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "B",
+          "texto": "Macros de Sistema."
+        },
+        {
+          "id": "C",
+          "texto": "Mala Direta."
+        },
+        {
+          "id": "D",
+          "texto": "Partes Rápidas."
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_brava_q04_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q04_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 4,
+      "titulo": "Questão 4",
+      "enunciado": "Você precisa criar um formulário de solicitação de alteração de escala, permitindo apenas o preenchimento de campos específicos.\nQual recurso é indicado?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Salvar como PDF."
+        },
+        {
+          "id": "B",
+          "texto": "Revisão > Restringir Edição > Preenchimento de formulários."
+        },
+        {
+          "id": "C",
+          "texto": "Utilizar marca d’água."
+        },
+        {
+          "id": "D",
+          "texto": "Ocultar a faixa de opções."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_brava_q05_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q05_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 5,
+      "titulo": "Questão 5",
+      "enunciado": "Um gráfico de Erlang utilizado para um cenário de contingência está inicialmente na página 40.\nPara atualizar automaticamente a referência à página, utiliza-se:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Hiperlink de Internet."
+        },
+        {
+          "id": "B",
+          "texto": "Nota de Rodapé."
+        },
+        {
+          "id": "C",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "D",
+          "texto": "Marcador manual. Parte 3 — Questões discursivas"
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_brava_q06_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q06_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 6,
+      "titulo": "Questão 6",
+      "enunciado": "Gestão de crise e impacto no SLA\n\nCenário\n\nÉ segunda-feira, meio-dia. Um incidente nas plataformas Brava gera aumento expressivo de contatos classificados como urgentes.\n\nAo mesmo tempo, o sistema principal de registro fica indisponível durante 40 minutos. A fila dispara, o TMA triplica, o SLA cai e o abandono aumenta.\n\nO Coordenador exige uma resposta imediata e uma previsão de recuperação.\n\nDisserte sobre\n\nComo o Planejamento deve:\n\nIdentificar se o aumento é pontual ou se continuará ao longo do dia.\n\nMonitorar o volume por intervalo e por tipo de ocorrência.\n\nAvaliar os riscos de retirar operadores de pausas ou atividades auxiliares.\n\nIdentificar equipes ou profissionais habilitados para apoio.\n\nEstimar o impacto da indisponibilidade sobre a demanda futura.\n\nProjetar cenários otimista, provável e crítico.\n\nComunicar à coordenação os limites de recuperação do SLA.\n\nEvitar que decisões de curto prazo provoquem sobrecarga ou novos afastamentos.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_brava_q07_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q07_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "brava",
+      "cliente": "Brava",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 7,
+      "titulo": "Questão 7",
+      "enunciado": "Conflito entre processo e operação\n\nCenário\n\nDurante a crise, um operador se recusa a utilizar o formulário manual de contingência. Ele argumenta que “em uma urgência, registrar dados no papel só aumenta a fila”.\n\nDisserte sobre\n\nComo o Planejamento demonstraria que o registro é necessário para:\n\nMedir o volume real de casos recebidos.\n\nSeparar contatos urgentes de outras solicitações.\n\nEstimar a demanda represada.\n\nIdentificar possíveis contatos repetidos.\n\nAvaliar a produtividade durante a indisponibilidade.\n\nRecalcular cenários de dimensionamento.\n\nJustificar os impactos nos indicadores.\n\nExplique também como simplificar o processo de contingência para que ele não prejudique a velocidade nem a segurança do atendimento.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_redacao_newe_q01_essay",
+      "base_neutra_id": "planejamento_neutra_redacao_geral_q01_essay",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "redacao",
+      "tipo": "essay",
+      "origem": "personalizada",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Redação",
+      "enunciado": "Planejamento Estratégico\n\nTema\n\n“O Planejamento como cérebro da Central Newe Seguros: como o equilíbrio entre dimensionamento, tráfego e gestão de pessoas sustenta a experiência de corretores e clientes?”\n\nInstruções\n\nElabore um texto dissertativo-argumentativo de, no mínimo, 20 linhas, abordando obrigatoriamente:\n\nComo alterações no volume de contatos podem afetar SLA, abandono, TMA e satisfação de corretores e clientes.\n\nA importância de considerar campanhas, lançamentos, mudanças de procedimento e períodos de maior demanda.\n\nComo o Analista de Planejamento equilibra custos operacionais, quantidade de colaboradores e nível de serviço.\n\nA utilização de dados para identificar gargalos como absenteísmo, turnover, baixa aderência e ocupação excessiva.\n\nAções para integrar Planejamento, Operação, RH e áreas responsáveis pelos produtos e processos.\n\nA importância de atingir as metas sem comprometer a qualidade das informações ou sobrecarregar os atendentes.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "O Planejamento como cérebro da Central Newe Seguros: como o equilíbrio entre dimensionamento, tráfego e gestão de pessoas sustenta a experiência de corretores e clientes?",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_newe_q01_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q01_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 1,
+      "titulo": "Questão 1",
+      "enunciado": "O Planejamento da Central Newe Seguros produz um relatório mensal com dados de volume, SLA, abandono, TMA, produtividade, absenteísmo e aderência.\nPara configurar a capa sem número, o sumário em algarismos romanos e o conteúdo principal começando na página 1, deve-se:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Inserir Quebras de Página e ocultar os números."
+        },
+        {
+          "id": "B",
+          "texto": "Inserir Quebras de Seção — Próxima Página — e desmarcar “Vincular ao Anterior”."
+        },
+        {
+          "id": "C",
+          "texto": "Criar documentos separados."
+        },
+        {
+          "id": "D",
+          "texto": "Pressionar Enter até mudar de página."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_newe_q02_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q02_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 2,
+      "titulo": "Questão 2",
+      "enunciado": "Você está elaborando uma proposta de dimensionamento para uma nova campanha direcionada a corretores e clientes.\nPara acompanhar as alterações feitas pelo supervisor e aceitar ou rejeitar cada edição, deve utilizar:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Restringir Edição."
+        },
+        {
+          "id": "B",
+          "texto": "Controlar Alterações."
+        },
+        {
+          "id": "C",
+          "texto": "Comparar Lado a Lado."
+        },
+        {
+          "id": "D",
+          "texto": "Proteger Documento com Senha."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_newe_q03_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q03_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 3,
+      "titulo": "Questão 3",
+      "enunciado": "O Planejamento precisa enviar escalas personalizadas para 500 colaboradores, utilizando informações armazenadas em uma planilha Excel.\nQual recurso deve ser utilizado?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "B",
+          "texto": "Macros de Sistema."
+        },
+        {
+          "id": "C",
+          "texto": "Mala Direta."
+        },
+        {
+          "id": "D",
+          "texto": "Partes Rápidas."
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_newe_q04_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q04_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 4,
+      "titulo": "Questão 4",
+      "enunciado": "Você precisa criar um formulário de solicitação de alteração de escala no qual os gestores possam preencher somente os campos permitidos.\nQual recurso deve ser aplicado?",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Salvar como PDF."
+        },
+        {
+          "id": "B",
+          "texto": "Revisão > Restringir Edição > Preenchimento de formulários."
+        },
+        {
+          "id": "C",
+          "texto": "Inserir marca d’água."
+        },
+        {
+          "id": "D",
+          "texto": "Ocultar a faixa de opções."
+        }
+      ],
+      "itens": [],
+      "gabarito": "B",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_newe_q05_multiple_choice",
+      "base_neutra_id": "planejamento_neutra_word_geral_q05_multiple_choice",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "multiple_choice",
+      "origem": "personalizada",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 5,
+      "titulo": "Questão 5",
+      "enunciado": "Em um relatório estratégico, você menciona um gráfico de Erlang localizado inicialmente na página 40.\nPara que a indicação seja atualizada automaticamente quando a posição do gráfico mudar, deve-se utilizar:",
+      "alternativas": [
+        {
+          "id": "A",
+          "texto": "Hiperlink de Internet."
+        },
+        {
+          "id": "B",
+          "texto": "Nota de Rodapé."
+        },
+        {
+          "id": "C",
+          "texto": "Referência Cruzada."
+        },
+        {
+          "id": "D",
+          "texto": "Marcador manual. Parte 3 — Questões discursivas"
+        }
+      ],
+      "itens": [],
+      "gabarito": "C",
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_newe_q06_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q06_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 6,
+      "titulo": "Questão 6",
+      "enunciado": "Gestão de crise e impacto no SLA\n\nCenário\n\nÉ segunda-feira, meio-dia, período de alto volume na Central Newe Seguros.\n\nO sistema utilizado para consultar e registrar solicitações de corretores e clientes fica indisponível durante 40 minutos.\n\nA fila aumenta, o TMA triplica, o abandono cresce e o SLA apresenta forte queda. A coordenação exige uma justificativa e uma previsão para o restante do dia.\n\nDisserte sobre\n\nComo o Planejamento deve:\n\nMonitorar o volume recebido e o comportamento da fila.\n\nAvaliar o impacto da indisponibilidade por intervalo.\n\nEstimar a demanda represada e os contatos repetidos.\n\nReorganizar atividades, pausas e intervalos de forma responsável.\n\nAvaliar a utilização de operadores capacitados em outras atividades.\n\nProjetar a possibilidade de recuperação da meta.\n\nComunicar os riscos e limitações à coordenação.\n\nConsiderar campanhas, mudanças de processo ou comunicações recentes que possam manter o volume elevado.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
+      ]
+    },
+    {
+      "id": "planejamento_personalizada_word_newe_q07_word_discursive",
+      "base_neutra_id": "planejamento_neutra_word_geral_q07_word_discursive",
+      "aliases_base_neutra": [],
+      "ativo": true,
+      "cargo": "planejamento",
+      "etapa": "word",
+      "tipo": "word_discursive",
+      "origem": "personalizada",
+      "cliente_id": "newe",
+      "cliente": "Newe",
+      "area": null,
+      "nivel": "avancado",
+      "numero": 7,
+      "titulo": "Questão 7",
+      "enunciado": "Conflito entre processo e operação\n\nCenário\n\nDurante a indisponibilidade, um operador se recusa a registrar manualmente as solicitações. Ele afirma que “o corretor ou cliente precisa de uma solução, e não de uma anotação”.\n\nDisserte sobre\n\nComo o Planejamento explicaria que os registros são necessários para:\n\nMensurar o volume real de contatos.\n\nIdentificar os principais motivos das solicitações.\n\nOrganizar a retomada do atendimento.\n\nEstimar o volume de retornos.\n\nAvaliar o impacto sobre SLA, abandono e TMA.\n\nAjustar previsões e dimensionamentos futuros.\n\nApresentar dados confiáveis às áreas responsáveis.\n\nExplique também como garantir que o registro de contingência seja objetivo e não aumente desnecessariamente o tempo de atendimento.",
+      "alternativas": [],
+      "itens": [],
+      "gabarito": null,
+      "rubricaInterna": "",
+      "oQueDeveSerAvaliado": "",
+      "temaRedacao": "",
+      "instrucoesRedacao": "",
+      "exibirParaCandidato": true,
+      "origemArquivo": "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx",
+      "fontesOrigem": [
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx"
       ]
     }
   ]

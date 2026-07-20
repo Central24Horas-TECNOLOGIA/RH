@@ -186,7 +186,8 @@
 .exam-summary-status.is-complete { color: #157432; background: #eaf7ed; }
 .exam-step-state.is-andamento,
 .exam-summary-status.is-progress { color: #0758f0; background: #eaf1ff; }
-.exam-step-state.is-nao-iniciada { color: #58667d; background: #eef1f5; }
+.exam-step-state.is-nao-iniciada { color: #b42318; background: #fff1f0; }
+.exam-step-state.is-indisponivel { color: #657187; background: #edf0f4; }
 .exam-step-state.is-locked { color: #657187; background: #edf0f4; }
 
 .exam-summary-column { display: grid; gap: 16px; }

@@ -3,11 +3,31 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
+global.document = {
+  createElement() {
+    return {
+      textContent: '',
+      innerText: '',
+      set innerHTML(value) {
+        const texto = String(value || '')
+          .replace(/<br\s*\/?\s*>/gi, '\n')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        this.textContent = texto;
+        this.innerText = texto;
+      },
+    };
+  },
+};
+
 const rootDir = path.resolve(__dirname, '..');
 const perguntasUrl = pathToFileURL(path.join(rootDir, 'fonte', 'perguntas.js')).href;
 const personalizacaoUrl = pathToFileURL(
   path.join(rootDir, 'fonte', 'features', 'prova', 'services', 'personalizacao-inteligente.js'),
 ).href;
+const regrasProvaUrl = pathToFileURL(path.join(rootDir, 'fonte', 'regras-prova.js')).href;
 
 const forbiddenVisiblePatterns = /Gabarito|Resposta correta|O que deve ser avaliado|Rubrica interna/i;
 
@@ -58,15 +78,40 @@ function assertGrupoCompacto(questoes, tamanhos, contexto) {
 async function main() {
   const perguntas = await import(perguntasUrl);
   const personalizacao = await import(personalizacaoUrl);
+  const regrasProva = await import(regrasProvaUrl);
   const resumoBanco = perguntas.obterResumoBancoQuestoes();
+  const bancoReformulado = JSON.parse(
+    fs.readFileSync(path.join(rootDir, 'data', 'bancoQuestoesReformuladas.json'), 'utf8'),
+  );
+  const neutrasReformuladas = bancoReformulado.questoes || [];
+  const personalizadasReformuladas = bancoReformulado.questoes_personalizadas || [];
 
   assert.ok(resumoBanco.validacao.ok, 'Banco central legado deve continuar válido.');
   assert.ok(resumoBanco.total >= 60, 'Banco legado deve continuar carregado.');
   assert.ok(resumoBanco.reformuladas.total >= 60, 'Banco reformulado deve estar carregado.');
   assert.deepEqual(
     resumoBanco.reformuladas.cargos,
-    ['estagiario', 'jovem_aprendiz', 'operador', 'supervisor'],
+    ['estagiario', 'jovem_aprendiz', 'operador', 'planejamento', 'supervisor'],
     'Somente cargos reformulados devem entrar no novo banco.',
+  );
+  for (const cargo of ['jovem_aprendiz', 'supervisor']) {
+    assert.equal(
+      neutrasReformuladas.filter((q) => q.cargo === cargo && q.tipo === 'essay').length,
+      1,
+      `A redação de ${cargo} deve possuir uma única versão neutra.`,
+    );
+    assert.equal(
+      personalizadasReformuladas.filter((q) => q.cargo === cargo && q.tipo === 'essay').length,
+      0,
+      `A redação de ${cargo} não pode ter versão personalizada.`,
+    );
+  }
+  assert.equal(
+    [...neutrasReformuladas, ...personalizadasReformuladas].some((q) =>
+      /O que deve ser avaliado|Observação\s*:/i.test(q.enunciado || ''),
+    ),
+    false,
+    'Blocos internos não podem fazer parte do enunciado do candidato.',
   );
 
   const jovem = gerar(perguntas, 'Jovem Aprendiz', '1', 'Operação');
@@ -74,6 +119,19 @@ async function main() {
   assert.equal(jovem.questoes.filter((q) => q.questaoReformulada).length, 10);
   assertExcelPreservado(jovem.questoes, 'basic_exam', 'Jovem Aprendiz');
   assert.equal(jovem.questoes.filter((q) => q.stageKey === 'professional_essay').length, 1);
+  assert.equal(
+    jovem.questoes.find((q) => q.stageKey === 'professional_essay')?.essay?.theme,
+    'Tema livre',
+    'O novo tema da redação de Jovem Aprendiz deve vir do DOCX.',
+  );
+  const questaoComJustificado = jovem.questoes.find(
+    (q) => q.type === 'word' && q.expected?.requiredAlignment === 'justify',
+  );
+  assert.ok(questaoComJustificado, 'A exigência de alinhamento justificado deve chegar à questão Word.');
+  assert.ok(
+    questaoComJustificado.oQueDeveSerAvaliado.includes('Justificado'),
+    'O bloco interno de avaliação deve ser preservado para a Análise de Resposta.',
+  );
   assertSemSigiloVisivel(jovem.questoes, 'Jovem Aprendiz neutra');
 
   const jovemPersonalizada = personalizacao.gerarPersonalizacaoProva(jovem.questoes, {
@@ -160,6 +218,11 @@ async function main() {
     professional_essay: 1,
   });
   assertExcelPreservado(supervisor.questoes, 'qualid_exam', 'Supervisor');
+  assert.match(
+    supervisor.questoes.find((q) => q.stageKey === 'professional_essay')?.essay?.theme || '',
+    /jogar NUM time/i,
+    'O novo tema de Supervisor deve vir do DOCX.',
+  );
   assertSemSigiloVisivel(supervisor.questoes, 'Supervisor neutra');
 
   const supervisorPersonalizada = personalizacao.gerarPersonalizacaoProva(supervisor.questoes, {
@@ -190,6 +253,51 @@ async function main() {
     );
   }
 
+  const planejamento = gerar(perguntas, 'Planejamento', '4', 'Operação / Gestão');
+  assert.equal(
+    planejamento.questoes.filter((q) => q.questaoReformulada).length,
+    8,
+    'Planejamento deve usar as sete questões Word e a redação do DOCX.',
+  );
+  assert.equal(
+    planejamento.questoes.filter((q) => q.tipo === 'word_discursive').length,
+    2,
+    'Planejamento deve manter as duas questões discursivas.',
+  );
+  assert.match(
+    planejamento.questoes.find((q) => q.stageKey === 'professional_essay')?.essay?.theme || '',
+    /Planejamento.*cérebro da operação/i,
+    'O tema neutro de Planejamento deve vir do DOCX.',
+  );
+  assertSemSigiloVisivel(planejamento.questoes, 'Planejamento neutra');
+
+  const planejamentoPersonalizado = personalizacao.gerarPersonalizacaoProva(
+    planejamento.questoes,
+    {
+      vaga: 'Planejamento',
+      trilha: 'Operação / Gestão',
+      nivelProva: '4',
+      operacao: 'Davita',
+      clientesOperacoes: ['Davita'],
+      tiposAtendimento: ['Agendamento de consultas'],
+      nivelPersonalizacao: 'situacional',
+      usuario: 'smoke-test',
+    },
+  );
+  assert.equal(
+    planejamentoPersonalizado.questoes.filter(
+      (q) => q.questaoReformulada && q.personalizacaoInteligente?.mecanismo === 'banco_personalizado',
+    ).length,
+    8,
+    'Planejamento personalizado deve reutilizar as oito variações do cliente.',
+  );
+  assert.match(
+    planejamentoPersonalizado.questoes.find((q) => q.stageKey === 'professional_essay')?.essay?.theme || '',
+    /Central de Agendamentos/i,
+    'A redação personalizada de Planejamento deve usar o tema da DaVita.',
+  );
+  assertSemSigiloVisivel(planejamentoPersonalizado.questoes, 'Planejamento personalizada');
+
   const analista = gerar(perguntas, 'Analista', '4', 'ADM / Gestão');
   assert.equal(
     analista.questoes.filter((q) => q.questaoReformulada).length,
@@ -205,6 +313,58 @@ async function main() {
   for (const comando of ['bold', 'italic', 'underline', 'strikeThrough', 'fontSize', 'justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull', 'insertUnorderedList', 'insertOrderedList']) {
     assert.ok(editorSource.includes(comando), `Editor deve expor comando ${comando}`);
   }
+
+  const esperadoFormatado = {
+    minTextLength: 20,
+    anyBold: true,
+    requiresItalic: true,
+    requiresUnderline: true,
+    requiresStrike: true,
+    requiredFontSize: 14,
+    requiredAlignment: 'justify',
+    requiresList: true,
+    requiredListType: 'ordered',
+  };
+  const respostaFormatada = {
+    content: '<div style="text-align: justify"><ol><li><font size="3"><strong><em><u><s>Resposta completa e organizada para avaliação.</s></u></em></strong></font></li></ol></div>',
+  };
+  const respostaSemFormatacao = {
+    content: '<p>Resposta completa e organizada para avaliação.</p>',
+  };
+  const notaFormatada = regrasProva.avaliarRespostaTexto(respostaFormatada, esperadoFormatado, 10);
+  const notaSemFormatacao = regrasProva.avaliarRespostaTexto(respostaSemFormatacao, esperadoFormatado, 10);
+  assert.ok(notaFormatada > notaSemFormatacao, 'A avaliação existente deve considerar as formatações solicitadas.');
+  assert.deepEqual(regrasProva.obterFormatacoesAplicadas(respostaFormatada), {
+    negrito: true,
+    italico: true,
+    sublinhado: true,
+    tachado: true,
+    tamanhosFonte: [14],
+    alinhamentos: ['justify'],
+    lista: true,
+    listaOrdenada: true,
+    listaNaoOrdenada: false,
+  });
+
+  const analise = personalizacao.corrigirRespostaDiscursivaInteligente(
+    {
+      ...questaoComJustificado,
+      rubricaInterna: 'Rubrica restrita ao RH.',
+    },
+    {
+      ...respostaFormatada,
+      formatacoesAplicadas: regrasProva.obterFormatacoesAplicadas(respostaFormatada),
+    },
+    notaFormatada,
+    10,
+  );
+  assert.equal(analise.nota_sugerida, notaFormatada, 'A Análise de Resposta deve preservar a nota-base atual.');
+  assert.equal(analise.dados_analisados.rubrica_interna, 'Rubrica restrita ao RH.');
+  assert.equal(
+    analise.dados_analisados.o_que_deve_ser_avaliado,
+    questaoComJustificado.oQueDeveSerAvaliado,
+  );
+  assert.equal(analise.dados_analisados.formatacoes_aplicadas.alinhamentos[0], 'justify');
 
   console.log('RH business rules smoke passed.');
 }

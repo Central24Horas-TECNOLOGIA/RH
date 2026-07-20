@@ -112,6 +112,17 @@ def _user_from_record(record: dict | None) -> AuthenticatedUser:
     )
 
 
+def create_session_for_user_record(record: dict | None) -> tuple[str, AuthenticatedUser]:
+    """Emite a sessão bearer atual do Conecta para um usuário já autorizado."""
+    user = _user_from_record(record)
+    if normalize_text(user.status).lower() != "ativo":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seu acesso ao Conecta está desativado.",
+        )
+    return _build_token(user), user
+
+
 def authenticate_credentials(usuario: str, senha: str) -> str:
     settings = get_settings()
     safe_user = normalize_text(usuario)
@@ -145,8 +156,7 @@ def authenticate_session(
                 origem=origem,
                 mfa_code=mfa_code,
             )
-            user = _user_from_record(record)
-            return _build_token(user), user
+            return create_session_for_user_record(record)
         except HTTPException:
             settings = get_settings()
             if (

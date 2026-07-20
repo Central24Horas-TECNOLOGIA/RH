@@ -1,11 +1,13 @@
-﻿import { html, useEffect, useMemo, useState } from '../../infraestrutura-react.js';
+﻿import { html, useEffect, useMemo, useRef, useState } from '../../infraestrutura-react.js';
 import {
   acessarProvaPorCodigo,
   acessarProvaPorEmail,
   acessarProvaPorTelefone,
   confirmarDadosConectaProvas,
+  concluirEtapaConectaProvas,
   finalizarConectaProvas,
   iniciarConectaProvas,
+  interromperEtapaConectaProvas,
   lerSessaoConectaProvas,
   marcarRevisaoConectaProvas,
   salvarRespostasConectaProvas,
@@ -28,6 +30,8 @@ const LIMITE_LINHAS_REDACAO = 20;
 const LIMITE_CARACTERES_REDACAO = 2200;
 const ORIENTACAO_REDACAO =
   `Seu texto deve ter introdução, desenvolvimento e conclusão. Escreva uma redação de até ${LIMITE_LINHAS_REDACAO} linhas.`;
+const AVISO_SAIDA_ETAPA =
+  'Ao atualizar ou sair desta página, você retornará para a tela de etapas. Esta etapa será considerada realizada e não poderá ser feita novamente.';
 const CRITERIOS_REDACAO = [
   'Clareza',
   'Coerência',
@@ -213,13 +217,17 @@ function respostaQuestaoPreenchida(questao, resposta) {
   return respostaPreenchida(resposta);
 }
 
-function obterPendenciasObrigatorias(questoes = [], respostas = []) {
+function obterPendenciasObrigatorias(questoes = [], respostas = [], etapasIgnoradas = []) {
+  const ignoradas = new Set(etapasIgnoradas.filter(Boolean));
   return questoes
-    .map((questao, indice) => ({
-      indice,
-      questao,
-      pendente: !respostaQuestaoPreenchida(questao, respostas[indice]),
-    }))
+    .map((questao, indice) => {
+      const grupo = obterGrupoJornadaQuestao(questao, indice);
+      return {
+        indice,
+        questao,
+        pendente: !ignoradas.has(grupo.key) && !respostaQuestaoPreenchida(questao, respostas[indice]),
+      };
+    })
     .filter((item) => item.pendente);
 }
 
@@ -636,7 +644,7 @@ function TelaConfirmacao({ sessao, formulario, erro, salvando, onChange, onConfi
   };
   return html`
     <section class="conecta-provas-card conecta-provas-card-wide conecta-provas-registration">
-      <div class="conecta-provas-step">Etapa 1 · Cadastro</div>
+      <div class="conecta-provas-step">Etapa 1 · Confirmação dos dados</div>
       <h1>Confirme seus dados</h1>
       <p>Complete seu cadastro. Após a confirmação, as avaliações serão desbloqueadas.</p>
       ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
@@ -815,7 +823,13 @@ function obterGrupoJornadaQuestao(questao = {}, indice = 0) {
   if (etapaEhWord(questao) || chave.includes('word')) {
     return { key: 'word', label: 'Prova de Word', icon: 'description', description: 'Questões práticas de formatação e edição' };
   }
-  if (chave.includes('general') || chave.includes('tech') || chave.includes('conhecimento')) {
+  if (chave.includes('tech') || chave.includes('tecnico')) {
+    return { key: 'conhecimentos_tecnicos', label: 'Conhecimentos técnicos', icon: 'psychology', description: 'Questões objetivas sobre conhecimentos técnicos da vaga' };
+  }
+  if (chave.includes('general') || chave.includes('geral')) {
+    return { key: 'conhecimentos_gerais', label: 'Conhecimentos gerais', icon: 'psychology', description: 'Questões objetivas sobre rotina, lógica e conhecimentos gerais' };
+  }
+  if (chave.includes('conhecimento')) {
     return { key: 'conhecimentos', label: 'Conhecimentos gerais e técnicos', icon: 'psychology', description: 'Questões objetivas sobre rotina, lógica e conhecimentos da vaga' };
   }
   return {
@@ -826,8 +840,45 @@ function obterGrupoJornadaQuestao(questao = {}, indice = 0) {
   };
 }
 
+function obterEstadosEtapasCandidato(prova = {}) {
+  const estados = prova?.configuracao?.estado_etapas_candidato || {};
+  return estados && typeof estados === 'object' ? estados : {};
+}
+
+function aplicarEstadoPersistidoEtapa(etapa = {}, estados = {}) {
+  const estado = estados[etapa.key];
+  if (!estado || typeof estado !== 'object') return etapa;
+  const status = normalizarChaveEtapa(estado.status || '');
+  if (status === 'realizada' || estado.indisponivel) {
+    return { ...etapa, status: 'indisponivel', indisponivel: true, respondidas: etapa.total };
+  }
+  if (status === 'concluida') {
+    return { ...etapa, status: 'concluida', respondidas: etapa.total };
+  }
+  return etapa;
+}
+
+function atualizarEstadoEtapaSessao(sessao, etapaKey, estado = {}) {
+  if (!sessao || !etapaKey) return sessao;
+  const configuracao = sessao.prova?.configuracao || {};
+  return {
+    ...sessao,
+    prova: {
+      ...(sessao.prova || {}),
+      configuracao: {
+        ...configuracao,
+        estado_etapas_candidato: {
+          ...(configuracao.estado_etapas_candidato || {}),
+          [etapaKey]: estado,
+        },
+      },
+    },
+  };
+}
+
 function montarEtapasJornada(prova = {}, respostas = [], cadastroConcluido = false) {
   const questoes = Array.isArray(prova.questoes) ? prova.questoes : [];
+  const estados = obterEstadosEtapasCandidato(prova);
   const mapa = new Map();
   questoes.forEach((questao, indice) => {
     const grupo = obterGrupoJornadaQuestao(questao, indice);
@@ -839,7 +890,7 @@ function montarEtapasJornada(prova = {}, respostas = [], cadastroConcluido = fal
     const respondidas = etapa.indices.filter((indice) =>
       respostaQuestaoPreenchida(questoes[indice], respostas[indice]),
     ).length;
-    return {
+    return aplicarEstadoPersistidoEtapa({
       ...etapa,
       respondidas,
       total: etapa.indices.length,
@@ -848,12 +899,12 @@ function montarEtapasJornada(prova = {}, respostas = [], cadastroConcluido = fal
         : respondidas > 0
           ? 'andamento'
           : 'nao-iniciada',
-    };
+    }, estados);
   });
   return [
     {
       key: 'cadastro',
-      label: 'Cadastro',
+      label: 'Confirmação dos dados',
       icon: 'person',
       description: 'Confirme seus dados antes de começar',
       indices: [],
@@ -880,8 +931,8 @@ function TelaEtapasProva({
 }) {
   const etapas = montarEtapasJornada(sessao?.prova || {}, respostas, cadastroConcluido);
   const etapasAvaliativas = etapas.filter((item) => item.key !== 'cadastro');
-  const concluidas = etapas.filter((item) => item.status === 'concluida').length;
-  const pendentes = etapasAvaliativas.filter((item) => item.status !== 'concluida');
+  const concluidas = etapas.filter((item) => item.status === 'concluida' || item.status === 'indisponivel').length;
+  const pendentes = etapasAvaliativas.filter((item) => item.status !== 'concluida' && item.status !== 'indisponivel');
   const todasConcluidas = cadastroConcluido && pendentes.length === 0 && etapasAvaliativas.length > 0;
   const progresso = etapas.length ? Math.round((concluidas / etapas.length) * 100) : 0;
 
@@ -908,11 +959,12 @@ function TelaEtapasProva({
       <div class="exam-steps-layout">
         <div class="exam-steps-list">
           ${etapas.map((etapa, indice) => {
-            const concluida = etapa.status === 'concluida';
-            const emAndamento = etapa.status === 'andamento';
-            const somenteCadastro = etapa.key === 'cadastro';
-            const bloqueada = !somenteCadastro && !cadastroConcluido;
-            return html`
+    const concluida = etapa.status === 'concluida';
+    const emAndamento = etapa.status === 'andamento';
+    const indisponivel = etapa.status === 'indisponivel';
+    const somenteCadastro = etapa.key === 'cadastro';
+    const bloqueada = (!somenteCadastro && !cadastroConcluido) || indisponivel;
+    return html`
               <article class=${`exam-step-card is-${etapa.status} ${bloqueada ? 'is-locked' : ''}`.trim()} key=${etapa.key}>
                 <div class="exam-step-timeline" aria-hidden="true">
                   <span>${indice + 1}</span>${indice < etapas.length - 1 ? html`<i></i>` : null}
@@ -922,19 +974,19 @@ function TelaEtapasProva({
                   <small>Etapa ${indice + 1}${etapa.obrigatoria ? ' · Obrigatório' : ''}</small>
                   <h2>${etapa.label}</h2>
                   <p>${etapa.description}</p>
-                  ${confirmacao && !somenteCadastro ? html`<span class=${`exam-step-state is-${etapa.status}`}>${concluida ? 'Concluída' : emAndamento ? 'Em andamento' : 'Não iniciada'}</span>` : null}
-                  ${bloqueada ? html`<span class="exam-step-state is-locked"><i class="material-symbols-outlined">lock</i>Conclua o Cadastro para desbloquear</span>` : null}
+                  ${confirmacao && !somenteCadastro ? html`<span class=${`exam-step-state is-${etapa.status}`}>${indisponivel ? 'Realizada' : concluida ? 'Concluída' : emAndamento ? 'Em andamento' : 'Não iniciada'}</span>` : null}
+                  ${bloqueada && !indisponivel ? html`<span class="exam-step-state is-locked"><i class="material-symbols-outlined">lock</i>Conclua o Cadastro para desbloquear</span>` : null}
                 </div>
                 <div class="exam-step-action">
                   ${somenteCadastro
-                    ? cadastroConcluido
-                      ? html`<span class="exam-step-complete-tag"><i class="material-symbols-outlined">check</i>Etapa concluída</span>`
-                      : html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${onCadastro}>Começar</button>`
-                    : html`<button type="button" class=${concluida ? 'btn btn-outline-primary' : 'btn btn-primary'} disabled=${carregando || bloqueada} onClick=${() => !bloqueada && onIniciar(etapa)}><span class="material-symbols-outlined">${bloqueada ? 'lock' : concluida ? 'check_circle' : 'play_arrow'}</span>${bloqueada ? 'Bloqueada' : concluida ? 'Revisar' : emAndamento ? 'Continuar' : 'Iniciar prova'}</button>`}
+        ? cadastroConcluido
+          ? html`<span class="exam-step-complete-tag"><i class="material-symbols-outlined">check</i>Etapa concluída</span>`
+          : html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${onCadastro}>Começar</button>`
+        : html`<button type="button" class=${concluida ? 'btn btn-outline-primary' : 'btn btn-primary'} disabled=${carregando || bloqueada} onClick=${() => !bloqueada && onIniciar(etapa)}><span class="material-symbols-outlined">${indisponivel ? 'block' : bloqueada ? 'lock' : concluida ? 'check_circle' : 'play_arrow'}</span>${indisponivel ? 'Indisponível' : bloqueada ? 'Bloqueada' : concluida ? 'Revisar' : emAndamento ? 'Continuar' : 'Iniciar prova'}</button>`}
                 </div>
               </article>
             `;
-          })}
+  })}
         </div>
 
         <aside class="exam-summary-column">
@@ -1002,6 +1054,62 @@ function separarTextoParaCopiarWord(texto = '') {
     enunciado: enunciado.replace(ultima[0], '').replace(/\s+([,.?!;:])/g, '$1').trim(),
     textoCopia: ultima[1].trim(),
   };
+}
+
+function normalizarQuebrasTextoQuestao(texto = '') {
+  const marcadorTexto =
+    'Texto\\s+(?:I{1,3}|IV|V|VI{1,3}|IX|X)\\s*(?:\\([^\\n)]*\\)|[—-][^:\\n]+)?\\s*[:：]';
+  const textoNormalizado = normalizarTexto(texto).replace(/\r\n?/g, '\n');
+  if (!textoNormalizado) return '';
+
+  return textoNormalizado
+    .replace(new RegExp(`([.!?])\\s+(${marcadorTexto})`, 'gi'), '$1\n\n$2')
+    .replace(new RegExp(`\\n\\s*(${marcadorTexto})`, 'gi'), '\n\n$1')
+    .replace(new RegExp(`(${marcadorTexto})\\s*(["“])`, 'gi'), '$1\n\n$2')
+    .replace(new RegExp(`(["”])\\s+(${marcadorTexto})`, 'gi'), '$1\n\n$2')
+    .replace(/(["”])\s+(Assinale a alternativa[^:\n]*:)/gi, '$1\n\n$2')
+    .replace(/([.!?])\s+(Assinale a alternativa[^:\n]*:)/gi, '$1\n\n$2')
+    .replace(/\n\s*(Assinale a alternativa[^:\n]*:)/gi, '\n\n$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function obterBlocosTextoQuestao(texto = '') {
+  const textoFormatado = normalizarQuebrasTextoQuestao(texto);
+  if (!textoFormatado) return [];
+  return textoFormatado
+    .split(/\n{2,}/)
+    .map((bloco) => bloco.trim())
+    .filter(Boolean);
+}
+
+function obterClasseBlocoTextoQuestao(bloco = '') {
+  const texto = normalizarTexto(bloco);
+  if (/^Texto\s+(?:I{1,3}|IV|V|VI{1,3}|IX|X)\b/i.test(texto)) {
+    return 'conecta-provas-question-heading';
+  }
+  if (/^["“]/.test(texto)) {
+    return 'conecta-provas-question-quote';
+  }
+  if (/^Assinale a alternativa/i.test(texto)) {
+    return 'conecta-provas-question-command';
+  }
+  return '';
+}
+
+function BlocosTextoQuestao({ texto }) {
+  const blocos = obterBlocosTextoQuestao(texto);
+  if (!blocos.length) return null;
+  return html`
+    ${blocos.map((bloco, indice) => html`
+      <p
+        key=${`${indice}-${bloco.slice(0, 24)}`}
+        class=${obterClasseBlocoTextoQuestao(bloco)}
+      >
+        ${bloco}
+      </p>
+    `)}
+  `;
 }
 
 function BlocoRedacao({ questao }) {
@@ -1092,10 +1200,10 @@ function QuestaoProva({
       ? html`<${BlocoRedacao} questao=${questao} />`
       : html`
             <div class="conecta-provas-question-text">
-              <p>${textoWord.enunciado}</p>
+              <${BlocosTextoQuestao} texto=${textoWord.enunciado} />
               ${camposVisiveis.instrucao
           ? html`<p><strong>Instrução:</strong> ${camposVisiveis.instrucao}</p>`
-              : null}
+          : null}
               ${textoWord.textoCopia ? html`<div class="conecta-provas-copy-text"><span>Texto para copiar</span><strong>${textoWord.textoCopia}</strong></div>` : null}
             </div>
           `}
@@ -1116,8 +1224,8 @@ function QuestaoProva({
                 onChange=${(respostaGrupo) => onResposta(respostaGrupo)}
               />
             `
-      : tipo === 'excel_external'
-        ? html`
+        : tipo === 'excel_external'
+          ? html`
               <div class="conecta-provas-excel-rules">
                 <strong>Regras da etapa de Excel</strong>
                 <ul>
@@ -1136,21 +1244,21 @@ function QuestaoProva({
                 resposta=${resposta}
                 nomeCandidato=${nomeCandidato}
                 onChange=${(respostaExcel) => {
-            const { uploadedArrayBuffer: _buffer, ...serializavel } = respostaExcel || {};
-            onResposta(serializavel);
-          }}
+              const { uploadedArrayBuffer: _buffer, ...serializavel } = respostaExcel || {};
+              onResposta(serializavel);
+            }}
               />
             `
-        : html`
+          : html`
               <${EditorTextoRich}
                 valor=${resposta?.content || resposta?.text || ''}
                 limiteCaracteres=${limiteCaracteres}
                 textoAjuda=${ehRedacao ? ORIENTACAO_REDACAO : ''}
                 mostrarContador=${!ehRedacao}
                 onChange=${(content) => {
-            const limitado = limitarConteudoTexto(content, limiteCaracteres);
-            onResposta({ type: 'word', content: limitado.content, text: limitado.text });
-          }}
+              const limitado = limitarConteudoTexto(content, limiteCaracteres);
+              onResposta({ type: 'word', content: limitado.content, text: limitado.text });
+            }}
               />
             `}
     </section>
@@ -1160,6 +1268,7 @@ function QuestaoProva({
 function TelaRevisao({
   sessao,
   respostas,
+  etapasIgnoradas = [],
   onEditar,
   onVoltar,
   onFinalizar,
@@ -1167,7 +1276,7 @@ function TelaRevisao({
   erro,
 }) {
   const questoes = sessao?.prova?.questoes || [];
-  const pendencias = obterPendenciasObrigatorias(questoes, respostas);
+  const pendencias = obterPendenciasObrigatorias(questoes, respostas, etapasIgnoradas);
   const respondidas = questoes.length - pendencias.length;
   const possuiRedacao = questoes.some(etapaEhRedacao);
   const possuiExcel = questoes.some((questao) => questao.type === 'excel_external');
@@ -1329,6 +1438,14 @@ export function TelaConectaProvas() {
   const [timestampTermino, setTimestampTermino] = useState(null);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
   const [pendenciasFinalizacao, setPendenciasFinalizacao] = useState([]);
+  const interrupcaoRegistradaRef = useRef(false);
+  const contextoInterrupcaoRef = useRef({
+    token: '',
+    respostas: [],
+    etapaSelecionadaKey: '',
+    indiceAtual: 0,
+    etapa: '',
+  });
 
   useEffect(() => {
     const salvo = sessionStorage.getItem(CHAVE_TOKEN_PUBLICO) || localStorage.getItem(CHAVE_TOKEN_PUBLICO) || '';
@@ -1356,10 +1473,94 @@ export function TelaConectaProvas() {
   const etapaJornadaAtiva = etapasJornada.find((item) => item.key === etapaSelecionadaKey) || null;
   const indicesEtapaAtiva = etapaJornadaAtiva?.indices || [];
   const posicaoNaEtapa = indicesEtapaAtiva.indexOf(indiceAtual);
+  const etapasIgnoradasPorInterrupcao = useMemo(
+    () => etapasJornada.filter((item) => item.status === 'indisponivel').map((item) => item.key),
+    [etapasJornada],
+  );
   const progresso = useMemo(
     () => (questoes.length ? Math.round(((indiceAtual + 1) / questoes.length) * 100) : 0),
     [indiceAtual, questoes.length],
   );
+
+  contextoInterrupcaoRef.current = {
+    token,
+    respostas,
+    etapaSelecionadaKey,
+    indiceAtual,
+    etapa,
+  };
+
+  const marcarEtapaIndisponivel = (etapaKey) => {
+    setSessao((anterior) =>
+      atualizarEstadoEtapaSessao(anterior, etapaKey, { status: 'realizada', indisponivel: true }),
+    );
+  };
+
+  const registrarInterrupcaoAtual = async ({ beacon = false } = {}) => {
+    const contexto = contextoInterrupcaoRef.current || {};
+    if (
+      interrupcaoRegistradaRef.current ||
+      contexto.etapa !== 'prova' ||
+      !contexto.token ||
+      !contexto.etapaSelecionadaKey
+    ) {
+      return false;
+    }
+    interrupcaoRegistradaRef.current = true;
+    const payload = {
+      token: contexto.token,
+      respostas: contexto.respostas,
+      etapa_chave: contexto.etapaSelecionadaKey,
+      questao_indice: contexto.indiceAtual,
+    };
+    if (beacon && navigator?.sendBeacon) {
+      const corpo = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+      navigator.sendBeacon('/conecta-provas-api/interromper-etapa', corpo);
+      return true;
+    }
+    await interromperEtapaConectaProvas(
+      contexto.token,
+      contexto.respostas,
+      contexto.etapaSelecionadaKey,
+      contexto.indiceAtual,
+    );
+    marcarEtapaIndisponivel(contexto.etapaSelecionadaKey);
+    setEtapa('confirmacao-etapas');
+    return true;
+  };
+
+  useEffect(() => {
+    if (etapa !== 'prova' || !token || !etapaSelecionadaKey) return undefined;
+    const confirmarSaidaInterna = () => {
+      if (!window.confirm(AVISO_SAIDA_ETAPA)) {
+        window.history.pushState({ conectaProvasEtapa: true }, '', window.location.href);
+        return;
+      }
+      registrarInterrupcaoAtual().catch(() => {
+        setErro('Não foi possível registrar a saída desta etapa agora.');
+      });
+    };
+    const avisarSaida = (event) => {
+      event.preventDefault();
+      event.returnValue = AVISO_SAIDA_ETAPA;
+      return AVISO_SAIDA_ETAPA;
+    };
+    const persistirSaidaConfirmada = () => {
+      registrarInterrupcaoAtual({ beacon: true }).catch(() => {});
+    };
+
+    window.history.pushState({ conectaProvasEtapa: true }, '', window.location.href);
+    window.addEventListener('beforeunload', avisarSaida);
+    window.addEventListener('pagehide', persistirSaidaConfirmada);
+    window.addEventListener('popstate', confirmarSaidaInterna);
+    window.addEventListener('hashchange', confirmarSaidaInterna);
+    return () => {
+      window.removeEventListener('beforeunload', avisarSaida);
+      window.removeEventListener('pagehide', persistirSaidaConfirmada);
+      window.removeEventListener('popstate', confirmarSaidaInterna);
+      window.removeEventListener('hashchange', confirmarSaidaInterna);
+    };
+  }, [etapa, token, etapaSelecionadaKey]);
 
   const selecionarToken = async (tokenSelecionado, opcoes = {}) => {
     if (!tokenSelecionado) return;
@@ -1509,6 +1710,10 @@ export function TelaConectaProvas() {
   };
 
   const iniciar = async (etapaJornada = null) => {
+    if (etapaJornada?.indisponivel || etapaJornada?.status === 'indisponivel') {
+      setErro('Esta etapa já foi realizada e não está disponível para nova execução.');
+      return;
+    }
     setCarregando(true);
     setErro('');
     try {
@@ -1530,6 +1735,7 @@ export function TelaConectaProvas() {
       const primeiroIndice = etapaJornada?.indices?.[0] ?? 0;
       setEtapaSelecionadaKey(etapaJornada?.key || obterGrupoJornadaQuestao(questoes[primeiroIndice], primeiroIndice).key);
       setIndiceAtual(primeiroIndice);
+      interrupcaoRegistradaRef.current = false;
       setEtapa('prova');
     } catch (error) {
       setErro(error?.message || 'Não foi possível iniciar a prova.');
@@ -1554,10 +1760,18 @@ export function TelaConectaProvas() {
   };
 
   const concluirEtapaAtual = async () => {
+    if (posicaoNaEtapa < indicesEtapaAtiva.length - 1) {
+      setErro('Avance até a última questão desta etapa antes de concluir.');
+      return;
+    }
     setCarregando(true);
     setErro('');
     try {
-      await salvarRespostasConectaProvas(token, respostas);
+      await concluirEtapaConectaProvas(token, respostas, etapaSelecionadaKey, indiceAtual);
+      interrupcaoRegistradaRef.current = true;
+      setSessao((anterior) =>
+        atualizarEstadoEtapaSessao(anterior, etapaSelecionadaKey, { status: 'concluida' }),
+      );
       setEtapa('confirmacao-etapas');
     } catch (error) {
       setErro(error?.message || 'Não foi possível salvar esta etapa agora.');
@@ -1570,7 +1784,7 @@ export function TelaConectaProvas() {
     setCarregando(true);
     setErro('');
     try {
-      const pendencias = obterPendenciasObrigatorias(questoes, respostas);
+      const pendencias = obterPendenciasObrigatorias(questoes, respostas, etapasIgnoradasPorInterrupcao);
       if (pendencias.length) {
         setIndiceAtual(pendencias[0].indice);
         setErro('Preencha todas as etapas obrigatórias antes de revisar a prova.');
@@ -1590,7 +1804,7 @@ export function TelaConectaProvas() {
     setCarregando(true);
     setErro('');
     try {
-      const pendencias = obterPendenciasObrigatorias(questoes, respostas);
+      const pendencias = obterPendenciasObrigatorias(questoes, respostas, etapasIgnoradasPorInterrupcao);
       if (pendencias.length && !finalizarMesmoComPendencias) {
         setPendenciasFinalizacao(pendencias);
         setCarregando(false);
@@ -1616,7 +1830,7 @@ export function TelaConectaProvas() {
     setErro('');
     try {
       await salvarRespostasConectaProvas(token, respostas);
-      const pendencias = obterPendenciasObrigatorias(questoes, respostas);
+      const pendencias = obterPendenciasObrigatorias(questoes, respostas, etapasIgnoradasPorInterrupcao);
       if (pendencias.length) {
         setPendenciasFinalizacao(pendencias);
         return;
@@ -1658,7 +1872,7 @@ export function TelaConectaProvas() {
   };
 
   return html`
-    <main class=${`conecta-provas-shell ${etapa === 'etapas' || etapa === 'confirmacao-etapas' ? 'is-steps-view' : ''}`.trim()}>
+    <main class=${`conecta-provas-shell ${etapa === 'acesso' ? 'is-access-view' : ''} ${etapa === 'etapas' || etapa === 'confirmacao-etapas' ? 'is-steps-view' : ''}`.trim()}>
       ${etapa === 'acesso'
       ? html`
             <${TelaAcesso}
@@ -1697,6 +1911,7 @@ export function TelaConectaProvas() {
             <${TelaEtapasProva}
               sessao=${sessao}
               respostas=${respostas}
+              etapasIgnoradas=${etapasIgnoradasPorInterrupcao}
               carregando=${carregando}
               erro=${erro}
               confirmacao=${etapa === 'confirmacao-etapas'}
@@ -1748,12 +1963,9 @@ export function TelaConectaProvas() {
               >
                 Anterior
               </button>
-              <button type="button" class="btn btn-outline-secondary" disabled=${carregando} onClick=${() => setEtapa('confirmacao-etapas')}>
-                Ver etapas
-              </button>
               ${posicaoNaEtapa >= 0 && posicaoNaEtapa < indicesEtapaAtiva.length - 1
-                ? html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${() => salvarParcial(indicesEtapaAtiva[posicaoNaEtapa + 1])}>Avançar</button>`
-                : html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${concluirEtapaAtual}>${carregando ? 'Salvando...' : 'Concluir etapa'}</button>`}
+          ? html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${() => salvarParcial(indicesEtapaAtiva[posicaoNaEtapa + 1])}>Avançar</button>`
+          : html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${concluirEtapaAtual}>${carregando ? 'Salvando...' : 'Concluir etapa'}</button>`}
             </div>
           `
       : null}

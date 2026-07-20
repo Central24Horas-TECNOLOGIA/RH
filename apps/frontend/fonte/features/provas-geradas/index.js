@@ -9,10 +9,15 @@ import {
 import {
   NIVEIS_PERSONALIZACAO,
   TIPOS_ATENDIMENTO_PERSONALIZACAO,
+  corrigirRespostaDiscursivaInteligente,
   gerarPersonalizacaoProva,
   inferirPerfilAtendimentoPersonalizacao,
   registrarHistoricoPersonalizacao,
 } from '../prova/services/personalizacao-inteligente.js';
+import {
+  avaliarRespostaTexto,
+  obterFormatacoesAplicadas,
+} from '../../regras-prova.js';
 import {
   atualizarProvaGerada,
   cancelarProvaGerada,
@@ -434,7 +439,7 @@ function obterClasseStatusEtapa(status) {
   if (valor.includes('resultado')) return 'is-final';
   if (valor.includes('corrig') || valor.includes('final')) return 'is-done';
   if (valor.includes('pend')) return 'is-pending';
-  if (valor.includes('cancel') || valor.includes('invalid')) return 'is-danger';
+  if (valor.includes('cancel') || valor.includes('invalid') || valor.includes('interromp')) return 'is-danger';
   return 'is-muted';
 }
 
@@ -470,16 +475,20 @@ function montarEtapasResultado(detalhe = {}) {
   const etapasBase = resumoEtapas.length ? resumoEtapas : etapasConfiguradas;
 
   const etapas = etapasBase.map((etapa, indice) => {
+    const interrompida = Boolean(etapa.interrupted || etapa.interrompida || etapa.invalidated || etapa.invalidada || etapa.zeroed || etapa.nota_zerada) ||
+      normalizarBusca(etapa.status).includes('interromp');
     const rawMax = Number(etapa.rawMax ?? etapa.max ?? 0);
-    const rawScore = Number(etapa.rawScore ?? etapa.score ?? etapa.nota ?? 0);
+    const rawScore = interrompida ? 0 : Number(etapa.rawScore ?? etapa.score ?? etapa.nota ?? 0);
     const percent = etapa.percent !== undefined && etapa.percent !== null
-      ? Number(etapa.percent)
+      ? (interrompida ? 0 : Number(etapa.percent))
       : rawMax
         ? rawScore / rawMax
         : null;
     const temNota = Number.isFinite(percent) && (rawMax > 0 || etapa.score !== undefined || etapa.nota !== undefined);
     const pendencias = Number(etapa.pendings || etapa.pendencias || 0);
-    const status = temNota
+    const status = interrompida
+      ? 'Etapa interrompida - nota zerada'
+      : temNota
       ? pendencias > 0
         ? 'Pendente'
         : 'Corrigido'
@@ -586,17 +595,41 @@ function obterSubtituloEtapaResposta(resposta = {}) {
   );
 }
 
-function montarLinhasResultadoDetalhe(respostas = []) {
-  return respostas.map((resposta, indice) => ({
-    id: resposta.id_resposta || resposta.id || `${resposta.categoria || 'questao'}-${indice}`,
-    etapa: resposta.categoria || resposta.stageLabel || resposta.stage || 'Questão',
-    subtitulo: obterSubtituloEtapaResposta(resposta),
-    numero: Number(resposta.questao_indice ?? indice) + 1,
-    questao: resposta.texto_questao_snapshot || resposta.enunciado || resposta.questao || '-',
-    resposta: descreverResposta(resposta.resposta),
-    nota: formatarScore(resposta.nota),
-    status: obterStatusRespostaDetalhe(resposta),
-  }));
+function montarAnaliseRespostaDetalhe(resposta = {}, questao = {}) {
+  if (questao?.type !== 'word') return null;
+  const respostaOriginal = resposta.resposta;
+  const respostaWord = respostaOriginal && typeof respostaOriginal === 'object'
+    ? respostaOriginal
+    : { type: 'word', content: String(respostaOriginal || '') };
+  const pontos = Number(questao.points || 10);
+  const notaBase = avaliarRespostaTexto(respostaWord, questao.expected || {}, pontos);
+  return corrigirRespostaDiscursivaInteligente(
+    questao,
+    {
+      ...respostaWord,
+      formatacoesAplicadas: obterFormatacoesAplicadas(respostaWord),
+    },
+    notaBase,
+    pontos,
+  );
+}
+
+function montarLinhasResultadoDetalhe(respostas = [], questoes = []) {
+  return respostas.map((resposta, indice) => {
+    const questaoIndice = Number(resposta.questao_indice ?? indice);
+    const questao = questoes[questaoIndice] || {};
+    return {
+      id: resposta.id_resposta || resposta.id || `${resposta.categoria || 'questao'}-${indice}`,
+      etapa: resposta.categoria || resposta.stageLabel || resposta.stage || 'Questão',
+      subtitulo: obterSubtituloEtapaResposta(resposta),
+      numero: questaoIndice + 1,
+      questao: resposta.texto_questao_snapshot || resposta.enunciado || resposta.questao || '-',
+      resposta: descreverResposta(resposta.resposta),
+      nota: formatarScore(resposta.nota),
+      status: obterStatusRespostaDetalhe(resposta),
+      analiseResposta: montarAnaliseRespostaDetalhe(resposta, questao),
+    };
+  });
 }
 
 export function ModalGerarProva({
@@ -1256,7 +1289,9 @@ function ModalDetalheProvaGerada({
   const alertas = montarAlertasDetalhe(score);
   const etapas = montarEtapasResultado(detalhe);
   const respostas = Array.isArray(detalhe.respostas) ? detalhe.respostas : [];
-  const linhasResultado = montarLinhasResultadoDetalhe(respostas);
+  const questoes = Array.isArray(detalhe.questoes) ? detalhe.questoes : [];
+  const linhasResultado = montarLinhasResultadoDetalhe(respostas, questoes);
+  const linhasComAnalise = linhasResultado.filter((linha) => linha.analiseResposta);
   const notaGeral = obterNotaFinal(detalhe) ?? resultado.nota_final_prova;
   const scoreConecta = obterScoreFinal(detalhe) ?? score.score_final;
   const statusProva = detalhe.status || resultado.status || 'Pendente';
@@ -1427,6 +1462,54 @@ function ModalDetalheProvaGerada({
                       </tbody>
                     </table>
                   </div>
+                  ${linhasComAnalise.length
+                    ? html`
+                        <div class="generated-answer-list">
+                          ${linhasComAnalise.map((linha) => {
+                            const analise = linha.analiseResposta;
+                            const dados = analise.dados_analisados || {};
+                            return html`
+                              <article class="generated-answer-card" key=${`analise-${linha.id}`}>
+                                <div>
+                                  <strong>Análise de Resposta — questão ${linha.numero}</strong>
+                                  <p>${analise.justificativa_nota}</p>
+                                </div>
+                                <dl>
+                                  <div>
+                                    <dt>Nota sugerida</dt>
+                                    <dd>${analise.nota_sugerida}/${analise.nota_maxima}</dd>
+                                  </div>
+                                  <div>
+                                    <dt>Pontos positivos</dt>
+                                    <dd>${(analise.pontos_positivos || []).join(' ') || 'Nenhum ponto automático registrado.'}</dd>
+                                  </div>
+                                  <div>
+                                    <dt>Pontos de atenção</dt>
+                                    <dd>${(analise.pontos_atencao || []).join(' ') || 'Nenhum ponto automático registrado.'}</dd>
+                                  </div>
+                                  ${dados.o_que_deve_ser_avaliado
+                                    ? html`
+                                        <div>
+                                          <dt>O que deve ser avaliado</dt>
+                                          <dd>${dados.o_que_deve_ser_avaliado}</dd>
+                                        </div>
+                                      `
+                                    : null}
+                                  ${dados.rubrica_interna
+                                    ? html`
+                                        <div>
+                                          <dt>Rubrica interna</dt>
+                                          <dd>${dados.rubrica_interna}</dd>
+                                        </div>
+                                      `
+                                    : null}
+                                </dl>
+                              </article>
+                            `;
+                          })}
+                        </div>
+                      `
+                    : null}
                 `
               : html`
                   <div class="generated-full-result-fallback">

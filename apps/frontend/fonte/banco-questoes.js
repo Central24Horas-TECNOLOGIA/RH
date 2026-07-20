@@ -74,21 +74,24 @@ async function carregarJsonBancoQuestoes() {
 }
 
 async function carregarJsonBancoQuestoesReformuladas() {
-  const incorporado = BANCO_QUESTOES?.questoes_reformuladas;
-  if (incorporado && typeof incorporado === 'object') {
-    return {
-      questoes: Array.isArray(incorporado.questoes) ? incorporado.questoes : [],
-      questoes_personalizadas: Array.isArray(incorporado.questoes_personalizadas)
-        ? incorporado.questoes_personalizadas
-        : [],
-      origem: 'bancoQuestoes.json',
-    };
-  }
-
   try {
-    return await carregarJsonUrl(BANCO_QUESTOES_REFORMULADAS_URL);
+    const dedicado = await carregarJsonUrl(BANCO_QUESTOES_REFORMULADAS_URL);
+    return {
+      ...dedicado,
+      origem: 'bancoQuestoesReformuladas.json',
+    };
   } catch (error) {
     console.warn('Banco de questoes reformuladas indisponivel.', error);
+    const incorporado = BANCO_QUESTOES?.questoes_reformuladas;
+    if (incorporado && typeof incorporado === 'object') {
+      return {
+        questoes: Array.isArray(incorporado.questoes) ? incorporado.questoes : [],
+        questoes_personalizadas: Array.isArray(incorporado.questoes_personalizadas)
+          ? incorporado.questoes_personalizadas
+          : [],
+        origem: 'bancoQuestoes.json',
+      };
+    }
     return { questoes: [], questoes_personalizadas: [] };
   }
 }
@@ -423,6 +426,9 @@ function extrairPerfilReformulado(blueprint = {}) {
   if (chave.includes('supervisor')) {
     return { cargo: 'supervisor', area: null };
   }
+  if (chave.includes('planejamento')) {
+    return { cargo: 'planejamento', area: null };
+  }
   if (chave.includes('estagiario')) {
     let area = null;
     if (chaveArea.includes('ti')) area = 'TI';
@@ -510,14 +516,70 @@ function respostasCompactas(questao = {}) {
 
 function criteriosReformulados(questao = {}) {
   const rubrica = String(questao.rubricaInterna || '').trim();
-  if (!rubrica) return [];
-  return [
-    {
-      nome: 'Rubrica interna',
-      descricao: rubrica,
-      peso: 100,
-    },
-  ];
+  const oQueDeveSerAvaliado = String(questao.oQueDeveSerAvaliado || '').trim();
+  const criterios = [
+    oQueDeveSerAvaliado
+      ? {
+        nome: 'O que deve ser avaliado',
+        descricao: oQueDeveSerAvaliado,
+      }
+      : null,
+    rubrica
+      ? {
+        nome: 'Rubrica interna',
+        descricao: rubrica,
+      }
+      : null,
+  ].filter(Boolean);
+  const peso = criterios.length ? 100 / criterios.length : 0;
+  return criterios.map((criterio) => ({ ...criterio, peso }));
+}
+
+function requisitosFormatacaoReformulados(questao = {}) {
+  const texto = normalizarTexto([
+    questao.enunciado,
+    questao.oQueDeveSerAvaliado,
+  ].join(' '));
+  const requisitos = {};
+  const comandoFormatacao = '(?:aplique|aplicar|use|utilize|formate|coloque|deixe|mantenha)';
+
+  if (new RegExp(`${comandoFormatacao}.{0,50}negrit`).test(texto)) {
+    requisitos.anyBold = true;
+  }
+  if (new RegExp(`${comandoFormatacao}.{0,50}italic`).test(texto)) {
+    requisitos.requiresItalic = true;
+  }
+  if (new RegExp(`${comandoFormatacao}.{0,50}sublinh`).test(texto)) {
+    requisitos.requiresUnderline = true;
+  }
+  if (new RegExp(`${comandoFormatacao}.{0,50}tachad`).test(texto)) {
+    requisitos.requiresStrike = true;
+  }
+
+  if (/alinhamento\s+justificad|alinhe.{0,30}justificad|justifique\s+(?:todo\s+)?o\s+texto/.test(texto)) {
+    requisitos.requiredAlignment = 'justify';
+  } else if (/alinhamento\s+centralizad|centralize/.test(texto)) {
+    requisitos.requiredAlignment = 'center';
+  } else if (/alinhamento\s+(?:a\s+)?direita|alinhe.{0,30}(?:a\s+)?direita/.test(texto)) {
+    requisitos.requiredAlignment = 'right';
+  } else if (/alinhamento\s+(?:a\s+)?esquerda|alinhe.{0,30}(?:a\s+)?esquerda/.test(texto)) {
+    requisitos.requiredAlignment = 'left';
+  }
+
+  const tamanhoFonte = texto.match(/(?:fonte|tamanho).{0,30}\b(12|14|16|18|24)\b/);
+  if (tamanhoFonte) requisitos.requiredFontSize = Number(tamanhoFonte[1]);
+
+  if (/lista\s+numerad|numeracao/.test(texto)) {
+    requisitos.requiresList = true;
+    requisitos.requiredListType = 'ordered';
+  } else if (/lista\s+(?:com\s+)?marcadores|marcadores/.test(texto)) {
+    requisitos.requiresList = true;
+    requisitos.requiredListType = 'unordered';
+  } else if (new RegExp(`${comandoFormatacao}.{0,40}lista`).test(texto)) {
+    requisitos.requiresList = true;
+  }
+
+  return requisitos;
 }
 
 function adaptarQuestaoReformuladaParaSistema(questao, contexto) {
@@ -536,7 +598,8 @@ function adaptarQuestaoReformuladaParaSistema(questao, contexto) {
     itensOrdenacao: [],
     contextoInternoGeracao: '',
     criteriosAvaliacao: criteriosReformulados(questao).map((criterio) => criterio.descricao),
-    respostaEsperadaInterna: questao.gabarito || questao.rubricaInterna || '',
+    respostaEsperadaInterna:
+      questao.gabarito || questao.rubricaInterna || questao.oQueDeveSerAvaliado || '',
     points: contexto.points,
     questionBankId: questao.id,
     idQuestaoReformulada: questao.id,
@@ -551,6 +614,7 @@ function adaptarQuestaoReformuladaParaSistema(questao, contexto) {
     clienteIdPersonalizacao: questao.cliente_id || null,
     areaPersonalizacao: questao.area || null,
     rubricaInterna: questao.rubricaInterna || '',
+    oQueDeveSerAvaliado: questao.oQueDeveSerAvaliado || '',
     gabaritoInterno: questao.gabarito || null,
     personalizacao: {
       permitida: questao.origem === 'personalizada',
@@ -630,6 +694,7 @@ function adaptarQuestaoReformuladaParaSistema(questao, contexto) {
     criteria: criterios.map((criterio) => criterio.descricao),
     rubric: criterios,
     requiresRichText: tipo === 'word_discursive',
+    ...(tipo === 'word_discursive' ? requisitosFormatacaoReformulados(questao) : {}),
   };
 
   return {
@@ -639,11 +704,11 @@ function adaptarQuestaoReformuladaParaSistema(questao, contexto) {
     expected,
     essay: isEssay
       ? {
-        theme: questao.titulo || 'Redacao',
+        theme: questao.temaRedacao || questao.titulo || 'Redacao',
         supportTexts: [],
         motivatingTexts: [],
         proposal: questao.enunciado || '',
-        orientation: '',
+        orientation: questao.instrucoesRedacao || '',
         maxCharacters: MAX_CARACTERES_REDACAO,
         maxLines: MAX_LINHAS_REDACAO,
         criteria: expected.criteria,

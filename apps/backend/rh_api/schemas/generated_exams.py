@@ -75,6 +75,8 @@ class PublicCandidateDataRequest(PublicExamTokenRequest):
 class PublicExamAnswersRequest(PublicExamTokenRequest):
     respostas: list[Any] = Field(default_factory=list)
     finalizar_mesmo_assim: bool = False
+    etapa_chave: str = ""
+    questao_indice: int | None = None
 
 
 class ManualEvaluationRequest(BaseSchema):

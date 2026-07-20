@@ -31,6 +31,7 @@ NIVEL_POR_CARGO = {
     "operador": "basico",
     "estagiario": "basico",
     "supervisor": "intermediario",
+    "planejamento": "avancado",
 }
 
 GABARITO_PALAVRAS_CORRETAS_20 = {
@@ -99,7 +100,7 @@ def combine_paragraphs(paragraphs):
 
 def remover_rotulo_questao(texto):
     return re.sub(
-        r"^\s*Quest[aã]o\s+\d+\s*(?:[-–—]\s*)?",
+        r"^\s*Quest[aã]o\s+\d+\s*(?:[:\-–—]\s*)?",
         "",
         str(texto or ""),
         flags=re.I,
@@ -151,27 +152,72 @@ def parse_gabarito_linha(texto):
 
 def parse_gabarito_grupo(texto):
     bruto = parse_gabarito_linha(texto) or texto
-    pares = re.findall(r"(\d+)\s*([A-D])", bruto, flags=re.I)
+    pares = re.findall(r"(\d+)\s*[-–—:]?\s*([A-D])", bruto, flags=re.I)
     return {str(int(numero)): letra.upper() for numero, letra in pares}
 
 
+def extrair_gabarito_documento(paragraphs):
+    start = next(
+        (
+            index
+            for index, paragraph in enumerate(paragraphs)
+            if chave_texto(paragraph.text).startswith("gabarito")
+        ),
+        None,
+    )
+    if start is None:
+        return {}, len(paragraphs)
+
+    respostas = parse_gabarito_grupo(" ".join(p.text for p in paragraphs[start:]))
+    for index in range(start + 1, len(paragraphs) - 1):
+        numero = paragraphs[index].text.strip()
+        letra = paragraphs[index + 1].text.strip().upper()
+        if re.fullmatch(r"\d+", numero) and re.fullmatch(r"[A-D]", letra):
+            respostas[str(int(numero))] = letra
+    return respostas, start
+
+
 def split_rubrica(paragraphs):
+    """Separa dados internos sem incorporá-los ao enunciado do candidato."""
     visiveis = []
     rubricas = []
+    itens_avaliacao = []
+    bloco_interno = None
+
     for paragraph in paragraphs:
+        texto = paragraph.text
         match = re.search(
             r"(O que\s+deve\s+ser\s+avaliado|Observa[cç][aã]o)\s*:?\s*(.*)$",
-            paragraph.text,
+            texto,
             flags=re.I,
         )
-        if not match:
-            visiveis.append(paragraph)
+        if match:
+            antes = texto[: match.start()].strip()
+            if antes:
+                visiveis.append(Paragraph(antes, paragraph.bold[: len(antes)]))
+            bloco_interno = (
+                "avaliacao"
+                if chave_texto(match.group(1)).startswith("o que deve ser avaliado")
+                else "rubrica"
+            )
+            conteudo = match.group(2).strip()
+            if conteudo:
+                (itens_avaliacao if bloco_interno == "avaliacao" else rubricas).append(conteudo)
             continue
-        antes = paragraph.text[: match.start()].strip()
-        if antes:
-            visiveis.append(Paragraph(antes, paragraph.bold[: len(antes)]))
-        rubricas.append(match.group(2).strip() or paragraph.text[match.end() :].strip())
-    return visiveis, normalizar_espacos(" ".join(rubricas))
+
+        # O bloco interno ocupa o restante da questão. Gabaritos continuam sendo
+        # tratados pelo parser específico para não alterar questões objetivas.
+        if bloco_interno and not re.match(r"^\s*Gabarito\s*:?", texto, flags=re.I):
+            (itens_avaliacao if bloco_interno == "avaliacao" else rubricas).append(texto)
+            continue
+
+        visiveis.append(paragraph)
+
+    return (
+        visiveis,
+        normalizar_espacos(" ".join(rubricas)),
+        normalizar_espacos(" ".join(itens_avaliacao)),
+    )
 
 
 def split_gabarito(paragraphs):
@@ -346,6 +392,9 @@ def criar_questao(
     itens=None,
     gabarito=None,
     rubrica=None,
+    o_que_deve_ser_avaliado=None,
+    tema_redacao=None,
+    instrucoes_redacao=None,
     cliente=None,
     area=None,
     base_neutra_id=None,
@@ -381,6 +430,9 @@ def criar_questao(
         "itens": itens or [],
         "gabarito": gabarito,
         "rubricaInterna": normalizar_espacos(rubrica or ""),
+        "oQueDeveSerAvaliado": normalizar_espacos(o_que_deve_ser_avaliado or ""),
+        "temaRedacao": normalizar_espacos(tema_redacao or ""),
+        "instrucoesRedacao": normalizar_espacos(instrucoes_redacao or ""),
         "exibirParaCandidato": True,
         "origemArquivo": origem_arquivo,
         "fontesOrigem": fontes_origem or [origem_arquivo],
@@ -389,7 +441,7 @@ def criar_questao(
 
 def parse_question_block(block, meta):
     numero = numero_questao(block[0].text)
-    visiveis, rubrica = split_rubrica(block)
+    visiveis, rubrica, o_que_deve_ser_avaliado = split_rubrica(block)
     visiveis, gabarito_texto = split_gabarito(visiveis)
     combinado = combine_paragraphs(visiveis)
     opcoes = localizar_alternativas(combinado, "ABCD")
@@ -407,6 +459,7 @@ def parse_question_block(block, meta):
             itens=compacto["itens"],
             gabarito=gabarito,
             rubrica=rubrica,
+            o_que_deve_ser_avaliado=o_que_deve_ser_avaliado,
         )
 
     if opcoes and len(opcoes["alternativas"]) == 4:
@@ -424,6 +477,7 @@ def parse_question_block(block, meta):
             alternativas=opcoes["alternativas"],
             gabarito=gabarito[:1] if gabarito else None,
             rubrica=rubrica,
+            o_que_deve_ser_avaliado=o_que_deve_ser_avaliado,
         )
 
     opcoes_sem_rotulo = detectar_alternativas_sem_rotulo(visiveis)
@@ -441,6 +495,7 @@ def parse_question_block(block, meta):
             alternativas=opcoes_sem_rotulo["alternativas"],
             gabarito=(gabarito_texto or "").strip().upper()[:1] or None,
             rubrica=rubrica,
+            o_que_deve_ser_avaliado=o_que_deve_ser_avaliado,
         )
 
     texto = "\n\n".join(remover_rotulo_questao(p.text) for p in visiveis).strip()
@@ -451,19 +506,67 @@ def parse_question_block(block, meta):
         enunciado=texto,
         gabarito=None,
         rubrica=rubrica,
+        o_que_deve_ser_avaliado=o_que_deve_ser_avaliado,
     )
 
 
 def criar_redacao(paragraphs, meta, numero=1):
-    texto = "\n\n".join(p.text for p in paragraphs if p.text.strip()).strip()
-    texto = re.sub(r"^\s*Reda[cç][aã]o\s*:?\s*", "", texto, flags=re.I).strip()
+    visiveis, rubrica, o_que_deve_ser_avaliado = split_rubrica(paragraphs)
+    textos = [p.text for p in visiveis if p.text.strip()]
+    texto = "\n\n".join(textos).strip()
+    texto = re.sub(
+        r"^\s*(?:Parte\s+\d+\s*[—-]\s*)?Reda[cç][aã]o\s*:?\s*",
+        "",
+        texto,
+        flags=re.I,
+    ).strip()
+
+    tema = ""
+    instrucoes = ""
+    for index, item in enumerate(textos):
+        match_tema = re.match(r"^\s*Tema\s*:?\s*(.*)$", item, flags=re.I)
+        if match_tema:
+            tema = match_tema.group(1).strip(" \"'“”")
+            if not tema and index + 1 < len(textos):
+                tema = textos[index + 1].strip(" \"'“”")
+            break
+    if not tema and "tema livre" in chave_texto(texto):
+        tema = "Tema livre"
+    if not tema:
+        primeiro_conteudo = next(
+            (
+                item.strip(" \"'“”")
+                for item in textos
+                if chave_texto(item) not in ("redacao", "tema", "instrucoes")
+                and not chave_texto(item).startswith("redacao:")
+                and not chave_texto(item).startswith("instrucoes:")
+            ),
+            "",
+        )
+        if primeiro_conteudo and len(primeiro_conteudo) <= 280:
+            tema = primeiro_conteudo
+    if not tema and all(
+        termo in chave_texto(texto)
+        for termo in ("trajetoria", "interesses", "expectativas", "motiva")
+    ):
+        tema = "Trajetória, interesses, expectativas para o futuro e motivação profissional"
+
+    for item in textos:
+        match_instrucoes = re.match(r"^\s*Instru[cç][oõ]es\s*:?\s*(.*)$", item, flags=re.I)
+        if match_instrucoes:
+            instrucoes = match_instrucoes.group(1).strip()
+            break
+
     return criar_questao(
         **meta,
         tipo="essay",
         numero=numero,
         enunciado=texto,
         gabarito=None,
-        rubrica=None,
+        rubrica=rubrica,
+        o_que_deve_ser_avaliado=o_que_deve_ser_avaliado,
+        tema_redacao=tema,
+        instrucoes_redacao=instrucoes,
     )
 
 
@@ -471,7 +574,13 @@ def intervalo_redacao_apos(paragraphs, start_index):
     end = len(paragraphs)
     for index in range(start_index + 1, len(paragraphs)):
         texto = paragraphs[index].text
-        if re.match(r"^\s*(Quest[aã]o\s+\d+|Cliente:|CLIENTE:|PROVA PERSONALIZADA|SUPERVISOR\s+[—-])", texto, flags=re.I):
+        chave = chave_texto(texto)
+        if (
+            re.match(r"^\s*(Quest[aã]o\s+\d+|Cliente:|CLIENTE:|PROVA PERSONALIZADA|SUPERVISOR\s+[—-])", texto, flags=re.I)
+            or chave.startswith("questoes multipla")
+            or chave.startswith("parte 2")
+            or chave == "gabarito"
+        ):
             end = index
             break
     return paragraphs[start_index:end]
@@ -653,6 +762,109 @@ def parse_supervisor_personalizado(paragraphs, origem_arquivo):
     return questoes
 
 
+def parse_word_com_redacao_inicial(paragraphs, cargo, origem_arquivo):
+    questoes = []
+    gabarito, fim_questoes = extrair_gabarito_documento(paragraphs)
+    redacao_index = next(
+        (
+            i
+            for i, paragraph in enumerate(paragraphs)
+            if "redacao" in chave_texto(paragraph.text)
+        ),
+        None,
+    )
+    if redacao_index is not None:
+        questoes.append(
+            criar_redacao(
+                intervalo_redacao_apos(paragraphs, redacao_index),
+                {
+                    "cargo": cargo,
+                    "etapa": "redacao",
+                    "origem": "neutra",
+                    "origem_arquivo": origem_arquivo,
+                },
+            )
+        )
+
+    meta = {
+        "cargo": cargo,
+        "etapa": "word",
+        "origem": "neutra",
+        "origem_arquivo": origem_arquivo,
+    }
+    questoes.extend(
+        parse_question_block(block, meta)
+        for block in blocos_questoes(paragraphs, 0, fim_questoes)
+    )
+    for questao in questoes:
+        if questao["tipo"] == "multiple_choice" and gabarito.get(str(questao["numero"])):
+            questao["gabarito"] = gabarito[str(questao["numero"])]
+    return questoes
+
+
+def parse_word_versoes_personalizadas(paragraphs, cargo, origem_arquivo):
+    questoes = []
+    gabarito, fim_questoes = extrair_gabarito_documento(paragraphs)
+    section_starts = [
+        index
+        for index, paragraph in enumerate(paragraphs)
+        if chave_texto(paragraph.text).startswith("versao ")
+    ]
+
+    for pos, start in enumerate(section_starts):
+        end = section_starts[pos + 1] if pos + 1 < len(section_starts) else fim_questoes
+        cliente = next(
+            (
+                detectar_cliente(paragraphs[index].text)
+                for index in range(start, min(start + 3, end))
+                if detectar_cliente(paragraphs[index].text)
+            ),
+            None,
+        )
+        if not cliente:
+            continue
+
+        redacao_index = next(
+            (
+                index
+                for index in range(start, end)
+                if "redacao" in chave_texto(paragraphs[index].text)
+            ),
+            None,
+        )
+        if redacao_index is not None:
+            questoes.append(
+                criar_redacao(
+                    intervalo_redacao_apos(paragraphs, redacao_index),
+                    {
+                        "cargo": cargo,
+                        "etapa": "redacao",
+                        "origem": "personalizada",
+                        "origem_arquivo": origem_arquivo,
+                        "cliente": cliente,
+                    },
+                )
+            )
+
+        meta = {
+            "cargo": cargo,
+            "etapa": "word",
+            "origem": "personalizada",
+            "origem_arquivo": origem_arquivo,
+            "cliente": cliente,
+        }
+        questoes.extend(
+            parse_question_block(block, meta)
+            for block in blocos_questoes(paragraphs, start + 1, end)
+        )
+
+    for questao in questoes:
+        if questao["tipo"] == "multiple_choice" and gabarito.get(str(questao["numero"])):
+            questao["gabarito"] = gabarito[str(questao["numero"])]
+
+    return questoes
+
+
 def aplicar_bases_neutras(questoes):
     neutras = {}
     for questao in questoes:
@@ -682,6 +894,22 @@ def aplicar_bases_neutras(questoes):
         questao["aliases_base_neutra"] = [item for item in aliases if item]
 
 
+def localizar_arquivo_zip(archive, caminho_esperado):
+    """Aceita o ZIP com ou sem uma pasta contêiner na raiz."""
+    esperado = caminho_esperado.replace("\\", "/").strip("/")
+    candidatos = [
+        nome
+        for nome in archive.namelist()
+        if nome.replace("\\", "/").strip("/") == esperado
+        or nome.replace("\\", "/").strip("/").endswith("/" + esperado)
+    ]
+    if len(candidatos) != 1:
+        raise KeyError(
+            f"Arquivo esperado não encontrado de forma única no ZIP: {caminho_esperado}"
+        )
+    return candidatos[0]
+
+
 def importar(zip_path):
     specs = {
         "Provas - Word e Redacao/Jovem Aprendiz/JP - NEUTRAS.docx": lambda p, n: parse_word_neutro(p, "jovem_aprendiz", n),
@@ -692,6 +920,8 @@ def importar(zip_path):
         "Provas - Word e Redacao/Operador/OPERADOR - PERSONALIZADAS POR CLIENTES.docx": lambda p, n: parse_word_personalizado(p, "operador", n),
         "Provas - Word e Redacao/Supervidor/SUPERVISOR - NEUTRAS.docx": lambda p, n: parse_supervisor(p, "neutra", n),
         "Provas - Word e Redacao/Supervidor/SUPERVISOR - PERSONALIZADAS POR CLIENTES.docx": lambda p, n: parse_supervisor_personalizado(p, n),
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - NEUTRAS.docx": lambda p, n: parse_word_com_redacao_inicial(p, "planejamento", n),
+        "Provas - Word e Redacao/Planejamento/PLANEJAMENTO - PERSONALIZADAS.docx": lambda p, n: parse_word_versoes_personalizadas(p, "planejamento", n),
         "Provas - Conhecimentos/Estagiário/CONHECIMENTOS GERAIS- ESTAGIARIOS (TI, RH, COMERCIAL).docx": lambda p, n: parse_conhecimentos_estagiario(p, n, "conhecimentos_gerais"),
         "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO TI.docx": lambda p, n: parse_conhecimentos_estagiario(p, n, "conhecimentos_tecnicos", "TI"),
         "Provas - Conhecimentos/Estagiário/CONHECIMENTO TECNICO - ESTAGIARIO COMERCIAL .docx": lambda p, n: parse_conhecimentos_estagiario(p, n, "conhecimentos_tecnicos", "Comercial"),
@@ -701,7 +931,8 @@ def importar(zip_path):
     arquivos = []
     with zipfile.ZipFile(zip_path) as archive:
         for name, parser in specs.items():
-            data = archive.read(name)
+            archive_name = localizar_arquivo_zip(archive, name)
+            data = archive.read(archive_name)
             arquivos.append(
                 {
                     "arquivo": name,
@@ -716,7 +947,7 @@ def importar(zip_path):
     neutras = [q for q in questoes if q["origem"] == "neutra"]
     return {
         "versao": 1,
-        "ultima_atualizacao": "2026-06-19",
+        "ultima_atualizacao": "2026-07-17",
         "descricao": "Banco reformulado importado dos DOCX enviados. Excel permanece fora deste arquivo.",
         "arquivos_origem": arquivos,
         "questoes": neutras,

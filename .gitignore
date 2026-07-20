@@ -62,3 +62,9 @@ build/
 infra/docker/volumes/
 caddy_data/
 caddy_config/
+
+
+#Documentacao e Docker
+MAPA_COMPLETO_CONECTA/
+.dockerignore
+SECURTITY.md
