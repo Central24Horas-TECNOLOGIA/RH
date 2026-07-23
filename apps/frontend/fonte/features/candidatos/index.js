@@ -21,7 +21,7 @@ import {
   removerBancoTalentos,
   uploadCvCandidato,
   usarCandidatoDoBancoTalentos,
-} from '../../servico-api.js';
+} from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { baixarBlob, obterItensPaginados } from '../../utilitarios.js';
 import {
   EmptyState,

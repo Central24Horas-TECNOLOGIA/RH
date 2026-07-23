@@ -18,6 +18,7 @@ from ..services.helpers import (
     normalize_text,
     rows_to_dicts,
 )
+from .exam_analytics_schema import ensure_exam_analytics_tables
 
 
 logger = logging.getLogger(__name__)
@@ -1959,6 +1960,7 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_candidate_movements_table(cursor)
             ensure_process_dossier_notes_table(cursor)
             ensure_conecta_exams_tables(cursor)
+            ensure_exam_analytics_tables(cursor, create_if_missing=True)
             ensure_process_reference_columns(cursor)
             ensure_decimal_process_columns(cursor)
         finally:

@@ -13,7 +13,7 @@ function carregarTela(importador, nomeExportado) {
 
 function TelaCarregando({
   titulo = 'Carregando tela',
-  descricao = 'Aguarde enquanto preparamos as informaÃ§Ãµes.',
+  descricao = 'Aguarde: Carregando informações.',
 }) {
   return html`
     <section class="active screen" id="screen-loading">
@@ -47,8 +47,12 @@ const TelaDetalhesCandidato = carregarTela(() => import('../features/candidatos/
 const TelaPipelineCandidatos = carregarTela(() => import('../features/tela-pipeline.js'), 'TelaPipelineCandidatos');
 const TelaEntrevistas = carregarTela(() => import('../features/tela-entrevistas.js'), 'TelaEntrevistas');
 const TelaCandidaturaPublica = carregarTela(() => import('../features/public-candidacy/index.js'), 'TelaCandidaturaPublica');
-const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js?v=20260720-conecta-provas-etapas-vagas'), 'TelaConectaProvas');
+const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js?v=20260721-exam-analytics-2'), 'TelaConectaProvas');
 const TelaProvasResultados = carregarTela(() => import('../features/provas-geradas/index.js'), 'TelaProvasResultados');
+const TelaResultadosAnaliticosProcesso = carregarTela(
+  () => import('../features/resultados-analiticos/index.js?v=20260721-exam-analytics-2'),
+  'TelaResultadosAnaliticosProcesso',
+);
 const TelaConfiguracoesSistema = carregarTela(
   () => import('../features/configuracoes/index.js?v=20260713-config-users-fix7'),
   'TelaConfiguracoesSistema',
@@ -223,13 +227,17 @@ function ConteudoAplicacao() {
     return html`<${TelaProvasResultados} controlador=${controlador} />`;
   }
 
+  if (telaResolvida === 'screen-process-analytical-results') {
+    return html`<${TelaResultadosAnaliticosProcesso} controlador=${controlador} />`;
+  }
+
   if (telaResolvida === 'screen-forbidden') {
     return html`
       <section class="active screen" id="screen-forbidden">
         <div class="container py-5">
           <div class="alert alert-warning mb-3">
             ${controlador.estado.avisoAcessoNegado ||
-            'VocÃª nÃ£o possui permissÃ£o para acessar esta Ã¡rea ou executar esta aÃ§Ã£o.'}
+      'VocÃª nÃ£o possui permissÃ£o para acessar esta Ã¡rea ou executar esta aÃ§Ã£o.'}
           </div>
           <button
             type="button"

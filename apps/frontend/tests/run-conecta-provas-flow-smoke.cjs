@@ -7,11 +7,28 @@ const source = fs.readFileSync(
   path.join(rootDir, 'fonte', 'features', 'conecta-provas', 'index.js'),
   'utf8',
 );
+const apiAggregator = fs.readFileSync(
+  path.join(__dirname, '..', 'fonte', 'servico-api.js'),
+  'utf8',
+);
+const generatedExamsApi = fs.readFileSync(
+  path.join(__dirname, '..', 'fonte', 'services', 'api', 'generated-exams.js'),
+  'utf8',
+);
+const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const principal = fs.readFileSync(path.join(__dirname, '..', 'fonte', 'principal.js'), 'utf8');
+const aplicacao = fs.readFileSync(path.join(__dirname, '..', 'fonte', 'aplicacao.js'), 'utf8');
 
 assert.ok(source.includes('>Começar</button>'));
 assert.ok(source.includes("const bloqueada = (!somenteCadastro && !cadastroConcluido) || indisponivel"));
-assert.ok(source.includes('concluirEtapaConectaProvas(token, respostas, etapaSelecionadaKey, indiceAtual)'));
+assert.ok(source.includes('concluirEtapaConectaProvas('));
+assert.ok(source.includes('montarPayloadTelemetria({ finalizarEtapa: true })'));
 assert.ok(source.includes('interromperEtapaConectaProvas('));
+assert.ok(apiAggregator.includes("generated-exams.js?v=20260721-exam-analytics-2"));
+assert.ok(generatedExamsApi.includes('export async function concluirEtapaConectaProvas'));
+assert.ok(indexHtml.includes('principal.js?v=20260721-exam-analytics-2'));
+assert.ok(principal.includes('aplicacao.js?v=20260721-exam-analytics-2'));
+assert.ok(aplicacao.includes('aplicacao-raiz.js?v=20260721-exam-analytics-2'));
 assert.ok(!source.includes('Ver etapas'));
 assert.ok(source.includes("setEtapa('etapas')"));
 assert.ok(source.includes('localStorage.setItem(CHAVE_TOKEN_PUBLICO'));

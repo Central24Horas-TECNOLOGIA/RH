@@ -32,6 +32,23 @@ services:
       - conecta-hml-net
     restart: unless-stopped
 
+  analytics-worker:
+    image: ${CONECTA_BACKEND_IMAGE:-ghcr.io/empresa/conecta-backend}:${APP_VERSION:-0.1.0}
+    command: ["python", "-m", "rh_api.workers.exam_analytics", "--poll-seconds", "5"]
+    env_file:
+      - env/hml.env
+    environment:
+      RH_APP_ENV: hml
+      RH_FRONT_SERVE_STATIC: "false"
+    volumes:
+      - conecta-hml-private:/app/data/private
+    networks:
+      - conecta-hml-net
+      - conecta-ops-net
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+
 volumes:
   conecta-hml-private:
   conecta-hml-caddy-data:

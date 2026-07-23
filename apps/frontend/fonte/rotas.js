@@ -19,6 +19,7 @@ export const ROTAS_POR_TELA = {
   'screen-settings-logs': 'configuracoes/logs',
   'screen-settings': 'configuracoes/usuario',
   'screen-generated-exams': 'processos/provas-resultados',
+  'screen-process-analytical-results': 'processos/resultados-analiticos',
   'screen-config': 'configuracao',
   'screen-candidate': 'candidato',
   'screen-exam': 'prova',
@@ -93,7 +94,20 @@ export function obterTelaPorRota(rotaAtual = obterRotaAtual()) {
     return 'screen-conecta-provas';
   }
   if (rota.startsWith('candidatar/')) return 'screen-public-candidacy';
+  if (/^processos\/.+\/resultados-analiticos$/.test(rota)) {
+    return 'screen-process-analytical-results';
+  }
   return TELAS_POR_ROTA[rota] || 'screen-login';
+}
+
+export function obterProcessoResultadosAnaliticosPorRota(rotaAtual = obterRotaAtual()) {
+  const rota = normalizarRota(rotaAtual);
+  const match = rota.match(/^processos\/(.+)\/resultados-analiticos$/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+export function montarCaminhoResultadosAnaliticos(processId) {
+  return `/processos/${encodeURIComponent(String(processId || '').trim())}/resultados-analiticos`;
 }
 
 export function obterTelaPorHash(hashAtual) {

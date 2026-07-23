@@ -302,6 +302,7 @@ SCREEN_PERMISSIONS: dict[str, str] = {
     "screen-settings-profiles": "configuracoes.visualizar",
     "screen-settings-logs": "logs.visualizar",
     "screen-generated-exams": "provas.visualizar",
+    "screen-process-analytical-results": "provas.visualizar",
     "screen-config": "provas.enviar",
     "screen-candidate": "provas.enviar",
     "screen-exam": "provas.enviar",

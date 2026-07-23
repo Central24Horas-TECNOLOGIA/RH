@@ -28,7 +28,7 @@ import {
   recalcularScoreProva,
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
-} from '../../servico-api.js';
+} from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { obterItensPaginados } from '../../utilitarios.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
 import { AcaoSair } from '../../shared/components/actions.js';

@@ -8,7 +8,7 @@ import {
 import {
   lerCandidatosProcessos,
   lerProcessos,
-} from '../servico-api.js';
+} from '../servico-api.js?v=20260721-exam-analytics-2';
 import { montarIndiceRequisitosBusca } from '../perguntas.js';
 import {
   CHAVE_PIPELINE_CANDIDATO,

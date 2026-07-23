@@ -222,6 +222,10 @@ function normalizarBuscaPainel(valor) {
     .toLowerCase();
 }
 
+function vagaPermiteTipoAtendimentoProcesso(vaga) {
+  return ['operador', 'jovem aprendiz'].includes(normalizarBuscaPainel(vaga));
+}
+
 function montarChaveCacheSecaoEmail({ mostrarIgnorados = false, query = '' } = {}) {
   return JSON.stringify({
     limite: LIMITE_CACHE_EMAILS_RECEBIDOS,
@@ -391,7 +395,12 @@ function obterEtapasDisponiveisPersonalizacaoProcesso(formulario = {}, trilhaBlu
     ...(permiteGerais ? ['conhecimentos_gerais'] : []),
     ...(permiteTecnicos ? ['conhecimentos_tecnicos'] : []),
   ]);
-  return ETAPAS_PERSONALIZADAS_PROCESSO.filter((etapa) => permitidas.has(etapa.key));
+  const etapasOrdenadas = contexto.qualidade
+    ? ['word', 'excel', 'redacao', 'conhecimentos_tecnicos', 'conhecimentos_gerais']
+      .map((chave) => ETAPAS_PERSONALIZADAS_PROCESSO.find((etapa) => etapa.key === chave))
+      .filter(Boolean)
+    : ETAPAS_PERSONALIZADAS_PROCESSO;
+  return etapasOrdenadas.filter((etapa) => permitidas.has(etapa.key));
 }
 
 function montarQuestoesEtapasPersonalizadasProcesso({
@@ -2448,6 +2457,7 @@ export function TelaCriarProcesso({ controlador }) {
   const [modalCompartilharAberto, setModalCompartilharAberto] = useState(false);
 
   const regras = obterRegrasFormularioProcesso(formulario.vaga);
+  const permiteTipoAtendimento = vagaPermiteTipoAtendimentoProcesso(formulario.vaga);
   const trilhaEfetiva = regras.trilhaFixa || formulario.trilha;
   const trilhaBlueprint = normalizarTrilhaProvaProcesso(
     formulario.areaProva || trilhaEfetiva,
@@ -2458,6 +2468,12 @@ export function TelaCriarProcesso({ controlador }) {
       setFormulario((anterior) => ({ ...anterior, trilha: regras.trilhaFixa }));
     }
   }, [regras.trilhaFixa, formulario.trilha]);
+
+  useEffect(() => {
+    const areaSelecionada = normalizarTextoPainel(trilhaEfetiva);
+    if (!areaSelecionada || formulario.areaProva === areaSelecionada) return;
+    setFormulario((anterior) => ({ ...anterior, areaProva: areaSelecionada }));
+  }, [trilhaEfetiva, formulario.areaProva]);
 
   useEffect(() => {
     if (!formulario.vaga) return;
@@ -2496,9 +2512,12 @@ export function TelaCriarProcesso({ controlador }) {
     [formulario.vaga, formulario.areaProva, formulario.trilha, trilhaBlueprint],
   );
   const etapasSelecionadasPersonalizacao = useMemo(() => {
-    const disponiveis = new Set(etapasDisponiveisPersonalizacao.map((item) => item.key));
-    return (Array.isArray(formulario.etapasPersonalizadas) ? formulario.etapasPersonalizadas : [])
-      .filter((etapaKey) => disponiveis.has(etapaKey));
+    const selecionadas = new Set(
+      Array.isArray(formulario.etapasPersonalizadas) ? formulario.etapasPersonalizadas : [],
+    );
+    return etapasDisponiveisPersonalizacao
+      .map((item) => item.key)
+      .filter((etapaKey) => selecionadas.has(etapaKey));
   }, [formulario.etapasPersonalizadas, etapasDisponiveisPersonalizacao]);
   const questoesConfiguradas = useMemo(
     () => montarQuestoesEtapasPersonalizadasProcesso({
@@ -2613,6 +2632,8 @@ export function TelaCriarProcesso({ controlador }) {
           areaProva: '',
           nivelProva: '',
           niveisEtapas: {},
+          tiposAtendimento: [],
+          tipoAtendimentoOutro: '',
         }
         : {}),
       ...(campo === 'areaProva'
@@ -2653,10 +2674,12 @@ export function TelaCriarProcesso({ controlador }) {
   const montarDadosPersonalizacao = () => {
     const clienteOperacao = normalizarTextoPainel(formulario.operacao);
     const clientes = clienteOperacao ? [clienteOperacao] : [];
-    const tiposAtendimento = montarListaComOutroProcesso(
-      formulario.tiposAtendimento,
-      formulario.tipoAtendimentoOutro,
-    );
+    const tiposAtendimento = permiteTipoAtendimento
+      ? montarListaComOutroProcesso(
+        formulario.tiposAtendimento,
+        formulario.tipoAtendimentoOutro,
+      )
+      : [];
 
     return {
       enabled: Boolean(formulario.personalizacaoInteligente),
@@ -2740,7 +2763,7 @@ export function TelaCriarProcesso({ controlador }) {
           return 'Defina o nível de todas as etapas selecionadas ou mantenha o nível padrão.';
         }
       }
-      if (!personalizacao.tiposAtendimento.length) {
+      if (permiteTipoAtendimento && !personalizacao.tiposAtendimento.length) {
         return 'Selecione ao menos um tipo de atendimento para personalizar a prova.';
       }
     }
@@ -2999,7 +3022,7 @@ export function TelaCriarProcesso({ controlador }) {
                     <div class="process-create-form-grid">
                       <label class="process-create-field">
                         <span>Área / Trilha</span>
-                        <select value=${formulario.areaProva} onChange=${(event) => atualizarCampo('areaProva', event.target.value)}>
+                        <select disabled value=${formulario.areaProva}>
                           <option value="">Selecione...</option>
                           ${opcoesAreasProva.map(
         (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
@@ -3056,21 +3079,25 @@ export function TelaCriarProcesso({ controlador }) {
                     ${formulario.personalizacaoInteligente
           ? html`
                           <div class="process-create-form-grid mt-3">
-                            <label class="process-create-field is-wide">
-                              <span>Tipo de atendimento</span>
-                              <select multiple value=${formulario.tiposAtendimento} onChange=${(event) => atualizarCampo('tiposAtendimento', lerValoresMultiselectProcesso(event))}>
-                                ${[...TIPOS_ATENDIMENTO_PERSONALIZACAO, OPCAO_OUTRO_PROCESSO].map(
-            (opcao) => html`<option key=${opcao} value=${opcao} selected=${formulario.tiposAtendimento.includes(opcao)}>${opcao}</option>`,
-          )}
-                              </select>
-                            </label>
-                            ${formulario.tiposAtendimento.includes(OPCAO_OUTRO_PROCESSO)
+                            ${permiteTipoAtendimento
               ? html`
-                                  <label class="process-create-field">
-                                    <span>Outro tipo de atendimento</span>
-                                    <input value=${formulario.tipoAtendimentoOutro} onInput=${(event) => atualizarCampo('tipoAtendimentoOutro', event.target.value)} />
-                                  </label>
-                                `
+                                <label class="process-create-field is-wide">
+                                  <span>Tipo de atendimento</span>
+                                  <select multiple value=${formulario.tiposAtendimento} onChange=${(event) => atualizarCampo('tiposAtendimento', lerValoresMultiselectProcesso(event))}>
+                                    ${[...TIPOS_ATENDIMENTO_PERSONALIZACAO, OPCAO_OUTRO_PROCESSO].map(
+                    (opcao) => html`<option key=${opcao} value=${opcao} selected=${formulario.tiposAtendimento.includes(opcao)}>${opcao}</option>`,
+                  )}
+                                  </select>
+                                </label>
+                                ${formulario.tiposAtendimento.includes(OPCAO_OUTRO_PROCESSO)
+                    ? html`
+                                      <label class="process-create-field">
+                                        <span>Outro tipo de atendimento</span>
+                                        <input value=${formulario.tipoAtendimentoOutro} onInput=${(event) => atualizarCampo('tipoAtendimentoOutro', event.target.value)} />
+                                      </label>
+                                    `
+                    : null}
+                              `
               : null}
                             <label class="process-create-field">
                               <span>Nível de personalização</span>

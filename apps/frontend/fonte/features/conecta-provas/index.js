@@ -7,11 +7,12 @@ import {
   concluirEtapaConectaProvas,
   finalizarConectaProvas,
   iniciarConectaProvas,
+  iniciarEtapaConectaProvas,
   interromperEtapaConectaProvas,
   lerSessaoConectaProvas,
   marcarRevisaoConectaProvas,
   salvarRespostasConectaProvas,
-} from '../../servico-api.js';
+} from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { formatarTempoRestante } from '../../shared/helpers-visuais.js';
 import {
   EditorTextoRich,
@@ -32,6 +33,19 @@ const ORIENTACAO_REDACAO =
   `Seu texto deve ter introdução, desenvolvimento e conclusão. Escreva uma redação de até ${LIMITE_LINHAS_REDACAO} linhas.`;
 const AVISO_SAIDA_ETAPA =
   'Ao atualizar ou sair desta página, você retornará para a tela de etapas. Esta etapa será considerada realizada e não poderá ser feita novamente.';
+
+function estimarTamanhoRespostaAnalitica(resposta) {
+  if (resposta === null || resposta === undefined) return 0;
+  if (typeof resposta === 'string') return resposta.length;
+  if (typeof resposta !== 'object') return String(resposta).length;
+  const texto = resposta.text || resposta.content;
+  if (typeof texto === 'string') return texto.replace(/<[^>]+>/g, '').length;
+  if (resposta.selected !== undefined && resposta.selected !== null) return String(resposta.selected).length;
+  if (resposta.selections && typeof resposta.selections === 'object') {
+    return Object.keys(resposta.selections).length;
+  }
+  return Number(resposta.fileSize || resposta.tamanho || 0);
+}
 const CRITERIOS_REDACAO = [
   'Clareza',
   'Coerência',
@@ -1173,6 +1187,7 @@ function QuestaoProva({
   progresso,
   nomeCandidato,
   onResposta,
+  onColagem,
 }) {
   const tipo = questao?.type || 'multiple';
   const limiteCaracteres = obterLimiteCaracteresRedacao(questao);
@@ -1182,7 +1197,7 @@ function QuestaoProva({
     ? separarTextoParaCopiarWord(camposVisiveis.enunciado)
     : { enunciado: camposVisiveis.enunciado, textoCopia: '' };
   return html`
-    <section class="conecta-provas-card conecta-provas-card-wide">
+    <section class="conecta-provas-card conecta-provas-card-wide" onPaste=${onColagem}>
       <div class="conecta-provas-exam-head">
         <div>
           <span class="conecta-provas-step">${questao.stage || 'Etapa'}</span>
@@ -1439,6 +1454,13 @@ export function TelaConectaProvas() {
   const [segundosRestantes, setSegundosRestantes] = useState(0);
   const [pendenciasFinalizacao, setPendenciasFinalizacao] = useState([]);
   const interrupcaoRegistradaRef = useRef(false);
+  const telemetriaRef = useRef({
+    porQuestao: {},
+    indiceAtivo: null,
+    acessoAtivoEm: 0,
+    ordemResposta: 0,
+    etapaIniciadaEm: '',
+  });
   const contextoInterrupcaoRef = useRef({
     token: '',
     respostas: [],
@@ -1466,6 +1488,115 @@ export function TelaConectaProvas() {
 
   const questoes = sessao?.prova?.questoes || [];
   const questaoAtual = questoes[indiceAtual] || null;
+
+  const acumularTempoQuestaoAtiva = () => {
+    const estado = telemetriaRef.current;
+    if (estado.indiceAtivo === null || !estado.acessoAtivoEm) return;
+    const item = estado.porQuestao[estado.indiceAtivo];
+    if (item) {
+      const decorrido = Math.max(0, Math.min(300, (Date.now() - estado.acessoAtivoEm) / 1000));
+      item.tempo_ativo_segundos = Math.min(86400, Number(item.tempo_ativo_segundos || 0) + decorrido);
+    }
+    estado.acessoAtivoEm = Date.now();
+  };
+
+  const garantirMetricaQuestao = (indice) => {
+    const estado = telemetriaRef.current;
+    if (!estado.porQuestao[indice]) {
+      const agora = new Date().toISOString();
+      const questao = questoes[indice] || {};
+      estado.porQuestao[indice] = {
+        questao_indice: indice,
+        questao_id: String(questao.id || questao.questionId || questao.title || `q-${indice + 1}`),
+        etapa_chave: obterGrupoJornadaQuestao(questao, indice).key,
+        categoria_chave: String(questao.category || questao.stageKey || questao.stage || ''),
+        primeiro_acesso_em: agora,
+        ultima_alteracao_em: '',
+        tempo_ativo_segundos: 0,
+        quantidade_alteracoes: 0,
+        ordem_resposta: null,
+        tamanho_resposta_final: estimarTamanhoRespostaAnalitica(respostas[indice]),
+        evento_colagem: false,
+        quantidade_colagens: 0,
+        tamanho_colagem_aproximado: 0,
+      };
+    }
+    return estado.porQuestao[indice];
+  };
+
+  const registrarAcessoQuestao = (indice) => {
+    acumularTempoQuestaoAtiva();
+    garantirMetricaQuestao(indice);
+    telemetriaRef.current.indiceAtivo = indice;
+    telemetriaRef.current.acessoAtivoEm = Date.now();
+  };
+
+  const registrarAlteracaoQuestao = (indice, resposta) => {
+    const item = garantirMetricaQuestao(indice);
+    item.quantidade_alteracoes += 1;
+    item.ultima_alteracao_em = new Date().toISOString();
+    item.tamanho_resposta_final = estimarTamanhoRespostaAnalitica(resposta);
+    if (item.tamanho_antes_colagem !== undefined) {
+      item.tamanho_colagem_aproximado = Math.max(
+        Number(item.tamanho_colagem_aproximado || 0),
+        item.tamanho_resposta_final - Number(item.tamanho_antes_colagem || 0),
+      );
+      delete item.tamanho_antes_colagem;
+    }
+    if (!item.ordem_resposta && item.tamanho_resposta_final > 0) {
+      telemetriaRef.current.ordemResposta += 1;
+      item.ordem_resposta = telemetriaRef.current.ordemResposta;
+    }
+  };
+
+  const registrarColagemQuestao = (indice) => {
+    const item = garantirMetricaQuestao(indice);
+    item.evento_colagem = true;
+    item.quantidade_colagens += 1;
+    // O conteudo da area de transferencia nunca e lido nem persistido; o tamanho
+    // e apenas estimado pela diferenca da resposta antes/depois do evento.
+    item.tamanho_antes_colagem = estimarTamanhoRespostaAnalitica(respostas[indice]);
+  };
+
+  const montarPayloadTelemetria = ({ finalizarEtapa = false } = {}) => {
+    acumularTempoQuestaoAtiva();
+    const telemetria = Object.values(telemetriaRef.current.porQuestao).map((item) => {
+      const { tamanho_antes_colagem: _interno, ...publico } = item;
+      return {
+        ...publico,
+        tempo_ativo_segundos: Number(Number(item.tempo_ativo_segundos || 0).toFixed(3)),
+        tamanho_resposta_final: estimarTamanhoRespostaAnalitica(respostas[item.questao_indice]),
+      };
+    });
+    const tempoEtapa = telemetria
+      .filter((item) => item.etapa_chave === etapaSelecionadaKey)
+      .reduce((total, item) => total + Number(item.tempo_ativo_segundos || 0), 0);
+    return {
+      telemetria,
+      etapa_iniciada_em: telemetriaRef.current.etapaIniciadaEm,
+      etapa_finalizada_em: finalizarEtapa ? new Date().toISOString() : '',
+      tempo_ativo_etapa_segundos: Number(tempoEtapa.toFixed(3)),
+    };
+  };
+
+  useEffect(() => {
+    if (etapa !== 'prova' || !questaoAtual) return;
+    registrarAcessoQuestao(indiceAtual);
+  }, [etapa, indiceAtual, etapaSelecionadaKey]);
+
+  useEffect(() => {
+    if (etapa !== 'prova') return undefined;
+    const atualizarVisibilidade = () => {
+      if (document.hidden) {
+        acumularTempoQuestaoAtiva();
+        telemetriaRef.current.acessoAtivoEm = 0;
+      } else if (telemetriaRef.current.indiceAtivo !== null) {
+        telemetriaRef.current.acessoAtivoEm = Date.now();
+      }
+    };
+    document.addEventListener('visibilitychange', atualizarVisibilidade);
+    return () => document.removeEventListener('visibilitychange', atualizarVisibilidade);
+  }, [etapa]);
   const etapasJornada = useMemo(
     () => montarEtapasJornada(sessao?.prova || {}, respostas, Boolean(sessao?.candidato?.dados_confirmados)),
     [sessao?.prova, sessao?.candidato?.dados_confirmados, respostas],
@@ -1488,6 +1619,7 @@ export function TelaConectaProvas() {
     etapaSelecionadaKey,
     indiceAtual,
     etapa,
+    telemetria: etapa === 'prova' ? montarPayloadTelemetria({ finalizarEtapa: true }) : {},
   };
 
   const marcarEtapaIndisponivel = (etapaKey) => {
@@ -1512,6 +1644,7 @@ export function TelaConectaProvas() {
       respostas: contexto.respostas,
       etapa_chave: contexto.etapaSelecionadaKey,
       questao_indice: contexto.indiceAtual,
+      ...(contexto.telemetria || {}),
     };
     if (beacon && navigator?.sendBeacon) {
       const corpo = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -1523,7 +1656,10 @@ export function TelaConectaProvas() {
       contexto.respostas,
       contexto.etapaSelecionadaKey,
       contexto.indiceAtual,
+      contexto.telemetria || {},
     );
+    telemetriaRef.current.indiceAtivo = null;
+    telemetriaRef.current.acessoAtivoEm = 0;
     marcarEtapaIndisponivel(contexto.etapaSelecionadaKey);
     setEtapa('confirmacao-etapas');
     return true;
@@ -1568,6 +1704,13 @@ export function TelaConectaProvas() {
     setErro('');
     try {
       const dados = await lerSessaoConectaProvas(tokenSelecionado);
+      telemetriaRef.current = {
+        porQuestao: {},
+        indiceAtivo: null,
+        acessoAtivoEm: 0,
+        ordemResposta: 0,
+        etapaIniciadaEm: '',
+      };
       setToken(tokenSelecionado);
       sessionStorage.setItem(CHAVE_TOKEN_PUBLICO, tokenSelecionado);
       localStorage.setItem(CHAVE_TOKEN_PUBLICO, tokenSelecionado);
@@ -1733,10 +1876,16 @@ export function TelaConectaProvas() {
       setTimestampTermino(timestamp);
       setSegundosRestantes(Math.max(1, Math.floor((timestamp - Date.now()) / 1000)));
       const primeiroIndice = etapaJornada?.indices?.[0] ?? 0;
-      setEtapaSelecionadaKey(etapaJornada?.key || obterGrupoJornadaQuestao(questoes[primeiroIndice], primeiroIndice).key);
+      const etapaKey = etapaJornada?.key || obterGrupoJornadaQuestao(questoes[primeiroIndice], primeiroIndice).key;
+      const etapaIniciadaEm = new Date().toISOString();
+      telemetriaRef.current.indiceAtivo = null;
+      telemetriaRef.current.acessoAtivoEm = 0;
+      telemetriaRef.current.etapaIniciadaEm = etapaIniciadaEm;
+      setEtapaSelecionadaKey(etapaKey);
       setIndiceAtual(primeiroIndice);
       interrupcaoRegistradaRef.current = false;
       setEtapa('prova');
+      iniciarEtapaConectaProvas(token, etapaKey, primeiroIndice, etapaIniciadaEm).catch(() => {});
     } catch (error) {
       setErro(error?.message || 'Não foi possível iniciar a prova.');
     } finally {
@@ -1754,7 +1903,7 @@ export function TelaConectaProvas() {
       return;
     }
 
-    await salvarRespostasConectaProvas(token, respostas);
+    await salvarRespostasConectaProvas(token, respostas, montarPayloadTelemetria());
     setIndiceAtual(Math.max(0, Math.min(questoes.length - 1, proximIndice)));
     setErro('');
   };
@@ -1767,7 +1916,15 @@ export function TelaConectaProvas() {
     setCarregando(true);
     setErro('');
     try {
-      await concluirEtapaConectaProvas(token, respostas, etapaSelecionadaKey, indiceAtual);
+      await concluirEtapaConectaProvas(
+        token,
+        respostas,
+        etapaSelecionadaKey,
+        indiceAtual,
+        montarPayloadTelemetria({ finalizarEtapa: true }),
+      );
+      telemetriaRef.current.indiceAtivo = null;
+      telemetriaRef.current.acessoAtivoEm = 0;
       interrupcaoRegistradaRef.current = true;
       setSessao((anterior) =>
         atualizarEstadoEtapaSessao(anterior, etapaSelecionadaKey, { status: 'concluida' }),
@@ -1791,7 +1948,7 @@ export function TelaConectaProvas() {
         setCarregando(false);
         return;
       }
-      await marcarRevisaoConectaProvas(token, respostas);
+      await marcarRevisaoConectaProvas(token, respostas, montarPayloadTelemetria());
       setEtapa('revisao');
     } catch (error) {
       setErro(error?.message || 'Não foi possível preparar a revisão.');
@@ -1812,6 +1969,7 @@ export function TelaConectaProvas() {
       }
       await finalizarConectaProvas(token, respostas, {
         finalizarMesmoAssim: finalizarMesmoComPendencias,
+        telemetria: montarPayloadTelemetria({ finalizarEtapa: true }),
       });
       sessionStorage.removeItem(CHAVE_TOKEN_PUBLICO);
       localStorage.removeItem(CHAVE_TOKEN_PUBLICO);
@@ -1829,7 +1987,7 @@ export function TelaConectaProvas() {
     setCarregando(true);
     setErro('');
     try {
-      await salvarRespostasConectaProvas(token, respostas);
+      await salvarRespostasConectaProvas(token, respostas, montarPayloadTelemetria());
       const pendencias = obterPendenciasObrigatorias(questoes, respostas, etapasIgnoradasPorInterrupcao);
       if (pendencias.length) {
         setPendenciasFinalizacao(pendencias);
@@ -1866,6 +2024,13 @@ export function TelaConectaProvas() {
     setRespostas([]);
     setIndiceAtual(0);
     setEtapaSelecionadaKey('');
+    telemetriaRef.current = {
+      porQuestao: {},
+      indiceAtivo: null,
+      acessoAtivoEm: 0,
+      ordemResposta: 0,
+      etapaIniciadaEm: '',
+    };
     setTentativasEmail(0);
     setTentativasTelefone(0);
     window.history.replaceState(null, '', '/conecta-provas');
@@ -1950,8 +2115,10 @@ export function TelaConectaProvas() {
           setRespostas((anteriores) => {
             const proximas = [...anteriores];
             proximas[indiceAtual] = resposta;
+            registrarAlteracaoQuestao(indiceAtual, resposta);
             return proximas;
           })}
+              onColagem=${() => registrarColagemQuestao(indiceAtual)}
             />
             ${erro ? html`<div class="alert alert-warning conecta-provas-error">${erro}</div>` : null}
             <div class="conecta-provas-nav">

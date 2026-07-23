@@ -102,7 +102,7 @@ import {
   registrarSolicitacaoLgpd,
   retomarProcesso,
   cancelarProcesso,
-} from '../servico-api.js';
+} from '../servico-api.js?v=20260721-exam-analytics-2';
 import { criarLogger } from '../logger.js';
 import {
   montarProvaPorBlueprint,
@@ -156,6 +156,7 @@ export const PERMISSOES_TELAS = {
   'screen-settings-profiles': 'configuracoes.visualizar',
   'screen-settings-logs': 'logs.visualizar',
   'screen-generated-exams': 'provas.visualizar',
+  'screen-process-analytical-results': 'provas.visualizar',
   'screen-config': 'provas.enviar',
   'screen-candidate': 'provas.enviar',
   'screen-exam': 'provas.enviar',
@@ -442,6 +443,7 @@ function obterAbreviacaoVaga(vaga) {
     Outros: 'OUT',
     'Control Desk': 'CTRL',
     Planejamento: 'PLAN',
+    Qualidade: 'QUAL',
     TI: 'TI',
   };
 

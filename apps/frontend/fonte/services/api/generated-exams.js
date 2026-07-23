@@ -166,15 +166,28 @@ export async function iniciarConectaProvas(token) {
   }, { autenticado: false });
 }
 
-export async function salvarRespostasConectaProvas(token, respostas) {
-  return requisitar('/conecta-provas-api/respostas', {
+export async function iniciarEtapaConectaProvas(token, etapaChave, questaoIndice, etapaIniciadaEm) {
+  return requisitar('/conecta-provas-api/iniciar-etapa', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, respostas }),
+    body: JSON.stringify({
+      token,
+      etapa_chave: etapaChave,
+      questao_indice: questaoIndice,
+      etapa_iniciada_em: etapaIniciadaEm || new Date().toISOString(),
+    }),
   }, { autenticado: false });
 }
 
-export async function concluirEtapaConectaProvas(token, respostas, etapaChave, questaoIndice) {
+export async function salvarRespostasConectaProvas(token, respostas, telemetria = {}) {
+  return requisitar('/conecta-provas-api/respostas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, respostas, ...(telemetria || {}) }),
+  }, { autenticado: false });
+}
+
+export async function concluirEtapaConectaProvas(token, respostas, etapaChave, questaoIndice, telemetria = {}) {
   return requisitar('/conecta-provas-api/concluir-etapa', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -183,11 +196,12 @@ export async function concluirEtapaConectaProvas(token, respostas, etapaChave, q
       respostas,
       etapa_chave: etapaChave,
       questao_indice: questaoIndice,
+      ...(telemetria || {}),
     }),
   }, { autenticado: false });
 }
 
-export async function interromperEtapaConectaProvas(token, respostas, etapaChave, questaoIndice) {
+export async function interromperEtapaConectaProvas(token, respostas, etapaChave, questaoIndice, telemetria = {}) {
   return requisitar('/conecta-provas-api/interromper-etapa', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -196,15 +210,16 @@ export async function interromperEtapaConectaProvas(token, respostas, etapaChave
       respostas,
       etapa_chave: etapaChave,
       questao_indice: questaoIndice,
+      ...(telemetria || {}),
     }),
   }, { autenticado: false });
 }
 
-export async function marcarRevisaoConectaProvas(token, respostas) {
+export async function marcarRevisaoConectaProvas(token, respostas, telemetria = {}) {
   return requisitar('/conecta-provas-api/revisao', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, respostas }),
+    body: JSON.stringify({ token, respostas, ...(telemetria || {}) }),
   }, { autenticado: false });
 }
 
@@ -216,6 +231,7 @@ export async function finalizarConectaProvas(token, respostas, opcoes = {}) {
       token,
       respostas,
       finalizar_mesmo_assim: Boolean(opcoes.finalizarMesmoAssim),
+      ...(opcoes.telemetria || {}),
     }),
   }, { autenticado: false });
 }

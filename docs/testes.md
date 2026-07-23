@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-Os testes automatizados ativos ficam em `api/tests/`.
+Os testes automatizados ativos ficam em `apps/backend/tests/` e `apps/frontend/tests/`.
 
 O foco principal atual e validar:
 
@@ -22,12 +22,21 @@ Os testes usam `FakeRepository` para evitar dependencia de banco real. Isso redu
 python -m pytest
 ```
 
+Validacao focada do modulo analitico:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest apps\backend\tests\test_exam_analytics.py -q
+node apps\frontend\tests\run-exam-analytics-smoke.cjs
+```
+
 O arquivo `pytest.ini` desabilita o cache do pytest para evitar warnings e conflitos de escrita em ambientes com OneDrive.
 
 ## Arquivos importantes
 
-- `api/tests/test_auth_and_pipeline.py`
-- `api/tests/conftest.py`
+- `apps/backend/tests/test_auth_and_pipeline.py`
+- `apps/backend/tests/conftest.py`
+- `apps/backend/tests/test_exam_analytics.py`
+- `apps/frontend/tests/run-exam-analytics-smoke.cjs`
 
 ## Como evoluir os testes
 

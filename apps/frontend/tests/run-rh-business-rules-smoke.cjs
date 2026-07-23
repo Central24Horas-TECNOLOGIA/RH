@@ -298,6 +298,36 @@ async function main() {
   );
   assertSemSigiloVisivel(planejamentoPersonalizado.questoes, 'Planejamento personalizada');
 
+  const opcaoQualidade = perguntas.OPCOES_VAGAS_PROCESSO.find((opcao) => opcao.label === 'Qualidade');
+  assert.deepEqual(
+    opcaoQualidade,
+    { label: 'Qualidade', level: '4', track: 'Operação / Gestão' },
+    'Qualidade deve estar disponível no cadastro do processo.',
+  );
+  const qualidade = gerar(perguntas, 'Qualidade', '4', 'Operação / Gestão');
+  assert.deepEqual(
+    qualidade.blueprint.stages.map((stage) => stage.label),
+    ['Word', 'Excel', 'Redação', 'Conhecimentos Técnicos', 'Conhecimentos Gerais'],
+    'Qualidade deve manter somente as cinco etapas solicitadas e na ordem definida.',
+  );
+  assert.deepEqual(
+    qualidade.blueprint.stages.map((stage) => stage.key),
+    ['word_advanced', 'excel_advanced', 'professional_essay', 'tech_adm_specific', 'general_advanced'],
+    'Qualidade deve usar o nível avançado de Excel.',
+  );
+  assertExcelPreservado(qualidade.questoes, 'qualid_exam', 'Qualidade');
+  assert.equal(
+    qualidade.questoes.find((questao) => questao.type === 'excel_external')?.stageKey,
+    'excel_advanced',
+    'A planilha de Qualidade deve ser classificada como Excel avançado.',
+  );
+  assert.equal(
+    perguntas.resolverBlueprintProva('Qualidade', '1', 'Operação / Gestão'),
+    qualidade.blueprint,
+    'Qualidade deve preservar o blueprint com Excel avançado mesmo se o nível geral for alterado.',
+  );
+  assertSemSigiloVisivel(qualidade.questoes, 'Qualidade neutra');
+
   const analista = gerar(perguntas, 'Analista', '4', 'ADM / Gestão');
   assert.equal(
     analista.questoes.filter((q) => q.questaoReformulada).length,

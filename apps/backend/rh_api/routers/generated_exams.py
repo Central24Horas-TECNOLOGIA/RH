@@ -13,6 +13,7 @@ from ..schemas.generated_exams import (
     PublicCandidateDataRequest,
     PublicExamAccessRequest,
     PublicExamAnswersRequest,
+    PublicStageStartRequest,
     PublicExamTokenRequest,
     ReopenExamRequest,
 )
@@ -133,14 +134,27 @@ def delete_generated_exam(
 def update_manual_evaluation(
     id_prova: int,
     payload: ManualEvaluationRequest,
+    request: Request,
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    return repository.update_manual_evaluation(
+    result = repository.update_manual_evaluation(
         id_prova,
         payload.model_dump(),
         updated_by=_user_label(user),
     )
+    audit_action(
+        repository,
+        user,
+        modulo="Conecta Provas",
+        acao="atualizar_correcao_manual",
+        entidade="resultados_provas",
+        entidade_id=str(id_prova),
+        valor_novo={"camposAtualizados": [key for key, value in payload.model_dump().items() if value not in (None, "")]},
+        justificativa=payload.observacao,
+        request=request,
+    )
+    return result
 
 
 @router.post(
@@ -256,6 +270,14 @@ def public_start_exam(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.public_start_exam(payload.token)
+
+
+@public_router.post("/iniciar-etapa")
+def public_start_stage(
+    payload: PublicStageStartRequest,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.public_start_exam_stage(payload.model_dump())
 
 
 @public_router.post("/respostas")

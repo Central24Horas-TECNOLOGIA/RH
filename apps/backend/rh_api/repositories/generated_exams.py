@@ -4,7 +4,7 @@ import json
 import re
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -1509,6 +1509,30 @@ class GeneratedExamRepositoryMixin:
         finally:
             conn.close()
 
+    def public_start_exam_stage(self, data: dict) -> dict:
+        stage_key = normalize_compare_text(data.get("etapa_chave"))
+        if not stage_key:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa invalida.")
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_by_token(cursor, data.get("token"))
+            if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova ja finalizada.")
+            questions = safe_json_loads(row.get("questoes_json"), [])
+            if not self._public_stage_indices(questions, stage_key):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa nao encontrada.")
+            id_prova = int(row.get("id_prova") or 0)
+        finally:
+            conn.close()
+        try:
+            payload = {**data, "etapa_chave": stage_key, "etapa_iniciada_em": data.get("etapa_iniciada_em") or datetime.now(timezone.utc).isoformat()}
+            self.capture_exam_telemetry(id_prova, payload, stage_status="Iniciada")
+        except Exception as exc:
+            self.logger.warning("Inicio da etapa preservado sem telemetria complementar: %s", exc)
+        return {"success": True}
+
     def _save_answer_rows(self, cursor, row: dict, answers: list[Any], questions: list[dict], graded: list[dict] | None = None) -> None:
         id_prova = int(row.get("id_prova") or 0)
         id_teste = normalize_text(row.get("id_teste"))
@@ -1577,6 +1601,10 @@ class GeneratedExamRepositoryMixin:
                 (status_value, int(row.get("id_prova") or 0)),
             )
             conn.commit()
+            try:
+                self.capture_exam_telemetry(int(row.get("id_prova") or 0), data)
+            except Exception as exc:
+                self.logger.warning("Respostas salvas sem telemetria complementar: %s", exc)
             return {"success": True}
         finally:
             conn.close()
@@ -1629,6 +1657,11 @@ class GeneratedExamRepositoryMixin:
                 (EXAM_STATUS_IN_PROGRESS, _json_dumps(next_config), int(row.get("id_prova") or 0)),
             )
             conn.commit()
+            try:
+                telemetry_payload = {**data, "etapa_finalizada_em": data.get("etapa_finalizada_em") or datetime.now(timezone.utc).isoformat()}
+                self.capture_exam_telemetry(int(row.get("id_prova") or 0), telemetry_payload, stage_status="Concluida")
+            except Exception as exc:
+                self.logger.warning("Etapa concluida sem telemetria complementar: %s", exc)
             return {"success": True, "etapa": {"key": stage_key, "status": "concluida"}}
         finally:
             conn.close()
@@ -1679,6 +1712,11 @@ class GeneratedExamRepositoryMixin:
                 (EXAM_STATUS_IN_PROGRESS, _json_dumps(next_config), int(row.get("id_prova") or 0)),
             )
             conn.commit()
+            try:
+                telemetry_payload = {**data, "etapa_finalizada_em": data.get("etapa_finalizada_em") or datetime.now(timezone.utc).isoformat()}
+                self.capture_exam_telemetry(int(row.get("id_prova") or 0), telemetry_payload, stage_status="Interrompida")
+            except Exception as exc:
+                self.logger.warning("Etapa interrompida sem telemetria complementar: %s", exc)
             return {"success": True, "etapa": {"key": stage_key, "status": "realizada"}}
         finally:
             conn.close()
@@ -2021,6 +2059,15 @@ class GeneratedExamRepositoryMixin:
             conn.close()
 
         try:
+            self.capture_exam_telemetry(int(row.get("id_prova") or 0), data)
+            self.enqueue_exam_analytics(
+                int(row.get("id_prova") or 0),
+                reason="finalizacao-oficial",
+            )
+        except Exception as exc:
+            self.logger.warning("Prova finalizada sem bloquear por falha analitica complementar: %s", exc)
+
+        try:
             self._sync_generated_exam_history(int(row.get("id_prova") or 0), answers, grade)
             score_payload = self.recalculate_score_conecta(
                 int(row.get("id_prova") or 0),
@@ -2234,11 +2281,26 @@ class GeneratedExamRepositoryMixin:
         finally:
             conn.close()
 
-        score = self.recalculate_score_conecta(
-            id_prova,
-            recalculated_by=updated_by,
-            reason="Avaliação manual atualizada",
-        )
+        try:
+            self.record_manual_correction_history(
+                id_prova,
+                row,
+                data,
+                updated_by=updated_by,
+            )
+        except Exception as exc:
+            self.logger.warning("Avaliacao manual salva sem bloquear por falha no historico complementar: %s", exc)
+        try:
+            score = self.recalculate_score_conecta(
+                id_prova,
+                recalculated_by=updated_by,
+                reason="Avaliação manual atualizada",
+            )
+        finally:
+            try:
+                self.enqueue_exam_analytics(id_prova, reason="avaliacao-manual")
+            except Exception as exc:
+                self.logger.warning("Avaliacao manual salva sem bloquear por falha de enfileiramento analitico: %s", exc)
         return {"success": True, "score": score}
 
     def reopen_generated_exam(self, id_prova: int, data: dict, *, reopened_by: str = "") -> dict:
@@ -2270,6 +2332,10 @@ class GeneratedExamRepositoryMixin:
             if cursor.rowcount == 0:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prova não encontrada.")
             conn.commit()
+            try:
+                self.enqueue_exam_analytics(id_prova, reason="reabertura")
+            except Exception as exc:
+                self.logger.warning("Prova reaberta sem bloquear por falha de invalidacao analitica: %s", exc)
             return {"success": True}
         finally:
             conn.close()
@@ -2297,6 +2363,10 @@ class GeneratedExamRepositoryMixin:
             if cursor.rowcount == 0:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prova não encontrada.")
             conn.commit()
+            try:
+                self.enqueue_exam_analytics(id_prova, reason="cancelamento")
+            except Exception as exc:
+                self.logger.warning("Prova cancelada sem bloquear por falha de invalidacao analitica: %s", exc)
             return {"success": True}
         finally:
             conn.close()

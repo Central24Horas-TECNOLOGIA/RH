@@ -115,7 +115,7 @@ import {
   deletarProvaGerada,
   lerProvaGerada,
   reabrirProvaGerada,
-} from '../../services/api/generated-exams.js';
+} from '../../services/api/generated-exams.js?v=20260721-exam-analytics-2';
 import {
   OPCOES_OPERACOES,
   OPCOES_TRILHAS_PROCESSO,
@@ -5488,6 +5488,13 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
           </div>
         </div>
         <div class="process-header-actions">
+          ${actions.abrirResultadosAnaliticos
+      ? html`
+                <button type="button" class="btn btn-outline-primary" onClick=${actions.abrirResultadosAnaliticos}>
+                  <span class="material-symbols-outlined">analytics</span>Resultados das provas
+                </button>
+              `
+      : null}
           <button type="button" class="btn btn-outline-primary" onClick=${actions.voltar}>
             <span class="material-symbols-outlined">arrow_back</span>Voltar à vaga
           </button>
@@ -8897,6 +8904,17 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
     }}
         actions=${{
       voltar: () => controlador.irParaTelaProtegida('screen-processes'),
+      abrirResultadosAnaliticos: controlador.possuiPermissao('provas.visualizar')
+        ? () => {
+            const processoId = processo?.id_processo_ref || processo?.id_processo;
+            if (!processoId) return;
+            window.history.pushState(null, '', `/processos/${encodeURIComponent(processoId)}/resultados-analiticos`);
+            const eventoNavegacao = typeof PopStateEvent === 'function'
+              ? new PopStateEvent('popstate')
+              : new Event('popstate');
+            window.dispatchEvent(eventoNavegacao);
+          }
+        : null,
       compartilhar: compartilharVaga,
       abrirResumoVaga: () => setResumoVagaAberto(true),
       fecharResumoVaga: () => setResumoVagaAberto(false),

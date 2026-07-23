@@ -32,6 +32,25 @@ services:
       - conecta-dev-net
     restart: unless-stopped
 
+  analytics-worker:
+    build:
+      context: ../..
+      dockerfile: apps/backend/Dockerfile
+    command: ["python", "-m", "rh_api.workers.exam_analytics", "--poll-seconds", "5"]
+    env_file:
+      - env/dev.env
+    environment:
+      RH_APP_ENV: dev
+      RH_FRONT_SERVE_STATIC: "false"
+    volumes:
+      - ../../data/private:/app/data/private
+    networks:
+      - conecta-dev-net
+      - conecta-ops-net
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+
 networks:
   conecta-dev-net:
     name: conecta-dev-net

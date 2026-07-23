@@ -58,6 +58,7 @@ export {
   deletarProvaGerada,
   finalizarConectaProvas,
   iniciarConectaProvas,
+  iniciarEtapaConectaProvas,
   interromperEtapaConectaProvas,
   lerProvaGerada,
   lerSessaoConectaProvas,
@@ -68,7 +69,7 @@ export {
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
   salvarRespostasConectaProvas,
-} from './services/api/generated-exams.js';
+} from './services/api/generated-exams.js?v=20260721-exam-analytics-2';
 export {
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
@@ -134,6 +135,16 @@ export {
   lerRelatorioCandidatos,
   lerRelatorioProcessos,
 } from './services/api/analytics.js';
+export {
+  compararResultadosAnaliticos,
+  lerConfiguracaoResultadosAnaliticosProcesso,
+  lerDetalheResultadoAnalitico,
+  lerStatusResultadosAnaliticosProcesso,
+  listarResultadosAnaliticosProcesso,
+  salvarPerfilIdealResultadosAnaliticos,
+  salvarPesosResultadosAnaliticos,
+  salvarMapeamentosResultadosAnaliticos,
+} from './services/api/exam-analytics.js';
 export {
   criarCardPipeline,
   excluirCardPipeline,

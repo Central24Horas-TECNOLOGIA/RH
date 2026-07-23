@@ -54,7 +54,29 @@ class PublicExamAccessRequest(BaseSchema):
 
 
 class PublicExamTokenRequest(BaseSchema):
-    token: str
+    token: str = Field(min_length=1, max_length=512)
+
+
+class PublicResponseTelemetry(BaseSchema):
+    questao_indice: int = Field(ge=0, le=10000)
+    questao_id: str = Field(default="", max_length=180)
+    etapa_chave: str = Field(default="", max_length=120)
+    categoria_chave: str = Field(default="", max_length=120)
+    primeiro_acesso_em: str = Field(default="", max_length=64)
+    ultima_alteracao_em: str = Field(default="", max_length=64)
+    tempo_ativo_segundos: float = Field(default=0, ge=0, le=86400)
+    quantidade_alteracoes: int = Field(default=0, ge=0, le=100000)
+    ordem_resposta: int | None = Field(default=None, ge=1, le=10000)
+    tamanho_resposta_final: int = Field(default=0, ge=0, le=10000000)
+    evento_colagem: bool = False
+    quantidade_colagens: int = Field(default=0, ge=0, le=100000)
+    tamanho_colagem_aproximado: int = Field(default=0, ge=0, le=10000000)
+
+
+class PublicStageStartRequest(PublicExamTokenRequest):
+    etapa_chave: str = Field(min_length=1, max_length=120)
+    etapa_iniciada_em: str = Field(default="", max_length=64)
+    questao_indice: int | None = Field(default=None, ge=0, le=10000)
 
 
 class PublicCandidateDataRequest(PublicExamTokenRequest):
@@ -75,8 +97,12 @@ class PublicCandidateDataRequest(PublicExamTokenRequest):
 class PublicExamAnswersRequest(PublicExamTokenRequest):
     respostas: list[Any] = Field(default_factory=list)
     finalizar_mesmo_assim: bool = False
-    etapa_chave: str = ""
-    questao_indice: int | None = None
+    etapa_chave: str = Field(default="", max_length=120)
+    questao_indice: int | None = Field(default=None, ge=0, le=10000)
+    etapa_iniciada_em: str = Field(default="", max_length=64)
+    etapa_finalizada_em: str = Field(default="", max_length=64)
+    tempo_ativo_etapa_segundos: float | None = Field(default=None, ge=0, le=86400)
+    telemetria: list[PublicResponseTelemetry] = Field(default_factory=list, max_length=500)
 
 
 class ManualEvaluationRequest(BaseSchema):

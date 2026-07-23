@@ -243,6 +243,7 @@ const JOB_PROFILE_OPTIONS = [
   { label: 'Supervisor', level: '3', track: 'Operação / Gestão' },
   { label: 'Control Desk', level: '3', track: 'TI' },
   { label: 'Planejamento', level: '4', track: 'Operação / Gestão' },
+  { label: 'Qualidade', level: '4', track: 'Operação / Gestão' },
   { label: 'TI', level: '4', track: 'TI' },
   { label: 'Analista', level: '4', track: 'ADM / Gestão' },
   { label: 'Outros', level: '4', track: 'ADM / Gestão' },
@@ -1644,11 +1645,12 @@ function excelStageBasic() {
     ),
   ];
 }
-function excelStageQualid() {
+function excelStageQualid(stageKey = 'excel_basic') {
+  const chaveEtapa = stageKey === 'excel_advanced' ? 'excel_advanced' : 'excel_basic';
   return [
     excelExternalQ(
-      'excel_basic',
-      STAGE_LABELS.excel_basic,
+      chaveEtapa,
+      STAGE_LABELS[chaveEtapa],
       'Teste Prático de Excel',
       'Baixe a planilha e execute as tarefas do teste prático voltado ao contexto operacional. As atividades incluem ordenar a Planilha A pelo campo Operador, criar a coluna Valor Total, utilizar a função PROCV para localizar supervisores, listar os registros não encontrados a partir da célula BC255, montar o resumo solicitado, aplicar filtro para Wesley Nunes e elaborar um gráfico de colunas agrupadas. O objetivo é avaliar sua capacidade de organização, fórmula e análise em uma rotina de operação.',
       'qualid_exam',
@@ -2728,6 +2730,42 @@ const EXAM_BLUEPRINTS = {
       },
     ],
   },
+  qualidade: {
+    level: '4',
+    label: 'Nv 4 - Qualidade',
+    stages: [
+      {
+        key: 'word_advanced',
+        label: 'Word',
+        weight: 15,
+        questions: () => wordAdvancedPool(),
+      },
+      {
+        key: 'excel_advanced',
+        label: 'Excel',
+        weight: 20,
+        questions: () => excelStageQualid('excel_advanced'),
+      },
+      {
+        key: 'professional_essay',
+        label: 'Redação',
+        weight: 10,
+        questions: () => professionalEssayPool('Qualidade', 'Operação / Gestão'),
+      },
+      {
+        key: 'tech_adm_specific',
+        label: 'Conhecimentos Técnicos',
+        weight: 35,
+        questions: () => techAdmSpecificPoolAnalista(),
+      },
+      {
+        key: 'general_advanced',
+        label: 'Conhecimentos Gerais',
+        weight: 20,
+        questions: () => generalAdvancedPool(),
+      },
+    ],
+  },
   ti: {
     level: '4',
     label: 'Nv 4 - TI',
@@ -2789,6 +2827,10 @@ function resolveExamBlueprint(role, level, track = '') {
   const safeRole = String(role || '').trim();
   const safeRoleKey = normalizarChave(safeRole);
   const safeTrack = normalizarChave(track);
+
+  if (safeRoleKey === 'qualidade') {
+    return EXAM_BLUEPRINTS.qualidade;
+  }
 
   if (safeRoleKey === 'jovem aprendiz' || level === '1') {
     return EXAM_BLUEPRINTS.jovem_aprendiz;

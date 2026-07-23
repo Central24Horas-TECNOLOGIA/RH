@@ -106,6 +106,7 @@ function BarraLateral({
     'screen-process-decisions',
     'screen-process-details',
     'screen-generated-exams',
+    'screen-process-analytical-results',
     'screen-history',
   ];
   const telasRelacionadasRelatorios = [

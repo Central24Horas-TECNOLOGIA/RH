@@ -22,6 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY apps/backend ./apps/backend
 COPY apps/frontend ./apps/frontend
+COPY infra/sql/migrations/V005__exam_analytical_results.sql ./infra/sql/migrations/V005__exam_analytical_results.sql
 
 RUN useradd --create-home --uid 10001 conecta \
     && mkdir -p /app/data/private \

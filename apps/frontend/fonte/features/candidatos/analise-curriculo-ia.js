@@ -4,7 +4,7 @@ import {
   lerConfiguracaoAnaliseCurriculoIa,
   lerUltimaAnaliseCurriculoIa,
   marcarAnaliseCurriculoIaRevisada,
-} from '../../servico-api.js';
+} from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { SectionCard } from '../../ui/componentes-compartilhados.js';
 import { formatarDataHora } from '../../shared/helpers-visuais.js';
 

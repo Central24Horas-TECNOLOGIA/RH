@@ -42,6 +42,31 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  analytics-worker:
+    image: ${CONECTA_BACKEND_IMAGE:?Defina CONECTA_BACKEND_IMAGE}:${APP_VERSION:?Defina APP_VERSION}
+    command: ["python", "-m", "rh_api.workers.exam_analytics", "--poll-seconds", "5"]
+    env_file:
+      - env/prod.env
+    environment:
+      RH_APP_ENV: prod
+      RH_FRONT_SERVE_STATIC: "false"
+      RH_SCHEMA_BOOTSTRAP_ENABLED: "false"
+    volumes:
+      - conecta-prod-private:/app/data/private
+    networks:
+      - conecta-prod-net
+      - conecta-ops-net
+    restart: always
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      disable: true
+
 volumes:
   conecta-prod-private:
   conecta-prod-caddy-data:
