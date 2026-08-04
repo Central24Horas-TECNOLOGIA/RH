@@ -57,6 +57,123 @@ function normalizarTexto(valor) {
   return String(valor || '').trim();
 }
 
+function obterValorCandidato(candidato = {}, chaves = []) {
+  for (const chave of chaves) {
+    const valor = candidato?.[chave];
+    if (Array.isArray(valor)) {
+      const textoLista = valor.map(normalizarTexto).filter(Boolean).join(', ');
+      if (textoLista) return textoLista;
+      continue;
+    }
+    const texto = normalizarTexto(valor);
+    if (texto) return texto;
+  }
+  return '';
+}
+
+function juntarValoresCandidato(...valores) {
+  return Array.from(new Set(valores.map(normalizarTexto).filter(Boolean))).join(' • ');
+}
+
+function formatarDataImpressao(valor) {
+  const texto = normalizarTexto(valor);
+  if (!texto) return '';
+  const data = new Date(texto);
+  return Number.isNaN(data.getTime()) ? texto : data.toLocaleDateString('pt-BR');
+}
+
+function montarLinhasInformacoesCandidato(candidato = {}) {
+  const endereco = juntarValoresCandidato(
+    obterValorCandidato(candidato, ['endereco', 'logradouro', 'address']),
+    obterValorCandidato(candidato, ['numero', 'numero_endereco']),
+    obterValorCandidato(candidato, ['bairro']),
+  );
+  const cidadeEstado = juntarValoresCandidato(
+    obterValorCandidato(candidato, ['cidade', 'municipio']),
+    obterValorCandidato(candidato, ['estado', 'uf']),
+  );
+  const indicacaoTipo = obterValorCandidato(candidato, ['tipo_indicacao', 'indicacao_tipo']);
+  const indicacao = candidato.eh_indicacao
+    ? juntarValoresCandidato('Sim', indicacaoTipo)
+    : indicacaoTipo || obterValorCandidato(candidato, ['indicacao', 'indicado_por']);
+
+  return [
+    { label: 'Idade', value: obterValorCandidato(candidato, ['idade']) },
+    { label: 'Nascimento', value: formatarDataImpressao(obterValorCandidato(candidato, ['data_nascimento', 'nascimento'])) },
+    { label: 'Sexo', value: obterValorCandidato(candidato, ['sexo', 'genero']) },
+    { label: 'CPF', value: obterValorCandidato(candidato, ['cpf']) },
+    { label: 'Telefone', value: obterValorCandidato(candidato, ['telefone', 'telefone_acesso']) },
+    { label: 'Celular/WhatsApp', value: juntarValoresCandidato(
+      obterValorCandidato(candidato, ['celular']),
+      obterValorCandidato(candidato, ['whatsapp']),
+    ) },
+    { label: 'E-mail', value: obterValorCandidato(candidato, ['email', 'email_acesso']) },
+    { label: 'Endereço', value: endereco },
+    { label: 'CEP', value: obterValorCandidato(candidato, ['cep']) },
+    { label: 'Cidade/Estado', value: cidadeEstado },
+    { label: 'Escolaridade', value: obterValorCandidato(candidato, ['escolaridade']) },
+    { label: 'Formação', value: obterValorCandidato(candidato, ['formacao', 'formação']) },
+    { label: 'Curso', value: obterValorCandidato(candidato, ['curso']) },
+    { label: 'Instituição', value: obterValorCandidato(candidato, ['instituicao', 'instituição']) },
+    { label: 'Processo', value: obterValorCandidato(candidato, ['id_processo_ref', 'id_processo', 'processo']) },
+    { label: 'Cargo/Vaga', value: obterValorCandidato(candidato, ['role', 'vaga', 'cargo']) },
+    { label: 'Nível', value: obterValorCandidato(candidato, ['level', 'nivel', 'nivel_prova']) },
+    { label: 'Área/Trilha', value: obterValorCandidato(candidato, ['track', 'trilha', 'area', 'area_prova']) },
+    { label: 'Cliente/Operação', value: obterValorCandidato(candidato, ['operacao', 'operação', 'cliente', 'setor_cliente']) },
+    { label: 'Indicação', value: indicacao },
+    { label: 'Indicador', value: obterValorCandidato(candidato, ['nome_indicador', 'indicador']) },
+    { label: 'Cadastro', value: formatarDataImpressao(obterValorCandidato(candidato, ['data_cadastro', 'criado_em'])) },
+    { label: 'Atualização', value: formatarDataImpressao(obterValorCandidato(candidato, ['ultima_atualizacao', 'atualizado_em'])) },
+    { label: 'Situação', value: obterValorCandidato(candidato, ['status_candidato', 'status_fluxo', 'status']) },
+  ].filter((campo) => campo.value);
+}
+
+function obterPercentualEtapaImpressao(etapa = {}) {
+  const valor = Number(etapa.percent);
+  if (!Number.isFinite(valor)) return 0;
+  return valor <= 1 ? valor * 100 : valor;
+}
+
+function obterStatusEtapaImpressao(etapa = {}) {
+  if (Number(etapa.pendings || 0) > 0) return 'Pendente';
+  const percentual = obterPercentualEtapaImpressao(etapa);
+  if (percentual >= 70) return 'Bom desempenho';
+  if (percentual >= 50) return 'Em análise';
+  return 'Atenção';
+}
+
+function montarCompetenciasObservadas(resumoEtapas = []) {
+  return (Array.isArray(resumoEtapas) ? resumoEtapas : [])
+    .filter((etapa) => normalizarTexto(etapa?.label))
+    .slice()
+    .sort((primeira, segunda) => obterPercentualEtapaImpressao(segunda) - obterPercentualEtapaImpressao(primeira))
+    .map((etapa) => {
+      const percentual = obterPercentualEtapaImpressao(etapa);
+      const prefixo = percentual >= 70
+        ? 'Boa capacidade em'
+        : percentual >= 50
+          ? 'Desempenho em desenvolvimento em'
+          : 'Ponto de desenvolvimento em';
+      return `${prefixo} ${etapa.label} (${formatarNotaVisual(percentual, 0)}%)`;
+    });
+}
+
+function obterAderenciaVagaImpressao(candidato = {}, notaFinal = 0) {
+  const aderenciaInformada = obterValorCandidato(candidato, [
+    'aderencia_vaga',
+    'aderencia',
+    'afinidade_percentual',
+  ]);
+  const valorInformado = Number(aderenciaInformada.replace('%', '').replace(',', '.'));
+  const valorBase = Number.isFinite(valorInformado)
+    ? valorInformado
+    : Number(notaFinal) * 10;
+  const percentual = valorBase <= 10 ? valorBase * 10 : valorBase;
+  return Number.isFinite(percentual)
+    ? `${formatarNotaVisual(Math.max(0, Math.min(100, percentual)), 0)}%`
+    : '-';
+}
+
 function obterItensOrdenacaoQuestao(questao) {
   const itens = Array.isArray(questao?.itensOrdenacao)
     ? questao.itensOrdenacao
@@ -102,10 +219,8 @@ function validarTelefoneContato(valor) {
   return digitos.length >= 10 && digitos.length <= 13;
 }
 
-function lerValoresMultiselect(event) {
-  return Array.from(event.target.selectedOptions || [])
-    .map((opcao) => normalizarTexto(opcao.value))
-    .filter(Boolean);
+function primeiroValorLista(lista = []) {
+  return Array.isArray(lista) ? normalizarTexto(lista[0]) : '';
 }
 
 function montarListaComOutro(lista = [], outro = '') {
@@ -140,6 +255,19 @@ function obterOpcaoVaga(label) {
     OPCOES_VAGAS_PROVA.find((opcao) => normalizarBusca(opcao.label) === chave) ||
     null
   );
+}
+
+function aplicarConfiguracaoDaVaga(formulario = {}, vaga = '') {
+  const opcao = obterOpcaoVaga(vaga);
+  const nivelSugerido = SUGESTOES_NIVEL_POR_VAGA[vaga] || opcao?.level || '';
+  const trilhaSugerida = normalizarValorTrilhaProva(opcao?.track || '');
+
+  return {
+    ...formulario,
+    vaga,
+    nivel: nivelSugerido || formulario.nivel,
+    trilha: trilhaSugerida || formulario.trilha,
+  };
 }
 
 function montarIdentificadorCandidatoAgendado(candidato) {
@@ -343,22 +471,14 @@ export function TelaConfiguracao({ controlador }) {
   }, []);
 
   useEffect(() => {
-    const nivelSugerido = SUGESTOES_NIVEL_POR_VAGA[formulario.vaga];
-    const trilhaSugerida = normalizarValorTrilhaProva(
-      obterOpcaoVaga(formulario.vaga)?.track || '',
-    );
-
-    if (
-      (nivelSugerido && formulario.nivel !== nivelSugerido) ||
-      (trilhaSugerida && formulario.trilha !== trilhaSugerida)
-    ) {
-      setFormulario((anterior) => ({
-        ...anterior,
-        ...(nivelSugerido ? { nivel: nivelSugerido } : {}),
-        ...(trilhaSugerida ? { trilha: trilhaSugerida } : {}),
-      }));
-    }
-  }, [formulario.vaga, formulario.nivel, formulario.trilha]);
+    if (!formulario.vaga) return;
+    setFormulario((anterior) => {
+      const proximo = aplicarConfiguracaoDaVaga(anterior, anterior.vaga);
+      return anterior.nivel === proximo.nivel && anterior.trilha === proximo.trilha
+        ? anterior
+        : proximo;
+    });
+  }, [formulario.vaga]);
 
   const processoSelecionado = useMemo(() => {
     if (!formulario.processo || formulario.processo === 'PROCESSO_UNICO') {
@@ -917,7 +1037,8 @@ export function TelaConfiguracao({ controlador }) {
               class="form-select rh-flow-input"
               value=${formulario.vaga}
               onChange=${(event) =>
-                setFormulario({ ...formulario, vaga: event.target.value })}
+                setFormulario((anterior) =>
+                  aplicarConfiguracaoDaVaga(anterior, event.target.value))}
             >
               <option value="">Selecione...</option>
               ${OPCOES_VAGAS_PROVA.map(
@@ -1038,26 +1159,22 @@ export function TelaConfiguracao({ controlador }) {
                   <div class="col-md-6">
                     <label class="form-label">Cliente/Operação</label>
                     <select
-                      class="form-select generated-multiselect"
-                      multiple
-                      value=${personalizacao.clientesOperacoes}
+                      class="form-select"
+                      value=${primeiroValorLista(personalizacao.clientesOperacoes)}
                       onChange=${(event) =>
                         setPersonalizacao({
                           ...personalizacao,
-                          clientesOperacoes: lerValoresMultiselect(event),
+                          clientesOperacoes: event.target.value ? [event.target.value] : [],
                           status: STATUS_PERSONALIZACAO.PENDENTE,
                           questoes: [],
                           alertas: [],
                           historico: null,
                         })}
                     >
+                      <option value="">Selecione...</option>
                       ${[...OPCOES_OPERACOES, OPCAO_OUTRO].map(
                         (operacao) => html`
-                          <option
-                            key=${operacao}
-                            value=${operacao}
-                            selected=${personalizacao.clientesOperacoes.includes(operacao)}
-                          >
+                          <option key=${operacao} value=${operacao}>
                             ${operacao}
                           </option>
                         `,
@@ -1067,26 +1184,22 @@ export function TelaConfiguracao({ controlador }) {
                   <div class="col-md-6">
                     <label class="form-label">Tipo de atendimento</label>
                     <select
-                      class="form-select generated-multiselect"
-                      multiple
-                      value=${personalizacao.tiposAtendimento}
+                      class="form-select"
+                      value=${primeiroValorLista(personalizacao.tiposAtendimento)}
                       onChange=${(event) =>
                         setPersonalizacao({
                           ...personalizacao,
-                          tiposAtendimento: lerValoresMultiselect(event),
+                          tiposAtendimento: event.target.value ? [event.target.value] : [],
                           status: STATUS_PERSONALIZACAO.PENDENTE,
                           questoes: [],
                           alertas: [],
                           historico: null,
                         })}
                     >
+                      <option value="">Selecione...</option>
                       ${TIPOS_ATENDIMENTO_PERSONALIZACAO.map(
                         (tipo) => html`
-                          <option
-                            key=${tipo}
-                            value=${tipo}
-                            selected=${personalizacao.tiposAtendimento.includes(tipo)}
-                          >
+                          <option key=${tipo} value=${tipo}>
                             ${tipo}
                           </option>
                         `,
@@ -1973,6 +2086,13 @@ export function TelaResultado({ controlador }) {
   const estado = controlador.estado;
   const dataGeracao = new Date().toLocaleString('pt-BR');
   const identificador = estado.idResultadoAtual || 'Não salvo';
+  const linhasInformacoesCandidato = montarLinhasInformacoesCandidato(estado.candidato);
+  const competenciasObservadas = montarCompetenciasObservadas(estado.resumoEtapas);
+  const aderenciaVaga = obterAderenciaVagaImpressao(
+    estado.candidato,
+    estado.notaFinalPonderada,
+  );
+  const nomeCandidato = obterValorCandidato(estado.candidato, ['name', 'nome_candidato', 'nome']) || '-';
   const [acaoRestrita, setAcaoRestrita] = useState(null);
 
   return html`
@@ -2240,77 +2360,94 @@ export function TelaResultado({ controlador }) {
               </div>
 
               <div class="print-only-result">
-                <div class="print-sheet-topbar">${dataGeracao}</div>
-                <div class="print-sheet-title-row">
-                  <div>
-                    <h1>Resultado da avaliação</h1>
-                    <p>Resumo final da prova</p>
-                  </div>
-                </div>
-                <div class="print-sheet-meta">
-                  <div>${`Candidato(a): ${estado.candidato.name || '-'}`}</div>
-                  <div>${`Vaga: ${estado.candidato.role || '-'}`}</div>
-                  <div>
-                    ${`Nível da prova: ${estado.candidato.level || '-'} • ${controlador.blueprint?.label || '-'}`}
-                  </div>
-                  <div>${`Nota final: ${formatarNotaVisual(estado.notaFinalPonderada, 2)}`}</div>
-                </div>
-                <div class="print-sheet-divider"></div>
-                <h2 class="print-sheet-section-title">Pontuação por etapa</h2>
-                <div class="print-stage-grid">
-                  ${(estado.resumoEtapas || []).map(
-                    (etapa) => html`
-                      <div class="print-stage-card" key=${etapa.key}>
-                        <div class="print-stage-title">${etapa.label}</div>
-                        <div class="print-stage-score">
-                          ${`${etapa.rawScore}/${etapa.rawMax}`}
-                        </div>
-                        <div class="print-stage-meta">
-                          ${`Peso: ${etapa.weight}%`}<br />
-                          ${`Aproveitamento: ${formatarNotaVisual(
-                            Number(etapa.percent || 0) * 100,
-                            1,
-                          )}%`}<br />
-                          ${`Nota ponderada: ${formatarNotaVisual(etapa.weightedScore, 2)}`}
-                        </div>
+                <article class="print-candidate-sheet">
+                  <header class="print-candidate-header">
+                    <div>
+                      <span class="print-candidate-kicker">Relatório de avaliação</span>
+                      <h1>${nomeCandidato}</h1>
+                    </div>
+                    <div class="print-candidate-issued">
+                      <strong>Conecta Provas</strong>
+                      <span>${dataGeracao}</span>
+                    </div>
+                  </header>
+
+                  <section class="print-candidate-section">
+                    <h2>Informações gerais</h2>
+                    ${linhasInformacoesCandidato.length
+                      ? html`
+                          <div class="print-candidate-info-grid">
+                            ${linhasInformacoesCandidato.map(
+                              (campo) => html`
+                                <div class="print-candidate-info" key=${campo.label}>
+                                  <span>${campo.label}</span>
+                                  <strong>${campo.value}</strong>
+                                </div>
+                              `,
+                            )}
+                          </div>
+                        `
+                      : html`<div class="print-candidate-empty">Dados complementares não informados.</div>`}
+                  </section>
+
+                  <section class="print-candidate-section print-candidate-results">
+                    <div class="print-candidate-results-head">
+                      <h2>Resultados</h2>
+                      <div>
+                        <span>Nota geral</span>
+                        <strong>${formatarNotaVisual(estado.notaFinalPonderada, 2)}</strong>
                       </div>
-                    `,
-                  )}
-                </div>
-                <div class="print-sheet-divider print-gap-top"></div>
-                <h2 class="print-sheet-section-title">Pendências para revisão do RH</h2>
-                <div class="print-manual-box">
-                  ${
-                    (estado.pendenciasManuais || []).length
-                      ? (estado.pendenciasManuais || []).map(
-                          (item, indice) => html`
-                            <div key=${indice} class="mb-3">
-                              <strong
-                                >${item.title ||
-                                item.q?.title ||
-                                'Item para revisao'}</strong
-                              >
-                              ${item.notes?.length
-                                ? html`
-                                    <div class="small text-muted">
-                                      ${item.notes.join(' | ')}
-                                    </div>
-                                  `
-                                : null}
-                            </div>
-                          `,
-                        )
-                      : html`<div>Nenhuma pendencia.</div>`
-                  }
-                </div>
-                <div class="print-sheet-divider print-gap-top"></div>
-                <h2 class="print-sheet-section-title">Observação do RH</h2>
-                <div class="print-observation-note">
-                  ${
-                    (estado.observacaoRh || '').trim() ||
-                    'Anotações sobre desempenho, postura, tempo e pontos de atenção.'
-                  }
-                </div>
+                    </div>
+                    ${(estado.resumoEtapas || []).length
+                      ? html`
+                          <table class="print-candidate-results-table">
+                            <thead>
+                              <tr>
+                                <th>Etapa</th>
+                                <th>Status</th>
+                                <th>Nota</th>
+                                <th>Peso</th>
+                                <th>Resultado</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              ${(estado.resumoEtapas || []).map(
+                                (etapa) => html`
+                                  <tr key=${etapa.key}>
+                                    <td>${etapa.label || '-'}</td>
+                                    <td>${obterStatusEtapaImpressao(etapa)}</td>
+                                    <td>${formatarNotaVisual(etapa.weightedScore, 2)}</td>
+                                    <td>${formatarNotaVisual(etapa.weight, 0)}%</td>
+                                    <td>${`${etapa.rawScore ?? 0}/${etapa.rawMax ?? 0} • ${formatarNotaVisual(obterPercentualEtapaImpressao(etapa), 0)}%`}</td>
+                                  </tr>
+                                `,
+                              )}
+                            </tbody>
+                          </table>
+                        `
+                      : html`<div class="print-candidate-empty">Não há etapas avaliadas para esta prova.</div>`}
+                    <div class="print-candidate-adherence">
+                      <span>Aderência à vaga</span>
+                      <strong>${aderenciaVaga}</strong>
+                    </div>
+                  </section>
+
+                  <section class="print-candidate-section print-candidate-competencies">
+                    <h2>Competências observadas</h2>
+                    <ul>
+                      ${(competenciasObservadas.length
+                        ? competenciasObservadas
+                        : ['Sem competências consolidadas para esta prova.']).map(
+                        (competencia) => html`<li key=${competencia}>${competencia}</li>`,
+                      )}
+                    </ul>
+                  </section>
+
+                  <section class="print-candidate-section">
+                    <h2>Observação do RH</h2>
+                    <div class="print-candidate-observation">${(estado.observacaoRh || '').trim()}</div>
+                  </section>
+                </article>
               </div>
             </div>
           </div>

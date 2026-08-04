@@ -662,6 +662,7 @@ class AnalyticsRepositoryMixin:
                 if not _in_date_range(item.get("data_iso"), start_date, end_date):
                     continue
 
+                used_history_ids.add(id_teste)
                 profile = profile_map.get(id_teste, {})
                 movement_summary = self._summarize_candidate_movements(
                     {
@@ -716,6 +717,82 @@ class AnalyticsRepositoryMixin:
                         "cv_classificacao": item.get("cv_classificacao") or item.get("classificacao_exibicao") or "",
                     }
                 )
+
+            if not safe_process_filter:
+                candidatos_avulsos = self._enrich_candidate_records(
+                    cursor,
+                    self._get_standalone_generated_exam_candidates(cursor, used_history_ids),
+                )
+                for item in candidatos_avulsos:
+                    id_teste = normalize_text(item.get("id_teste"))
+                    if not id_teste or id_teste in used_history_ids:
+                        continue
+
+                    status_candidato = canonicalize_candidate_status(item.get("status_candidato"))
+                    if safe_status_filter and safe_status_filter not in normalize_compare_text(status_candidato):
+                        continue
+
+                    data_evento = (
+                        item.get("data_prova_realizada")
+                        or item.get("prova_finalizada_em")
+                        or item.get("data_prova_gerada")
+                        or item.get("data_prova")
+                    )
+                    if not _in_date_range(data_evento, start_date, end_date):
+                        continue
+
+                    used_history_ids.add(id_teste)
+                    movimentacoes = movements_map.get(id_teste, [])
+                    movement_summary = self._summarize_candidate_movements(
+                        {
+                            **item,
+                            "status_candidato": status_candidato,
+                            "origem": "Prova gerada",
+                        },
+                        movimentacoes,
+                    )
+                    movimento_padrao = (
+                        "Prova avulsa realizada"
+                        if item.get("prova_disponivel")
+                        else "Prova avulsa gerada"
+                    )
+                    linhas.append(
+                        {
+                            **self._build_candidate_report_fields(
+                                item,
+                                status_candidato,
+                                movement_summary,
+                                movimentacoes,
+                            ),
+                            "nome_candidato": item.get("nome_candidato") or "",
+                            "processo": "Prova avulsa",
+                            "vaga": item.get("vaga") or "",
+                            "origem_inicial": "Prova avulsa",
+                            "movimentacoes": movement_summary.get("movimentacoes") or movimento_padrao,
+                            "data_movimentacao": movement_summary.get("data_movimentacao") or data_evento or "",
+                            "status_anterior": movement_summary.get("status_anterior") or "",
+                            "status_novo": movement_summary.get("status_novo") or status_candidato,
+                            "usuario_responsavel": movement_summary.get("usuario_responsavel") or "",
+                            "observacao_motivo": movement_summary.get("observacao_motivo") or "",
+                            "processo_destino": movement_summary.get("processo_destino") or "",
+                            "nota_prova": item.get("nota_prova") or item.get("pontuacao_final") or "",
+                            "status": status_candidato,
+                            "status_atual": status_candidato,
+                            "data_aprovacao": "",
+                            "data_eliminacao_reprovacao": "",
+                            "motivo_eliminacao": "",
+                            "etapa_eliminacao": "",
+                            "data_banco_talentos": "",
+                            "email": item.get("email") or "",
+                            "telefone": item.get("whatsapp") or item.get("telefone") or "",
+                            "classificacao_rh": item.get("classificacao_indicacao") or "",
+                            "justificativa_observacoes_rh": item.get("justificativa_indicacao") or "",
+                            "observacao_rh": item.get("observacao_rh") or "",
+                            "cv_disponivel": "Sim" if item.get("cv_disponivel") else "Não",
+                            "cv_arquivo": item.get("cv_nome_arquivo") or "",
+                            "cv_classificacao": item.get("cv_classificacao") or item.get("classificacao_exibicao") or "",
+                        }
+                    )
 
             return sorted(
                 linhas,

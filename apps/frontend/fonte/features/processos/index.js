@@ -393,10 +393,119 @@ function montarLinhasTabelaImpressao(itens, colunas, textoVazio) {
   `).join('');
 }
 
+function obterPrimeiroValorFicha(objetos = [], chaves = []) {
+  for (const objeto of objetos) {
+    for (const chave of chaves) {
+      const valor = String(objeto?.[chave] ?? '').trim();
+      if (valor) return valor;
+    }
+  }
+  return '';
+}
+
+function juntarValoresFicha(...valores) {
+  return Array.from(new Set(valores.map((valor) => String(valor || '').trim()).filter(Boolean))).join(' • ');
+}
+
+function montarCamposImpressaoFicha(candidato = {}, processos = []) {
+  const processo = processos[0] || {};
+  const endereco = juntarValoresFicha(
+    obterPrimeiroValorFicha([candidato], ['endereco', 'logradouro']),
+    obterPrimeiroValorFicha([candidato], ['numero', 'numero_endereco']),
+    obterPrimeiroValorFicha([candidato], ['bairro']),
+  );
+  const indicacaoTipo = obterPrimeiroValorFicha([candidato, processo], ['tipo_indicacao']);
+  const indicacao = processo.eh_indicacao
+    ? juntarValoresFicha('Sim', indicacaoTipo)
+    : indicacaoTipo || obterPrimeiroValorFicha([candidato], ['indicacao', 'indicado_por']);
+
+  return [
+    ['Idade', obterPrimeiroValorFicha([candidato], ['idade'])],
+    ['Data de nascimento', obterPrimeiroValorFicha([candidato], ['data_nascimento', 'nascimento'])],
+    ['Sexo', obterPrimeiroValorFicha([candidato], ['sexo', 'genero'])],
+    ['CPF', obterPrimeiroValorFicha([candidato], ['cpf'])],
+    ['Telefone', obterPrimeiroValorFicha([candidato], ['telefone'])],
+    ['Celular', obterPrimeiroValorFicha([candidato], ['celular'])],
+    ['WhatsApp', obterPrimeiroValorFicha([candidato], ['whatsapp'])],
+    ['E-mail', obterPrimeiroValorFicha([candidato], ['email'])],
+    ['Endereço', endereco],
+    ['CEP', obterPrimeiroValorFicha([candidato], ['cep'])],
+    ['Cidade', obterPrimeiroValorFicha([candidato], ['cidade'])],
+    ['Estado', obterPrimeiroValorFicha([candidato], ['estado', 'uf'])],
+    ['Escolaridade', obterPrimeiroValorFicha([candidato], ['escolaridade'])],
+    ['Formação', obterPrimeiroValorFicha([candidato], ['formacao', 'formação'])],
+    ['Curso', obterPrimeiroValorFicha([candidato], ['curso'])],
+    ['Instituição', obterPrimeiroValorFicha([candidato], ['instituicao', 'instituição'])],
+    ['Processo seletivo', obterPrimeiroValorFicha([processo], ['id_processo_ref', 'id_processo'])],
+    ['Cargo/Vaga', obterPrimeiroValorFicha([processo, candidato], ['vaga', 'cargo'])],
+    ['Cliente', obterPrimeiroValorFicha([candidato, processo], ['cliente'])],
+    ['Operação', obterPrimeiroValorFicha([candidato, processo], ['operacao', 'operação'])],
+    ['Indicação', indicacao],
+    ['Nome do indicador', obterPrimeiroValorFicha([candidato], ['nome_indicador', 'indicador'])],
+    ['Data de cadastro', obterPrimeiroValorFicha([candidato, processo], ['data_cadastro', 'data_inscricao'])],
+    ['Última atualização', obterPrimeiroValorFicha([candidato], ['ultima_atualizacao', 'atualizado_em'])],
+    ['Situação', obterPrimeiroValorFicha([processo, candidato], ['status', 'status_candidato', 'status_fluxo'])],
+  ].filter(([, valor]) => String(valor || '').trim());
+}
+
+function obterPercentualResultadoFicha(item = {}) {
+  const pontuacao = tentarParseJsonFicha(item.pontuacao);
+  if (pontuacao && typeof pontuacao === 'object') {
+    const score = Number(String(pontuacao.score ?? pontuacao.rawScore ?? pontuacao.nota ?? '').replace(',', '.'));
+    const maximo = Number(String(pontuacao.max ?? pontuacao.rawMax ?? '').replace(',', '.'));
+    if (Number.isFinite(score) && Number.isFinite(maximo) && maximo > 0) {
+      return (score / maximo) * 100;
+    }
+  }
+
+  const partes = String(formatarPontuacaoResultadoFicha(item)).split('/');
+  const score = Number(String(partes[0] || '').replace(',', '.'));
+  const maximo = Number(String(partes[1] || '').replace(',', '.'));
+  return Number.isFinite(score) && Number.isFinite(maximo) && maximo > 0
+    ? (score / maximo) * 100
+    : null;
+}
+
+function montarCompetenciasImpressaoFicha(resultados = [], candidato = {}) {
+  const competencias = (Array.isArray(resultados) ? resultados : [])
+    .filter((item) => !resultadoFichaEhCurriculo(item))
+    .map((item) => {
+      const etapa = String(item?.etapa || '').trim();
+      const percentual = obterPercentualResultadoFicha(item);
+      if (!etapa) return '';
+      if (percentual === null) return `Competência observada em ${etapa}.`;
+      if (percentual >= 70) return `Boa capacidade em ${etapa}.`;
+      if (percentual >= 50) return `Desempenho em desenvolvimento em ${etapa}.`;
+      return `Ponto de desenvolvimento em ${etapa}.`;
+    })
+    .filter(Boolean);
+
+  if (competencias.length) return Array.from(new Set(competencias));
+  return Array.from(
+    new Set(
+      [
+        ...(Array.isArray(candidato.qualidades_cv) ? candidato.qualidades_cv : []),
+        ...(Array.isArray(candidato.skills) ? candidato.skills : []),
+      ]
+        .map((item) => String(item || '').trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function obterNotaGeralImpressaoFicha(candidato = {}, resultados = []) {
+  const direta = obterPrimeiroValorFicha([candidato], [
+    'nota_prova',
+    'pontuacao_final',
+    'nota_final',
+    'nota_curriculo',
+  ]);
+  return direta || formatarPontuacaoResultadoFicha(resultados[0] || {});
+}
+
 function imprimirFichaCandidato(ficha, formulario) {
   const fichaImpressao = montarFichaParaImpressao(ficha, formulario);
   const candidato = fichaImpressao.candidato || {};
-  const curriculo = candidato.curriculo || {};
   const avaliacao = fichaImpressao.avaliacao_rh || {};
   const processos = Array.isArray(fichaImpressao.processos)
     ? fichaImpressao.processos
@@ -404,6 +513,44 @@ function imprimirFichaCandidato(ficha, formulario) {
   const resultados = resultadosFichaVisiveis(fichaImpressao.resultados);
   const nome = formatarValorFicha(candidato.nome_candidato, 'Candidato');
   const dataGeracao = formatarDataHora(new Date().toISOString());
+  const camposInformacoes = montarCamposImpressaoFicha(candidato, processos);
+  const notaGeral = obterNotaGeralImpressaoFicha(candidato, resultados);
+  const aderencia = String(candidato.aderencia_percentual ?? '').trim();
+  const aderenciaFormatada = aderencia ? `${aderencia.replace('%', '')}%` : '-';
+  const competencias = montarCompetenciasImpressaoFicha(resultados, candidato);
+  const linhasInformacoes = camposInformacoes.length
+    ? camposInformacoes.map(([rotulo, valor]) => {
+      const valorFormatado = /data|atualização/i.test(rotulo)
+        ? formatarDataHora(valor)
+        : formatarValorFicha(valor);
+      return `<div class="candidate-info-field"><span>${escaparHtmlFicha(rotulo)}</span><strong>${escaparHtmlFicha(valorFormatado)}</strong></div>`;
+    }).join('')
+    : '<div class="candidate-empty">Dados complementares não informados.</div>';
+  const linhasResultados = resultados.length
+    ? resultados.map((item) => {
+      const peso = item.peso ?? item.weight ?? '';
+      const resultado = String(
+        item.resultado ||
+        item.resultado_geral ||
+        item.processo ||
+        (item.questoes ? `${item.questoes} questão(ões)` : ''),
+      ).trim();
+      return `
+        <tr>
+          <td>${escaparHtmlFicha(formatarValorFicha(item.etapa))}</td>
+          <td>${escaparHtmlFicha(formatarValorFicha(item.status))}</td>
+          <td>${escaparHtmlFicha(formatarPontuacaoResultadoFicha(item))}</td>
+          <td>${escaparHtmlFicha(formatarValorFicha(peso, '-'))}</td>
+          <td>${escaparHtmlFicha(formatarValorFicha(resultado, '-'))}</td>
+        </tr>
+      `;
+    }).join('')
+    : '<tr><td colspan="5" class="candidate-empty">Nenhum resultado registrado.</td></tr>';
+  const listaCompetencias = (competencias.length
+    ? competencias
+    : ['Sem competências consolidadas para esta avaliação.'])
+    .map((item) => `<li>${escaparHtmlFicha(item)}</li>`)
+    .join('');
   const janela = window.open('', '_blank');
 
   if (!janela) {
@@ -488,6 +635,82 @@ function imprimirFichaCandidato(ficha, formulario) {
             padding: 8px;
             white-space: pre-wrap;
           }
+          .candidate-sheet { font-size: 10px; line-height: 1.28; }
+          .candidate-sheet header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 16px;
+            margin: 0 0 12px;
+            padding: 10px 12px;
+            border: 1px solid #4b5563;
+          }
+          .candidate-sheet header h1 {
+            margin: 3px 0 0;
+            color: #111827;
+            font-size: 20px;
+            line-height: 1.1;
+            text-align: center;
+            overflow-wrap: anywhere;
+          }
+          .candidate-sheet header small,
+          .candidate-sheet .field-label,
+          .candidate-info-field span,
+          .candidate-score span {
+            display: block;
+            color: #64748b;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+          }
+          .candidate-issued { min-width: 110px; text-align: right; }
+          .candidate-section { margin-top: 12px; break-inside: avoid; }
+          .candidate-section h2 { margin: 0 0 5px; color: #111827; font-size: 11px; }
+          .candidate-info-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            border-top: 1px solid #64748b;
+            border-left: 1px solid #64748b;
+          }
+          .candidate-info-field {
+            min-width: 0;
+            min-height: 38px;
+            padding: 5px 6px;
+            border-right: 1px solid #94a3b8;
+            border-bottom: 1px solid #94a3b8;
+          }
+          .candidate-info-field strong {
+            display: block;
+            margin-top: 3px;
+            color: #111827;
+            font-size: 9px;
+            overflow-wrap: anywhere;
+          }
+          .candidate-results { border: 1px solid #64748b; }
+          .candidate-results-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 7px;
+            border-bottom: 1px solid #64748b;
+          }
+          .candidate-results-head h2 { margin: 0; }
+          .candidate-score { min-width: 85px; text-align: right; }
+          .candidate-score strong { font-size: 17px; line-height: 1; }
+          .candidate-results table { margin: 0; table-layout: fixed; }
+          .candidate-results th, .candidate-results td { padding: 5px 6px; font-size: 9px; overflow-wrap: anywhere; }
+          .candidate-results th { background: #f1f5f9; font-size: 8px; text-transform: uppercase; }
+          .candidate-results th:nth-child(1) { width: 25%; }
+          .candidate-results th:nth-child(2) { width: 18%; }
+          .candidate-results th:nth-child(3), .candidate-results th:nth-child(4) { width: 11%; }
+          .candidate-results th:nth-child(5) { width: 35%; }
+          .candidate-adherence { display: flex; justify-content: flex-end; gap: 12px; padding: 6px 7px; border-top: 1px solid #64748b; font-weight: 700; }
+          .candidate-competencies { margin: 0; padding: 6px 10px 6px 24px; border: 1px solid #94a3b8; }
+          .candidate-competencies li { margin: 0 0 3px; }
+          .candidate-competencies li:last-child { margin-bottom: 0; }
+          .candidate-observation { min-height: 112px; border: 1px solid #64748b; padding: 8px; white-space: pre-wrap; }
+          .candidate-empty { padding: 8px; color: #64748b; }
           @media print {
             .toolbar { display: none; }
           }
@@ -497,90 +720,56 @@ function imprimirFichaCandidato(ficha, formulario) {
         <div class="toolbar">
           <button type="button" onclick="window.print()">Imprimir / salvar PDF</button>
         </div>
-        <header>
-          <h1>Ficha Geral do Candidato</h1>
-          <div class="muted">Gerada em ${escaparHtmlFicha(dataGeracao)}</div>
-        </header>
+        <main class="candidate-sheet">
+          <header>
+            <div>
+              <small>Relatório de avaliação</small>
+              <h1>${escaparHtmlFicha(nome)}</h1>
+            </div>
+            <div class="candidate-issued">
+              <strong>Conecta Provas</strong>
+              <small>${escaparHtmlFicha(dataGeracao)}</small>
+            </div>
+          </header>
 
-        <h2>Dados do candidato</h2>
-        <section class="grid">
-          <div class="field"><strong>Nome</strong>${escaparHtmlFicha(formatarValorFicha(candidato.nome_candidato))}</div>
-          <div class="field"><strong>E-mail</strong>${escaparHtmlFicha(formatarValorFicha(candidato.email))}</div>
-          <div class="field"><strong>Telefone</strong>${escaparHtmlFicha(formatarValorFicha(candidato.telefone))}</div>
-          <div class="field"><strong>WhatsApp</strong>${escaparHtmlFicha(formatarValorFicha(candidato.whatsapp))}</div>
-          <div class="field"><strong>Cidade</strong>${escaparHtmlFicha(formatarValorFicha(candidato.cidade))}</div>
-          <div class="field"><strong>Bairro</strong>${escaparHtmlFicha(formatarValorFicha(candidato.bairro))}</div>
-        </section>
+          <section class="candidate-section">
+            <h2>Informações gerais</h2>
+            <div class="candidate-info-grid">${linhasInformacoes}</div>
+          </section>
 
-        <h2>Currículo</h2>
-        <section class="grid">
-          <div class="field"><strong>Arquivo</strong>${escaparHtmlFicha(formatarValorFicha(curriculo.nome_arquivo))}</div>
-          <div class="field"><strong>Status</strong>${escaparHtmlFicha(formatarValorFicha(curriculo.status))}</div>
-          <div class="field"><strong>Nota do currículo</strong>${escaparHtmlFicha(formatarValorFicha(candidato.nota_curriculo))}</div>
-          <div class="field"><strong>Disponível para download</strong>${curriculo.disponivel ? 'Sim' : 'Não'}</div>
-        </section>
+          <section class="candidate-section candidate-results">
+            <div class="candidate-results-head">
+              <h2>Resultados</h2>
+              <div class="candidate-score">
+                <span>Nota geral</span>
+                <strong>${escaparHtmlFicha(formatarValorFicha(notaGeral, '-'))}</strong>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Etapa</th>
+                  <th>Status</th>
+                  <th>Nota</th>
+                  <th>Peso</th>
+                  <th>Resultado</th>
+                </tr>
+              </thead>
+              <tbody>${linhasResultados}</tbody>
+            </table>
+            <div class="candidate-adherence"><span>Aderência à vaga</span><strong>${escaparHtmlFicha(aderenciaFormatada)}</strong></div>
+          </section>
 
-        <h2>Processos seletivos</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Vaga/processo</th>
-              <th>Status</th>
-              <th>Etapa</th>
-              <th>Data</th>
-              <th>Resultado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${montarLinhasTabelaImpressao(
-    processos,
-    [
-      { valor: (item) => formatarValorFicha(item.vaga) },
-      { valor: (item) => formatarValorFicha(item.status) },
-      { valor: (item) => formatarValorFicha(item.etapa) },
-      { valor: (item) => formatarDataHora(item.data_inscricao) },
-      { valor: (item) => formatarValorFicha(item.resultado_geral) },
-    ],
-    'Nenhum processo registrado.',
-  )}
-          </tbody>
-        </table>
+          <section class="candidate-section">
+            <h2>Competências observadas</h2>
+            <ul class="candidate-competencies">${listaCompetencias}</ul>
+          </section>
 
-        <h2>Resultados resumidos</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Etapa</th>
-              <th>Nota</th>
-              <th>Status</th>
-              <th>Processo</th>
-              <th>Análise</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${montarLinhasTabelaImpressao(
-    resultados,
-    [
-      { valor: (item) => formatarValorFicha(item.etapa) },
-      { valor: (item) => formatarPontuacaoResultadoFicha(item) },
-      { valor: (item) => formatarValorFicha(item.status) },
-      { valor: (item) => formatarValorFicha(item.processo) },
-      { valor: (item) => montarAnaliseResultadoFicha(item) },
-    ],
-    'Nenhum resultado registrado.',
-  )}
-          </tbody>
-        </table>
-
-        <h2>Avaliação RH</h2>
-        <section class="grid">
-          <div class="field"><strong>Classificação</strong>${escaparHtmlFicha(avaliacao.classificacao_label || 'Não definido')}</div>
-          <div class="field"><strong>Data de geração</strong>${escaparHtmlFicha(dataGeracao)}</div>
-        </section>
-        <h2>Observações</h2>
-        <div class="text-block">${escaparHtmlFicha(formatarValorFicha(avaliacao.observacoes))}</div>
-        <h2>Justificativa</h2>
-        <div class="text-block">${escaparHtmlFicha(formatarValorFicha(avaliacao.justificativa))}</div>
+          <section class="candidate-section">
+            <h2>Observação do RH</h2>
+            <div class="candidate-observation">${escaparHtmlFicha(avaliacao.observacoes || '')}</div>
+          </section>
+        </main>
         <script>
           window.addEventListener('load', function () {
             window.setTimeout(function () { window.print(); }, 200);
@@ -4001,7 +4190,7 @@ export function TelaProcessos({ controlador }) {
           onAprovar: abrirAprovacao,
           onAtualizarStatus: (item, status) =>
             atualizarStatus(
-              item.id_registro,
+              item.id_registro || item.id_teste || item.id_candidato,
               status,
               obterReferenciaProcessoDoCandidato(item),
             ),
@@ -4190,7 +4379,7 @@ export function TelaProcessos({ controlador }) {
           onAprovar: abrirAprovacao,
           onAtualizarStatus: (item, status) =>
             atualizarStatus(
-              item.id_registro,
+              item.id_registro || item.id_teste || item.id_candidato,
               status,
               obterReferenciaProcessoDoCandidato(item),
             ),
@@ -9970,7 +10159,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                     </div>
 
                     <div class="candidate-meta process-candidate-meta-grid">
-                      <span class=${`candidate-status-chip process-candidate-status-badge ${obterClasseStatusProcesso(candidato.status_fluxo)}`}>
+                      <span class=${`candidate-status-chip process-candidate-status-badge d-flex align-items-center ${obterClasseStatusProcesso(candidato.status_fluxo)}`}>
                         ${candidato.status_fluxo || '-'}
                       </span>
                       ${manualmenteQualificado
@@ -10018,7 +10207,11 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                 temProvaSalva: temProvaConcluida,
                 podeBaixarCv,
                 onAtualizarStatus: (item, status) =>
-                  atualizarStatus(item.id_registro, status),
+                  atualizarStatus(
+                    item.id_registro || item.id_teste || item.id_candidato,
+                    status,
+                    obterReferenciaProcessoDoCandidato(item),
+                  ),
                 controlador,
               })}
                     </div>

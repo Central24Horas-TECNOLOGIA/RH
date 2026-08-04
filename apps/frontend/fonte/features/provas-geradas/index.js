@@ -133,10 +133,26 @@ function validarTelefone(valor) {
   return digitos.length >= 10 && digitos.length <= 13;
 }
 
-function lerValoresMultiselect(event) {
-  return Array.from(event.target.selectedOptions || [])
-    .map((opcao) => normalizarTexto(opcao.value))
-    .filter(Boolean);
+function formatarTelefoneBrasileiro(valor) {
+  let digitos = normalizarTexto(valor).replace(/\D/g, '');
+  if (digitos.length > 11 && digitos.startsWith('55')) {
+    digitos = digitos.slice(2);
+  }
+  digitos = digitos.slice(0, 11);
+  if (!digitos) return '';
+  if (digitos.length <= 2) return `(${digitos}`;
+
+  const ddd = digitos.slice(0, 2);
+  const limitePrimeiroBloco = digitos.length > 10 ? 7 : 6;
+  const primeiroBloco = digitos.slice(2, limitePrimeiroBloco);
+  const segundoBloco = digitos.slice(limitePrimeiroBloco);
+  return segundoBloco
+    ? `(${ddd}) ${primeiroBloco}-${segundoBloco}`
+    : `(${ddd}) ${primeiroBloco}`;
+}
+
+function primeiroValorLista(lista = []) {
+  return Array.isArray(lista) ? normalizarTexto(lista[0]) : '';
 }
 
 function montarListaComOutro(lista = [], outro = '') {
@@ -174,6 +190,24 @@ function normalizarTrilha(valor) {
   if (chave.includes('adm') || chave.includes('administrativo') || chave.includes('gestao')) return 'adm';
   if (chave.includes('operacao') || chave.includes('padrao')) return 'operacao';
   return chave;
+}
+
+function aplicarSugestoesDaVaga(formulario = {}) {
+  const opcao = obterOpcaoVaga(formulario.vaga);
+  if (!opcao) return formulario;
+
+  const nivelSugerido = normalizarNivelProva(
+    SUGESTOES_NIVEL_POR_VAGA[formulario.vaga] || opcao.level || '',
+  );
+  const areaSugerida = normalizarTexto(opcao.track || '');
+  const trilhaSugerida = normalizarTrilha(areaSugerida);
+
+  return {
+    ...formulario,
+    nivel: nivelSugerido || formulario.nivel,
+    area_prova: areaSugerida || formulario.area_prova,
+    trilha: trilhaSugerida || formulario.trilha,
+  };
 }
 
 function obterAreaInicial(candidato, processo, opcaoVaga) {
@@ -275,7 +309,9 @@ function montarFormularioInicial(contexto = {}) {
   return {
     nome_candidato: normalizarTexto(candidato.nome_candidato || candidato.nome || candidato.name || ''),
     email: normalizarTexto(candidato.email || candidato.email_acesso || candidato.email_candidato || ''),
-    telefone: normalizarTexto(candidato.telefone || candidato.telefone_acesso || candidato.whatsapp || candidato.celular || ''),
+    telefone: formatarTelefoneBrasileiro(
+      candidato.telefone || candidato.telefone_acesso || candidato.whatsapp || candidato.celular || '',
+    ),
     cpf: normalizarTexto(candidato.cpf || ''),
     id_teste: normalizarTexto(candidato.id_teste || ''),
     id_registro: candidato.id_registro || null,
@@ -657,18 +693,14 @@ export function ModalGerarProva({
 
   useEffect(() => {
     if (!formulario.vaga) return;
-    const opcao = obterOpcaoVaga(formulario.vaga);
-    const nivelSugerido = normalizarNivelProva(
-      SUGESTOES_NIVEL_POR_VAGA[formulario.vaga] || opcao?.level || '',
-    );
-    const areaSugerida = normalizarTexto(opcao?.track || '');
-    const trilhaSugerida = normalizarTrilha(formulario.area_prova || areaSugerida);
-    setFormulario((anterior) => ({
-      ...anterior,
-      nivel: normalizarNivelProva(anterior.nivel) || nivelSugerido,
-      area_prova: anterior.area_prova || areaSugerida,
-      trilha: anterior.trilha || trilhaSugerida,
-    }));
+    setFormulario((anterior) => {
+      const proximo = aplicarSugestoesDaVaga(anterior);
+      return anterior.nivel === proximo.nivel &&
+        anterior.area_prova === proximo.area_prova &&
+        anterior.trilha === proximo.trilha
+        ? anterior
+        : proximo;
+    });
   }, [formulario.vaga]);
 
   const blueprint = useMemo(() => {
@@ -702,11 +734,14 @@ export function ModalGerarProva({
   if (!aberto) return null;
 
   const atualizarCampo = (campo, valor) => {
-    setFormulario((anterior) => ({
-      ...anterior,
-      [campo]: valor,
-      ...(campo === 'area_prova' ? { trilha: normalizarTrilha(valor) } : {}),
-    }));
+    setFormulario((anterior) => {
+      const proximo = {
+        ...anterior,
+        [campo]: campo === 'telefone' ? formatarTelefoneBrasileiro(valor) : valor,
+        ...(campo === 'area_prova' ? { trilha: normalizarTrilha(valor) } : {}),
+      };
+      return campo === 'vaga' ? aplicarSugestoesDaVaga(proximo) : proximo;
+    });
     setErro('');
   };
 
@@ -985,6 +1020,7 @@ export function ModalGerarProva({
               <label class="form-label">Telefone</label>
               <input
                 class="form-control"
+                inputMode="tel"
                 value=${formulario.telefone}
                 onInput=${(event) => atualizarCampo('telefone', event.target.value)}
               />
@@ -1111,19 +1147,18 @@ export function ModalGerarProva({
                   <div class="col-md-6">
                     <label class="form-label">Cliente/Operação</label>
                     <select
-                      class="form-select generated-multiselect"
-                      multiple
-                      value=${formulario.clientes_personalizacao}
+                      class="form-select"
+                      value=${primeiroValorLista(formulario.clientes_personalizacao)}
                       onChange=${(event) =>
-                        atualizarCampo('clientes_personalizacao', lerValoresMultiselect(event))}
+                        atualizarCampo(
+                          'clientes_personalizacao',
+                          event.target.value ? [event.target.value] : [],
+                        )}
                     >
+                      <option value="">Selecione...</option>
                       ${[...OPCOES_OPERACOES_MODAL, OPCAO_OUTRO].map(
                         (opcao) => html`
-                          <option
-                            key=${opcao}
-                            value=${opcao}
-                            selected=${formulario.clientes_personalizacao.includes(opcao)}
-                          >
+                          <option key=${opcao} value=${opcao}>
                             ${opcao}
                           </option>
                         `,
@@ -1133,19 +1168,18 @@ export function ModalGerarProva({
                   <div class="col-md-6">
                     <label class="form-label">Tipo de atendimento</label>
                     <select
-                      class="form-select generated-multiselect"
-                      multiple
-                      value=${formulario.tipos_atendimento}
+                      class="form-select"
+                      value=${primeiroValorLista(formulario.tipos_atendimento)}
                       onChange=${(event) =>
-                        atualizarCampo('tipos_atendimento', lerValoresMultiselect(event))}
+                        atualizarCampo(
+                          'tipos_atendimento',
+                          event.target.value ? [event.target.value] : [],
+                        )}
                     >
+                      <option value="">Selecione...</option>
                       ${TIPOS_ATENDIMENTO_PERSONALIZACAO.map(
                         (opcao) => html`
-                          <option
-                            key=${opcao}
-                            value=${opcao}
-                            selected=${formulario.tipos_atendimento.includes(opcao)}
-                          >
+                          <option key=${opcao} value=${opcao}>
                             ${opcao}
                           </option>
                         `,
@@ -1283,6 +1317,7 @@ function ModalDetalheProvaGerada({
   onDecisao,
 }) {
   const [mostrarResultadoCompleto, setMostrarResultadoCompleto] = useState(true);
+  const [menuAcoesAberto, setMenuAcoesAberto] = useState(false);
   if (!detalhe) return null;
   const score = detalhe.score || {};
   const resultado = detalhe.resultado || {};
@@ -1296,6 +1331,9 @@ function ModalDetalheProvaGerada({
   const scoreConecta = obterScoreFinal(detalhe) ?? score.score_final;
   const statusProva = detalhe.status || resultado.status || 'Pendente';
   const statusClasse = obterClasseStatusProva(statusProva);
+  const possuiRespostas = respostas.length > 0;
+  const possuiNota = notaGeral !== null && notaGeral !== undefined && notaGeral !== '';
+  const provaCancelada = normalizarBusca(statusProva).includes('cancelad');
 
   return html`
     <${ModalPadrao}
@@ -1435,7 +1473,7 @@ function ModalDetalheProvaGerada({
                         <tr>
                           <th># & Etapa</th>
                           <th>Questão</th>
-                          <th>Resposta</th>
+                          ${possuiRespostas ? html`<th>Resposta</th>` : null}
                           <th>Nota</th>
                           <th>Status</th>
                         </tr>
@@ -1449,7 +1487,7 @@ function ModalDetalheProvaGerada({
                                 ${linha.subtitulo ? html`<small>${linha.subtitulo}</small>` : null}
                               </td>
                               <td>${linha.questao}</td>
-                              <td>${linha.resposta}</td>
+                              ${possuiRespostas ? html`<td>${linha.resposta}</td>` : null}
                               <td><strong>${linha.nota}</strong></td>
                               <td>
                                 <span class=${`generated-answer-status ${linha.status.className}`}>
@@ -1514,7 +1552,6 @@ function ModalDetalheProvaGerada({
               : html`
                   <div class="generated-full-result-fallback">
                     <p>As respostas completas ainda não estão salvas para esta prova.</p>
-                    <pre>${JSON.stringify({ resultado, questoes: detalhe.questoes || [] }, null, 2)}</pre>
                   </div>
                 `
             : null}
@@ -1558,7 +1595,6 @@ function ModalDetalheProvaGerada({
                   : html`
                       <div class="generated-full-result-fallback">
                         <p>As respostas completas ainda não estão salvas para esta prova.</p>
-                        <pre>${JSON.stringify({ resultado, questoes: detalhe.questoes || [] }, null, 2)}</pre>
                       </div>
                     `}
               </section>
@@ -1567,18 +1603,60 @@ function ModalDetalheProvaGerada({
       </div>
       <footer class="rh-modal-footer generated-detail-footer">
         <${BotaoAcaoProva} icon="close" label="Fechar" variant="neutral" onClick=${onClose} />
-        <${BotaoAcaoProva} icon="visibility" label="Código" variant="primary" onClick=${onCopiarCodigo} />
-        <${BotaoAcaoProva} icon="menu_book" label="Manual" variant="purple" onClick=${onAvaliacaoManual} />
-        <${BotaoAcaoProva} icon="history" label="Reabrir" variant="success" onClick=${onReabrir} />
-        ${false ? html`<${BotaoAcaoProva}
-          icon="format_list_bulleted"
-          label=${mostrarResultadoCompleto ? 'Ocultar resultado' : 'Ver resultado completo'}
-          variant="soft"
-          onClick=${() => setMostrarResultadoCompleto((valor) => !valor)}
-        />` : null}
-        <${BotaoAcaoProva} icon="delete" label="Cancelar" variant="danger" onClick=${onCancelar} />
-        <${BotaoAcaoProva} icon="sync" label="Recalcular score" variant="soft" onClick=${onRecalcular} />
-        <${BotaoAcaoProva} icon="person_add" label="Decisão RH" variant="solid" onClick=${onDecisao} />
+        <div class="generated-actions-menu">
+          <${BotaoAcaoProva}
+            icon="more_horiz"
+            label="Ações"
+            variant="solid"
+            onClick=${() => setMenuAcoesAberto((aberto) => !aberto)}
+          />
+          ${menuAcoesAberto
+            ? html`
+                <div class="generated-actions-dropdown" role="menu">
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
+                    onCopiarCodigo?.();
+                  }}>
+                    <span class="material-symbols-outlined">content_copy</span>
+                    Copiar Código
+                  </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
+                    onAvaliacaoManual?.();
+                  }}>
+                    <span class="material-symbols-outlined">menu_book</span>
+                    Inserir Manualmente
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled=${!possuiNota}
+                    onClick=${() => {
+                      setMenuAcoesAberto(false);
+                      onRecalcular?.();
+                    }}
+                  >
+                    <span class="material-symbols-outlined">sync</span>
+                    Recalcular Score
+                  </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
+                    (provaCancelada ? onReabrir : onCancelar)?.();
+                  }}>
+                    <span class="material-symbols-outlined">${provaCancelada ? 'history' : 'delete'}</span>
+                    ${provaCancelada ? 'Reabrir Prova' : 'Cancelar'}
+                  </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
+                    onDecisao?.();
+                  }}>
+                    <span class="material-symbols-outlined">person_add</span>
+                    Decisão RH
+                  </button>
+                </div>
+              `
+            : null}
+        </div>
       </footer>
     </${ModalPadrao}>
   `;

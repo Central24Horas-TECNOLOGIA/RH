@@ -579,6 +579,18 @@ class ProcessRepositoryMixin:
             cursor.execute(query, tuple(params))
             rows = rows_to_dicts(cursor, cursor.fetchall())
             rows = self._hydrate_pipeline_fields(cursor, rows)
+            if not normalize_text(id_processo):
+                existing_candidate_ids = {
+                    normalize_text(item.get("id_teste"))
+                    for item in rows
+                    if normalize_text(item.get("id_teste"))
+                }
+                rows.extend(
+                    self._get_standalone_generated_exam_candidates(
+                        cursor,
+                        existing_candidate_ids,
+                    )
+                )
             rows = self._enrich_candidate_records(cursor, rows)
             rows = self._attach_process_context(
                 cursor,

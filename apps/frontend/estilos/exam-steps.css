@@ -1,7 +1,7 @@
 .conecta-provas-shell.is-steps-view {
   display: block;
   min-height: 100vh;
-  padding: clamp(24px, 4vw, 58px);
+  padding: clamp(24px, 4vw, 56px);
   background: #f8fafc;
 }
 
@@ -14,7 +14,7 @@
 .exam-steps-header {
   display: flex;
   align-items: flex-start;
-  gap: clamp(20px, 3vw, 46px);
+  gap: clamp(16px, 3vw, 48px);
   margin-bottom: 24px;
 }
 
@@ -25,7 +25,7 @@
   height: 52px;
   place-items: center;
   border: 1px solid #dce3ed;
-  border-radius: 11px;
+  border-radius: 8px;
   background: #fff;
   color: #111827;
 }
@@ -47,16 +47,16 @@
 .exam-steps-alert,
 .exam-steps-notice {
   width: min(calc(100% - 360px), 1080px);
-  margin: 0 0 18px 98px;
+  margin: 0 0 16px 96px;
 }
 
 .exam-steps-notice {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   border: 1px solid #f2d092;
-  border-radius: 10px;
-  padding: 12px 16px;
+  border-radius: 8px;
+  padding: 8px 16px;
   background: #fff8e9;
   color: #7a4a00;
 }
@@ -73,14 +73,14 @@
 .exam-steps-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(290px, 360px);
-  gap: clamp(24px, 3vw, 44px);
+  gap: clamp(24px, 3vw, 40px);
   align-items: start;
 }
 
 .exam-steps-list {
   display: grid;
-  gap: 14px;
-  padding-left: 98px;
+  gap: 16px;
+  padding-left: 96px;
 }
 
 .exam-step-card {
@@ -91,8 +91,8 @@
   align-items: center;
   min-height: 134px;
   border: 1px solid #dce3ed;
-  border-radius: 11px;
-  padding: 22px 34px 22px 28px;
+  border-radius: 8px;
+  padding: 24px 32px 24px 24px;
   background: #fff;
   box-shadow: 0 5px 14px rgba(28, 48, 83, 0.06);
 }
@@ -146,7 +146,7 @@
   height: 68px;
   place-items: center;
   border: 1px solid #d7e3f8;
-  border-radius: 14px;
+  border-radius: 8px;
   background: #f0f5ff;
   color: #0758f0;
 }
@@ -165,7 +165,7 @@
 .exam-step-action .btn {
   min-width: 142px;
   min-height: 46px;
-  border-radius: 9px;
+  border-radius: 8px;
   font-weight: 650;
 }
 
@@ -174,9 +174,9 @@
 .exam-summary-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   border-radius: 999px;
-  padding: 5px 10px;
+  padding: 4px 8px;
   font-size: 0.74rem;
   font-weight: 700;
 }
@@ -194,7 +194,7 @@
 .exam-summary-panel,
 .exam-info-panel {
   border: 1px solid #dce3ed;
-  border-radius: 11px;
+  border-radius: 8px;
   padding: 24px;
   background: #fff;
   box-shadow: 0 5px 14px rgba(28, 48, 83, 0.05);

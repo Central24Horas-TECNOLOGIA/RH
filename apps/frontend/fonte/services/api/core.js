@@ -20,6 +20,7 @@ export const URL_PUBLICA_BASE_CANDIDATURA =
 const TEMPO_CACHE_PADRAO_MS = 60000;
 const TEMPO_CACHE_SENSIVEL_MS = 1800000;
 const TEMPO_CACHE_ESTATICO_MS = 300000;
+const TEMPO_CACHE_EMAIL_INBOX_MS = 60 * 60 * 1000;
 const PREFIXO_CACHE_SESSAO = 'rh_api_cache_v2:';
 const LIMITE_CACHE_SESSAO_CARACTERES = 1500000;
 const LIMITE_ITENS_CACHE_MEMORIA = 80;
@@ -74,17 +75,31 @@ function chaveComecaCom(chave, prefixos) {
   return prefixos.some((prefixo) => chave === prefixo || chave.startsWith(`${prefixo}:`));
 }
 
+function chaveEhEmailInbox(chave = '') {
+  return chave === 'email-inbox' || chave.startsWith('email-inbox:');
+}
+
+function cacheEmailInboxEhDeOutroDia(timestamp) {
+  const data = new Date(Number(timestamp || 0));
+  if (Number.isNaN(data.getTime())) return true;
+  return data.toDateString() !== new Date().toDateString();
+}
+
 function normalizarOpcoesCache(opcoes = {}) {
   const sensivel = opcoes.sensivel ?? chaveComecaCom(opcoes.chave || '', PREFIXOS_CACHE_SENSIVEL);
   const persistente =
     !sensivel &&
     (opcoes.persistente ?? chaveComecaCom(opcoes.chave || '', PREFIXOS_CACHE_PERSISTENTE));
+  const ttlPadrao = chaveEhEmailInbox(opcoes.chave || '')
+    ? TEMPO_CACHE_EMAIL_INBOX_MS
+    : sensivel
+      ? TEMPO_CACHE_SENSIVEL_MS
+      : persistente
+        ? TEMPO_CACHE_ESTATICO_MS
+        : TEMPO_CACHE_PADRAO_MS;
 
   return {
-    ttlMs: Number(
-      opcoes.ttlMs ||
-        (sensivel ? TEMPO_CACHE_SENSIVEL_MS : persistente ? TEMPO_CACHE_ESTATICO_MS : TEMPO_CACHE_PADRAO_MS),
-    ),
+    ttlMs: Number(opcoes.ttlMs || ttlPadrao),
     persistente,
     sensivel,
   };
@@ -96,6 +111,10 @@ function lerCache(chave, opcoes = {}) {
   const entrada = cacheMemoria.get(chave);
   if (entrada) {
     const ttlEntrada = Number(entrada.ttlMs || politica.ttlMs);
+    if (chaveEhEmailInbox(chave) && cacheEmailInboxEhDeOutroDia(entrada.timestamp)) {
+      cacheMemoria.delete(chave);
+      return null;
+    }
     if (Date.now() - entrada.timestamp <= ttlEntrada) return entrada.data;
     cacheMemoria.delete(chave);
   }

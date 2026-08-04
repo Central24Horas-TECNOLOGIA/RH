@@ -21,6 +21,7 @@ from ..services.helpers import (
 )
 from ..services.pipeline import infer_pipeline_stage
 from ..services.process_flow import (
+    CANDIDATE_STATUS_ANALYSIS,
     CANDIDATE_STATUS_APPROVED,
     CANDIDATE_STATUS_ELIMINATED,
     CANDIDATE_STATUS_TALENT_BANK,
@@ -287,6 +288,7 @@ class BaseRepository:
                     prova.finalizada_em,
                     prova.cancelada_em,
                     resultado.nota_final_prova,
+                    resultado.resumo_etapas_json,
                     ROW_NUMBER() OVER (
                         PARTITION BY ISNULL(prova.id_registro, 0)
                         ORDER BY prova.atualizado_em DESC, prova.id_prova DESC
@@ -301,7 +303,7 @@ class BaseRepository:
                     ) AS ordem_teste
                 FROM dbo.provas_geradas prova
                 OUTER APPLY (
-                    SELECT TOP 1 nota_final_prova
+                    SELECT TOP 1 nota_final_prova, resumo_etapas_json
                     FROM dbo.resultados_provas resultado
                     WHERE resultado.id_prova = prova.id_prova
                     ORDER BY resultado.atualizado_em DESC, resultado.id_resultado DESC
@@ -321,6 +323,7 @@ class BaseRepository:
                 finalizada_em,
                 cancelada_em,
                 nota_final_prova,
+                resumo_etapas_json,
                 ordem_registro,
                 ordem_processo,
                 ordem_teste
@@ -343,6 +346,114 @@ class BaseRepository:
             if id_teste and int(row.get("ordem_teste") or 0) == 1:
                 maps["by_teste"][id_teste] = row
         return maps
+
+    def _get_standalone_generated_exam_candidates(
+        self,
+        cursor,
+        existing_candidate_ids: set[str] | None = None,
+    ) -> list[dict]:
+        cursor.execute("SELECT OBJECT_ID('dbo.provas_geradas', 'U')")
+        if not cursor.fetchone()[0]:
+            return []
+
+        cursor.execute(
+            """
+            WITH provas_ordenadas AS (
+                SELECT
+                    prova.id_prova,
+                    prova.id_teste,
+                    prova.nome_candidato,
+                    prova.email_acesso,
+                    prova.telefone_acesso,
+                    prova.cpf,
+                    prova.vaga,
+                    prova.operacao,
+                    prova.trilha,
+                    prova.nivel,
+                    prova.status,
+                    prova.codigo_acesso,
+                    prova.gerada_em,
+                    prova.iniciada_em,
+                    prova.finalizada_em,
+                    prova.cancelada_em,
+                    prova.atualizado_em,
+                    resultado.nota_final_prova,
+                    resultado.resumo_etapas_json,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY prova.id_teste
+                        ORDER BY prova.atualizado_em DESC, prova.id_prova DESC
+                    ) AS ordem
+                FROM dbo.provas_geradas prova
+                OUTER APPLY (
+                    SELECT TOP 1 nota_final_prova, resumo_etapas_json
+                    FROM dbo.resultados_provas resultado
+                    WHERE resultado.id_prova = prova.id_prova
+                    ORDER BY resultado.atualizado_em DESC, resultado.id_resultado DESC
+                ) resultado
+                WHERE ISNULL(prova.id_teste, '') <> ''
+                  AND ISNULL(prova.id_registro, 0) = 0
+                  AND ISNULL(prova.id_processo_ref, '') = ''
+                  AND ISNULL(prova.id_processo, '') = ''
+            )
+            SELECT *
+            FROM provas_ordenadas
+            WHERE ordem = 1
+            ORDER BY COALESCE(finalizada_em, gerada_em) DESC, id_prova DESC
+            """
+        )
+        existing_ids = {
+            normalize_text(candidate_id)
+            for candidate_id in (existing_candidate_ids or set())
+            if normalize_text(candidate_id)
+        }
+        candidates = []
+        for row in rows_to_dicts(cursor, cursor.fetchall()):
+            id_teste = normalize_text(row.get("id_teste"))
+            if not id_teste or id_teste in existing_ids:
+                continue
+
+            nota_final = row.get("nota_final_prova")
+            data_prova = row.get("finalizada_em") or row.get("gerada_em")
+            candidates.append(
+                {
+                    "id_registro": None,
+                    "id_teste": id_teste,
+                    "nome_candidato": normalize_text(row.get("nome_candidato")),
+                    "email": normalize_text(row.get("email_acesso")),
+                    "telefone": normalize_text(row.get("telefone_acesso")),
+                    "whatsapp": normalize_text(row.get("telefone_acesso")),
+                    "cpf": normalize_text(row.get("cpf")),
+                    "vaga": normalize_text(row.get("vaga")),
+                    "operacao": normalize_text(row.get("operacao")),
+                    "trilha": normalize_text(row.get("trilha")),
+                    "nivel": normalize_text(row.get("nivel")),
+                    "status_candidato": CANDIDATE_STATUS_ANALYSIS,
+                    "pontuacao_final": nota_final,
+                    "nota_prova": nota_final,
+                    "data_prova": data_prova,
+                    "data_prova_realizada": data_prova,
+                    "origem": "Prova avulsa",
+                    "etapa_pipeline": infer_pipeline_stage(
+                        CANDIDATE_STATUS_ANALYSIS,
+                        "Prova avulsa",
+                        "",
+                    ),
+                    "data_atualizacao_pipeline": row.get("atualizado_em"),
+                    "prova_disponivel": nota_final is not None,
+                    "id_teste_prova": id_teste if nota_final is not None else "",
+                    "tem_prova_gerada": True,
+                    "id_prova_gerada": row.get("id_prova"),
+                    "status_prova_gerada": normalize_text(row.get("status")),
+                    "codigo_prova_gerada": normalize_text(row.get("codigo_acesso")),
+                    "data_prova_gerada": row.get("gerada_em"),
+                    "prova_iniciada_em": row.get("iniciada_em"),
+                    "prova_finalizada_em": row.get("finalizada_em"),
+                    "prova_cancelada_em": row.get("cancelada_em"),
+                    "status_prova": normalize_text(row.get("status")),
+                    "etapas_prova_json": normalize_text(row.get("resumo_etapas_json")),
+                }
+            )
+        return candidates
 
     def _select_history_result_for_candidate(self, candidate: dict, history_rows: list[dict]) -> dict:
         if not history_rows:
@@ -563,14 +674,20 @@ class BaseRepository:
             candidate["cv_score_final"] = cv_attachment.get("score_final")
             candidate["cv_classificacao"] = normalize_text(cv_attachment.get("classificacao"))
             history_score = normalize_text(history_result.get("pontuacao_final"))
+            generated_score = normalize_text(generated_exam.get("nota_final_prova"))
+            if not generated_score:
+                generated_score = normalize_text(candidate.get("nota_final_prova"))
             if history_score and not normalize_text(candidate.get("pontuacao_final")):
                 candidate["pontuacao_final"] = history_score
+            elif generated_score and not normalize_text(candidate.get("pontuacao_final")):
+                candidate["pontuacao_final"] = generated_score
 
             origin_normalized = normalize_compare_text(candidate.get("origem"))
             has_history_score = bool(history_score)
+            has_generated_score = bool(generated_score)
             has_process_score = bool(normalize_text(candidate.get("pontuacao_final")))
             id_is_cv = id_teste.upper().startswith("CV-")
-            has_real_proof = has_history_score or (
+            has_real_proof = has_history_score or has_generated_score or (
                 has_process_score
                 and not id_is_cv
                 and "pre analise" not in origin_normalized
@@ -578,12 +695,21 @@ class BaseRepository:
             )
             candidate["nota_prova"] = (
                 history_score
+                or generated_score
                 or (normalize_text(candidate.get("pontuacao_final")) if has_real_proof else "")
             )
             candidate["prova_disponivel"] = bool(has_real_proof)
             candidate["id_teste_prova"] = id_teste if has_real_proof else ""
-            candidate["data_prova_realizada"] = history_result.get("data_iso") or candidate.get("data_prova")
-            candidate["status_prova"] = normalize_text(history_result.get("status"))
+            candidate["data_prova_realizada"] = (
+                history_result.get("data_iso")
+                or generated_exam.get("finalizada_em")
+                or candidate.get("data_prova")
+            )
+            candidate["status_prova"] = (
+                normalize_text(history_result.get("status"))
+                or normalize_text(generated_exam.get("status"))
+                or normalize_text(candidate.get("status_prova"))
+            )
             candidate["tem_prova_gerada"] = bool(generated_exam)
             candidate["id_prova_gerada"] = generated_exam.get("id_prova") if generated_exam else None
             candidate["status_prova_gerada"] = normalize_text(generated_exam.get("status")) if generated_exam else ""
@@ -592,7 +718,11 @@ class BaseRepository:
             candidate["prova_iniciada_em"] = generated_exam.get("iniciada_em") if generated_exam else None
             candidate["prova_finalizada_em"] = generated_exam.get("finalizada_em") if generated_exam else None
             candidate["prova_cancelada_em"] = generated_exam.get("cancelada_em") if generated_exam else None
-            candidate["etapas_prova_json"] = normalize_text(history_result.get("etapas_json"))
+            candidate["etapas_prova_json"] = (
+                normalize_text(history_result.get("etapas_json"))
+                or normalize_text(generated_exam.get("resumo_etapas_json"))
+                or normalize_text(candidate.get("etapas_prova_json"))
+            )
             candidate["origem_rotulo"] = self._format_candidate_origin(candidate)
 
         return candidates
