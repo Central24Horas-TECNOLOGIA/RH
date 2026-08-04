@@ -99,7 +99,7 @@
   gap: 0.9rem;
   min-height: 88px;
   border: 1px solid var(--process-border);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 0.95rem 1.1rem;
   background: #fff;
   box-shadow: 0 4px 16px rgba(15, 39, 82, 0.035);
@@ -142,7 +142,7 @@
 #screen-process-details .process-result-bar {
   gap: 0.75rem;
   border: 1px solid var(--process-border);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 0.85rem 1rem;
   background: #fff;
 }

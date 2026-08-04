@@ -68,7 +68,7 @@ function BarraLateral({
     {
       tela: 'screen-analysis-candidates',
       icone: 'bar_chart',
-      label: 'Análise de candidatos',
+      label: 'Relatórios Gerais',
       permissao: 'relatorios.visualizar',
     },
     {

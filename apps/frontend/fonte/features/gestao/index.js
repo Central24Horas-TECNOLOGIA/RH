@@ -235,10 +235,19 @@ function montarChaveCacheSecaoEmail({ mostrarIgnorados = false, query = '' } = {
   });
 }
 
+function cacheSecaoEmailEhDeOutroDia(timestamp) {
+  const data = new Date(Number(timestamp || 0));
+  if (Number.isNaN(data.getTime())) return true;
+  return data.toDateString() !== new Date().toDateString();
+}
+
 function lerCacheSecaoEmail(chave) {
   const entrada = cacheSecoesEmail.get(chave) || null;
   if (!entrada) return null;
-  if (Date.now() - Number(entrada.timestamp || 0) > TEMPO_CACHE_SECAO_EMAIL_MS) {
+  if (
+    cacheSecaoEmailEhDeOutroDia(entrada.timestamp) ||
+    Date.now() - Number(entrada.timestamp || 0) > TEMPO_CACHE_SECAO_EMAIL_MS
+  ) {
     cacheSecoesEmail.delete(chave);
     return null;
   }
@@ -872,6 +881,13 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
   }, [mostrarIgnorados]);
 
   useEffect(() => {
+    const intervalo = window.setInterval(() => {
+      carregarEmails();
+    }, TEMPO_CACHE_SECAO_EMAIL_MS);
+    return () => window.clearInterval(intervalo);
+  }, [mostrarIgnorados, filtroTexto]);
+
+  useEffect(() => {
     const idsDisponiveis = new Set(emails.map((item) => String(item.id)));
     setIdsSelecionados((atuais) => atuais.filter((id) => idsDisponiveis.has(id)));
   }, [emails]);
@@ -1457,14 +1473,47 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
   `;
 }
 
+const CHAVE_CACHE_EMAIL_LOGIN = 'rh_login_email_cache';
+const DURACAO_CACHE_EMAIL_LOGIN_MS = 60000;
+
+function lerEmailLoginCacheado() {
+  try {
+    const bruto = window.sessionStorage.getItem(CHAVE_CACHE_EMAIL_LOGIN);
+    if (!bruto) return '';
+    const { valor, timestamp } = JSON.parse(bruto);
+    if (!valor || !timestamp || Date.now() - timestamp > DURACAO_CACHE_EMAIL_LOGIN_MS) {
+      return '';
+    }
+    return valor;
+  } catch (erro) {
+    return '';
+  }
+}
+
+function salvarEmailLoginCache(valor) {
+  try {
+    window.sessionStorage.setItem(
+      CHAVE_CACHE_EMAIL_LOGIN,
+      JSON.stringify({ valor, timestamp: Date.now() }),
+    );
+  } catch (erro) {
+    // sessionStorage indisponível (modo privado, quota, etc.)
+  }
+}
+
 export function TelaLogin({ controlador }) {
-  const [usuario, setUsuario] = useState('');
+  const [usuario, setUsuario] = useState(() => lerEmailLoginCacheado());
   const [senha, setSenha] = useState('');
   const [mensagemErro, setMensagemErro] = useState('');
   const [autenticandoMicrosoft, setAutenticandoMicrosoft] = useState(false);
   const [exibirLoginLocal, setExibirLoginLocal] = useState(false);
   const [tourReopenSignal, setTourReopenSignal] = useState(0);
   const tourLogin = obterTourLogin();
+
+  const atualizarUsuario = (valor) => {
+    setUsuario(valor);
+    salvarEmailLoginCache(valor);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search || '');
@@ -1572,7 +1621,7 @@ export function TelaLogin({ controlador }) {
                         class="form-control rh-login-input rh-login-input-modern"
                         placeholder="nome@empresa.com.br"
                         value=${usuario}
-                        onInput=${(event) => setUsuario(event.target.value)}
+                        onInput=${(event) => atualizarUsuario(event.target.value)}
                         type="text"
                       />
                     </div>

@@ -127,7 +127,7 @@
   width: 100%;
   min-height: 44px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 8px;
   background: transparent;
   color: inherit;
   display: flex;
@@ -230,7 +230,7 @@
   align-items: center;
   gap: 0.46rem;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: 8px;
   background: transparent;
   color: rgba(255, 255, 255, 0.78);
   padding: 0.38rem 0.52rem;
@@ -524,7 +524,7 @@
   align-items: center;
   gap: 0.48rem;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
   color: var(--color-text);
   padding: 0.42rem 0.52rem;
@@ -590,7 +590,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 8px;
   background: #f3f6fb;
   color: var(--color-text-soft);
   font-size: 0.76rem;
@@ -807,7 +807,7 @@
   min-height: 36px;
   padding: 0.36rem 0.58rem;
   border: 1px solid rgba(198, 211, 228, 0.95);
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   font-size: 0.82rem;
 }
@@ -844,7 +844,7 @@
   height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--color-primary-soft);
   color: var(--color-primary);
   font-size: 1.28rem;
@@ -1025,7 +1025,7 @@
 .rh-recent-avatar {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   background: var(--color-primary-soft);
