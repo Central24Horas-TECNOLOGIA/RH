@@ -955,6 +955,16 @@ class ProcessRepositoryMixin:
                     detail=build_terminal_candidate_locked_message(current_status),
                 )
 
+            processo = get_process_row(
+                cursor,
+                current.get("id_processo_ref") or current.get("id_processo", ""),
+            )
+            if processo and is_process_closed(processo.get("status")):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=build_process_closed_message("atualizar o status do candidato", processo.get("id_processo")),
+                )
+
             requested_status = normalize_text(data.get("status_candidato"))
             current_stage = current.get("etapa_pipeline")
             new_stage = (

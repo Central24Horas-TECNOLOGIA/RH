@@ -30,7 +30,7 @@ export async function moverCardPipeline(idRegistro, payload) {
     },
   );
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -45,6 +45,8 @@ export async function excluirCardPipeline(idRegistro) {
     'pipeline-candidatos',
     'processos',
     'banco-talentos',
+    'relatorios',
+    'historico',
   );
   return resultado;
 }

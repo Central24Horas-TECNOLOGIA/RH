@@ -109,6 +109,7 @@ EXAM_ROW_COLUMNS = """
     token_sessao_publica,
     token_expira_em,
     metodo_acesso,
+    login_method,
     tentativas_acesso,
     gerada_por,
     gerada_em,
@@ -1002,13 +1003,14 @@ class GeneratedExamRepositoryMixin:
                     instrucoes_operacao,
                     status,
                     codigo_acesso,
+                    login_method,
                     gerada_por,
                     gerada_em,
                     expira_em,
                     atualizado_em
                 )
                 OUTPUT INSERTED.id_prova
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, GETDATE())
                 """,
                 (
                     id_teste,
@@ -1033,6 +1035,7 @@ class GeneratedExamRepositoryMixin:
                     normalize_text(data.get("instrucoes_operacao")),
                     EXAM_STATUS_AVAILABLE,
                     access_code,
+                    normalize_text(data.get("login_method")) or None,
                     generated_by,
                     expires_at,
                 ),
@@ -1180,7 +1183,7 @@ class GeneratedExamRepositoryMixin:
                     vaga = ?, operacao = ?, trilha = ?, nivel = ?, tempo_total = ?,
                     quantidade_questoes = ?, etapas_json = ?, categorias_json = ?,
                     configuracao_json = ?, questoes_json = ?, instrucoes_operacao = ?,
-                    expira_em = ?, atualizado_em = GETDATE()
+                    expira_em = ?, login_method = ?, atualizado_em = GETDATE()
                 WHERE id_prova = ?
                 """,
                 (
@@ -1200,6 +1203,7 @@ class GeneratedExamRepositoryMixin:
                     _json_dumps(questions),
                     normalize_text(data.get("instrucoes_operacao")),
                     _parse_datetime(data.get("expira_em")),
+                    normalize_text(data.get("login_method")) or None,
                     int(id_prova or 0),
                 ),
             )
@@ -1316,6 +1320,7 @@ class GeneratedExamRepositoryMixin:
                 row
                 for row in self._available_exam_rows(cursor)
                 if _normalize_email(row.get("email_acesso")) == safe_email
+                and normalize_text(row.get("login_method")) in ("", "email")
             ]
             provas = [
                 self._public_exam_summary(row, token=self._issue_public_session(cursor, row, "email"))
@@ -1339,6 +1344,8 @@ class GeneratedExamRepositoryMixin:
             ensure_conecta_exams_tables(cursor)
             matches = []
             for row in self._available_exam_rows(cursor):
+                if normalize_text(row.get("login_method")) not in ("", "celular"):
+                    continue
                 row_phone = _normalize_phone(row.get("telefone_acesso"))
                 if row_phone and (row_phone == safe_phone or row_phone.endswith(safe_phone[-10:]) or safe_phone.endswith(row_phone[-10:])):
                     matches.append(row)
@@ -1366,6 +1373,7 @@ class GeneratedExamRepositoryMixin:
                 row
                 for row in self._available_exam_rows(cursor)
                 if normalize_text(row.get("codigo_acesso")).upper() == safe_code
+                and normalize_text(row.get("login_method")) in ("", "codigo_prova")
             ]
             provas = [
                 self._public_exam_summary(row, token=self._issue_public_session(cursor, row, "codigo"))

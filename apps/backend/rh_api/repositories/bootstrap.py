@@ -18,6 +18,11 @@ from ..services.helpers import (
     normalize_text,
     rows_to_dicts,
 )
+from ..services.process_flow import (
+    PROCESS_STATUS_CLOSED,
+    normalize_process_status,
+    resolve_effective_process_status,
+)
 from .exam_analytics_schema import ensure_exam_analytics_tables
 
 
@@ -753,6 +758,7 @@ def ensure_candidate_metadata_columns(cursor) -> None:
         ("cidade", "NVARCHAR(120)"),
         ("bairro", "NVARCHAR(120)"),
         ("idade", "INT"),
+        ("data_nascimento", "DATE"),
         ("escolaridade", "NVARCHAR(160)"),
         ("possui_experiencia", "NVARCHAR(20)"),
         ("musica", "NVARCHAR(255)"),
@@ -1423,6 +1429,7 @@ def ensure_conecta_exams_tables(cursor) -> None:
         ("token_sessao_publica", "NVARCHAR(160)"),
         ("token_expira_em", "DATETIME"),
         ("metodo_acesso", "NVARCHAR(40)"),
+        ("login_method", "NVARCHAR(40)"),
         ("tentativas_acesso", "INT"),
         ("gerada_por", "NVARCHAR(180)"),
         ("gerada_em", "DATETIME"),
@@ -2279,7 +2286,28 @@ def get_process_rows(cursor, id_processo_or_ref: str | None = None) -> list[dict
 
     query += " ORDER BY data_criacao ASC, id_processo ASC"
     cursor.execute(query, tuple(params))
-    return sort_process_rows(rows_to_dicts(cursor, cursor.fetchall()))
+    rows = rows_to_dicts(cursor, cursor.fetchall())
+    _auto_close_expired_processes(cursor, rows)
+    return sort_process_rows(rows)
+
+
+def _auto_close_expired_processes(cursor, rows: list[dict]) -> None:
+    """Encerra automaticamente, ao ler os processos, qualquer processo aberto
+    cuja data de encerramento já tenha passado (não altera status definidos
+    manualmente como Pausado/Cancelado/Encerrado)."""
+    updated = False
+    for row in rows:
+        current_status = row.get("status")
+        effective_status = resolve_effective_process_status(current_status, row.get("data_encerramento"))
+        if effective_status == PROCESS_STATUS_CLOSED and normalize_process_status(current_status) != PROCESS_STATUS_CLOSED:
+            cursor.execute(
+                "UPDATE processos_seletivos SET status = ? WHERE id_processo = ? AND data_criacao = ?",
+                (PROCESS_STATUS_CLOSED, row.get("id_processo"), row.get("data_criacao")),
+            )
+            row["status"] = PROCESS_STATUS_CLOSED
+            updated = True
+    if updated:
+        cursor.connection.commit()
 
 
 def get_process_row(cursor, id_processo_or_ref: str):

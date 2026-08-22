@@ -7,6 +7,7 @@ from ..services.cv import is_valid_email, is_valid_phone
 from ..services.process_flow import (
     CANDIDATE_STATUS_APPROVED,
     CANDIDATE_STATUS_ELIMINATED,
+    CANDIDATE_STATUS_TALENT_BANK,
     build_approved_candidate_locked_message,
     canonicalize_candidate_status,
 )
@@ -32,10 +33,14 @@ class CandidateProfileRepositoryMixin:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato não informado.")
 
         requested_status = canonicalize_candidate_status(data.get("status_candidato"))
-        if requested_status not in {CANDIDATE_STATUS_APPROVED, CANDIDATE_STATUS_ELIMINATED}:
+        if requested_status not in {
+            CANDIDATE_STATUS_APPROVED,
+            CANDIDATE_STATUS_ELIMINATED,
+            CANDIDATE_STATUS_TALENT_BANK,
+        }:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Status avulso permitido apenas para aprovação ou eliminação.",
+                detail="Status avulso permitido apenas para aprovação, eliminação ou banco de talentos.",
             )
 
         conn = self._connect()
@@ -82,6 +87,22 @@ class CandidateProfileRepositoryMixin:
 
             cursor.execute(
                 """
+                SELECT TOP 1 nome_candidato
+                FROM (
+                    SELECT nome_candidato FROM candidatos_processos WHERE id_teste = ?
+                    UNION ALL
+                    SELECT nome_candidato FROM banco_talentos WHERE id_teste = ?
+                    UNION ALL
+                    SELECT nome_candidato FROM historico_provas WHERE id_teste = ?
+                ) origem
+                """,
+                (safe_id_teste, safe_id_teste, safe_id_teste),
+            )
+            candidate_name_row = cursor.fetchone()
+            candidate_name = normalize_text(candidate_name_row[0]) if candidate_name_row else ""
+
+            cursor.execute(
+                """
                 UPDATE historico_provas
                 SET status = ?
                 WHERE id_teste = ?
@@ -98,6 +119,14 @@ class CandidateProfileRepositoryMixin:
             )
             conn.commit()
             self.logger.info("Status avulso do candidato %s atualizado para '%s'.", safe_id_teste, requested_status)
+
+            if requested_status == CANDIDATE_STATUS_TALENT_BANK and candidate_name:
+                self.add_candidate_to_talent_bank({
+                    "id_teste": safe_id_teste,
+                    "nome_candidato": candidate_name,
+                    "origem": "Prova avulsa",
+                })
+
             return {"success": True, "status_candidato": requested_status}
         finally:
             conn.close()
@@ -169,6 +198,7 @@ class CandidateProfileRepositoryMixin:
                 endereco=data.get("endereco") if "endereco" in data else None,
                 cidade=data.get("cidade") if normalize_text(data.get("cidade")) else None,
                 bairro=data.get("bairro") if normalize_text(data.get("bairro")) else None,
+                data_nascimento=data.get("data_nascimento") if "data_nascimento" in data else None,
                 escolaridade=data.get("escolaridade") if "escolaridade" in data else None,
                 possui_experiencia=data.get("possui_experiencia") if "possui_experiencia" in data else None,
                 musica=data.get("musica") if "musica" in data else None,

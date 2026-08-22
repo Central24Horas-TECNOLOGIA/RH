@@ -244,6 +244,16 @@ def create_app() -> FastAPI:
         https_only=session_cookie_secure(settings),
         domain=None,
     )
+    @app.middleware("http")
+    async def disable_frontend_cache(request: Request, call_next):
+        response = await call_next(request)
+        if request.method == "GET" and any(
+            request.url.path == f"/{asset_dir}" or request.url.path.startswith(f"/{asset_dir}/")
+            for asset_dir in (*FRONTEND_ASSET_DIRS, "Front")
+        ):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return response
+
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 

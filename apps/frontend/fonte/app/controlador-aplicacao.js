@@ -1733,6 +1733,7 @@ export {
   atualizarPreAnaliseCv,
   atualizarProcesso,
   atualizarStatusCandidato,
+  atualizarStatusCandidatoAvulso,
   analisarCvProcesso,
   baixarAnexoEmailRecebido,
   baixarCvCandidato,

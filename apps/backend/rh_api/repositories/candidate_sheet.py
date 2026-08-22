@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 
 from ..services.helpers import (
+    calculate_age_from_birth_date,
     normalize_compare_text,
     normalize_text,
     rows_to_dicts,
@@ -583,7 +584,8 @@ class CandidateSheetRepositoryMixin:
                     "numero": normalize_text(profile.get("numero")),
                     "cidade": normalize_text(profile.get("cidade") or primary_process.get("cidade")),
                     "bairro": normalize_text(profile.get("bairro") or primary_process.get("bairro")),
-                    "idade": profile.get("idade"),
+                    "idade": calculate_age_from_birth_date(profile.get("data_nascimento")) or profile.get("idade"),
+                    "data_nascimento": normalize_text(profile.get("data_nascimento")),
                     "escolaridade": normalize_text(profile.get("escolaridade")),
                     "possui_experiencia": normalize_text(profile.get("possui_experiencia")),
                     "musica": normalize_text(profile.get("musica")),
@@ -678,6 +680,7 @@ class CandidateSheetRepositoryMixin:
                 endereco=payload.get("endereco") if "endereco" in payload else None,
                 cidade=payload.get("cidade") if "cidade" in payload else None,
                 bairro=payload.get("bairro") if "bairro" in payload else None,
+                data_nascimento=payload.get("data_nascimento") if "data_nascimento" in payload else None,
                 escolaridade=payload.get("escolaridade") if "escolaridade" in payload else None,
                 possui_experiencia=payload.get("possui_experiencia") if "possui_experiencia" in payload else None,
                 musica=payload.get("musica") if "musica" in payload else None,

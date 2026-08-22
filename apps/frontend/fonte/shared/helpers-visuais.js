@@ -70,6 +70,15 @@ export function formatarDataHora(valor) {
   return data.toLocaleString('pt-BR');
 }
 
+export function formatarDataNascimento(valor) {
+  const texto = String(valor || '').trim();
+  if (!texto) return '';
+  const partes = texto.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!partes) return texto;
+  const [, ano, mes, dia] = partes;
+  return `${dia}/${mes}/${ano}`;
+}
+
 export function montarDescricaoFluxo(blueprint) {
   if (!blueprint?.stages?.length) {
     return 'Selecione a vaga para visualizar a trilha.';

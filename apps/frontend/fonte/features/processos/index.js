@@ -18,6 +18,7 @@ import {
   atualizarPreAnaliseCv,
   atualizarProcesso,
   atualizarStatusCandidato,
+  atualizarStatusCandidatoAvulso,
   analisarCvProcesso,
   baixarPacoteHistorico,
   baixarCvCandidato,
@@ -56,6 +57,7 @@ import {
 } from '../../utilitarios.js';
 import {
   formatarDataHora,
+  formatarDataNascimento,
   montarResumoAnaliticoCv,
   obterClasseStatusEntrevista,
   obterClasseStatusProcesso,
@@ -2857,6 +2859,7 @@ function ModalFichaCandidato({
   onAnalisarCv,
   onEditar,
   onEliminar,
+  onBanco,
   onAprovar,
   onNotaCompleta,
 }) {
@@ -2945,7 +2948,7 @@ function ModalFichaCandidato({
             </section>
             <section class="candidate-profile-side-card">
               <h3>Informações gerais</h3>
-              <dl><dt>Endereço</dt><dd>${endereco || 'Não informado'}</dd><dd>${localidade || '–'}</dd><dt>Idade</dt><dd>${candidato.idade ? `${candidato.idade} anos` : 'Não informado'}</dd><dt>Escolaridade</dt><dd>${candidato.escolaridade || 'Não informado'}</dd></dl>
+              <dl><dt>Endereço</dt><dd>${endereco || 'Não informado'}</dd><dd>${localidade || '–'}</dd><dt>Data de nascimento</dt><dd>${formatarDataNascimento(candidato.data_nascimento) || 'Não informado'}</dd><dt>Idade</dt><dd>${candidato.idade ? `${candidato.idade} anos` : 'Não informado'}</dd><dt>Escolaridade</dt><dd>${candidato.escolaridade || 'Não informado'}</dd></dl>
             </section>
             <section class="candidate-profile-side-card">
               <h3>Informações de contato</h3>
@@ -3039,6 +3042,7 @@ function ModalFichaCandidato({
               <button type="button" class="btn btn-outline-primary" onClick=${onEditar}><span class="material-symbols-outlined">edit</span>Editar candidato</button>
               <button type="button" class="btn btn-outline-primary" onClick=${onPrint}><span class="material-symbols-outlined">download</span>Baixar ficha</button>
               <button type="button" class="btn btn-outline-danger" onClick=${onEliminar}><span class="material-symbols-outlined">delete</span>Eliminar</button>
+              ${typeof onBanco === 'function' ? html`<button type="button" class="btn btn-outline-secondary" onClick=${onBanco}><span class="material-symbols-outlined">inventory_2</span>Banco</button>` : ''}
               <button type="button" class="btn btn-primary" onClick=${onAprovar}><span class="material-symbols-outlined">check</span>Aprovar</button>
             </footer>
           </main>
@@ -3871,11 +3875,19 @@ export function TelaProcessos({ controlador }) {
   );
 
   const atualizarStatus = async (
-    registro,
+    candidatoOuRegistro,
     statusCandidato,
     idProcesso,
     dadosAprovacao = {},
   ) => {
+    const registro =
+      candidatoOuRegistro && typeof candidatoOuRegistro === 'object'
+        ? candidatoOuRegistro.id_registro
+        : candidatoOuRegistro;
+    const idTeste =
+      candidatoOuRegistro && typeof candidatoOuRegistro === 'object'
+        ? candidatoOuRegistro.id_teste
+        : '';
     const processo = encontrarProcessoPorReferencia(processos, idProcesso);
     const candidatoAtual = candidatos.find(
       (item) => Number(item.id_registro || 0) === Number(registro || 0),
@@ -3904,11 +3916,20 @@ export function TelaProcessos({ controlador }) {
       if (!confirmar) return;
     }
 
-    await atualizarStatusCandidato(registro, {
+    const dadosStatus = {
       status_candidato: statusCandidato,
       data_movimentacao: new Date().toISOString(),
       ...(statusCandidato === CANDIDATE_STATUS_APPROVED ? dadosAprovacao : {}),
-    });
+    };
+
+    if (registro) {
+      await atualizarStatusCandidato(registro, dadosStatus);
+    } else if (idTeste) {
+      await atualizarStatusCandidatoAvulso(idTeste, dadosStatus);
+    } else {
+      window.alert('Não foi possível identificar o candidato para atualizar o status.');
+      return;
+    }
 
     await carregar();
   };
@@ -3940,7 +3961,7 @@ export function TelaProcessos({ controlador }) {
     try {
       const candidato = aprovacaoSelecionada.candidato;
       await atualizarStatus(
-        candidato.id_registro,
+        candidato,
         CANDIDATE_STATUS_APPROVED,
         obterReferenciaProcessoDoCandidato(candidato),
         dadosAprovacao,
@@ -4190,7 +4211,7 @@ export function TelaProcessos({ controlador }) {
           onAprovar: abrirAprovacao,
           onAtualizarStatus: (item, status) =>
             atualizarStatus(
-              item.id_registro || item.id_teste || item.id_candidato,
+              item,
               status,
               obterReferenciaProcessoDoCandidato(item),
             ),
@@ -4379,7 +4400,7 @@ export function TelaProcessos({ controlador }) {
           onAprovar: abrirAprovacao,
           onAtualizarStatus: (item, status) =>
             atualizarStatus(
-              item.id_registro || item.id_teste || item.id_candidato,
+              item,
               status,
               obterReferenciaProcessoDoCandidato(item),
             ),
@@ -7779,7 +7800,10 @@ export function TelaDetalhesProcesso({ controlador }) {
   };
 
   const confirmarEliminacao = async () => {
-    if (!eliminacaoSelecionada?.id_registro) return;
+    if (!eliminacaoSelecionada?.id_registro) {
+      setErroEliminacao('Não foi possível identificar o vínculo deste candidato com o processo para eliminação.');
+      return;
+    }
 
     const motivo = String(formularioEliminacao.motivo_eliminacao || '').trim();
     const etapa = String(formularioEliminacao.etapa_eliminacao || '').trim();
@@ -10208,7 +10232,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                 podeBaixarCv,
                 onAtualizarStatus: (item, status) =>
                   atualizarStatus(
-                    item.id_registro || item.id_teste || item.id_candidato,
+                    item.id_registro,
                     status,
                     obterReferenciaProcessoDoCandidato(item),
                   ),
@@ -11133,6 +11157,10 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         onEliminar=${() => {
       setFichaCandidatoSelecionada(null);
       abrirEliminacao(candidatoFichaOperacional);
+    }}
+        onBanco=${() => {
+      setFichaCandidatoSelecionada(null);
+      enviarCandidatoBancoTalentos(candidatoFichaOperacional);
     }}
         onAprovar=${() => {
       setFichaCandidatoSelecionada(null);

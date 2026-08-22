@@ -3,6 +3,24 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from datetime import datetime
+
+
+def calculate_age_from_birth_date(data_nascimento) -> int | None:
+    """Calcula a idade a partir da data de nascimento, considerando ano, mês e dia
+    (não apenas a diferença de anos), evitando idade incorreta antes do aniversário."""
+    safe_value = normalize_text(data_nascimento)
+    if not safe_value:
+        return None
+    try:
+        birth_date = datetime.strptime(safe_value[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    today = datetime.now().date()
+    age = today.year - birth_date.year
+    if (today.month, today.day) < (birth_date.month, birth_date.day):
+        age -= 1
+    return age if age >= 0 else None
 
 
 def rows_to_dicts(cursor, rows):

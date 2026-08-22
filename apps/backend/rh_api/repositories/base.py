@@ -122,6 +122,7 @@ class BaseRepository:
             "cidade": normalize_text(safe_row.get("cidade")),
             "bairro": normalize_text(safe_row.get("bairro")),
             "idade": safe_row.get("idade"),
+            "data_nascimento": normalize_text(safe_row.get("data_nascimento"))[:10],
             "escolaridade": normalize_text(safe_row.get("escolaridade")),
             "possui_experiencia": normalize_text(safe_row.get("possui_experiencia")),
             "musica": normalize_text(safe_row.get("musica")),
@@ -154,6 +155,7 @@ class BaseRepository:
                 cidade,
                 bairro,
                 idade,
+                data_nascimento,
                 escolaridade,
                 possui_experiencia,
                 musica,
@@ -406,14 +408,38 @@ class BaseRepository:
             for candidate_id in (existing_candidate_ids or set())
             if normalize_text(candidate_id)
         }
+        standalone_rows = rows_to_dicts(cursor, cursor.fetchall())
+
+        cursor.execute(
+            """
+            SELECT id_teste, status
+            FROM (
+                SELECT
+                    id_teste,
+                    status,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY id_teste
+                        ORDER BY data_iso DESC
+                    ) AS ordem
+                FROM historico_provas
+                WHERE ISNULL(id_teste, '') <> ''
+            ) historico
+            WHERE ordem = 1
+            """
+        )
+        status_atual_por_teste = {
+            normalize_text(item.get("id_teste")): canonicalize_candidate_status(item.get("status"))
+            for item in rows_to_dicts(cursor, cursor.fetchall())
+        }
         candidates = []
-        for row in rows_to_dicts(cursor, cursor.fetchall()):
+        for row in standalone_rows:
             id_teste = normalize_text(row.get("id_teste"))
             if not id_teste or id_teste in existing_ids:
                 continue
 
             nota_final = row.get("nota_final_prova")
             data_prova = row.get("finalizada_em") or row.get("gerada_em")
+            status_atual = status_atual_por_teste.get(id_teste) or CANDIDATE_STATUS_ANALYSIS
             candidates.append(
                 {
                     "id_registro": None,
@@ -427,14 +453,14 @@ class BaseRepository:
                     "operacao": normalize_text(row.get("operacao")),
                     "trilha": normalize_text(row.get("trilha")),
                     "nivel": normalize_text(row.get("nivel")),
-                    "status_candidato": CANDIDATE_STATUS_ANALYSIS,
+                    "status_candidato": status_atual,
                     "pontuacao_final": nota_final,
                     "nota_prova": nota_final,
                     "data_prova": data_prova,
                     "data_prova_realizada": data_prova,
                     "origem": "Prova avulsa",
                     "etapa_pipeline": infer_pipeline_stage(
-                        CANDIDATE_STATUS_ANALYSIS,
+                        status_atual,
                         "Prova avulsa",
                         "",
                     ),
@@ -747,6 +773,7 @@ class BaseRepository:
         cidade: str | None = None,
         bairro: str | None = None,
         idade: int | None = None,
+        data_nascimento: str | None = None,
         escolaridade: str | None = None,
         possui_experiencia: str | None = None,
         musica: str | None = None,
@@ -779,6 +806,7 @@ class BaseRepository:
                 cidade,
                 bairro,
                 idade,
+                data_nascimento,
                 escolaridade,
                 possui_experiencia,
                 musica,
@@ -792,62 +820,9 @@ class BaseRepository:
             """,
             (safe_id_teste,),
         )
-        existing = cursor.fetchone()
-
-        existing_profile = (
-            self._serialize_candidate_profile(
-                {
-                    "nome_candidato": existing[0],
-                    "habilidades_json": existing[1],
-                    "tags_json": existing[2],
-                    "observacao_rh": existing[3],
-                    "classificacao_indicacao": existing[4],
-                    "justificativa_indicacao": existing[5],
-                    "email": existing[6],
-                    "telefone": existing[7],
-                    "whatsapp": existing[8],
-                    "cep": existing[9],
-                    "endereco": existing[10],
-                    "numero": existing[11],
-                    "cidade": existing[12],
-                    "bairro": existing[13],
-                    "idade": existing[14],
-                    "escolaridade": existing[15],
-                    "possui_experiencia": existing[16],
-                    "musica": existing[17],
-                    "prato": existing[18],
-                    "futebol": existing[19],
-                    "time": existing[20],
-                    "rede_social": existing[21],
-                    "atualizado_em": existing[22],
-                }
-            )
-            if existing
-            else {
-                "nome_candidato": "",
-                "habilidades": [],
-                "tags": [],
-                "observacao_rh": "",
-                "classificacao_indicacao": "",
-                "justificativa_indicacao": "",
-                "email": "",
-                "telefone": "",
-                "whatsapp": "",
-                "cep": "",
-                "endereco": "",
-                "numero": "",
-                "cidade": "",
-                "bairro": "",
-                "idade": None,
-                "escolaridade": "",
-                "possui_experiencia": "",
-                "musica": "",
-                "prato": "",
-                "futebol": "",
-                "time": "",
-                "rede_social": "",
-            }
-        )
+        existing_rows = rows_to_dicts(cursor, cursor.fetchall())
+        existing = existing_rows[0] if existing_rows else None
+        existing_profile = self._serialize_candidate_profile(existing)
 
         merged_name = normalize_text(nome_candidato) or existing_profile.get("nome_candidato", "")
         merged_skills = normalize_string_list(habilidades if habilidades is not None else existing_profile.get("habilidades", []))
@@ -876,6 +851,11 @@ class BaseRepository:
         merged_city = normalize_text(cidade) if cidade is not None else existing_profile.get("cidade", "")
         merged_neighborhood = normalize_text(bairro) if bairro is not None else existing_profile.get("bairro", "")
         merged_age = idade if idade is not None else existing_profile.get("idade")
+        merged_birth_date = (
+            normalize_text(data_nascimento) or None
+            if data_nascimento is not None
+            else (existing_profile.get("data_nascimento") or None)
+        )
         merged_education = normalize_text(escolaridade) if escolaridade is not None else existing_profile.get("escolaridade", "")
         merged_experience = normalize_text(possui_experiencia) if possui_experiencia is not None else existing_profile.get("possui_experiencia", "")
         merged_music = normalize_text(musica) if musica is not None else existing_profile.get("musica", "")
@@ -904,6 +884,7 @@ class BaseRepository:
                     cidade = ?,
                     bairro = ?,
                     idade = ?,
+                    data_nascimento = ?,
                     escolaridade = ?,
                     possui_experiencia = ?,
                     musica = ?,
@@ -930,6 +911,7 @@ class BaseRepository:
                     merged_city,
                     merged_neighborhood,
                     merged_age,
+                    merged_birth_date,
                     merged_education,
                     merged_experience,
                     merged_music,
@@ -961,6 +943,7 @@ class BaseRepository:
                     cidade,
                     bairro,
                     idade,
+                    data_nascimento,
                     escolaridade,
                     possui_experiencia,
                     musica,
@@ -969,7 +952,7 @@ class BaseRepository:
                     time,
                     rede_social
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     safe_id_teste,
@@ -988,6 +971,7 @@ class BaseRepository:
                     merged_city,
                     merged_neighborhood,
                     merged_age,
+                    merged_birth_date,
                     merged_education,
                     merged_experience,
                     merged_music,

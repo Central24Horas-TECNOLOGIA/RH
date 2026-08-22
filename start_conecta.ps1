@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+$VenvPython = Join-Path $ProjectRoot ".\.venv\Scripts\python.exe"
 $Python = if (Test-Path -LiteralPath $VenvPython) { $VenvPython } else { "python" }
 
 $RunArgs = @((Join-Path $ProjectRoot "run.py"))

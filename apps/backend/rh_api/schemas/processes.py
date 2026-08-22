@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import date, datetime
 
 from pydantic import Field, field_validator, model_validator
 
@@ -518,6 +519,7 @@ class CandidateProfileUpdateRequest(BaseSchema):
     endereco: str = ""
     cidade: str = ""
     bairro: str = ""
+    data_nascimento: str = ""
     escolaridade: str = ""
     possui_experiencia: str = ""
     musica: str = ""
@@ -525,6 +527,20 @@ class CandidateProfileUpdateRequest(BaseSchema):
     futebol: str = ""
     time: str = ""
     rede_social: str = ""
+
+    @field_validator("data_nascimento")
+    @classmethod
+    def validate_profile_birth_date(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        try:
+            parsed = datetime.strptime(safe_value[:10], "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("Informe uma data de nascimento válida.")
+        if parsed > date.today():
+            raise ValueError("A data de nascimento não pode estar no futuro.")
+        return parsed.isoformat()
 
     @field_validator("habilidades", "tags")
     @classmethod
@@ -615,6 +631,7 @@ class CandidateSheetUpdateRequest(BaseSchema):
     endereco: str | None = None
     cidade: str | None = None
     bairro: str | None = None
+    data_nascimento: str | None = None
     escolaridade: str | None = None
     possui_experiencia: str | None = None
     musica: str | None = None
@@ -627,6 +644,22 @@ class CandidateSheetUpdateRequest(BaseSchema):
     classificacao_indicacao: str | None = None
     justificativa: str | None = None
     justificativa_indicacao: str | None = None
+
+    @field_validator("data_nascimento")
+    @classmethod
+    def validate_sheet_birth_date(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        try:
+            parsed = datetime.strptime(safe_value[:10], "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("Informe uma data de nascimento válida.")
+        if parsed > date.today():
+            raise ValueError("A data de nascimento não pode estar no futuro.")
+        return parsed.isoformat()
 
     @field_validator("nome_candidato")
     @classmethod
