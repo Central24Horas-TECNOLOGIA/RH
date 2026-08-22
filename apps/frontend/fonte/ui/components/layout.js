@@ -34,6 +34,12 @@ function BarraLateral({
       label: 'Banco de Talentos',
       permissao: 'candidatos.visualizar',
     },
+    {
+      tela: 'screen-onedrive-files',
+      icone: 'cloud',
+      label: 'OneDrive',
+      permissao: 'onedrive.visualizar',
+    },
     // Item removido do menu lateral por decisão de interface.
     // {
     //   tela: 'screen-help',

@@ -25,11 +25,13 @@ from .routers.analytics import router as analytics_router
 from .routers.auth import router as auth_router
 from .routers.curriculos_ia import router as curriculos_ia_router
 from .routers.email_inbox import router as email_inbox_router
+from .routers.email_send import router as email_send_router
 from .routers.exam_analytics import router as exam_analytics_router
 from .routers.generated_exams import public_router as generated_exams_public_router
 from .routers.generated_exams import router as generated_exams_router
 from .routers.history import router as history_router
 from .routers.interviews import router as interviews_router
+from .routers.onedrive_files import router as onedrive_files_router
 from .routers.pipeline import router as pipeline_router
 from .routers.processes import router as processes_router
 from .routers.public_candidacy import router as public_candidacy_router
@@ -330,6 +332,8 @@ def create_app() -> FastAPI:
     app.include_router(analytics_router)
     app.include_router(pipeline_router)
     app.include_router(settings_router)
+    app.include_router(onedrive_files_router)
+    app.include_router(email_send_router)
     _register_frontend_routes(app, settings)
 
     logger.info(

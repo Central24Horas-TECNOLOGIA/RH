@@ -201,6 +201,14 @@ class Settings:
     email_graph_mailbox: str
     email_graph_scope: str
     email_graph_base_url: str
+    email_send_client_secret_env: str
+    sharepoint_site_id: str
+    sharepoint_drive_id: str
+    sharepoint_tenant_id: str
+    sharepoint_client_id: str
+    sharepoint_client_secret_env: str
+    sharepoint_scope: str
+    sharepoint_graph_base_url: str
     email_smtp_enabled: bool
     email_smtp_host: str
     email_smtp_port: int
@@ -242,6 +250,16 @@ class Settings:
                 self.microsoft_redirect_uri,
             )
         )
+
+    @property
+    def email_send_client_secret(self) -> str:
+        env_name = self.email_send_client_secret_env
+        return os.getenv(env_name, "") if env_name else ""
+
+    @property
+    def sharepoint_client_secret(self) -> str:
+        env_name = self.sharepoint_client_secret_env
+        return os.getenv(env_name, "") if env_name else ""
 
 
 @lru_cache(maxsize=1)
@@ -371,6 +389,22 @@ def get_settings() -> Settings:
         ),
         email_graph_base_url=_env(
             "RH_EMAIL_GRAPH_BASE_URL", default="https://graph.microsoft.com/v1.0"
+        ),
+        email_send_client_secret_env=_env(
+            "RH_EMAIL_SEND_CLIENT_SECRET_ENV", default="RH_EMAIL_GRAPH_CLIENT_SECRET"
+        ),
+        sharepoint_site_id=_env("RH_SHAREPOINT_SITE_ID"),
+        sharepoint_drive_id=_env("RH_SHAREPOINT_DRIVE_ID"),
+        sharepoint_tenant_id=_env("RH_SHAREPOINT_TENANT_ID", "MICROSOFT_TENANT_ID"),
+        sharepoint_client_id=_env("RH_SHAREPOINT_CLIENT_ID", "MICROSOFT_CLIENT_ID"),
+        sharepoint_client_secret_env=_env(
+            "RH_SHAREPOINT_CLIENT_SECRET_ENV", default="MICROSOFT_CLIENT_SECRET"
+        ),
+        sharepoint_scope=_env(
+            "RH_SHAREPOINT_SCOPE", default="https://graph.microsoft.com/.default"
+        ),
+        sharepoint_graph_base_url=_env(
+            "RH_SHAREPOINT_GRAPH_BASE_URL", default="https://graph.microsoft.com/v1.0"
         ),
         email_smtp_enabled=_read_bool_env("RH_EMAIL_SMTP_ENABLED", default=False),
         email_smtp_host=_env("RH_EMAIL_SMTP_HOST"),

@@ -156,6 +156,9 @@ PERMISSION_DEFINITIONS: dict[str, PermissionDefinition] = {
         _permission("emails.enviar_modelo", "E-mails", "Enviar e-mail usando modelos aprovados."),
         _permission("emails.enviar_livre", "E-mails", "Enviar e-mail livre quando permitido."),
         _permission("emails.configurar_modelos", "E-mails", "Configurar modelos de e-mail.", critical=True),
+        _permission("onedrive.visualizar", "OneDrive", "Visualizar e navegar no repositório de arquivos M365."),
+        _permission("onedrive.upload", "OneDrive", "Enviar (upload) arquivos para o repositório M365."),
+        _permission("onedrive.excluir", "OneDrive", "Excluir arquivos ou pastas do repositório M365.", critical=True),
         _permission("configuracoes.visualizar", "Configurações", "Visualizar configurações globais."),
         _permission("configuracoes.editar", "Configurações", "Editar configurações globais.", critical=True),
         _permission("usuarios.visualizar", "Usuários", "Listar e consultar usuários."),
@@ -228,6 +231,8 @@ DOCUMENTATION_PERMISSIONS = {
     "lgpd.registrar_solicitacao",
     "relatorios.visualizar",
     "relatorios.exportar",
+    "onedrive.visualizar",
+    "onedrive.upload",
 }
 
 
@@ -265,6 +270,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "relatorios.visualizar",
         "relatorios.exportar",
         "lgpd.visualizar",
+        "onedrive.visualizar",
     },
     ROLE_RH: set(OPERATIONAL_SELECTION_PERMISSIONS)
     | {
@@ -275,6 +281,11 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "provas.editar",
         "relatorios.visualizar",
         "relatorios.exportar",
+        "onedrive.visualizar",
+        "onedrive.upload",
+        "onedrive.excluir",
+        "emails.enviar_livre",
+        "emails.configurar_modelos",
     },
     ROLE_CANDIDATE: set(),
     ROLE_ADMIN: set(PERMISSION_DEFINITIONS.keys()),
@@ -297,6 +308,7 @@ SCREEN_PERMISSIONS: dict[str, str] = {
     "screen-interviews": "entrevistas.visualizar",
     "screen-analysis-candidates": "relatorios.visualizar",
     "screen-talent-bank": "candidatos.visualizar",
+    "screen-onedrive-files": "onedrive.visualizar",
     "screen-settings": "configuracoes.visualizar",
     "screen-settings-users": "usuarios.visualizar",
     "screen-settings-profiles": "configuracoes.visualizar",

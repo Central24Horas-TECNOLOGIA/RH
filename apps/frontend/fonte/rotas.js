@@ -14,6 +14,7 @@ export const ROTAS_POR_TELA = {
   'screen-candidate-details': 'candidatos/detalhes',
   'screen-interviews': 'processos/entrevistas-agendadas',
   'screen-talent-bank': 'banco-talentos',
+  'screen-onedrive-files': 'onedrive',
   'screen-settings-users': 'configuracoes/usuario',
   'screen-settings-profiles': 'configuracoes/perfis-permissoes',
   'screen-settings-logs': 'configuracoes/logs',

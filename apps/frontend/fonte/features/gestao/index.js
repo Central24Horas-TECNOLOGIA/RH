@@ -71,6 +71,7 @@ import {
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
 import { AcaoSair } from '../../shared/components/actions.js';
+import { ModalComporEmail } from '../../shared/components/compose-email-modal.js';
 import {
   ModalCompartilharVaga,
   REQUISITOS_PUBLICOS_PADRAO,
@@ -2244,6 +2245,11 @@ export function TelaInicio({ controlador }) {
 }
 
 export function TelaCaixaEmail({ controlador }) {
+  const [modalComporAberto, setModalComporAberto] = useState(false);
+  const podeComporEmail =
+    controlador?.possuiPermissao?.('emails.enviar_modelo') ||
+    controlador?.possuiPermissao?.('emails.enviar_livre');
+
   return html`
     <${PainelRh}
       screenId="screen-email-inbox"
@@ -2257,12 +2263,29 @@ export function TelaCaixaEmail({ controlador }) {
         kicker="Currículos recebidos"
         title="Caixa de E-mail"
         description=""
+        actions=${podeComporEmail
+          ? html`
+              <button type="button" class="btn btn-primary" onClick=${() => setModalComporAberto(true)}>
+                <span class="material-symbols-outlined" aria-hidden="true">edit_note</span> Compor e-mail
+              </button>
+            `
+          : null}
       />
 
       <${SecaoCurriculosRecebidosEmail}
         modo="completo"
         controlador=${controlador}
       />
+
+      ${podeComporEmail
+        ? html`
+            <${ModalComporEmail}
+              aberto=${modalComporAberto}
+              controlador=${controlador}
+              onClose=${() => setModalComporAberto(false)}
+            />
+          `
+        : null}
     </${PainelRh}>
   `;
 }

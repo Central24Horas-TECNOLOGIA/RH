@@ -11,6 +11,10 @@
 
 ## Restrições Técnicas e Segurança
 
-- **Alteração Lógica Zero**: É terminantemente proibido alterar rotas de backend, lógica de banco de dados ou funcionalidades existentes.
-- **Foco em UI**: As alterações devem se limitar estritamente a classes CSS/Tailwind ou estruturas visuais de componentes.
+- **Modo padrão (ajustes de UI)**: para pedidos de ajuste visual/estético, é proibido alterar rotas de backend, lógica de banco de dados ou funcionalidades existentes. As alterações devem se limitar estritamente a classes CSS/Tailwind ou estruturas visuais de componentes.
+- **Trabalho full-stack autorizado explicitamente**: quando o usuário solicitar explicitamente uma nova funcionalidade/integração full-stack (ex.: integração Microsoft 365), é permitido criar/alterar rotas de backend, serviços, migrations de banco e RBAC, desde que:
+  - a implementação siga os padrões arquiteturais já existentes no Conecta (camadas `routers/services/repositories/schemas` em `apps/backend/rh_api/`, SQL puro via `pyodbc`, migrations idempotentes em `infra/sql/migrations/`);
+  - funcionalidades e rotas já existentes não sejam reescritas, removidas ou comportamento alterado sem necessidade;
+  - toda mudança seja auditável e verificada de ponta a ponta (backend, frontend, permissões, menu) antes de ser considerada concluída.
+- **Identidade visual**: novos componentes de UI devem seguir as Regras de Design acima; não alterar o design de telas já existentes.
 - **Eficiência de Tokens**: Retorne apenas as alterações necessárias (estilo diff) ou substitua blocos específicos de código. Não gere arquivos inteiros desnecessariamente.
