@@ -6,6 +6,7 @@ import {
   useControladorAplicacao,
 } from './controlador-aplicacao.js';
 import { LoadingState } from '../ui/componentes-compartilhados.js';
+import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js';
 
 function carregarTela(importador, nomeExportado) {
   return lazy(() => importador().then((modulo) => ({ default: modulo[nomeExportado] })));
@@ -26,6 +27,51 @@ function TelaCarregando({
     </section>
   `;
 }
+
+// Mantém o menu lateral e o topo fixos enquanto o conteúdo de uma tela
+// autenticada ainda está sendo carregado (evita a sensação de que a
+// plataforma inteira "sumiu" durante a navegação entre telas).
+function TelaCarregandoComShell({ controlador, navAtiva }) {
+  const sidebarRecolhida = !!controlador?.estado?.barraLateralRecolhida;
+  return html`
+    <section class="active screen" id="screen-loading">
+      <div class=${`rh-modern-shell ${sidebarRecolhida ? 'is-sidebar-collapsed' : ''}`.trim()}>
+        <${BarraLateral}
+          navAtiva=${navAtiva}
+          controlador=${controlador}
+          recolhida=${sidebarRecolhida}
+        />
+        <div class="rh-modern-main">
+          <header class="rh-modern-topbar">
+            <div class="rh-modern-topbar-left"></div>
+            <div class="rh-modern-topbar-actions">
+              <${CartaoUsuarioTopo} controlador=${controlador} />
+            </div>
+          </header>
+          <main class="rh-modern-page">
+            <${LoadingState}
+              titulo="Carregando tela"
+              descricao="Aguarde: carregando o conteúdo desta página."
+            />
+          </main>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+// Telas que não usam o layout padrão do RH (PainelRh/menu lateral) — o
+// candidato realizando a prova não deve ver o menu do RH aparecendo e
+// sumindo durante o carregamento.
+const TELAS_SEM_SHELL_FIXO = new Set([
+  'screen-public-candidacy',
+  'screen-conecta-provas',
+  'screen-login',
+  'screen-candidate',
+  'screen-exam',
+  'screen-thanks',
+  'screen-result',
+]);
 
 const importarGestao = () => import('../features/telas-gestao.js?v=20260716-microsoft-login-fallback');
 const importarProcessos = () => import('../features/telas-processos.js');
@@ -120,11 +166,7 @@ function resolverTelaProtegida(telaAtual, controlador) {
   return telaAtual;
 }
 
-function ConteudoAplicacao() {
-  const controlador = useControladorAplicacao();
-  const telaAtual = usarTelaAtual(controlador.estado.autenticado);
-  const telaResolvida = resolverTelaProtegida(telaAtual, controlador);
-
+function ConteudoAplicacao({ controlador, telaAtual, telaResolvida }) {
   useEffect(() => {
     if (telaResolvida !== telaAtual) {
       navegarParaTela(telaResolvida, {
@@ -276,9 +318,26 @@ function ConteudoAplicacao() {
 }
 
 export function Aplicacao() {
+  const controlador = useControladorAplicacao();
+  const telaAtual = usarTelaAtual(controlador.estado.autenticado);
+  const telaResolvida = resolverTelaProtegida(telaAtual, controlador);
+
+  const usaShellFixo =
+    controlador.estado.autenticado &&
+    !controlador.estado.validandoSessao &&
+    !TELAS_SEM_SHELL_FIXO.has(telaResolvida);
+
+  const fallback = usaShellFixo
+    ? html`<${TelaCarregandoComShell} controlador=${controlador} navAtiva=${telaResolvida} />`
+    : html`<${TelaCarregando} />`;
+
   return html`
-    <${Suspense} fallback=${html`<${TelaCarregando} />`}>
-      <${ConteudoAplicacao} />
+    <${Suspense} fallback=${fallback}>
+      <${ConteudoAplicacao}
+        controlador=${controlador}
+        telaAtual=${telaAtual}
+        telaResolvida=${telaResolvida}
+      />
     </${Suspense}>
   `;
 }

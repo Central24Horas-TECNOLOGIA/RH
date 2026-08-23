@@ -3,7 +3,7 @@ import { BuscaGlobalTopbar } from '../busca-global.js';
 import { obterTourDaTela } from '../../shared/tour-config.js';
 import { BotaoAjudaTour, TourGuiado } from '../tour-guiado.js';
 
-function BarraLateral({
+export function BarraLateral({
   navAtiva,
   controlador,
   subtituloMarca = 'Plataforma de Recrutamento e Seleção',
@@ -212,7 +212,7 @@ function BarraLateral({
                 <img
                   alt="Conecta Central 24h"
                   class="rh-modern-logo"
-                  src="estilos/logo_conecta_branco_palavra.png"
+                  src="/estilos/logo_conecta_branco_palavra.png"
                   onError=${() => setLogoComErro(true)}
                 />
               `}
@@ -527,7 +527,7 @@ function obterIniciaisUsuario(nome) {
   return `${partes[0].slice(0, 1)}${partes[partes.length - 1].slice(0, 1)}`.toUpperCase();
 }
 
-function CartaoUsuarioTopo({ controlador }) {
+export function CartaoUsuarioTopo({ controlador }) {
   const [aberto, setAberto] = useState(false);
   const estado = controlador?.estado || {};
   const nome =

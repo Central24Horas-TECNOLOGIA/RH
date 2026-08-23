@@ -18,7 +18,6 @@ import {
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import {
   ModalEdicaoEntrevista,
   STATUS_ENTREVISTA,
@@ -568,21 +567,20 @@ export function TelaEntrevistas({ controlador }) {
       subtituloMarca="Agenda de entrevistas"
       placeholderBusca="Entrevistas e confirmações"
       controlador=${controlador}
-      acoesTopo=${html`
-        <button
-          type="button"
-          class="btn btn-outline-secondary"
-          onClick=${() => carregar()}
-        >
-          <span class="material-symbols-outlined">refresh</span>
-          Atualizar
-        </button>
-        <${AcaoSair} controlador=${controlador} />
-      `}
     >
       <${PageIntro}
         kicker="Console | Entrevistas"
         title="Calendário de entrevistas"
+        actions=${html`
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            onClick=${() => carregar()}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+            Atualizar
+          </button>
+        `}
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}

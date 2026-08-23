@@ -17,7 +17,6 @@ import {
   redefinirSenhaUsuario,
 } from '../../app/controlador-aplicacao.js';
 import { baixarBlob, obterItensPaginados } from '../../utilitarios.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import { PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
 
 const ABAS = [
@@ -2288,7 +2287,6 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       placeholderBusca="Configurações, usuários, permissões e logs"
       controlador=${controlador}
       mostrarAtalhos=${false}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Console - Administração"

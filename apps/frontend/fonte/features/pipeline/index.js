@@ -16,7 +16,6 @@ import {
   formatarDataHora,
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import {
   CANDIDATE_STATUS_SCHEDULED,
   canonicalizeCandidateStatus,
@@ -322,21 +321,21 @@ export function TelaPipelineCandidatos({ controlador }) {
         permissao: 'candidatos.criar',
         onClick: () => setModalCriacaoAberto(true),
       }}
-      acoesTopo=${html`
-        <button
-          type="button"
-          class="btn btn-outline-secondary"
-          onClick=${() => carregar(true)}
-        >
-          Atualizar
-        </button>
-        <${AcaoSair} controlador=${controlador} />
-      `}
     >
       <${PageIntro}
         kicker="Console • Pipeline"
         title="Pipeline de candidatos"
         description="Acompanhe o fluxo operacional por etapa. Processos encerrados permanecem visíveis, mas sem permitir movimentação."
+        actions=${html`
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            onClick=${() => carregar(true)}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+            Atualizar
+          </button>
+        `}
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}

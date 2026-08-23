@@ -32,7 +32,6 @@ import {
 import { obterItensPaginados } from '../../utilitarios.js';
 import { abrirFichaCandidatoDaProva } from '../../app/controlador-aplicacao.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import { formatarNotaVisual } from '../../shared/helpers-visuais.js';
 import {
   EmptyState,
@@ -2127,7 +2126,6 @@ export function TelaProvasResultados({ controlador }) {
         permissoes: ['provas.criar', 'provas.enviar'],
         onClick: () => setModalGerarAberto(true),
       }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="CONECTA PROVAS > SCORE CONECTA"

@@ -69,7 +69,9 @@ class OneDriveService:
         drive_id = normalize_text(getattr(self.settings, "sharepoint_drive_id", ""))
         if drive_id:
             return f"/drives/{quote(drive_id, safe='')}"
-        return f"/sites/{quote(site_id, safe='')}/drive"
+        # O site-id composto do Graph (hostname,site-guid,web-guid) usa vírgula
+        # como separador; mantemos a vírgula literal em vez de %2C.
+        return f"/sites/{quote(site_id, safe=',')}/drive"
 
     def _item_path_segment(self, path: str) -> str:
         safe_path = _sanitize_path(path)

@@ -70,7 +70,6 @@ import {
   obterClasseAderencia,
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import { ModalComporEmail } from '../../shared/components/compose-email-modal.js';
 import {
   ModalCompartilharVaga,
@@ -1962,7 +1961,6 @@ export function TelaInicio({ controlador }) {
         controlador.irParaTelaProtegida('screen-generated-exams');
       },
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         title=${`Olá, ${nomeUsuarioLogado}!`}
@@ -2257,7 +2255,6 @@ export function TelaCaixaEmail({ controlador }) {
       subtituloMarca="Central 24h"
       placeholderBusca="Caixa de e-mail"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Currículos recebidos"
@@ -2342,7 +2339,6 @@ export function TelaHistorico({ controlador }) {
       permissao: 'provas.enviar',
       onClick: () => controlador.iniciarNovoFluxo(),
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Console • Histórico"
@@ -2984,7 +2980,6 @@ export function TelaCriarProcesso({ controlador }) {
       label: 'Ver processos',
       onClick: () => controlador.irParaTelaProtegida('screen-processes'),
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Console • Novo processo"
@@ -3536,7 +3531,6 @@ export function TelaBancoTalentos({ controlador }) {
       subtituloMarca="Banco de talentos"
       placeholderBusca="Reaproveitamento de candidatos"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Console • Banco de talentos"
@@ -4202,7 +4196,6 @@ export function TelaAnaliseCandidatos({ controlador }) {
       placeholderBusca="Inteligência analítica do RH"
       controlador=${controlador}
       mostrarAtalhos=${false}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         title="Relatórios"
