@@ -32,7 +32,6 @@ import {
   PainelRh,
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import { ModalAprovacaoCandidato } from '../../shared/components/approval-modal.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import {
@@ -1465,7 +1464,6 @@ export function TelaDetalhesCandidato({ controlador }) {
       subtituloMarca="Detalhes do candidato"
       placeholderBusca="Buscar candidatos"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Central de candidatos"
@@ -2644,7 +2642,6 @@ export function TelaCandidatos({ controlador }) {
       subtituloMarca="Candidatos"
       placeholderBusca="Gestão centralizada de candidatos"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Console | Candidatos"

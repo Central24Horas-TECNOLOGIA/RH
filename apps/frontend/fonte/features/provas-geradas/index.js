@@ -31,7 +31,6 @@ import {
 } from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { obterItensPaginados } from '../../utilitarios.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import { formatarNotaVisual } from '../../shared/helpers-visuais.js';
 import {
   EmptyState,
@@ -2088,7 +2087,6 @@ export function TelaProvasResultados({ controlador }) {
         permissoes: ['provas.criar', 'provas.enviar'],
         onClick: () => setModalGerarAberto(true),
       }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="CONECTA PROVAS > SCORE CONECTA"

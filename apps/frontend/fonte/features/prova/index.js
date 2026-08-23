@@ -20,7 +20,6 @@ import {
   montarDescricaoFluxo,
   obterClasseEtapaResultado,
 } from '../../shared/helpers-visuais.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import {
   EditorTextoRich,
   EmptyState,
@@ -900,7 +899,6 @@ export function TelaConfiguracao({ controlador }) {
         permissao: 'provas.enviar',
         onClick: () => controlador.iniciarNovoFluxo(),
       }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Console • Configuração"

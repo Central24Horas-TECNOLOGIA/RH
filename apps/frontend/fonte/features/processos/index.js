@@ -67,7 +67,6 @@ import {
   obterBasePublicaCandidatura,
   toDatetimeLocal,
 } from '../../shared/browser-utils.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import {
   ModalCompartilharVaga,
   montarTextoCompartilhamentoVaga,
@@ -4017,7 +4016,6 @@ export function TelaProcessos({ controlador }) {
       placeholderBusca="Gerenciamento de processos e candidatos"
       controlador=${controlador}
       acaoPrimaria=${null}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Receptivo"
@@ -4753,7 +4751,6 @@ export function TelaProcessosAbertos({ controlador }) {
       permissao: 'vagas.criar',
       onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Processos"
@@ -5164,7 +5161,6 @@ export function TelaProcessosEncerrados({ controlador }) {
       subtituloMarca="Processos seletivos"
       placeholderBusca="Processos encerrados"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Processos"
@@ -5376,7 +5372,6 @@ export function TelaProcessosDecisoesPendentes({ controlador }) {
       subtituloMarca="Processos seletivos"
       placeholderBusca="Decisões pendentes"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Processos"
@@ -8974,8 +8969,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         label: 'Voltar para processos',
         onClick: () => controlador.irParaTelaProtegida('screen-processes'),
       }}
-        acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
-      >
+        >
         <${LoadingState}
           titulo="Carregando detalhes do processo"
           descricao="Buscando dados da vaga, candidatos, entrevistas e histórico."
@@ -8996,8 +8990,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         label: 'Voltar aos detalhes',
         onClick: () => setModoDossieProcessoAberto(false),
       }}
-        acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
-      >
+        >
         <${PageIntro}
           kicker="Processo seletivo"
           title="Dossiê do Processo"
@@ -9038,7 +9031,6 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       label: 'Gerenciar processos',
       onClick: () => controlador.irParaTelaProtegida('screen-processes'),
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${DetalhesProcessoRedesenhado}
         model=${{
