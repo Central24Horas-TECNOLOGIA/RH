@@ -36,6 +36,11 @@ export async function baixarArquivoOneDrive(caminho) {
   return requisitarArquivo(`/onedrive/download?${params.toString()}`, { method: 'GET' });
 }
 
+export async function obterPreviewOneDrive(caminho) {
+  const params = new URLSearchParams({ caminho });
+  return requisitar(`/onedrive/preview?${params.toString()}`, { method: 'GET' });
+}
+
 export async function excluirItemOneDrive(caminho, justificativa = '') {
   const params = new URLSearchParams({ caminho });
   if (justificativa) params.set('justificativa', justificativa);

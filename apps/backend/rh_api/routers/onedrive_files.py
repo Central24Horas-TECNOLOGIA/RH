@@ -91,6 +91,14 @@ def download_file(
     )
 
 
+@router.get("/preview", dependencies=[Depends(require_permissions("onedrive.visualizar"))])
+def preview_item(
+    caminho: str = Query(...),
+    service: OneDriveService = Depends(get_onedrive_service),
+):
+    return service.get_preview_url(caminho)
+
+
 @router.delete("/items", dependencies=[Depends(require_permissions("onedrive.excluir"))])
 def delete_item(
     caminho: str = Query(...),

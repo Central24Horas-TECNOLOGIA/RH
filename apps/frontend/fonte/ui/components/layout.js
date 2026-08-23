@@ -37,7 +37,7 @@ export function BarraLateral({
     {
       tela: 'screen-onedrive-files',
       icone: 'cloud',
-      label: 'OneDrive',
+      label: 'Drive-Conecta',
       permissao: 'onedrive.visualizar',
     },
     // Item removido do menu lateral por decisão de interface.

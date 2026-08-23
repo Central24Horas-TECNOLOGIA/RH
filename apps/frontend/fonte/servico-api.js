@@ -166,6 +166,7 @@ export {
   enviarArquivoOneDrive,
   excluirItemOneDrive,
   listarArquivosOneDrive,
+  obterPreviewOneDrive,
 } from './services/api/onedrive.js';
 export {
   enviarEmail,

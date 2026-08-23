@@ -89,6 +89,9 @@ class OneDriveService:
             "modificado_por": normalize_text(
                 ((item.get("lastModifiedBy") or {}).get("user") or {}).get("displayName")
             ),
+            "criado_por": normalize_text(
+                ((item.get("createdBy") or {}).get("user") or {}).get("displayName")
+            ),
             "web_url": normalize_text(item.get("webUrl")),
             "itens_na_pasta": int(folder.get("childCount") or 0) if isinstance(folder, dict) else None,
             "mime_type": normalize_text((item.get("file") or {}).get("mimeType")) if item.get("file") else "",
@@ -100,7 +103,9 @@ class OneDriveService:
         endpoint = f"{self._drive_root()}/{segment}/children"
         payload = client.get_json(
             endpoint,
-            params={"$select": "id,name,size,folder,file,createdDateTime,lastModifiedDateTime,lastModifiedBy,webUrl"},
+            params={
+                "$select": "id,name,size,folder,file,createdDateTime,lastModifiedDateTime,lastModifiedBy,createdBy,webUrl"
+            },
         )
         items = [self._serialize_item(item) for item in payload.get("value", [])]
         items.sort(key=lambda item: (item["tipo"] != "pasta", item["nome"].lower()))
@@ -206,6 +211,24 @@ class OneDriveService:
     def download_file_base64(self, path: str) -> tuple[str, str, str]:
         content, filename, mime_type = self.download_file(path)
         return base64.b64encode(content).decode("ascii"), filename, mime_type
+
+    def get_preview_url(self, path: str) -> dict:
+        """URL de visualização embutida (Office Online) para doc/docx/xls/ppt.
+
+        Usa a ação nativa ``preview`` do Microsoft Graph sobre o mesmo item —
+        não envolve nenhum serviço externo pago, é parte da licença M365 já
+        configurada para o repositório de arquivos.
+        """
+        client = self._client_or_raise()
+        segment = self._item_path_segment(path)
+        payload = client.post_json(f"{self._drive_root()}/{segment}/preview", json_body={})
+        get_url = normalize_text(payload.get("getUrl"))
+        if not get_url:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Microsoft Graph não retornou uma URL de visualização para este arquivo.",
+            )
+        return {"success": True, "url": get_url}
 
     def delete_item(self, path: str) -> dict:
         client = self._client_or_raise()
