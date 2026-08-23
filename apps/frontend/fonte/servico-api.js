@@ -152,15 +152,6 @@ export {
   moverCardPipeline,
 } from './services/api/pipeline.js';
 export {
-  listarDocumentosRh,
-  criarPastaDocumentoRh,
-  uploadArquivoDocumentoRh,
-  obterConteudoDocumentoRh,
-  baixarDocumentoRh,
-  renomearDocumentoRh,
-  excluirDocumentoRh,
-} from './services/api/documentos-rh.js';
-export {
   agendarEntrevista,
   atualizarEntrevista,
   atualizarSlotEntrevista,

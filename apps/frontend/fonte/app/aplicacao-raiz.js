@@ -46,7 +46,6 @@ const TelaCandidatos = carregarTela(() => import('../features/candidatos/index.j
 const TelaDetalhesCandidato = carregarTela(() => import('../features/candidatos/index.js'), 'TelaDetalhesCandidato');
 const TelaPipelineCandidatos = carregarTela(() => import('../features/tela-pipeline.js'), 'TelaPipelineCandidatos');
 const TelaEntrevistas = carregarTela(() => import('../features/tela-entrevistas.js'), 'TelaEntrevistas');
-const TelaDocumentosRh = carregarTela(() => import('../features/documentos-rh/index.js'), 'TelaDocumentosRh');
 const TelaCandidaturaPublica = carregarTela(() => import('../features/public-candidacy/index.js'), 'TelaCandidaturaPublica');
 const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js?v=20260721-exam-analytics-2'), 'TelaConectaProvas');
 const TelaProvasResultados = carregarTela(() => import('../features/provas-geradas/index.js'), 'TelaProvasResultados');
@@ -204,10 +203,6 @@ function ConteudoAplicacao() {
 
   if (telaResolvida === 'screen-talent-bank') {
     return html`<${TelaBancoTalentos} controlador=${controlador} />`;
-  }
-
-  if (telaResolvida === 'screen-documents') {
-    return html`<${TelaDocumentosRh} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-analysis-candidates') {

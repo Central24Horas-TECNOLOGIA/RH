@@ -34,12 +34,6 @@ function BarraLateral({
       label: 'Banco de Talentos',
       permissao: 'candidatos.visualizar',
     },
-    {
-      tela: 'screen-documents',
-      icone: 'folder',
-      label: 'Drive-Conecta',
-      permissao: 'documentos_rh.visualizar',
-    },
     // Item removido do menu lateral por decisão de interface.
     // {
     //   tela: 'screen-help',

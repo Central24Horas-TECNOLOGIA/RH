@@ -1915,83 +1915,6 @@ def ensure_decimal_process_columns(cursor) -> None:
     )
 
 
-def ensure_documento_rh_table(cursor) -> None:
-    cursor.execute(
-        """
-        IF OBJECT_ID('dbo.documentos_rh', 'U') IS NULL
-        BEGIN
-            CREATE TABLE dbo.documentos_rh (
-                id_documento INT IDENTITY(1,1) PRIMARY KEY,
-                nome NVARCHAR(255) NOT NULL,
-                tipo NVARCHAR(20) NOT NULL,
-                extensao NVARCHAR(20) NULL,
-                mimetype NVARCHAR(150) NULL,
-                tamanho_bytes BIGINT NULL,
-                caminho_arquivo NVARCHAR(500) NULL,
-                nome_arquivo_armazenado NVARCHAR(255) NULL,
-                id_pasta_pai INT NULL,
-                criado_por NVARCHAR(180) NULL,
-                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
-                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
-            )
-        END
-        """
-    )
-
-    for column_name, sql_type in (
-        ("nome", "NVARCHAR(255)"),
-        ("tipo", "NVARCHAR(20)"),
-        ("extensao", "NVARCHAR(20)"),
-        ("mimetype", "NVARCHAR(150)"),
-        ("tamanho_bytes", "BIGINT"),
-        ("caminho_arquivo", "NVARCHAR(500)"),
-        ("nome_arquivo_armazenado", "NVARCHAR(255)"),
-        ("id_pasta_pai", "INT"),
-        ("criado_por", "NVARCHAR(180)"),
-        ("criado_em", "DATETIME"),
-        ("atualizado_em", "DATETIME"),
-    ):
-        cursor.execute(
-            f"""
-            IF COL_LENGTH('dbo.documentos_rh', '{column_name}') IS NULL
-            BEGIN
-                ALTER TABLE dbo.documentos_rh
-                ADD {column_name} {sql_type} NULL
-            END
-            """
-        )
-
-    cursor.execute(
-        """
-        UPDATE dbo.documentos_rh
-        SET criado_em = GETDATE()
-        WHERE criado_em IS NULL
-        """
-    )
-    cursor.execute(
-        """
-        UPDATE dbo.documentos_rh
-        SET atualizado_em = criado_em
-        WHERE atualizado_em IS NULL
-        """
-    )
-
-    cursor.execute(
-        """
-        IF NOT EXISTS (
-            SELECT 1
-            FROM sys.indexes
-            WHERE name = 'IX_documentos_rh_pasta_pai'
-              AND object_id = OBJECT_ID('dbo.documentos_rh')
-        )
-        BEGIN
-            CREATE INDEX IX_documentos_rh_pasta_pai
-            ON dbo.documentos_rh(id_pasta_pai)
-        END
-        """
-    )
-
-
 def describe_database_error(error: Exception) -> str:
     parts = []
 
@@ -2040,7 +1963,6 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_exam_analytics_tables(cursor, create_if_missing=True)
             ensure_process_reference_columns(cursor)
             ensure_decimal_process_columns(cursor)
-            ensure_documento_rh_table(cursor)
         finally:
             conn.close()
 

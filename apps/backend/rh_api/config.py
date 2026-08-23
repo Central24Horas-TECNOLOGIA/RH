@@ -174,7 +174,6 @@ class Settings:
     public_frontend_base_url: str
     public_candidate_base_url: str
     public_cv_upload_dir: str
-    documentos_rh_dir: str
     doc_converter: str
     libreoffice_path: str
     email_inbox_enabled: bool
@@ -317,9 +316,6 @@ def get_settings() -> Settings:
         ),
         public_cv_upload_dir=_resolve_project_path(
             _env("RH_PUBLIC_CV_UPLOAD_DIR"), "data/private/public-cvs"
-        ),
-        documentos_rh_dir=_resolve_project_path(
-            _env("RH_DOCUMENTOS_RH_DIR"), "data/documentos_rh"
         ),
         doc_converter=_env("DOC_CONVERTER", "RH_CV_DOC_CONVERTER", default="auto"),
         libreoffice_path=_env("LIBREOFFICE_PATH", "RH_LIBREOFFICE_PATH"),

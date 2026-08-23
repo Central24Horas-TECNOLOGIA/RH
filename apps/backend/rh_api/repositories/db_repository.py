@@ -10,7 +10,6 @@ from .bootstrap import (
     is_deadlock_error,
 )
 from .cv_analysis import CvAnalysisRepositoryMixin
-from .documentos_rh import DocumentosRhRepositoryMixin
 from .email_inbox import EmailInboxRepositoryMixin
 from .exam_analytics import ExamAnalyticsRepositoryMixin
 from .communications import CommunicationRepositoryMixin
@@ -34,7 +33,6 @@ class DatabaseRepository(
     CandidateProfileRepositoryMixin,
     CandidateSheetRepositoryMixin,
     CvAnalysisRepositoryMixin,
-    DocumentosRhRepositoryMixin,
     EmailInboxRepositoryMixin,
     CommunicationRepositoryMixin,
     GeneratedExamRepositoryMixin,

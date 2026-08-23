@@ -68,12 +68,6 @@ const PAGINAS_BUSCA = [
     descricao: 'Reaproveitamento de candidatos.',
   },
   {
-    id: 'pagina-documentos-rh',
-    tela: 'screen-documents',
-    titulo: 'Drive-Conecta',
-    descricao: 'Pastas e arquivos do RH.',
-  },
-  {
     id: 'pagina-configuracao',
     tela: 'screen-config',
     titulo: 'Configuração da prova',

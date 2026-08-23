@@ -24,7 +24,6 @@ from .repositories import (
 from .routers.analytics import router as analytics_router
 from .routers.auth import router as auth_router
 from .routers.curriculos_ia import router as curriculos_ia_router
-from .routers.documentos_rh import router as documentos_rh_router
 from .routers.email_inbox import router as email_inbox_router
 from .routers.exam_analytics import router as exam_analytics_router
 from .routers.generated_exams import public_router as generated_exams_public_router
@@ -331,7 +330,6 @@ def create_app() -> FastAPI:
     app.include_router(analytics_router)
     app.include_router(pipeline_router)
     app.include_router(settings_router)
-    app.include_router(documentos_rh_router)
     _register_frontend_routes(app, settings)
 
     logger.info(
