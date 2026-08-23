@@ -52,6 +52,7 @@ import {
 } from '../../app/controlador-aplicacao.js';
 import {
   baixarBlob,
+  formatarDataCurta,
   formatarDataParaInput,
   obterItensPaginados,
 } from '../../utilitarios.js';
@@ -69,6 +70,7 @@ import {
   obterBasePublicaCandidatura,
   toDatetimeLocal,
 } from '../../shared/browser-utils.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   ModalCompartilharVaga,
   montarTextoCompartilhamentoVaga,
@@ -1269,14 +1271,6 @@ function formatarOrigemCandidato(candidato) {
     return 'Processo Único';
   }
   return String(candidato?.origem || '-').trim() || '-';
-}
-
-function formatarDataCurta(valor) {
-  const texto = String(valor || '').trim();
-  if (!texto) return '-';
-  const data = new Date(texto);
-  if (Number.isNaN(data.getTime())) return texto;
-  return data.toLocaleDateString('pt-BR');
 }
 
 function formatarHoraCurta(valor) {
@@ -3724,6 +3718,7 @@ function DossieProcesso({
 }
 
 export function TelaProcessos({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [processos, setProcessos] = useState([]);
@@ -3896,12 +3891,12 @@ export function TelaProcessos({ controlador }) {
     );
 
     if (statusAtual === CANDIDATE_STATUS_APPROVED) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
     if (isProcessClosed(processo)) {
-      window.alert('O processo seletivo está encerrado e não permite novas movimentações.');
+      showToast('O processo seletivo está encerrado e não permite novas movimentações.', 'warning');
       return;
     }
 
@@ -3941,12 +3936,12 @@ export function TelaProcessos({ controlador }) {
     const estadoAcoes = candidato?.acoes_fluxo || getCandidateActionState(candidato);
 
     if (estadoAcoes.processClosed || isProcessClosed(processo)) {
-      window.alert('Processo encerrado. Movimentações não são permitidas.');
+      showToast('Processo encerrado. Movimentações não são permitidas.', 'warning');
       return;
     }
 
     if (!estadoAcoes.canApprove) {
-      window.alert('A aprovação não está disponível para o status atual deste candidato.');
+      showToast('A aprovação não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
 
@@ -4038,6 +4033,7 @@ export function TelaProcessos({ controlador }) {
       controlador=${controlador}
       acaoPrimaria=${null}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Receptivo"
         title="Processos Seletivos"
@@ -5950,6 +5946,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
 }
 
 export function TelaDetalhesProcesso({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [salvandoEntrevista, setSalvandoEntrevista] = useState(false);
   const [erro, setErro] = useState('');
@@ -7781,7 +7778,7 @@ export function TelaDetalhesProcesso({ controlador }) {
         tipo_indicacao: candidato.tipo_indicacao || '',
       });
       await carregar(paginaPreAnalises, filtrosPreAnalises, paginaCvsNaoQualificados);
-      window.alert(resultado?.message || 'Candidato enviado para o Banco de Talentos.');
+      showToast(resultado?.message || 'Candidato enviado para o Banco de Talentos.', 'success');
       return true;
     } catch (error) {
       setErro(
@@ -8026,7 +8023,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       setPreAnaliseSelecionada(null);
       await carregar(paginaPreAnalises);
     } catch (error) {
-      alert(error.message || 'Não foi possível salvar a edição.');
+      showToast(error.message || 'Não foi possível salvar a edição.', 'error');
     }
   };
 
@@ -8070,7 +8067,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       setCandidatoEditando(null);
       await carregar(paginaPreAnalises);
     } catch (error) {
-      alert(error.message || 'Não foi possível salvar os dados do candidato.');
+      showToast(error.message || 'Não foi possível salvar os dados do candidato.', 'error');
     }
   };
 
@@ -8660,7 +8657,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       const mensagem = resultado?.mensagem_base || mensagemFinal;
       await copiarTexto(mensagem).catch(() => null);
 
-      window.alert('Entrevista registrada como pendente e mensagem copiada para a área de transferência.');
+      showToast('Entrevista registrada como pendente e mensagem copiada para a área de transferência.', 'success');
 
       setAgendamentoSelecionado(null);
       await carregar(paginaPreAnalises);
@@ -8994,6 +8991,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         onClick: () => controlador.irParaTelaProtegida('screen-processes'),
       }}
         >
+        <${ToastHost} />
         <${LoadingState}
           titulo="Carregando detalhes do processo"
           descricao="Buscando dados da vaga, candidatos, entrevistas e histórico."
@@ -9015,6 +9013,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         onClick: () => setModoDossieProcessoAberto(false),
       }}
         >
+        <${ToastHost} />
         <${PageIntro}
           kicker="Processo seletivo"
           title="Dossiê do Processo"
@@ -9056,6 +9055,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       onClick: () => controlador.irParaTelaProtegida('screen-processes'),
     }}
     >
+      <${ToastHost} />
       <${DetalhesProcessoRedesenhado}
         model=${{
       processo,

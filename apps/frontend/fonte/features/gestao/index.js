@@ -71,6 +71,7 @@ import {
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
 import { ModalComporEmail } from '../../shared/components/compose-email-modal.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   ModalCompartilharVaga,
   REQUISITOS_PUBLICOS_PADRAO,
@@ -775,6 +776,7 @@ function formatarPartesDataHoraEmail(valor) {
 }
 
 function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } = {}) {
+  const { showToast, ToastHost } = useToast();
   const compacto = modo !== 'completo';
   const chaveInicialEmail = montarChaveCacheSecaoEmail();
   const cacheInicialEmail = lerCacheSecaoEmail(chaveInicialEmail);
@@ -1066,6 +1068,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
 
   return html`
     <div class=${`mailbox-layout ${compacto ? 'is-compact' : 'is-full'} ${itensSelecionados.length ? 'has-selection' : ''}`}>
+      <${ToastHost} />
       <${SectionCard}
         className=${`mailbox-card ${compacto ? 'mailbox-card-compact' : 'mailbox-card-full'}`}
         title=${compacto ? 'Caixa de E-mail' : ''}
@@ -1688,6 +1691,7 @@ export function TelaLogin({ controlador }) {
 }
 
 export function TelaInicio({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [recentes, setRecentes] = useState([]);
   const [processos, setProcessos] = useState([]);
@@ -1962,6 +1966,7 @@ export function TelaInicio({ controlador }) {
       },
     }}
     >
+      <${ToastHost} />
       <${PageIntro}
         title=${`Olá, ${nomeUsuarioLogado}!`}
         description="Panorama geral do recrutamento hoje."
@@ -2234,7 +2239,7 @@ export function TelaInicio({ controlador }) {
       try {
         await abrirFichaCandidatoDaProva(detalheAberto);
       } catch (error) {
-        window.alert('Não foi possível localizar a ficha deste candidato.');
+        showToast('Não foi possível localizar a ficha deste candidato.', 'error');
       }
     }}
       />
@@ -2288,6 +2293,7 @@ export function TelaCaixaEmail({ controlador }) {
 }
 
 export function TelaHistorico({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [linhas, setLinhas] = useState([]);
   const [pagina, setPagina] = useState(1);
@@ -2340,6 +2346,7 @@ export function TelaHistorico({ controlador }) {
       onClick: () => controlador.iniciarNovoFluxo(),
     }}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Console • Histórico"
         title="Histórico de exames"
@@ -2485,7 +2492,7 @@ export function TelaHistorico({ controlador }) {
       try {
         await abrirFichaCandidatoDaProva(detalheAberto);
       } catch (error) {
-        window.alert('Não foi possível localizar a ficha deste candidato.');
+        showToast('Não foi possível localizar a ficha deste candidato.', 'error');
       }
     }}
       />
@@ -3355,6 +3362,7 @@ export function TelaCriarProcesso({ controlador }) {
 }
 
 export function TelaBancoTalentos({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -3411,7 +3419,7 @@ export function TelaBancoTalentos({ controlador }) {
 
   const abrirCurriculo = async (candidato) => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
-      window.alert('Não há currículo disponível para este candidato.');
+      showToast('Não há currículo disponível para este candidato.', 'warning');
       return;
     }
 
@@ -3491,7 +3499,7 @@ export function TelaBancoTalentos({ controlador }) {
 
   const confirmarUso = async () => {
     if (!candidatoParaUtilizar || !processoSelecionadoUso) {
-      window.alert('Selecione um processo antes de continuar.');
+      showToast('Selecione um processo antes de continuar.', 'warning');
       return;
     }
 
@@ -3532,6 +3540,7 @@ export function TelaBancoTalentos({ controlador }) {
       placeholderBusca="Reaproveitamento de candidatos"
       controlador=${controlador}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Console • Banco de talentos"
         title="Banco de talentos"
@@ -3901,6 +3910,7 @@ function GraficoComparativoAnalise({ itens = [] }) {
 }
 
 export function TelaAnaliseCandidatos({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [linhas, setLinhas] = useState([]);
   const [relatorioAtivo, setRelatorioAtivo] = useState('processos');
   const [carregandoRelatorio, setCarregandoRelatorio] = useState(false);
@@ -4140,28 +4150,28 @@ export function TelaAnaliseCandidatos({ controlador }) {
   const aplicarAcao = async (statusCandidato) => {
     if (!detalhe?.id_teste) return;
     if (detalheEstadoAcoes.processClosed) {
-      window.alert('O processo seletivo deste candidato está encerrado e não permite novas movimentações.');
+      showToast('O processo seletivo deste candidato está encerrado e não permite novas movimentações.', 'warning');
       return;
     }
     if (
       statusCandidato === 'Aprovado' &&
       !detalheEstadoAcoes.canApprove
     ) {
-      window.alert('A aprovação não está disponível para o status atual deste candidato.');
+      showToast('A aprovação não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
     if (
       statusCandidato === 'Eliminado' &&
       !detalheEstadoAcoes.canEliminate
     ) {
-      window.alert('A eliminação não está disponível para o status atual deste candidato.');
+      showToast('A eliminação não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
     if (
       statusCandidato === 'Banco de talentos' &&
       !detalheEstadoAcoes.canSendToTalentBank
     ) {
-      window.alert('O envio para banco de talentos não está disponível para o status atual deste candidato.');
+      showToast('O envio para banco de talentos não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
 
@@ -4173,8 +4183,9 @@ export function TelaAnaliseCandidatos({ controlador }) {
     );
 
     if (!vinculo) {
-      window.alert(
+      showToast(
         'Não foi possível localizar o vínculo do candidato com o processo.',
+        'error',
       );
       return;
     }
@@ -4197,6 +4208,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
       controlador=${controlador}
       mostrarAtalhos=${false}
     >
+      <${ToastHost} />
       <${PageIntro}
         title="Relatórios"
         description=${html`${formatarAtualizacaoRelatorio(ultimaAtualizacaoRelatorio)}

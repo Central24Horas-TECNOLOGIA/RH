@@ -18,6 +18,7 @@ import {
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   ModalEdicaoEntrevista,
   STATUS_ENTREVISTA,
@@ -198,6 +199,7 @@ function PaginacaoCompacta({
 }
 
 export function TelaEntrevistas({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -397,8 +399,9 @@ export function TelaEntrevistas({ controlador }) {
       });
 
       await carregar();
-      window.alert(
+      showToast(
         `Slots criados: ${resultado?.created || 0}. Ignorados por conflito: ${resultado?.skipped || 0}.`,
+        'success',
       );
     } catch (error) {
       setErro(error?.message || 'Não foi possível criar os horários.');
@@ -568,6 +571,7 @@ export function TelaEntrevistas({ controlador }) {
       placeholderBusca="Entrevistas e confirmações"
       controlador=${controlador}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Console | Entrevistas"
         title="Calendário de entrevistas"
@@ -1030,10 +1034,10 @@ export function TelaEntrevistas({ controlador }) {
                               onClick=${() =>
                                 copiarTexto(item.mensagem_base || '')
                                   .then(() =>
-                                    window.alert('Mensagem copiada para a área de transferência.'),
+                                    showToast('Mensagem copiada para a área de transferência.', 'success'),
                                   )
                                   .catch(() =>
-                                    window.alert('Não foi possível copiar a mensagem automaticamente.'),
+                                    showToast('Não foi possível copiar a mensagem automaticamente.', 'error'),
                                   )}
                             >
                               <span class="material-symbols-outlined">content_copy</span>

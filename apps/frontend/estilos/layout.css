@@ -772,6 +772,47 @@
   overflow-wrap: anywhere;
 }
 
+.rh-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  border-bottom: 1px solid var(--color-border);
+  margin: 24px 0 16px;
+  overflow-x: auto;
+}
+
+.rh-tabs-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm, 6px) var(--radius-sm, 6px) 0 0;
+  padding: 8px 16px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.rh-tabs-btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+}
+
+.rh-tabs-btn.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.rh-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .rh-filter-card {
   padding: 0.85rem;
   border: 1px solid var(--color-border);
@@ -1536,4 +1577,8 @@
   .rh-tour-card {
     max-width: calc(100vw - 1.5rem);
   }
+}
+
+.rh-modal-dialog--wide {
+  width: min(960px, 100%);
 }

@@ -74,8 +74,8 @@ const TELAS_SEM_SHELL_FIXO = new Set([
 ]);
 
 const importarGestao = () => import('../features/telas-gestao.js?v=20260716-microsoft-login-fallback');
-const importarProcessos = () => import('../features/telas-processos.js');
-const importarProva = () => import('../features/telas-prova.js');
+const importarProcessos = () => import('../features/telas-processos.js?v=20260823-cache-busting-fix');
+const importarProva = () => import('../features/telas-prova.js?v=20260823-cache-busting-fix');
 
 const TelaAnaliseCandidatos = carregarTela(importarGestao, 'TelaAnaliseCandidatos');
 const TelaBancoTalentos = carregarTela(importarGestao, 'TelaBancoTalentos');
@@ -284,7 +284,7 @@ function ConteudoAplicacao({ controlador, telaAtual, telaResolvida }) {
         <div class="container py-5">
           <div class="alert alert-warning mb-3">
             ${controlador.estado.avisoAcessoNegado ||
-      'VocÃª nÃ£o possui permissÃ£o para acessar esta Ã¡rea ou executar esta aÃ§Ã£o.'}
+      'Você não possui permissão para acessar esta área ou executar esta ação.'}
           </div>
           <button
             type="button"

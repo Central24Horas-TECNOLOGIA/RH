@@ -1664,7 +1664,15 @@ class BaseRepository:
                     status_entrevista = ?,
                     id_processo_ref = ?,
                     atualizado_em = GETDATE()
-                WHERE (id_registro = ? AND ? > 0) OR (id_teste = ? AND ISNULL(id_teste, '') <> '')
+                WHERE (id_registro = ? AND ? > 0)
+                   OR (
+                        id_teste = ? AND ISNULL(id_teste, '') <> ''
+                        AND (
+                            (? <> '' AND ISNULL(id_processo, '') = ?)
+                            OR (? <> '' AND ISNULL(id_processo_ref, '') = ?)
+                            OR (ISNULL(id_processo, '') = '' AND ISNULL(id_processo_ref, '') = '')
+                        )
+                      )
                 """,
                 (
                     resolved_new_status,
@@ -1672,6 +1680,10 @@ class BaseRepository:
                     id_registro,
                     id_registro,
                     id_teste,
+                    id_processo,
+                    id_processo,
+                    id_processo_ref,
+                    id_processo_ref,
                 ),
             )
 
@@ -1680,8 +1692,9 @@ class BaseRepository:
                 """
                 DELETE FROM banco_talentos
                 WHERE id_teste = ?
+                  AND (ISNULL(id_processo, '') = ? OR ISNULL(id_processo, '') = '')
                 """,
-                (id_teste,),
+                (id_teste, id_processo),
             )
 
         if new_status_normalized == normalize_compare_text(CANDIDATE_STATUS_TALENT_BANK):

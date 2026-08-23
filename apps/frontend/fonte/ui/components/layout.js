@@ -64,6 +64,12 @@ export function BarraLateral({
       permissao: 'vagas.visualizar',
     },
     {
+      tela: 'screen-process-decisions',
+      icone: 'fact_check',
+      label: 'Decisões Pendentes',
+      permissao: 'vagas.visualizar',
+    },
+    {
       tela: 'screen-generated-exams',
       icone: 'assignment',
       label: 'Provas e Resultados',
@@ -512,6 +518,45 @@ export function SectionCard({
       : null}
       ${children}
     </section>
+  `;
+}
+
+export function Tabs({ tabs = [], activeKey, onChange, className = '' }) {
+  return html`
+    <div class=${`rh-tabs ${className}`.trim()} role="tablist">
+      ${tabs.map(
+        (tab) => html`
+          <button
+            key=${tab.key}
+            type="button"
+            role="tab"
+            id=${`rh-tab-${tab.key}`}
+            aria-selected=${activeKey === tab.key}
+            aria-controls=${`rh-tabpanel-${tab.key}`}
+            class=${`rh-tabs-btn ${activeKey === tab.key ? 'is-active' : ''}`.trim()}
+            onClick=${() => onChange(tab.key)}
+          >
+            ${tab.label}
+          </button>
+        `,
+      )}
+    </div>
+  `;
+}
+
+export function TabPanel({ tabKey, activeKey, className = '', children }) {
+  const ativo = activeKey === tabKey;
+  return html`
+    <div
+      id=${`rh-tabpanel-${tabKey}`}
+      role="tabpanel"
+      aria-labelledby=${`rh-tab-${tabKey}`}
+      aria-hidden=${!ativo}
+      class=${`rh-tab-panel ${className}`.trim()}
+      style=${{ display: ativo ? 'block' : 'none' }}
+    >
+      ${children}
+    </div>
   `;
 }
 
