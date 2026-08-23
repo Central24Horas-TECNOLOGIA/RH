@@ -151,6 +151,7 @@ export const PERMISSOES_TELAS = {
   'screen-interviews': 'entrevistas.visualizar',
   'screen-analysis-candidates': 'relatorios.visualizar',
   'screen-talent-bank': 'candidatos.visualizar',
+  'screen-onedrive-files': 'onedrive.visualizar',
   'screen-settings': 'configuracoes.visualizar',
   'screen-settings-users': 'usuarios.visualizar',
   'screen-settings-profiles': 'configuracoes.visualizar',
