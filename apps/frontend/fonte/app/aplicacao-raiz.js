@@ -28,8 +28,8 @@ function TelaCarregando({
 }
 
 const importarGestao = () => import('../features/telas-gestao.js?v=20260716-microsoft-login-fallback');
-const importarProcessos = () => import('../features/telas-processos.js');
-const importarProva = () => import('../features/telas-prova.js');
+const importarProcessos = () => import('../features/telas-processos.js?v=20260823-cache-busting-fix');
+const importarProva = () => import('../features/telas-prova.js?v=20260823-cache-busting-fix');
 
 const TelaAnaliseCandidatos = carregarTela(importarGestao, 'TelaAnaliseCandidatos');
 const TelaBancoTalentos = carregarTela(importarGestao, 'TelaBancoTalentos');

@@ -11,6 +11,7 @@ import {
 import { baixarBlob } from '../../utilitarios.js';
 import { formatarDataHora } from '../../shared/helpers-visuais.js';
 import { AcaoSair } from '../../shared/components/actions.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   LoadingState,
   ModalPadrao,
@@ -103,6 +104,7 @@ export function TelaDocumentosRh({ controlador }) {
     dataModificacaoAte: '',
   });
   const inputArquivoRef = useRef(null);
+  const { showToast, ToastHost } = useToast();
 
   const podeGerenciar = controlador?.possuiPermissao?.('documentos_rh.gerenciar');
 
@@ -169,7 +171,7 @@ export function TelaDocumentosRh({ controlador }) {
   const confirmarCriarPasta = async () => {
     const nome = nomeNovaPasta.trim();
     if (!nome) {
-      window.alert('Informe um nome para a pasta.');
+      showToast('Informe um nome para a pasta.', 'warning');
       return;
     }
 
@@ -220,7 +222,7 @@ export function TelaDocumentosRh({ controlador }) {
     if (!itemRenomear) return;
     const nome = novoNome.trim();
     if (!nome) {
-      window.alert('Informe um novo nome.');
+      showToast('Informe um novo nome.', 'warning');
       return;
     }
 
@@ -303,6 +305,7 @@ export function TelaDocumentosRh({ controlador }) {
       controlador=${controlador}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Console • Drive-Conecta"
         title="Drive-Conecta"

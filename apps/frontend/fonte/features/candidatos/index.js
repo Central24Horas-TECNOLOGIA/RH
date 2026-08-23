@@ -35,6 +35,7 @@ import {
   TabPanel,
 } from '../../ui/componentes-compartilhados.js';
 import { AcaoSair } from '../../shared/components/actions.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import { ModalAprovacaoCandidato } from '../../shared/components/approval-modal.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import {
@@ -1026,10 +1027,14 @@ function renderizarLinhasFicha(itens, colunas) {
     .join('');
 }
 
-function abrirFichaImpressao(candidato, dossie) {
+function abrirFichaImpressao(candidato, dossie, notificar = null) {
   const janela = window.open('', '_blank');
   if (!janela) {
-    window.alert('Não foi possível abrir a ficha para impressão.');
+    if (notificar) {
+      notificar('Não foi possível abrir a ficha para impressão.', 'error');
+    } else {
+      window.alert('Não foi possível abrir a ficha para impressão.');
+    }
     return;
   }
   const ficha = dossie || {
@@ -1120,6 +1125,7 @@ function abrirFichaImpressao(candidato, dossie) {
 }
 
 export function TelaDetalhesCandidato({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
@@ -1280,7 +1286,7 @@ export function TelaDetalhesCandidato({ controlador }) {
 
   const abrirCurriculo = async () => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
-      window.alert('Não há currículo disponível para este candidato.');
+      showToast('Não há currículo disponível para este candidato.', 'warning');
       return;
     }
     try {
@@ -1360,11 +1366,11 @@ export function TelaDetalhesCandidato({ controlador }) {
 
   const abrirModalVinculo = () => {
     if (!candidatoPodeAtrelar(candidato)) {
-      window.alert('Este candidato não possui ações pendentes para vínculo.');
+      showToast('Este candidato não possui ações pendentes para vínculo.', 'warning');
       return;
     }
     if (!processosAbertos.length) {
-      window.alert('Nenhum processo seletivo aberto encontrado.');
+      showToast('Nenhum processo seletivo aberto encontrado.', 'warning');
       return;
     }
     setProcessoSelecionado('');
@@ -1401,7 +1407,7 @@ export function TelaDetalhesCandidato({ controlador }) {
 
   const confirmarVinculoProcesso = async () => {
     if (!processoSelecionado) {
-      window.alert('Selecione um processo seletivo aberto.');
+      showToast('Selecione um processo seletivo aberto.', 'warning');
       return;
     }
 
@@ -1409,12 +1415,12 @@ export function TelaDetalhesCandidato({ controlador }) {
       (item) => obterReferenciaProcesso(item) === processoSelecionado,
     );
     if (!processo) {
-      window.alert('Processo selecionado não encontrado.');
+      showToast('Processo selecionado não encontrado.', 'warning');
       return;
     }
 
     if (candidatoJaVinculadoAoProcessoFicha()) {
-      window.alert('Este candidato já está vinculado a este processo seletivo.');
+      showToast('Este candidato já está vinculado a este processo seletivo.', 'warning');
       return;
     }
 
@@ -1470,6 +1476,7 @@ export function TelaDetalhesCandidato({ controlador }) {
       controlador=${controlador}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Central de candidatos"
         title=${candidato?.nome_candidato || 'Detalhes do Candidato'}
@@ -1493,7 +1500,7 @@ export function TelaDetalhesCandidato({ controlador }) {
             <span class="material-symbols-outlined">groups</span>
             Lista geral de candidatos
           </button>
-          <button type="button" class="btn btn-outline-primary btn-sm" onClick=${() => abrirFichaImpressao(candidato, dossie)}>
+          <button type="button" class="btn btn-outline-primary btn-sm" onClick=${() => abrirFichaImpressao(candidato, dossie, showToast)}>
             Baixar ficha
           </button>
           ${candidatoPodeAtrelar(candidato) && controlador?.possuiPermissao?.('candidatos.criar')
@@ -1821,6 +1828,7 @@ export function TelaDetalhesCandidato({ controlador }) {
 }
 
 export function TelaCandidatos({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -1854,7 +1862,7 @@ export function TelaCandidatos({ controlador }) {
 
   const abrirCurriculo = async (candidato) => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
-      window.alert('Não há currículo disponível para este candidato.');
+      showToast('Não há currículo disponível para este candidato.', 'warning');
       return;
     }
 
@@ -2152,7 +2160,7 @@ export function TelaCandidatos({ controlador }) {
     if (!candidato) return;
 
     if (candidatoEstaAprovado(candidato)) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
@@ -2160,7 +2168,7 @@ export function TelaCandidatos({ controlador }) {
     const statusSeguro = canonicalizeCandidateStatus(status);
 
     if (estadoAcoes.processClosed) {
-      window.alert(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO);
+      showToast(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO, 'warning');
       return;
     }
 
@@ -2170,7 +2178,7 @@ export function TelaCandidatos({ controlador }) {
       (statusSeguro === CANDIDATE_STATUS_TALENT_BANK &&
         !estadoAcoes.canSendToTalentBank)
     ) {
-      window.alert('Este candidato não possui ações pendentes para esta movimentação.');
+      showToast('Este candidato não possui ações pendentes para esta movimentação.', 'warning');
       return;
     }
 
@@ -2201,8 +2209,9 @@ export function TelaCandidatos({ controlador }) {
         return;
       }
 
-      window.alert(
+      showToast(
         'Este candidato está no Banco de Talentos. Para aprovar, primeiro atrele-o a um processo seletivo.',
+        'warning',
       );
       return;
     }
@@ -2212,14 +2221,15 @@ export function TelaCandidatos({ controlador }) {
         status !== CANDIDATE_STATUS_ELIMINATED &&
         status !== CANDIDATE_STATUS_APPROVED
       ) {
-        window.alert(
+        showToast(
           'Este candidato ainda não possui vínculo operacional com um processo. Atrele-o a um processo antes de aprovar.',
+          'warning',
         );
         return;
       }
 
       if (!candidato.id_teste) {
-        window.alert('Este candidato não possui ID de prova para eliminação.');
+        showToast('Este candidato não possui ID de prova para eliminação.', 'warning');
         return;
       }
 
@@ -2293,7 +2303,7 @@ export function TelaCandidatos({ controlador }) {
 
   const abrirEdicaoCandidato = (candidato) => {
     if (!candidato?.id_teste) {
-      window.alert('Este candidato não possui ID de prova para edição.');
+      showToast('Este candidato não possui ID de prova para edição.', 'warning');
       return;
     }
 
@@ -2391,27 +2401,27 @@ export function TelaCandidatos({ controlador }) {
 
   const enviarParaBanco = async (candidato) => {
     if (!candidato?.id_teste) {
-      window.alert('Este candidato não possui ID de prova para Banco de Talentos.');
+      showToast('Este candidato não possui ID de prova para Banco de Talentos.', 'warning');
       return;
     }
 
     if (candidato.origem_cadastro === 'banco') {
-      window.alert('Este candidato já está no Banco de Talentos.');
+      showToast('Este candidato já está no Banco de Talentos.', 'warning');
       return;
     }
 
     if (candidatoEstaAprovado(candidato)) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
     const estadoAcoes = obterEstadoAcoesCentral(candidato);
     if (estadoAcoes.processClosed) {
-      window.alert(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO);
+      showToast(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO, 'warning');
       return;
     }
     if (!estadoAcoes.canSendToTalentBank) {
-      window.alert('Este candidato não possui ações pendentes para envio ao Banco de Talentos.');
+      showToast('Este candidato não possui ações pendentes para envio ao Banco de Talentos.', 'warning');
       return;
     }
 
@@ -2468,18 +2478,18 @@ export function TelaCandidatos({ controlador }) {
 
   const abrirAprovacao = (candidato) => {
     if (candidatoEstaAprovado(candidato)) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
     const estadoAcoes = obterEstadoAcoesCentral(candidato);
     if (estadoAcoes.processClosed) {
-      window.alert(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO);
+      showToast(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO, 'warning');
       return;
     }
 
     if (!estadoAcoes.canApprove) {
-      window.alert('A aprovação não está disponível para o status atual deste candidato.');
+      showToast('A aprovação não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
 
@@ -2504,22 +2514,22 @@ export function TelaCandidatos({ controlador }) {
 
   const abrirAtrelar = (candidato, origem = 'Central de Candidatos') => {
     if (candidatoEstaAprovado(candidato)) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
     if (!processosAbertos.length) {
-      window.alert('Nenhum processo seletivo aberto encontrado.');
+      showToast('Nenhum processo seletivo aberto encontrado.', 'warning');
       return;
     }
 
     const estadoAcoes = obterEstadoAcoesCentral(candidato);
     if (estadoAcoes.processClosed) {
-      window.alert(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO);
+      showToast(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO, 'warning');
       return;
     }
     if (!candidatoPodeAtrelar(candidato)) {
-      window.alert('Este candidato não possui ações pendentes para vínculo.');
+      showToast('Este candidato não possui ações pendentes para vínculo.', 'warning');
       return;
     }
 
@@ -2578,7 +2588,7 @@ export function TelaCandidatos({ controlador }) {
 
   const confirmarAtrelar = async () => {
     if (!candidatoParaAtrelar || !processoSelecionado) {
-      window.alert('Selecione um processo seletivo aberto.');
+      showToast('Selecione um processo seletivo aberto.', 'warning');
       return;
     }
 
@@ -2586,12 +2596,12 @@ export function TelaCandidatos({ controlador }) {
       (item) => obterReferenciaProcesso(item) === processoSelecionado,
     );
     if (!processo) {
-      window.alert('Processo selecionado não encontrado.');
+      showToast('Processo selecionado não encontrado.', 'warning');
       return;
     }
 
     if (candidatoJaVinculadoAoProcessoSelecionado()) {
-      window.alert('Este candidato já está vinculado a este processo seletivo.');
+      showToast('Este candidato já está vinculado a este processo seletivo.', 'warning');
       return;
     }
 
@@ -2662,6 +2672,7 @@ export function TelaCandidatos({ controlador }) {
       controlador=${controlador}
       acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Console | Candidatos"
         title="Central de candidatos"
@@ -3330,7 +3341,7 @@ export function TelaCandidatos({ controlador }) {
                 <button
                   type="button"
                   class="btn btn-outline-primary"
-                  onClick=${() => abrirFichaImpressao(detalhe, dossieDetalhe)}
+                  onClick=${() => abrirFichaImpressao(detalhe, dossieDetalhe, showToast)}
                 >
                   Baixar ficha
                 </button>

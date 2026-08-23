@@ -14,6 +14,7 @@ import {
   salvarRespostasConectaProvas,
 } from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { formatarTempoRestante } from '../../shared/helpers-visuais.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   EditorTextoRich,
   PerguntaExcel,
@@ -943,6 +944,7 @@ function TelaEtapasProva({
   onVoltar,
   onFinalizar,
 }) {
+  const { showToast, ToastHost } = useToast();
   const etapas = montarEtapasJornada(sessao?.prova || {}, respostas, cadastroConcluido);
   const etapasAvaliativas = etapas.filter((item) => item.key !== 'cadastro');
   const concluidas = etapas.filter((item) => item.status === 'concluida' || item.status === 'indisponivel').length;
@@ -952,6 +954,7 @@ function TelaEtapasProva({
 
   return html`
     <section class="exam-steps-page">
+      <${ToastHost} />
       <header class="exam-steps-header">
         <button type="button" class="exam-steps-back" aria-label="Voltar" onClick=${onVoltar}>
           <span class="material-symbols-outlined">arrow_back</span>
@@ -1013,7 +1016,7 @@ function TelaEtapasProva({
           </section>
           <section class="exam-info-panel">
             <span class="exam-info-icon material-symbols-outlined">sentiment_satisfied</span>
-            <div><h2>Seu processo está pronto</h2><p>Conclua as etapas na ordem indicada. Cada prova poderá ser iniciada individualmente e seu progresso será salvo.</p><a href="#entenda-etapas" onClick=${(event) => { event.preventDefault(); window.alert('Inicie uma etapa por vez. Suas respostas são salvas ao concluir cada bloco e você poderá continuar as etapas pendentes antes do envio final.'); }}><span class="material-symbols-outlined">open_in_new</span>Entenda mais</a></div>
+            <div><h2>Seu processo está pronto</h2><p>Conclua as etapas na ordem indicada. Cada prova poderá ser iniciada individualmente e seu progresso será salvo.</p><a href="#entenda-etapas" onClick=${(event) => { event.preventDefault(); showToast('Inicie uma etapa por vez. Suas respostas são salvas ao concluir cada bloco e você poderá continuar as etapas pendentes antes do envio final.', 'info'); }}><span class="material-symbols-outlined">open_in_new</span>Entenda mais</a></div>
           </section>
           ${confirmacao && todasConcluidas ? html`<button type="button" class="btn btn-primary exam-final-submit" disabled=${carregando} onClick=${onFinalizar}>${carregando ? 'Finalizando...' : 'Finalizar envio'}</button>` : null}
         </aside>

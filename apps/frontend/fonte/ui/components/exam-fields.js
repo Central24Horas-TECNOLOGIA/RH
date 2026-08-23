@@ -11,6 +11,7 @@ import {
   obterCapacidadesDaTarefa,
   validarArquivoExcel,
 } from '../../regras-prova.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 
 function escaparHtml(valor) {
   return String(valor || '')
@@ -331,14 +332,16 @@ export function PerguntaMultipla({ questao, resposta, onChange }) {
 export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
   const inputRef = useRef(null);
   const [processando, setProcessando] = useState(false);
+  const { showToast, ToastHost } = useToast();
 
   const baixarArquivoBase = async () => {
     try {
       await baixarModeloExcel(questao.taskId, nomeCandidato || 'candidato');
     } catch (error) {
-      window.alert(
+      showToast(
         error?.message ||
         'Não foi possível localizar o arquivo-base da prova de Excel.',
+        'error',
       );
     }
   };
@@ -379,6 +382,7 @@ export function PerguntaExcel({ questao, resposta, nomeCandidato, onChange }) {
 
   return html`
     <div class="excel-card">
+      <${ToastHost} />
       <div class="row g-4">
         <div class="col-lg-7">
           <div class="excel-step">

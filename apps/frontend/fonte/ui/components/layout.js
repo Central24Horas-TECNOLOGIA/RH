@@ -64,6 +64,12 @@ function BarraLateral({
       permissao: 'vagas.visualizar',
     },
     {
+      tela: 'screen-process-decisions',
+      icone: 'fact_check',
+      label: 'Decisões Pendentes',
+      permissao: 'vagas.visualizar',
+    },
+    {
       tela: 'screen-generated-exams',
       icone: 'assignment',
       label: 'Provas e Resultados',

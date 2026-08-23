@@ -6410,53 +6410,6 @@
   box-shadow: 0 16px 34px rgba(15, 33, 57, 0.16);
 }
 
-#screen-settings-users .users-drawer-backdrop,
-#screen-settings .users-drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1050;
-  display: flex;
-  justify-content: flex-end;
-  background: rgba(15, 33, 57, 0.28);
-}
-
-#screen-settings-users .users-drawer,
-#screen-settings .users-drawer {
-  width: min(430px, 100vw);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  box-shadow: -18px 0 40px rgba(15, 33, 57, 0.18);
-}
-
-#screen-settings-users .users-drawer-header,
-#screen-settings .users-drawer-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.85rem;
-  padding: 1rem;
-  border-bottom: 1px solid rgba(217, 226, 238, 0.95);
-}
-
-#screen-settings-users .users-drawer-header h3,
-#screen-settings .users-drawer-header h3 {
-  margin: 0.08rem 0 0;
-  color: var(--color-text);
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-#screen-settings-users .users-drawer-header p,
-#screen-settings .users-drawer-header p {
-  margin: 0.18rem 0 0;
-  color: var(--color-text-soft);
-  font-size: 0.8rem;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
-
 #screen-settings-users .users-drawer-form,
 #screen-settings .users-drawer-form {
   min-height: 0;
@@ -6592,16 +6545,6 @@
   font-size: 18px;
 }
 
-#screen-settings-users .users-drawer-footer,
-#screen-settings .users-drawer-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.55rem;
-  padding: 0.86rem 1rem;
-  border-top: 1px solid rgba(217, 226, 238, 0.95);
-  background: #fff;
-}
-
 @media (max-width: 767.98px) {
   #screen-settings-users .users-modern-header,
   #screen-settings-users .users-modern-toolbar,
@@ -6630,15 +6573,6 @@
     grid-template-columns: 1fr;
   }
 
-  #screen-settings-users .users-drawer,
-  #screen-settings .users-drawer {
-    width: 100vw;
-  }
-
-  #screen-settings-users .users-drawer-footer,
-  #screen-settings .users-drawer-footer {
-    flex-direction: column-reverse;
-  }
 }
 
 /* ===============================
