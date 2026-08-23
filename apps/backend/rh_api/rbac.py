@@ -181,6 +181,8 @@ PERMISSION_DEFINITIONS: dict[str, PermissionDefinition] = {
         _permission("relatorios.exportar", "Relatórios", "Exportar relatórios.", critical=True),
         _permission("etapas.configurar", "Etapas e Trilhas", "Configurar etapas do processo.", critical=True),
         _permission("trilhas.configurar", "Etapas e Trilhas", "Configurar trilhas de avaliação.", critical=True),
+        _permission("documentos_rh.visualizar", "Drive-Conecta", "Visualizar pastas e arquivos do Drive-Conecta."),
+        _permission("documentos_rh.gerenciar", "Drive-Conecta", "Criar pastas, enviar, renomear e excluir arquivos do Drive-Conecta.", critical=True),
     )
 }
 
@@ -213,6 +215,7 @@ OPERATIONAL_SELECTION_PERMISSIONS = {
     "documentos.solicitar",
     "documentos.marcar_recebido",
     "emails.enviar_modelo",
+    "documentos_rh.visualizar",
 }
 
 
@@ -265,6 +268,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "relatorios.visualizar",
         "relatorios.exportar",
         "lgpd.visualizar",
+        "documentos_rh.visualizar",
     },
     ROLE_RH: set(OPERATIONAL_SELECTION_PERMISSIONS)
     | {
@@ -275,6 +279,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "provas.editar",
         "relatorios.visualizar",
         "relatorios.exportar",
+        "documentos_rh.gerenciar",
     },
     ROLE_CANDIDATE: set(),
     ROLE_ADMIN: set(PERMISSION_DEFINITIONS.keys()),
@@ -308,6 +313,7 @@ SCREEN_PERMISSIONS: dict[str, str] = {
     "screen-exam": "provas.enviar",
     "screen-result": "provas.visualizar",
     "screen-thanks": "provas.enviar",
+    "screen-documents": "documentos_rh.visualizar",
 }
 
 

@@ -31,6 +31,8 @@ import {
   PageIntro,
   PainelRh,
   SectionCard,
+  Tabs,
+  TabPanel,
 } from '../../ui/componentes-compartilhados.js';
 import { AcaoSair } from '../../shared/components/actions.js';
 import { ModalAprovacaoCandidato } from '../../shared/components/approval-modal.js';
@@ -1144,6 +1146,7 @@ export function TelaDetalhesCandidato({ controlador }) {
   const [arquivoCvFicha, setArquivoCvFicha] = useState(null);
   const [enviandoCvFicha, setEnviandoCvFicha] = useState(false);
   const [analisandoCvFicha, setAnalisandoCvFicha] = useState(false);
+  const [abaDetalheAtiva, setAbaDetalheAtiva] = useState('geral');
 
   const carregar = async ({ forcar = false } = {}) => {
     setCarregando(true);
@@ -1522,6 +1525,16 @@ export function TelaDetalhesCandidato({ controlador }) {
           `
         : null}
 
+      <${Tabs}
+        tabs=${[
+          { key: 'geral', label: 'Informações gerais' },
+          { key: 'provas', label: 'Provas e testes' },
+        ]}
+        activeKey=${abaDetalheAtiva}
+        onChange=${setAbaDetalheAtiva}
+      />
+
+      <${TabPanel} tabKey="geral" activeKey=${abaDetalheAtiva}>
       <${MetricGrid}
         items=${[
           { label: 'Status atual', value: candidato.status_visivel || candidato.status_candidato || '-' },
@@ -1692,7 +1705,9 @@ export function TelaDetalhesCandidato({ controlador }) {
         candidato=${candidato}
         podeAnalisar=${controlador?.possuiPermissao?.('candidatos.avaliar_curriculo')}
       />
+      </${TabPanel}>
 
+      <${TabPanel} tabKey="provas" activeKey=${abaDetalheAtiva}>
       <${SectionCard} title="Resultados da prova" className="rh-section-card--flat">
         <div class="table-responsive">
           <table class="table align-middle rh-modern-history-table">
@@ -1744,6 +1759,7 @@ export function TelaDetalhesCandidato({ controlador }) {
           </div>
         </div>
       </${SectionCard}>
+      </${TabPanel}>
 
       <${ModalPadrao}
         aberto=${modalVinculoAberto}

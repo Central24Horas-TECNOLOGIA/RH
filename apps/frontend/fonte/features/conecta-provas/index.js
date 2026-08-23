@@ -24,7 +24,7 @@ import {
 const CHAVE_TOKEN_PUBLICO = 'conecta_provas_token';
 const CHAVE_TIMER_PUBLICO = 'conecta_provas_timer';
 const ERRO_GENERICO =
-  'Não encontramos uma prova disponível com os dados informados. Verifique as informações ou tente outro mÃ©todo de acesso.';
+  'Não encontramos uma prova disponível com os dados informados. Verifique as informações ou tente outro método de acesso.';
 const ERRO_GENERICO_TELEFONE =
   'Não encontramos uma prova disponível com os dados informados. Verifique as informações ou solicite apoio ao RH.';
 const LIMITE_LINHAS_REDACAO = 20;
@@ -554,7 +554,7 @@ function TelaAcesso({
     metodo === 'telefone'
       ? 'Tente acessar usando o telefone cadastrado pelo RH.'
       : metodo === 'codigo'
-        ? 'Se vocÃª Não souber os dados cadastrados, solicite ao RH o código da sua prova.'
+        ? 'Se você não souber os dados cadastrados, solicite ao RH o código da sua prova.'
         : 'Informe o email cadastrado pelo RH para localizar sua avaliação.';
 
   return html`
@@ -1764,14 +1764,14 @@ export function TelaConectaProvas() {
       let resposta;
       if (metodo === 'email') {
         if (!validarEmail(valorAcesso)) {
-          setErro('Informe um e-mail vÃ¡lido.');
+          setErro('Informe um e-mail válido.');
           setTentativasEmail((valor) => valor + 1);
           return;
         }
         resposta = await acessarProvaPorEmail(valorAcesso.trim().toLowerCase());
       } else if (metodo === 'telefone') {
         if (!validarTelefone(valorAcesso)) {
-          setErro('Informe um telefone vÃ¡lido.');
+          setErro('Informe um telefone válido.');
           setTentativasTelefone((valor) => valor + 1);
           return;
         }
@@ -1816,7 +1816,7 @@ export function TelaConectaProvas() {
       return;
     }
     if (!validarEmail(formularioDados.email)) {
-      setErro('Informe um e-mail vÃ¡lido.');
+      setErro('Informe um e-mail válido.');
       return;
     }
     if (normalizarTexto(formularioDados.confirmar_email).toLowerCase() !== normalizarTexto(formularioDados.email).toLowerCase()) {
@@ -1824,7 +1824,7 @@ export function TelaConectaProvas() {
       return;
     }
     if (!validarTelefone(formularioDados.telefone)) {
-      setErro('Informe um telefone vÃ¡lido.');
+      setErro('Informe um telefone válido.');
       return;
     }
     if (!validarTelefone(formularioDados.whatsapp)) {

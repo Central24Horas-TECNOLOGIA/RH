@@ -772,6 +772,47 @@
   overflow-wrap: anywhere;
 }
 
+.rh-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  border-bottom: 1px solid var(--color-border);
+  margin: 24px 0 16px;
+  overflow-x: auto;
+}
+
+.rh-tabs-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm, 6px) var(--radius-sm, 6px) 0 0;
+  padding: 8px 16px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.rh-tabs-btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+}
+
+.rh-tabs-btn.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.rh-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .rh-filter-card {
   padding: 0.85rem;
   border: 1px solid var(--color-border);
@@ -1536,4 +1577,134 @@
   .rh-tour-card {
     max-width: calc(100vw - 1.5rem);
   }
+}
+
+/* Drive-Conecta */
+.rh-modal-dialog--wide {
+  width: min(960px, 100%);
+}
+
+.rh-documentos-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.rh-documentos-grid--grande {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.rh-documentos-grid--pequena {
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--space-3);
+}
+
+.rh-documentos-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: var(--space-2);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rh-documentos-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm, 0 1px 4px rgba(15, 23, 42, 0.08));
+}
+
+.rh-documentos-card-corpo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-2);
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: center;
+}
+
+.rh-documentos-card-icone {
+  font-size: 2.5rem;
+  color: var(--color-text-muted);
+}
+
+.rh-documentos-grid--pequena .rh-documentos-card-icone {
+  font-size: 1.75rem;
+}
+
+.rh-documentos-card-nome {
+  font-size: 0.85rem;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rh-documentos-card-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.rh-documentos-menu {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+.rh-documentos-grid .rh-documentos-menu {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+}
+
+.rh-documentos-menu-lista {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-1));
+  z-index: 20;
+  min-width: 176px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-1);
+}
+
+.rh-documentos-menu-lista .dropdown-item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+
+.rh-documentos-menu-lista .dropdown-item:hover {
+  background: var(--color-surface-soft);
+}
+
+.rh-documentos-preview-texto {
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+}
+
+.rh-documentos-preview-pdf {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
