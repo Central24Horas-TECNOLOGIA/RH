@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 import re
 import secrets
 import string
@@ -555,6 +556,59 @@ class GeneratedExamRepositoryMixin:
         ]
 
     @staticmethod
+    def _exam_shuffle_seed(row: dict) -> str:
+        # Determinístico por prova + candidato: mesma pessoa recarregando a página
+        # vê sempre a mesma ordem; candidatos diferentes veem ordens diferentes.
+        id_prova = row.get("id_prova")
+        identificador_candidato = (
+            row.get("id_teste") or row.get("token_sessao_publica") or row.get("email_acesso") or ""
+        )
+        return f"{id_prova}:{identificador_candidato}"
+
+    @staticmethod
+    def _shuffled_order(length: int, seed: str) -> list[int]:
+        order = list(range(length))
+        random.Random(seed).shuffle(order)
+        return order
+
+    @staticmethod
+    def _apply_question_shuffle(questions: list[dict], row: dict) -> list[dict]:
+        """Reordena questões e (para múltipla escolha) alternativas apenas para
+        apresentação/leitura pelo candidato. NUNCA altera o que está persistido em
+        questoes_json (o snapshot original permanece intacto no banco). O índice da
+        alternativa correta ("answer"/"correctIndex") é remapeado junto com as
+        alternativas embaralhadas, então a correção continua funcionando: basta usar
+        a lista retornada por esta função (em vez da lista crua do banco) tanto para
+        montar o payload público quanto para validar/pontuar a resposta do candidato.
+        """
+        if not isinstance(questions, list) or not questions:
+            return questions
+        seed = GeneratedExamRepositoryMixin._exam_shuffle_seed(row)
+        order = GeneratedExamRepositoryMixin._shuffled_order(len(questions), f"{seed}:questoes")
+        shuffled: list[dict] = []
+        for new_index, original_index in enumerate(order):
+            question = dict(questions[original_index])
+            if normalize_text(question.get("type")) == "multiple" and isinstance(question.get("options"), list) and question["options"]:
+                original_options = question["options"]
+                opt_order = GeneratedExamRepositoryMixin._shuffled_order(
+                    len(original_options), f"{seed}:opcoes:{original_index}"
+                )
+                question["options"] = [original_options[i] for i in opt_order]
+                expected = question.get("answer", question.get("correctIndex"))
+                try:
+                    expected_int = int(expected)
+                except (TypeError, ValueError):
+                    expected_int = None
+                if expected_int is not None and 0 <= expected_int < len(opt_order):
+                    new_expected = opt_order.index(expected_int)
+                    if "answer" in question:
+                        question["answer"] = new_expected
+                    if "correctIndex" in question:
+                        question["correctIndex"] = new_expected
+            shuffled.append(question)
+        return shuffled
+
+    @staticmethod
     def _internal_stage_states(config: dict | None) -> dict:
         states = (config or {}).get("estado_etapas_publicas")
         return states if isinstance(states, dict) else {}
@@ -608,7 +662,11 @@ class GeneratedExamRepositoryMixin:
                 "quantidade_questoes": int(row.get("quantidade_questoes") or 0),
                 "etapas": safe_json_loads(row.get("etapas_json"), []),
                 "categorias": safe_json_loads(row.get("categorias_json"), []),
-                "questoes": _public_questions_payload(safe_json_loads(row.get("questoes_json"), [])),
+                "questoes": _public_questions_payload(
+                    GeneratedExamRepositoryMixin._apply_question_shuffle(
+                        safe_json_loads(row.get("questoes_json"), []), row
+                    )
+                ),
                 "configuracao": GeneratedExamRepositoryMixin._sanitize_public_config(config),
                 "instrucoes_operacao": normalize_text(row.get("instrucoes_operacao")),
                 "iniciada_em": _format_datetime(row.get("iniciada_em")),
@@ -1520,7 +1578,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova ja finalizada.")
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             if not self._public_stage_indices(questions, stage_key):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa nao encontrada.")
             id_prova = int(row.get("id_prova") or 0)
@@ -1590,7 +1650,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova já finalizada.")
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             self._save_answer_rows(cursor, row, answers, questions)
             cursor.execute(
                 """
@@ -1625,7 +1687,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova jÃ¡ finalizada.")
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             indices = self._public_stage_indices(questions, stage_key)
             if not indices:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa nÃ£o encontrada.")
@@ -1682,7 +1746,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 return {"success": True, "etapa": {"key": stage_key, "status": "realizada"}}
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             if not self._public_stage_indices(questions, stage_key):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa nÃ£o encontrada.")
             config = safe_json_loads(row.get("configuracao_json"), {})
@@ -1922,7 +1988,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova já finalizada.")
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             etapas_config = safe_json_loads(row.get("etapas_json"), [])
             configuracao = safe_json_loads(row.get("configuracao_json"), {})
             stage_states = self._internal_stage_states(configuracao)

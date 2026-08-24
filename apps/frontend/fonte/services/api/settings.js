@@ -151,3 +151,15 @@ export async function registrarSolicitacaoLgpd(payload) {
     body: JSON.stringify(payload || {}),
   });
 }
+
+export async function lerAutomacaoNotificacoes() {
+  return requisitar('/settings/automacao-notificacoes', { method: 'GET' });
+}
+
+export async function atualizarAutomacaoNotificacoes(payload) {
+  return requisitar('/settings/automacao-notificacoes', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+}

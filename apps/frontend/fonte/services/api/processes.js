@@ -162,6 +162,26 @@ export async function atualizarStatusCandidato(idRegistro, dadosStatus) {
   return resultado;
 }
 
+export async function lerScorecardCandidato(idRegistro) {
+  return requisitar(`/process-candidates/${idRegistro}/scorecard`, {
+    method: 'GET',
+  });
+}
+
+export async function salvarScorecardCandidato(idRegistro, dadosScorecard) {
+  const resultado = await requisitar(
+    `/process-candidates/${idRegistro}/scorecard`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dadosScorecard),
+    },
+  );
+
+  invalidarCacheApi('candidatos-processos', 'processos');
+  return resultado;
+}
+
 export async function atualizarStatusCandidatoAvulso(idTeste, dadosStatus) {
   const resultado = await requisitar(
     `/candidate-profiles/${encodeURIComponent(idTeste)}/status`,

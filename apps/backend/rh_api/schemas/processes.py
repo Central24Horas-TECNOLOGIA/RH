@@ -29,6 +29,7 @@ class ProcessCreateRequest(BaseSchema):
     link_agendamento: str = ""
     configuracao_prova_json: str | None = None
     prova_configurada_em: str | None = None
+    urgente: bool = False
 
     @field_validator("id_processo", "vaga", "data_encerramento")
     @classmethod
@@ -86,6 +87,7 @@ class ProcessUpdateRequest(BaseSchema):
     responsabilidades_publicas: str | None = None
     configuracao_prova_json: str | None = None
     prova_configurada_em: str | None = None
+    urgente: bool | None = None
 
     @field_validator("data_encerramento")
     @classmethod
@@ -232,6 +234,7 @@ class ProcessCandidateCreateRequest(BaseSchema):
     etapa_pipeline: str | None = None
     eh_indicacao: bool = False
     tipo_indicacao: str = ""
+    indicado_por: str = ""
 
     @field_validator("nome_candidato")
     @classmethod
@@ -261,6 +264,13 @@ class ProcessCandidateCreateRequest(BaseSchema):
     def validate_candidate_indication(self):
         if self.eh_indicacao and not str(self.tipo_indicacao or "").strip():
             raise ValueError("Selecione o tipo de indicação.")
+        return self
+
+    @model_validator(mode="after")
+    def validate_candidate_referral_origin(self):
+        self.indicado_por = str(self.indicado_por or "").strip()
+        if _normalize_compare_value(self.origem) == "indicacao" and not self.indicado_por:
+            raise ValueError("Informe o nome de quem indicou o candidato.")
         return self
 
 
