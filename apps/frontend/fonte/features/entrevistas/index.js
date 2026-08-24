@@ -919,7 +919,7 @@ export function TelaEntrevistas({ controlador }) {
                   <div class="interview-slot-list">
                     ${slotsPaginados.itens.map(
                       (slot) => html`
-                        <article class="interview-slot-card" key=${slot.id_slot}>
+                        <article class="interview-slot-card c24-fade-in" key=${slot.id_slot}>
                           <div>
                             <strong>${formatarHorarioSlot(slot)}</strong>
                             <span>${slot.id_processo || 'Geral'}</span>
@@ -999,7 +999,7 @@ export function TelaEntrevistas({ controlador }) {
                   <div class="interview-operation-list">
                     ${entrevistasPaginadas.itens.map(
                       (item) => html`
-                        <article class="interview-operation-row" key=${item.id_entrevista}>
+                        <article class="interview-operation-row c24-fade-in" key=${item.id_entrevista}>
                           <div>
                             <strong>${item.nome_candidato || '-'}</strong>
                             <span>${item.vaga || item.id_processo || '-'}</span>

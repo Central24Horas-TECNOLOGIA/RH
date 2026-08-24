@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 
 from ..config import Settings
 from ..db import get_connection
+from ..task_queue import enfileirar
 from ..services.helpers import (
     normalize_compare_text,
     normalize_indication_type,
@@ -61,6 +62,18 @@ class BaseRepository:
 
     def _connect(self):
         return get_connection(self.settings)
+
+    @staticmethod
+    def _clamp_limit(value, default: int, maximum: int, minimum: int = 1) -> int:
+        """Normaliza um limite/tamanho de pagina recebido de fora para um inteiro seguro.
+
+        Reproduz o padrao `max(minimum, min(int(value or default), maximum))` que ja
+        aparecia duplicado em varios repositorios (history, security, talent_bank,
+        communications, email_inbox, cv_analysis, exam_analytics, processes, etc.).
+        Disponibilizado aqui para uso em código novo; os call-sites existentes não
+        foram migrados neste refactor para reduzir a superficie de risco (ver README).
+        """
+        return max(minimum, min(int(value or default), maximum))
 
     def _run_with_deadlock_retry(
         self,
@@ -1755,3 +1768,30 @@ class BaseRepository:
                         "origem": origem or "Prova",
                     },
                 )
+
+        # Roadmap "e-mails automáticos por etapa": ponto único de disparo de
+        # notificação por mudança de status. Usa uma conexão própria (dentro de
+        # disparar_notificacao_por_etapa) e nunca deve interromper a transação
+        # de mudança de status em si — por isso é a última coisa feita aqui,
+        # depois de todas as escritas relacionadas ao status já terem sido
+        # emitidas nesta conexão/cursor.
+        #
+        # Roadmap "fila de tarefas assíncronas": o disparo (que faz I/O de
+        # e-mail/SMTP) é enviado via `enfileirar()` para não bloquear a
+        # resposta HTTP da mudança de status. Se o Redis/RQ não estiver
+        # disponível, `enfileirar()` executa exatamente a mesma chamada de
+        # forma síncrona/imediata — comportamento idêntico ao anterior.
+        if old_status_normalized != new_status_normalized and hasattr(self, "disparar_notificacao_por_etapa"):
+            enfileirar(
+                self.disparar_notificacao_por_etapa,
+                candidato={
+                    "id_registro": id_registro,
+                    "id_teste": id_teste,
+                    "nome_candidato": nome_candidato,
+                    "vaga": vaga,
+                },
+                status_anterior=old_status,
+                status_novo=resolved_new_status,
+                payload=payload,
+                usuario_responsavel=normalize_text(payload.get("usuario_responsavel")),
+            )
