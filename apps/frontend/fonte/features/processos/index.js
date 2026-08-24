@@ -40,6 +40,8 @@ import {
   lerFichaCandidato,
   lerPreAnalisesCv,
   lerProcessos,
+  lerScorecardCandidato,
+  salvarScorecardCandidato,
   lerSlotsEntrevista,
   limparListaPreAnalisesCv,
   registrarWhatsappAprovacao,
@@ -81,12 +83,15 @@ import {
   ModalEdicaoEntrevista,
 } from '../../shared/components/interview-edit-modal.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
+import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 import {
   CANDIDATE_STATUS_APPROVED,
   CANDIDATE_STATUS_ANALYSIS,
+  CANDIDATE_STATUS_ATTENDED,
   CANDIDATE_STATUS_CONFIRMED,
   CANDIDATE_STATUS_ELIMINATED,
   CANDIDATE_STATUS_PENDING_CONFIRMATION,
+  CANDIDATE_STATUS_QUALIFIED,
   CANDIDATE_STATUS_RESCHEDULED,
   CANDIDATE_STATUS_SCHEDULED,
   CANDIDATE_STATUS_TALENT_BANK,
@@ -130,6 +135,7 @@ import {
   PageIntro,
   PainelRh,
   SectionCard,
+  ToastAlert,
 } from '../../ui/componentes-compartilhados.js';
 
 const MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO =
@@ -3617,6 +3623,7 @@ function DossieProcesso({
                     <${TabelaVazia}
                       colunas=${8}
                       texto="Nenhum candidato encontrado para os filtros selecionados."
+                      icone="search_off"
                     />
                   `}
             </tbody>
@@ -4236,15 +4243,18 @@ export function TelaProcessos({ controlador }) {
                   </thead>
                   <tbody>
                     ${carregando
-      ? html`<${TabelaVazia} colunas=${11} texto="Carregando processos..." />`
+      ? html`<${SkeletonTableRows} colunas=${11} linhas=${6} />`
       : processosAbertos.length
         ? processosAbertos.map(
           (processo) => html`
-                              <tr key=${obterChaveProcesso(processo)}>
+                              <tr key=${obterChaveProcesso(processo)} class="c24-fade-in">
                                 <td class="process-code-cell">
                                   <strong title=${obterTooltipProcessoUsuario(processo)}>
                                     ${obterCodigoProcessoUsuario(processo)}
                                   </strong>
+                                  ${processo.urgente
+              ? html`<span class="process-urgent-badge" title="Botão Expresso: contratação urgente">Urgente</span>`
+              : null}
                                   <span>${processo.data_criacao ? `Criado em ${formatarDataCurta(processo.data_criacao)}` : processo.vaga || '-'}</span>
                                 </td>
                                 <td>${processo.vaga || '-'}</td>
@@ -4333,6 +4343,7 @@ export function TelaProcessos({ controlador }) {
                             <${TabelaVazia}
                               colunas=${11}
                               texto="Nenhum processo aberto encontrado."
+                              icone="inbox"
                             />
                           `}
                   </tbody>
@@ -4798,7 +4809,7 @@ export function TelaProcessosAbertos({ controlador }) {
             </thead>
             <tbody>
               ${carregando
-      ? html`<${TabelaVazia} colunas=${9} texto="Carregando processos abertos..." />`
+      ? html`<${SkeletonTableRows} colunas=${9} linhas=${6} />`
       : processosAbertos.length
         ? processosAbertos.map((processo) => {
           const candidatosProcesso = obterCandidatosDoProcesso(candidatosComFluxo, processo);
@@ -4814,6 +4825,9 @@ export function TelaProcessosAbertos({ controlador }) {
                             <strong title=${obterTooltipProcessoUsuario(processo)}>
                               ${obterCodigoProcessoUsuario(processo)}
                             </strong>
+                            ${processo.urgente
+              ? html`<span class="process-urgent-badge" title="Botão Expresso: contratação urgente">Urgente</span>`
+              : null}
                             <span>${processo.data_criacao ? `Criado em ${formatarDataCurta(processo.data_criacao)}` : processo.vaga || '-'}</span>
                           </td>
                           <td>${processo.vaga || '-'}</td>
@@ -4870,7 +4884,7 @@ export function TelaProcessosAbertos({ controlador }) {
                         </tr>
                       `;
         })
-        : html`<${TabelaVazia} colunas=${9} texto="Nenhum processo aberto encontrado." />`}
+        : html`<${TabelaVazia} colunas=${9} texto="Nenhum processo aberto encontrado." icone="inbox" />`}
             </tbody>
           </table>
         </div>
@@ -5234,7 +5248,7 @@ export function TelaProcessosEncerrados({ controlador }) {
             </thead>
             <tbody>
               ${carregando
-      ? html`<${TabelaVazia} colunas=${8} texto="Carregando processos encerrados..." />`
+      ? html`<${SkeletonTableRows} colunas=${8} linhas=${6} />`
       : processosEncerrados.length
         ? processosEncerrados.map((processo) => {
           const candidatosProcesso = obterCandidatosDoProcesso(candidatosComFluxo, processo);
@@ -5249,6 +5263,9 @@ export function TelaProcessosEncerrados({ controlador }) {
                             <strong title=${obterTooltipProcessoUsuario(processo)}>
                               ${obterCodigoProcessoUsuario(processo)}
                             </strong>
+                            ${processo.urgente
+              ? html`<span class="process-urgent-badge" title="Botão Expresso: contratação urgente">Urgente</span>`
+              : null}
                             <span>${processo.data_criacao ? `Criado em ${formatarDataCurta(processo.data_criacao)}` : processo.vaga || '-'}</span>
                           </td>
                           <td>${processo.vaga || '-'}</td>
@@ -5276,7 +5293,7 @@ export function TelaProcessosEncerrados({ controlador }) {
                         </tr>
                       `;
         })
-        : html`<${TabelaVazia} colunas=${8} texto="Nenhum processo encerrado encontrado." />`}
+        : html`<${TabelaVazia} colunas=${8} texto="Nenhum processo encerrado encontrado." icone="inbox" />`}
             </tbody>
           </table>
         </div>
@@ -5415,7 +5432,7 @@ export function TelaProcessosDecisoesPendentes({ controlador }) {
             </thead>
             <tbody>
               ${carregando
-      ? html`<${TabelaVazia} colunas=${7} texto="Carregando decisões pendentes..." />`
+      ? html`<${SkeletonTableRows} colunas=${7} linhas=${5} />`
       : pendentes.length
         ? pendentes.map((candidato) => {
           const processo = processosPorId[obterReferenciaProcessoDoCandidato(candidato)] || {};
@@ -5446,7 +5463,7 @@ export function TelaProcessosDecisoesPendentes({ controlador }) {
                         </tr>
                       `;
         })
-        : html`<${TabelaVazia} colunas=${7} texto="Nenhuma decisão final pendente." />`}
+        : html`<${TabelaVazia} colunas=${7} texto="Nenhuma decisão final pendente." icone="event_busy" />`}
             </tbody>
           </table>
         </div>
@@ -5531,6 +5548,398 @@ function ModalAnaliseCvProcesso({
   `;
 }
 
+// Roadmap de expansao (respostas.txt): "Kanban de vagas com scorecard".
+// Colunas = etapas reais do funil de selecao (rh_api/services/process_flow.py).
+// Status operacionais de entrevista sem coluna propria (Pendente, Confirmado,
+// Reagendado, Não respondeu, Cancelado, Faltou) entram na coluna "Agendado",
+// que representa a etapa de entrevista como um todo. Desistente e Banco de
+// talentos entram na coluna "Eliminado" (ambos encerram o fluxo sem
+// aprovação). Decisão de produto documentada aqui por não haver uma coluna
+// dedicada a cada status secundário no roadmap aprovado.
+const COLUNAS_KANBAN_CANDIDATOS = [
+  { status: CANDIDATE_STATUS_ANALYSIS, label: 'Em análise' },
+  { status: CANDIDATE_STATUS_QUALIFIED, label: 'Qualificado' },
+  { status: CANDIDATE_STATUS_SCHEDULED, label: 'Entrevista agendada' },
+  { status: CANDIDATE_STATUS_ATTENDED, label: 'Compareceu' },
+  { status: CANDIDATE_STATUS_APPROVED, label: 'Aprovado' },
+  { status: CANDIDATE_STATUS_ELIMINATED, label: 'Eliminado' },
+];
+
+const CRITERIOS_SCORECARD_PADRAO = [
+  'Comunicação',
+  'Fit técnico',
+  'Experiência relevante',
+];
+
+function obterColunaKanbanCandidato(candidato) {
+  const status = canonicalizeCandidateStatus(
+    candidato?.status_fluxo || candidato?.status_candidato,
+  );
+
+  if (COLUNAS_KANBAN_CANDIDATOS.some((coluna) => coluna.status === status)) {
+    return status;
+  }
+
+  if (
+    [
+      CANDIDATE_STATUS_PENDING_CONFIRMATION,
+      CANDIDATE_STATUS_CONFIRMED,
+      CANDIDATE_STATUS_RESCHEDULED,
+    ].includes(status)
+  ) {
+    return CANDIDATE_STATUS_SCHEDULED;
+  }
+
+  if ([CANDIDATE_STATUS_WITHDREW, CANDIDATE_STATUS_TALENT_BANK].includes(status)) {
+    return CANDIDATE_STATUS_ELIMINATED;
+  }
+
+  return CANDIDATE_STATUS_ANALYSIS;
+}
+
+function calcularMediaScorecard(itensScorecard = []) {
+  if (!itensScorecard.length) return null;
+  const soma = itensScorecard.reduce((total, item) => total + (Number(item.nota) || 0), 0);
+  return soma / itensScorecard.length;
+}
+
+function ModalScorecardCandidato({
+  aberto,
+  candidato,
+  etapa,
+  criterios,
+  carregando,
+  salvando,
+  erro,
+  onClose,
+  onSalvar,
+}) {
+  const [notas, setNotas] = useState({});
+  const [comentarios, setComentarios] = useState({});
+
+  useEffect(() => {
+    if (!aberto) return;
+    const notasIniciais = {};
+    const comentariosIniciais = {};
+    (criterios || []).forEach((item) => {
+      notasIniciais[item.criterio] = item.nota || 3;
+      comentariosIniciais[item.criterio] = item.comentario || '';
+    });
+    setNotas(notasIniciais);
+    setComentarios(comentariosIniciais);
+  }, [aberto, candidato?.id_registro, JSON.stringify(criterios)]);
+
+  const salvar = () => {
+    const payload = {
+      etapa_avaliada: etapa,
+      criterios: CRITERIOS_SCORECARD_PADRAO.map((criterio) => ({
+        criterio,
+        nota: Number(notas[criterio]) || 3,
+        comentario: comentarios[criterio] || '',
+      })),
+    };
+    onSalvar(payload);
+  };
+
+  return html`
+    <${ModalPadrao}
+      aberto=${aberto}
+      titulo="Scorecard do candidato"
+      subtitulo=${`${candidato?.nome_candidato || 'Candidato'} • ${etapa || 'Etapa atual'}`}
+      onClose=${onClose}
+    >
+      ${carregando
+        ? html`<${LoadingState} titulo="Carregando scorecard" descricao="Buscando avaliações registradas para esta etapa." />`
+        : html`
+            <div class="process-scorecard-form">
+              ${CRITERIOS_SCORECARD_PADRAO.map(
+                (criterio) => html`
+                  <div key=${criterio} class="process-scorecard-criterion">
+                    <div class="process-scorecard-criterion-head">
+                      <strong>${criterio}</strong>
+                      <span class="process-scorecard-nota-valor">${notas[criterio] || 3}/5</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      step="1"
+                      value=${notas[criterio] || 3}
+                      onInput=${(event) =>
+                        setNotas({ ...notas, [criterio]: Number(event.target.value) })}
+                    />
+                    <textarea
+                      class="form-control"
+                      rows="2"
+                      placeholder="Comentário opcional"
+                      value=${comentarios[criterio] || ''}
+                      onInput=${(event) =>
+                        setComentarios({ ...comentarios, [criterio]: event.target.value })}
+                    ></textarea>
+                  </div>
+                `,
+              )}
+              ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
+            </div>
+          `}
+      <footer class="rh-modal-footer">
+        <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${onClose}>
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" disabled=${salvando || carregando} onClick=${salvar}>
+          ${salvando ? 'Salvando...' : 'Salvar scorecard'}
+        </button>
+      </footer>
+    </${ModalPadrao}>
+  `;
+}
+
+function KanbanCandidatosProcesso({
+  candidatos,
+  processo,
+  processoEncerrado,
+  onMoverStatus,
+  onAbrirAprovacao,
+  onAbrirEliminacao,
+}) {
+  const [mediasScorecard, setMediasScorecard] = useState({});
+  const [candidatoArrastado, setCandidatoArrastado] = useState(null);
+  const [colunaEmHover, setColunaEmHover] = useState('');
+  const [movendoId, setMovendoId] = useState('');
+  const [toast, setToast] = useState(null);
+  const [modalScorecard, setModalScorecard] = useState(null);
+  const [historicoScorecard, setHistoricoScorecard] = useState([]);
+  const [carregandoScorecard, setCarregandoScorecard] = useState(false);
+  const [salvandoScorecard, setSalvandoScorecard] = useState(false);
+  const [erroScorecard, setErroScorecard] = useState('');
+
+  useEffect(() => {
+    let cancelado = false;
+
+    const carregarMedias = async () => {
+      const ids = candidatos
+        .map((item) => item.id_registro)
+        .filter((id) => id !== undefined && id !== null);
+
+      const resultados = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const historico = await lerScorecardCandidato(id);
+            return [id, calcularMediaScorecard(Array.isArray(historico) ? historico : [])];
+          } catch (error) {
+            return [id, null];
+          }
+        }),
+      );
+
+      if (cancelado) return;
+      setMediasScorecard(Object.fromEntries(resultados));
+    };
+
+    if (candidatos.length) {
+      carregarMedias();
+    } else {
+      setMediasScorecard({});
+    }
+
+    return () => {
+      cancelado = true;
+    };
+  }, [candidatos]);
+
+  const colunas = useMemo(
+    () =>
+      COLUNAS_KANBAN_CANDIDATOS.map((coluna) => ({
+        ...coluna,
+        itens: candidatos.filter(
+          (candidato) => obterColunaKanbanCandidato(candidato) === coluna.status,
+        ),
+      })),
+    [candidatos],
+  );
+
+  const iniciarArraste = (candidato) => {
+    if (processoEncerrado) return;
+    setCandidatoArrastado(candidato);
+  };
+
+  const finalizarArraste = () => {
+    setCandidatoArrastado(null);
+    setColunaEmHover('');
+  };
+
+  const soltarNaColuna = async (coluna) => {
+    setColunaEmHover('');
+    const candidato = candidatoArrastado;
+    setCandidatoArrastado(null);
+    if (!candidato || processoEncerrado) return;
+
+    const colunaAtual = obterColunaKanbanCandidato(candidato);
+    if (colunaAtual === coluna.status) return;
+
+    const estadoAcoes = getCandidateActionState(candidato, processo?.status || '');
+    if (!estadoAcoes.canMoveCandidate) {
+      setToast({
+        tom: 'warning',
+        mensagem: 'Este candidato não permite movimentação no momento (processo encerrado ou fluxo finalizado).',
+      });
+      return;
+    }
+
+    if (coluna.status === CANDIDATE_STATUS_APPROVED) {
+      onAbrirAprovacao?.(candidato);
+      return;
+    }
+
+    if (coluna.status === CANDIDATE_STATUS_ELIMINATED) {
+      onAbrirEliminacao?.(candidato);
+      return;
+    }
+
+    const id = candidato.id_registro;
+    setMovendoId(String(id));
+    try {
+      const sucesso = await onMoverStatus?.(id, coluna.status);
+      if (!sucesso) {
+        setToast({
+          tom: 'danger',
+          mensagem: 'Não foi possível mover o candidato para esta etapa. O card voltou para a coluna original.',
+        });
+      }
+    } catch (error) {
+      setToast({
+        tom: 'danger',
+        mensagem: error?.message || 'Não foi possível mover o candidato para esta etapa.',
+      });
+    } finally {
+      setMovendoId('');
+    }
+  };
+
+  const abrirScorecard = async (candidato) => {
+    const etapa = obterColunaKanbanCandidato(candidato);
+    const etapaLabel =
+      COLUNAS_KANBAN_CANDIDATOS.find((coluna) => coluna.status === etapa)?.label || etapa;
+    setModalScorecard({ candidato, etapa: etapaLabel });
+    setCarregandoScorecard(true);
+    setErroScorecard('');
+    setHistoricoScorecard([]);
+
+    try {
+      const historico = await lerScorecardCandidato(candidato.id_registro);
+      const registros = Array.isArray(historico) ? historico : [];
+      const daEtapa = registros.filter((item) => item.etapa_avaliada === etapaLabel);
+      setHistoricoScorecard(daEtapa.length ? daEtapa : registros);
+    } catch (error) {
+      setErroScorecard(error?.message || 'Não foi possível carregar o scorecard deste candidato.');
+    } finally {
+      setCarregandoScorecard(false);
+    }
+  };
+
+  const salvarScorecard = async (payload) => {
+    if (!modalScorecard?.candidato) return;
+    setSalvandoScorecard(true);
+    setErroScorecard('');
+
+    try {
+      await salvarScorecardCandidato(modalScorecard.candidato.id_registro, payload);
+      setMediasScorecard((anterior) => ({
+        ...anterior,
+        [modalScorecard.candidato.id_registro]: calcularMediaScorecard(payload.criterios),
+      }));
+      setModalScorecard(null);
+    } catch (error) {
+      setErroScorecard(error?.message || 'Não foi possível salvar o scorecard.');
+    } finally {
+      setSalvandoScorecard(false);
+    }
+  };
+
+  return html`
+    <div class="process-kanban-wrap">
+      ${toast
+        ? html`
+            <${ToastAlert}
+              tone=${toast.tom === 'danger' ? 'danger' : 'warning'}
+              message=${toast.mensagem}
+              onClose=${() => setToast(null)}
+            />
+          `
+        : null}
+      <div class="process-kanban-board" data-tour-id="process-candidates-kanban">
+        ${colunas.map(
+          (coluna) => html`
+            <section
+              key=${coluna.status}
+              class=${`process-kanban-column ${colunaEmHover === coluna.status ? 'is-drop-target' : ''}`}
+              onDragOver=${(event) => {
+                event.preventDefault();
+                if (colunaEmHover !== coluna.status) setColunaEmHover(coluna.status);
+              }}
+              onDragLeave=${() => setColunaEmHover('')}
+              onDrop=${(event) => {
+                event.preventDefault();
+                soltarNaColuna(coluna);
+              }}
+            >
+              <header class="process-kanban-column-header">
+                <strong>${coluna.label}</strong>
+                <span class="process-kanban-column-count">${coluna.itens.length}</span>
+              </header>
+              <div class="process-kanban-column-body">
+                ${coluna.itens.length
+                  ? coluna.itens.map((candidato) => {
+                      const id = String(candidato.id_registro || '');
+                      const media = mediasScorecard[candidato.id_registro];
+                      return html`
+                        <article
+                          key=${id}
+                          class=${`process-kanban-card ${movendoId === id ? 'is-moving' : ''}`}
+                          draggable=${!processoEncerrado}
+                          onDragStart=${() => iniciarArraste(candidato)}
+                          onDragEnd=${finalizarArraste}
+                          onClick=${() => abrirScorecard(candidato)}
+                          title="Clique para registrar o scorecard desta etapa"
+                        >
+                          <div class="process-kanban-card-head">
+                            <span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span>
+                            <strong>${candidato.nome_candidato || '-'}</strong>
+                          </div>
+                          <div class="process-kanban-card-meta">
+                            ${processo?.urgente
+                              ? html`<span class="process-urgent-badge" title="Botão Expresso: contratação urgente">Urgente</span>`
+                              : null}
+                            <span class="process-kanban-score-badge" title="Média das notas do scorecard">
+                              <span class="material-symbols-outlined">star</span>
+                              ${media === null || media === undefined ? 'Sem scorecard' : media.toFixed(1)}
+                            </span>
+                          </div>
+                        </article>
+                      `;
+                    })
+                  : html`<div class="process-kanban-empty">Nenhum candidato nesta etapa.</div>`}
+              </div>
+            </section>
+          `,
+        )}
+      </div>
+
+      <${ModalScorecardCandidato}
+        aberto=${Boolean(modalScorecard)}
+        candidato=${modalScorecard?.candidato}
+        etapa=${modalScorecard?.etapa}
+        criterios=${historicoScorecard}
+        carregando=${carregandoScorecard}
+        salvando=${salvandoScorecard}
+        erro=${erroScorecard}
+        onClose=${() => setModalScorecard(null)}
+        onSalvar=${salvarScorecard}
+      />
+    </div>
+  `;
+}
+
 function DetalhesProcessoRedesenhado({ model, state, actions }) {
   const {
     processo,
@@ -5554,6 +5963,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
     requisitos,
     responsabilidades,
     resumo,
+    processoEncerrado,
     anotacoesDossie,
     formularioAnotacaoDossie,
     anotacaoDossieEditandoId,
@@ -5568,6 +5978,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
     filtroStatusCandidatos,
     ordenacaoCandidatos,
     exibicaoCandidatos,
+    visualizacaoCandidatos,
     filtrosEntrevistas,
     filtrosProvas,
     buscaTalentos,
@@ -5747,21 +6158,41 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
           <button type="button" class="btn btn-primary" onClick=${actions.aplicarFiltrosCandidatos}>
             <span class="material-symbols-outlined">filter_alt</span>Filtrar
           </button>
+          <div class="process-view-toggle" role="group" aria-label="Alternar visualização">
+            <button
+              type="button"
+              class=${visualizacaoCandidatos !== 'kanban' ? 'is-active' : ''}
+              aria-pressed=${visualizacaoCandidatos !== 'kanban'}
+              onClick=${() => actions.setVisualizacaoCandidatos('lista')}
+            >
+              <span class="material-symbols-outlined">view_list</span>Lista
+            </button>
+            <button
+              type="button"
+              class=${visualizacaoCandidatos === 'kanban' ? 'is-active' : ''}
+              aria-pressed=${visualizacaoCandidatos === 'kanban'}
+              onClick=${() => actions.setVisualizacaoCandidatos('kanban')}
+            >
+              <span class="material-symbols-outlined">view_kanban</span>Kanban
+            </button>
+          </div>
         </section>
         <section class="process-result-bar">
           <strong>${candidatos.length} resultados encontrados</strong>
-          <div>
-            <label>Ordenar por:
-              <select value=${ordenacaoCandidatos} onChange=${(event) => actions.setOrdenacaoCandidatos(event.target.value)}>
-                <option value="nome">Nome</option><option value="nota">Nota</option><option value="status">Status</option>
-              </select>
-            </label>
-            <label>Exibir:
-              <select value=${exibicaoCandidatos} onChange=${(event) => actions.setExibicaoCandidatos(event.target.value)}>
-                <option value="todos">Todos</option><option value="com-prova">Com prova</option><option value="sem-prova">Sem prova</option>
-              </select>
-            </label>
-          </div>
+          ${visualizacaoCandidatos === 'kanban' ? null : html`
+            <div>
+              <label>Ordenar por:
+                <select value=${ordenacaoCandidatos} onChange=${(event) => actions.setOrdenacaoCandidatos(event.target.value)}>
+                  <option value="nome">Nome</option><option value="nota">Nota</option><option value="status">Status</option>
+                </select>
+              </label>
+              <label>Exibir:
+                <select value=${exibicaoCandidatos} onChange=${(event) => actions.setExibicaoCandidatos(event.target.value)}>
+                  <option value="todos">Todos</option><option value="com-prova">Com prova</option><option value="sem-prova">Sem prova</option>
+                </select>
+              </label>
+            </div>
+          `}
         </section>
       ` : null}
 
@@ -5786,7 +6217,17 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
 
       <div class=${`process-tab-layout ${selecionados.length ? 'has-quick-actions' : ''}`}>
         <div class="process-tab-content">
-          ${aba === 'candidatos' ? html`
+          ${aba === 'candidatos' && visualizacaoCandidatos === 'kanban' ? html`
+            <${KanbanCandidatosProcesso}
+              candidatos=${candidatos}
+              processo=${processo}
+              processoEncerrado=${processoEncerrado}
+              onMoverStatus=${actions.moverStatusCandidatoKanban}
+              onAbrirAprovacao=${actions.abrirAprovacaoCandidato}
+              onAbrirEliminacao=${actions.abrirEliminacaoCandidato}
+            />
+          ` : null}
+          ${aba === 'candidatos' && visualizacaoCandidatos !== 'kanban' ? html`
             <div class="process-table-shell">
               <table class="process-table">
                 <thead><tr><th class="is-check"><input type="checkbox" checked=${todosPaginaMarcados} onChange=${(event) => actions.selecionarPagina(event.target.checked)} /></th><th>Candidato</th><th>Notas / aderência</th><th>Status</th><th>Próxima ação</th></tr></thead>
@@ -6096,6 +6537,7 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [filtroStatusCandidatos, setFiltroStatusCandidatos] = useState('');
   const [ordenacaoCandidatos, setOrdenacaoCandidatos] = useState('nome');
   const [exibicaoCandidatos, setExibicaoCandidatos] = useState('todos');
+  const [visualizacaoCandidatos, setVisualizacaoCandidatos] = useState('lista');
   const [paginaEntrevistasDetalhe, setPaginaEntrevistasDetalhe] = useState(1);
   const [filtrosEntrevistasDetalhe, setFiltrosEntrevistasDetalhe] = useState({
     nome: '',
@@ -6533,15 +6975,17 @@ export function TelaDetalhesProcesso({ controlador }) {
       status: edicaoProcesso.status || 'Aberto',
       link_agendamento: edicaoProcesso.link_agendamento || '',
       observacoes_publicas_vaga: edicaoProcesso.observacoes_publicas_vaga || '',
+      urgente: Boolean(edicaoProcesso.urgente),
     };
 
     setSalvandoProcesso(true);
     setErro('');
     try {
-      await atualizarProcesso(referenciaProcesso, payload);
+      const resultadoAtualizacao = await atualizarProcesso(referenciaProcesso, payload);
       setProcesso((atual) => ({
         ...(atual || {}),
         ...payload,
+        urgente: resultadoAtualizacao?.urgente ?? payload.urgente,
       }));
       setEdicaoProcesso(null);
       await carregar(paginaPreAnalises, filtrosPreAnalises, paginaCvsNaoQualificados);
@@ -9084,6 +9528,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       filtroStatusCandidatos,
       ordenacaoCandidatos,
       exibicaoCandidatos,
+      visualizacaoCandidatos,
       filtrosEntrevistas: filtrosEntrevistasDetalhe,
       filtrosProvas: filtrosProvasDetalhe,
       buscaTalentos: buscaBancoTalentos,
@@ -9116,6 +9561,10 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       setFiltroStatusCandidatos,
       setOrdenacaoCandidatos,
       setExibicaoCandidatos,
+      setVisualizacaoCandidatos,
+      moverStatusCandidatoKanban: atualizarStatus,
+      abrirAprovacaoCandidato: abrirAprovacao,
+      abrirEliminacaoCandidato: abrirEliminacao,
       aplicarFiltrosCandidatos: () => setPaginaCandidatosProcesso(1),
       selecionarCandidato: alternarSelecaoCandidato,
       selecionarPagina: alternarSelecaoPaginaCandidatos,
@@ -9710,6 +10159,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                       texto=${carregandoEmails
               ? 'Carregando e-mails recebidos.'
               : 'Nenhum e-mail recebido para listar.'}
+                      icone="mail"
                     />
                   `}
             </tbody>
@@ -9827,6 +10277,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                     <${TabelaVazia}
                       colunas=${7}
                       texto="Nenhum candidato inscrito pela página pública."
+                      icone="person_off"
                     />
                   `}
             </tbody>
@@ -10854,6 +11305,23 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                       />
                       <label class="form-check-label">Usar nota de corte</label>
                     </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label d-block mb-2">Botão Expresso</label>
+                    <div class="form-check form-switch pt-2">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        checked=${Boolean(edicaoProcesso.urgente)}
+                        disabled=${salvandoProcesso}
+                        onChange=${(event) =>
+          atualizarCampoEdicaoProcesso('urgente', event.target.checked)}
+                      />
+                      <label class="form-check-label">Vaga urgente</label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Use apenas para emergências reais. Há um limite de vagas urgentes abertas ao mesmo tempo.
+                    </small>
                   </div>
                   <div class="col-md-4">
                     <label class="form-label">Nota mínima</label>
