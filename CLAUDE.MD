@@ -14,3 +14,13 @@
 - **Alteração Lógica Zero**: É terminantemente proibido alterar rotas de backend, lógica de banco de dados ou funcionalidades existentes.
 - **Foco em UI**: As alterações devem se limitar estritamente a classes CSS/Tailwind ou estruturas visuais de componentes.
 - **Eficiência de Tokens**: Retorne apenas as alterações necessárias (estilo diff) ou substitua blocos específicos de código. Não gere arquivos inteiros desnecessariamente.
+
+### Exceção autorizada: roadmap de expansão (respostas.txt)
+
+As regras acima continuam valendo como padrão para qualquer manutenção, correção de bug ou tarefa não relacionada ao roadmap. Para as ideias explicitamente aprovadas pelo RH em `respostas.txt` (categorias "Pode aplicar" e "Pode aplicar mas com alteração", registradas no relatório `Correções Conecta`), o RH autorizou pontualmente ir além de UI quando a ideia exigir:
+
+- Novas rotas de backend, lógica de negócio e alterações de schema/banco, desde que aditivas (novas tabelas/colunas) e sem quebrar rotas, dados ou fluxos já existentes.
+- Nova infraestrutura leve quando a própria ideia pedir (ex.: Redis para cache/fila, Playwright para testes), desde que documentada e opcional/degradável (o sistema deve continuar funcionando sem essas peças, caso não estejam disponíveis no ambiente).
+- Identidade visual e padrões de design continuam obrigatórios (grade de 8px, sem gradiente genérico, cores sóbrias) mesmo para as telas novas.
+
+Fora do escopo do roadmap aprovado em respostas.txt, a restrição original de "zero alteração lógica / só UI" continua em vigor.
