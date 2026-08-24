@@ -15,13 +15,8 @@
       try {
         var tema = window.localStorage.getItem('c24_tema_preferido');
         var raiz = document.documentElement;
-        var escuroSistema = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        var escuroEfetivo = tema === 'escuro' || (tema !== 'claro' && escuroSistema);
-        if (tema === 'escuro') {
-          raiz.setAttribute('data-theme', 'dark');
-        } else if (tema === 'claro') {
-          raiz.setAttribute('data-theme', 'light');
-        }
+        var escuroEfetivo = tema === 'escuro';
+        raiz.setAttribute('data-theme', escuroEfetivo ? 'dark' : 'light');
         raiz.setAttribute('data-bs-theme', escuroEfetivo ? 'dark' : 'light');
       } catch (erro) {
         /* localStorage/matchMedia indisponível: segue o padrão claro */

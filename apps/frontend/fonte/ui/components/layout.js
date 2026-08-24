@@ -4,8 +4,8 @@ import { obterTourDaTela } from '../../shared/tour-config.js';
 import { BotaoAjudaTour, TourGuiado } from '../tour-guiado.js';
 import { definirTema, obterTemaSalvo, proximoTema } from '../../shared/tema.js';
 
-const TEMA_ROTULO = { claro: 'Claro', escuro: 'Escuro', auto: 'Automático (segue o sistema)' };
-const TEMA_ICONE = { claro: 'light_mode', escuro: 'dark_mode', auto: 'brightness_auto' };
+const TEMA_ROTULO = { claro: 'Claro', escuro: 'Escuro' };
+const TEMA_ICONE = { claro: 'light_mode', escuro: 'dark_mode' };
 
 function SeletorTema() {
   const [tema, setTema] = useState(() => obterTemaSalvo());
