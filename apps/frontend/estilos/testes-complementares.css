@@ -1,0 +1,202 @@
+/*
+ * Testes complementares (DISC, Fit Cultural, Raciocínio Lógico) — item do
+ * roadmap aprovado em respostas.txt. Segue a grade de 8px, cores sóbrias dos
+ * tokens existentes (tokens.css) e o mesmo padrão de cartões/bordas sutis já
+ * usado nas demais telas (sem gradiente genérico, sem sombra pesada).
+ */
+
+.rh-score-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.rh-score-bar-label {
+  flex: 0 0 128px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.rh-score-bar-track {
+  flex: 1 1 auto;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--color-surface-strong);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  position: relative;
+}
+
+.rh-score-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999px 0 0 999px;
+  transition: width var(--transition-md);
+}
+
+.rh-score-bar-value {
+  flex: 0 0 56px;
+  text-align: right;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-aderencia-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.rh-aderencia-badge.is-alta { background: var(--color-success-soft); color: var(--color-success); border-color: transparent; }
+.rh-aderencia-badge.is-moderada { background: var(--color-warning-soft); color: var(--color-warning); border-color: transparent; }
+.rh-aderencia-badge.is-baixa { background: var(--color-danger-soft); color: var(--color-danger); border-color: transparent; }
+
+/* Bloco de aplicação (candidato): 4 frases por bloco, escolha "mais"/"menos" */
+.rh-disc-bloco-frase {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  margin-bottom: var(--space-2);
+}
+
+.rh-disc-bloco-frase-texto {
+  flex: 1 1 auto;
+  font-size: var(--font-md);
+  color: var(--color-text);
+}
+
+.rh-disc-bloco-frase-acoes {
+  display: flex;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.rh-disc-choice-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-sm), color var(--transition-sm), border-color var(--transition-sm);
+}
+
+.rh-disc-choice-btn.is-mais.is-ativo {
+  background: var(--color-success-soft);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.rh-disc-choice-btn.is-menos.is-ativo {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* Escala Likert (Fit Cultural) */
+.rh-likert-frase {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  margin-bottom: var(--space-3);
+}
+
+.rh-likert-opcoes {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.rh-likert-opcao {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-soft);
+  cursor: pointer;
+  font-size: var(--font-xs);
+  transition: background var(--transition-sm), border-color var(--transition-sm), color var(--transition-sm);
+}
+
+.rh-likert-opcao.is-ativo {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  color: var(--color-primary-strong);
+  font-weight: 600;
+}
+
+.rh-likert-opcao strong { font-size: var(--font-lg); }
+
+/* Layout genérico de tela pública de aplicação (candidato) */
+.rh-teste-publico-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.rh-teste-publico-progresso {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-surface-strong);
+  overflow: hidden;
+  margin-bottom: var(--space-5);
+}
+
+.rh-teste-publico-progresso > span {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  transition: width var(--transition-md);
+}
+
+.rh-teste-publico-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-6);
+}
+
+.rh-feedback-qualitativo-resumo {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-info-soft);
+  color: var(--color-text);
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-4);
+}
+
+.rh-feedback-qualitativo-item {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-danger-soft);
+  color: var(--color-text);
+  font-size: var(--font-sm);
+  margin-top: var(--space-2);
+}

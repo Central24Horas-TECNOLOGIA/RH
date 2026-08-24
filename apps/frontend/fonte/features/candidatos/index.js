@@ -24,7 +24,6 @@ import {
 } from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { baixarBlob, obterItensPaginados } from '../../utilitarios.js';
 import {
-  EmptyState,
   LoadingState,
   MetricGrid,
   ModalPadrao,
@@ -35,6 +34,12 @@ import {
 import { AcaoSair } from '../../shared/components/actions.js';
 import { ModalAprovacaoCandidato } from '../../shared/components/approval-modal.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
+import { SkeletonTableRows } from '../../shared/components/skeleton.js';
+import { PainelOnboardingCandidato } from '../onboarding/index.js';
+import { PainelResultadoDisc } from '../disc/index.js';
+import { PainelResultadoFitCultural } from '../fit-cultural/index.js';
+import { PainelResultadoRaciocinio } from '../raciocinio-logico/index.js';
+import { ModalGerarDocumento } from '../documentos-template/index.js';
 import {
   CANDIDATE_STATUS_ANALYSIS,
   CANDIDATE_STATUS_APPROVED,
@@ -555,6 +560,23 @@ function obterDataCandidato(item) {
 
 function resolverRotuloOrigem(item, fallback) {
   return item?.origem || fallback;
+}
+
+function candidatoEhIndicacao(candidato) {
+  return normalizarTexto(candidato?.origem || candidato?.origem_rotulo || '').includes('indicacao');
+}
+
+function renderizarOrigemComIndicacao(candidato) {
+  if (!candidatoEhIndicacao(candidato)) {
+    return candidato?.origem_rotulo || '-';
+  }
+
+  const indicadoPor = String(candidato?.indicado_por || '').trim();
+  return html`
+    <span class="rh-chip is-indicacao">
+      ${indicadoPor ? `Indicação — ${indicadoPor}` : 'Indicação'}
+    </span>
+  `;
 }
 
 function obterOrigemBancoTalentos(candidato) {
@@ -1716,6 +1738,29 @@ export function TelaDetalhesCandidato({ controlador }) {
         </div>
       </${SectionCard}>
 
+      <${SectionCard} title="Testes complementares" className="rh-section-card--flat">
+        <div class="row g-4">
+          <div class="col-md-4">
+            <strong>Perfil DISC</strong>
+            <div style="margin-top:8px;">
+              <${PainelResultadoDisc} idTeste=${candidato.id_teste} />
+            </div>
+          </div>
+          <div class="col-md-4">
+            <strong>Fit Cultural</strong>
+            <div style="margin-top:8px;">
+              <${PainelResultadoFitCultural} candidatoProcessoId=${candidato.id_registro_processo} />
+            </div>
+          </div>
+          <div class="col-md-4">
+            <strong>Raciocínio Lógico</strong>
+            <div style="margin-top:8px;">
+              <${PainelResultadoRaciocinio} idTeste=${candidato.id_teste} />
+            </div>
+          </div>
+        </div>
+      </${SectionCard}>
+
       <${SectionCard} title="Levantamentos, pontos e observações do RH" className="rh-section-card--flat">
         <div class="row g-3">
           <div class="col-md-4">
@@ -1831,8 +1876,10 @@ export function TelaCandidatos({ controlador }) {
   const [analisandoCvDetalhe, setAnalisandoCvDetalhe] = useState(false);
   const [candidatoParaAtrelar, setCandidatoParaAtrelar] = useState(null);
   const [origemAtrelamento, setOrigemAtrelamento] = useState('Central de Candidatos');
+  const [indicadoPorAtrelamento, setIndicadoPorAtrelamento] = useState('');
   const [processoSelecionado, setProcessoSelecionado] = useState('');
   const [aprovacaoSelecionada, setAprovacaoSelecionada] = useState(null);
+  const [modalGerarDocumentoAberto, setModalGerarDocumentoAberto] = useState(false);
   const [salvandoAprovacao, setSalvandoAprovacao] = useState(false);
   const [mensagemSucesso, setMensagemSucesso] = useState('');
 
@@ -2579,6 +2626,11 @@ export function TelaCandidatos({ controlador }) {
       return;
     }
 
+    if (origemAtrelamento === 'Indicação' && !indicadoPorAtrelamento.trim()) {
+      window.alert('Informe o nome de quem indicou o candidato.');
+      return;
+    }
+
     const confirmar = window.confirm(
       `Deseja adicionar ${candidatoParaAtrelar.nome_candidato} ao processo ${processo.id_processo || 'selecionado'}?`,
     );
@@ -2615,16 +2667,21 @@ export function TelaCandidatos({ controlador }) {
             candidatoParaAtrelar.data_iso ||
             new Date().toISOString(),
           origem:
-            origemAtrelamento === 'Ficha do candidato'
-              ? 'Ficha do candidato'
-              : candidatoParaAtrelar.origem_cadastro === 'historico'
-                ? 'Histórico'
-                : 'Candidatos',
+            origemAtrelamento === 'Indicação'
+              ? 'Indicação'
+              : origemAtrelamento === 'Ficha do candidato'
+                ? 'Ficha do candidato'
+                : candidatoParaAtrelar.origem_cadastro === 'historico'
+                  ? 'Histórico'
+                  : 'Candidatos',
+          indicado_por:
+            origemAtrelamento === 'Indicação' ? indicadoPorAtrelamento.trim() : '',
         });
       }
 
       setCandidatoParaAtrelar(null);
       setOrigemAtrelamento('Central de Candidatos');
+      setIndicadoPorAtrelamento('');
       setProcessoSelecionado('');
       setDetalhe(null);
       await carregar();
@@ -2737,14 +2794,7 @@ export function TelaCandidatos({ controlador }) {
           </button>
         `}
       >
-        ${carregando
-          ? html`
-              <${EmptyState}
-                title="Carregando candidatos"
-                text="Aguarde enquanto o sistema consolida as informações."
-              />
-            `
-          : html`
+        ${html`
               <div class="table-responsive">
                 <table class="table align-middle rh-modern-history-table">
                   <thead>
@@ -2764,12 +2814,14 @@ export function TelaCandidatos({ controlador }) {
                     </tr>
                   </thead>
                   <tbody>
-                    ${candidatosFiltrados.length
+                    ${carregando
+                      ? html`<${SkeletonTableRows} colunas=${12} linhas=${6} />`
+                      : candidatosFiltrados.length
                       ? candidatosPaginados.itens.map(
                           (candidato) => {
                             const tagsOperacionais = montarTagsOperacionaisCandidato(candidato);
                             return html`
-                            <tr key=${candidato.chave}>
+                            <tr key=${candidato.chave} class="c24-fade-in">
                               <td>
                                 <strong>${candidato.nome_candidato || '-'}</strong>
                                 <div class="text-muted small">
@@ -2822,7 +2874,7 @@ export function TelaCandidatos({ controlador }) {
                                   ${candidato.status_visivel || '-'}
                                 </span>
                               </td>
-                              <td>${candidato.origem_rotulo || '-'}</td>
+                              <td>${renderizarOrigemComIndicacao(candidato)}</td>
                               <td>${formatarDataHora(candidato.data_exibicao)}</td>
                               <td>
                                 ${candidato.cv_disponivel &&
@@ -2864,6 +2916,7 @@ export function TelaCandidatos({ controlador }) {
                           <${TabelaVazia}
                             colunas=${12}
                             texto="Nenhum candidato encontrado."
+                            icone="person_off"
                           />
                         `}
                   </tbody>
@@ -2921,7 +2974,7 @@ export function TelaCandidatos({ controlador }) {
                     },
                     {
                       label: 'Origem',
-                      value: detalhe.origem_rotulo || '-',
+                      value: renderizarOrigemComIndicacao(detalhe),
                     },
                     {
                       label: 'Cidade',
@@ -3299,7 +3352,34 @@ export function TelaCandidatos({ controlador }) {
                     controlador,
                     mostrarEditar: false,
                   })}
+                  ${detalhe?.id_registro_processo && controlador?.possuiPermissao?.('documentos_templates.visualizar')
+                    ? html`
+                        <button
+                          type="button"
+                          class="btn btn-outline-secondary btn-sm mt-2"
+                          onClick=${() => setModalGerarDocumentoAberto(true)}
+                        >
+                          <span class="material-symbols-outlined">description</span>
+                          Gerar documento
+                        </button>
+                      `
+                    : null}
                 </${SectionCard}>
+
+                ${detalhe?.id_registro_processo && controlador?.possuiPermissao?.('onboarding.visualizar')
+                  ? html`
+                      <${SectionCard}
+                        title="Onboarding"
+                        description="Inicie ou acompanhe o checklist de integração deste candidato."
+                        className="rh-section-card--flat"
+                      >
+                        <${PainelOnboardingCandidato}
+                          idRegistro=${detalhe.id_registro_processo}
+                          controlador=${controlador}
+                        />
+                      </${SectionCard}>
+                    `
+                  : null}
               </div>
 
               <footer class="rh-modal-footer">
@@ -3329,6 +3409,12 @@ export function TelaCandidatos({ controlador }) {
             `
           : null}
       </${ModalPadrao}>
+
+      <${ModalGerarDocumento}
+        aberto=${modalGerarDocumentoAberto}
+        idRegistro=${detalhe?.id_registro_processo}
+        onClose=${() => setModalGerarDocumentoAberto(false)}
+      />
 
       <${ModalPadrao}
         aberto=${!!candidatoEditando}
@@ -3534,6 +3620,7 @@ export function TelaCandidatos({ controlador }) {
         onClose=${() => {
           setCandidatoParaAtrelar(null);
           setOrigemAtrelamento('Central de Candidatos');
+          setIndicadoPorAtrelamento('');
           setProcessoSelecionado('');
         }}
       >
@@ -3568,6 +3655,38 @@ export function TelaCandidatos({ controlador }) {
                 `
               : html`<div class="alert alert-warning mb-0">Nenhum processo seletivo aberto encontrado.</div>`}
           </div>
+
+          ${candidatoParaAtrelar?.origem_cadastro !== 'banco'
+            ? html`
+                <div class="rh-filter-field">
+                  <label>Origem do cadastro</label>
+                  <select
+                    class="form-select"
+                    value=${origemAtrelamento}
+                    disabled=${salvando}
+                    onChange=${(event) => setOrigemAtrelamento(event.target.value)}
+                  >
+                    <option value="Central de Candidatos">Central de Candidatos</option>
+                    <option value="Indicação">Indicação</option>
+                  </select>
+                </div>
+              `
+            : null}
+
+          ${origemAtrelamento === 'Indicação' && candidatoParaAtrelar?.origem_cadastro !== 'banco'
+            ? html`
+                <div class="rh-filter-field">
+                  <label>Indicado por</label>
+                  <input
+                    class="form-control"
+                    value=${indicadoPorAtrelamento}
+                    disabled=${salvando}
+                    placeholder="Nome do colaborador que indicou"
+                    onInput=${(event) => setIndicadoPorAtrelamento(event.target.value)}
+                  />
+                </div>
+              `
+            : null}
         </div>
 
         <footer class="rh-modal-footer">
@@ -3579,6 +3698,7 @@ export function TelaCandidatos({ controlador }) {
               onClick=${() => {
                 setCandidatoParaAtrelar(null);
                 setOrigemAtrelamento('Central de Candidatos');
+                setIndicadoPorAtrelamento('');
                 setProcessoSelecionado('');
               }}
             >
@@ -3588,7 +3708,9 @@ export function TelaCandidatos({ controlador }) {
             <button
               type="button"
               class="btn btn-primary"
-              disabled=${salvando || !processoSelecionado}
+              disabled=${salvando ||
+                !processoSelecionado ||
+                (origemAtrelamento === 'Indicação' && !indicadoPorAtrelamento.trim())}
               onClick=${confirmarAtrelar}
             >
               ${salvando ? 'Salvando...' : 'Confirmar vínculo'}

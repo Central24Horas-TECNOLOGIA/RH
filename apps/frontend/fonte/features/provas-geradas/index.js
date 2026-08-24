@@ -1452,6 +1452,32 @@ function ModalDetalheProvaGerada({
           </div>
         </section>
 
+        ${detalhe.feedback_qualitativo
+          ? html`
+              <section class="generated-detail-section">
+                <h3>Feedback qualitativo automático</h3>
+                <div class="rh-feedback-qualitativo-resumo">
+                  ${detalhe.feedback_qualitativo.resumo_textual || 'Sem resumo qualitativo disponível.'}
+                </div>
+                ${(detalhe.feedback_qualitativo.questoes_erradas || []).length
+                  ? html`
+                      <div class="generated-answer-list">
+                        ${detalhe.feedback_qualitativo.questoes_erradas.map(
+                          (item) => html`
+                            <div class="rh-feedback-qualitativo-item" key=${`fb-${item.questao_indice}-${item.questao_id ?? ''}`}>
+                              <strong>Questão ${Number(item.questao_indice ?? 0) + 1} — ${item.categoria}</strong>
+                              ${item.dificuldade ? html`<span class="text-muted"> (${item.dificuldade})</span>` : null}
+                              <p style="margin:4px 0 0;">${item.feedback_qualitativo}</p>
+                            </div>
+                          `,
+                        )}
+                      </div>
+                    `
+                  : html`<p class="text-muted">Nenhuma questão errada com feedback registrado.</p>`}
+              </section>
+            `
+          : null}
+
         <section class="generated-detail-section generated-full-result">
           <button
             type="button"
