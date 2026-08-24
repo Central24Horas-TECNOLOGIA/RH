@@ -55,3 +55,13 @@ class LgpdRequestCreate(BaseSchema):
     titular: str = Field(default="")
     email: str = Field(default="")
     descricao: str = Field(default="")
+
+
+class NotificationAutomationSettingsRequest(BaseSchema):
+    """Liga/desliga a automação de e-mail por etapa (roadmap: e-mails
+    automáticos por etapa) e a automação de lembretes/alertas periódicos
+    (roadmap: lembretes e alertas automáticos). Ambos default desligado — o
+    RH precisa optar por ativar cada automação explicitamente."""
+
+    email_automatico_ativo: bool = False
+    lembretes_automaticos_ativos: bool = False

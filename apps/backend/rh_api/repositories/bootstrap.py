@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import threading
@@ -554,6 +555,7 @@ def ensure_candidate_approval_columns(cursor) -> None:
         ("eh_indicacao", "BIT"),
         ("tipo_indicacao", "NVARCHAR(80)"),
         ("indicacao_em", "DATETIME"),
+        ("indicado_por", "NVARCHAR(255)"),
     ):
         cursor.execute(
             f"""
@@ -687,6 +689,8 @@ def ensure_process_columns(cursor) -> None:
         ("pausa_inicio_em", "DATETIME"),
         ("pausa_previsao_termino", "DATETIME"),
         ("pausa_retomada_em", "DATETIME"),
+        ("urgente_marcado_em", "DATETIME"),
+        ("urgente_marcado_por", "NVARCHAR(180)"),
     ):
         cursor.execute(
             f"""
@@ -697,6 +701,15 @@ def ensure_process_columns(cursor) -> None:
             END
             """
         )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'urgente') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD urgente BIT NOT NULL CONSTRAINT DF_processos_urgente DEFAULT 0
+        END
+        """
+    )
 
 
 def ensure_candidate_metadata_table(cursor) -> None:
@@ -1345,6 +1358,1001 @@ def ensure_process_dossier_notes_table(cursor) -> None:
     )
 
 
+def ensure_scorecards_table(cursor) -> None:
+    """Cria/atualiza a tabela de scorecards de avaliacao (Kanban de vagas).
+
+    Roadmap de expansao (respostas.txt): "Kanban de vagas com scorecard".
+    Aditivo e idempotente: nenhuma tabela ou coluna existente e alterada/removida.
+    Cada linha representa a nota (1 a 5) de UM criterio de avaliacao para um
+    candidato em uma etapa do funil. Varias linhas com o mesmo
+    candidato_processo_id + etapa_avaliada compoem o scorecard daquela etapa.
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.scorecards_avaliacao', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.scorecards_avaliacao (
+                id INT IDENTITY(1,1) PRIMARY KEY,
+                candidato_processo_id INT NOT NULL,
+                etapa_avaliada NVARCHAR(60) NULL,
+                criterio NVARCHAR(120) NOT NULL,
+                nota INT NOT NULL,
+                comentario NVARCHAR(MAX) NULL,
+                avaliado_por NVARCHAR(180) NULL,
+                avaliado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("candidato_processo_id", "INT"),
+        ("etapa_avaliada", "NVARCHAR(60)"),
+        ("criterio", "NVARCHAR(120)"),
+        ("nota", "INT"),
+        ("comentario", "NVARCHAR(MAX)"),
+        ("avaliado_por", "NVARCHAR(180)"),
+        ("avaliado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.scorecards_avaliacao', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.scorecards_avaliacao
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        UPDATE dbo.scorecards_avaliacao
+        SET avaliado_em = GETDATE()
+        WHERE avaliado_em IS NULL
+        """
+    )
+
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes
+            WHERE name = 'IX_scorecards_avaliacao_candidato'
+              AND object_id = OBJECT_ID('dbo.scorecards_avaliacao')
+        )
+        BEGIN
+            CREATE INDEX IX_scorecards_avaliacao_candidato
+            ON dbo.scorecards_avaliacao (candidato_processo_id, etapa_avaliada)
+        END
+        """
+    )
+
+
+def ensure_policies_tables(cursor) -> None:
+    """Cria/atualiza as tabelas de políticas institucionais e confirmações de leitura.
+
+    Aditivo e idempotente: nenhuma tabela ou coluna existente é alterada/removida.
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.politicas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.politicas (
+                id_politica INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                titulo NVARCHAR(255) NOT NULL,
+                corpo_texto NVARCHAR(MAX) NOT NULL,
+                versao INT NOT NULL,
+                ativo BIT NOT NULL,
+                criado_por NVARCHAR(180) NULL,
+                atualizado_por NVARCHAR(180) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("titulo", "NVARCHAR(255)"),
+        ("corpo_texto", "NVARCHAR(MAX)"),
+        ("versao", "INT"),
+        ("ativo", "BIT"),
+        ("criado_por", "NVARCHAR(180)"),
+        ("atualizado_por", "NVARCHAR(180)"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.politicas', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.politicas
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        UPDATE dbo.politicas SET versao = 1 WHERE versao IS NULL
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.politicas SET ativo = 1 WHERE ativo IS NULL
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.politicas SET criado_em = GETDATE() WHERE criado_em IS NULL
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.politicas SET atualizado_em = criado_em WHERE atualizado_em IS NULL
+        """
+    )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.politicas_confirmacoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.politicas_confirmacoes (
+                id_confirmacao INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                id_politica INT NOT NULL,
+                id_usuario INT NULL,
+                usuario_login NVARCHAR(180) NOT NULL,
+                usuario_nome NVARCHAR(180) NULL,
+                versao_confirmada INT NOT NULL CONSTRAINT DF_politicas_confirmacoes_versao DEFAULT 1,
+                confirmado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("id_politica", "INT"),
+        ("id_usuario", "INT"),
+        ("usuario_login", "NVARCHAR(180)"),
+        ("usuario_nome", "NVARCHAR(180)"),
+        ("versao_confirmada", "INT"),
+        ("confirmado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.politicas_confirmacoes', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.politicas_confirmacoes
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        UPDATE dbo.politicas_confirmacoes SET versao_confirmada = 1 WHERE versao_confirmada IS NULL
+        """
+    )
+
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes
+            WHERE object_id = OBJECT_ID('dbo.politicas_confirmacoes')
+              AND name = 'UX_politicas_confirmacoes_usuario'
+        )
+        CREATE UNIQUE INDEX UX_politicas_confirmacoes_usuario
+            ON dbo.politicas_confirmacoes(id_politica, usuario_login)
+        """
+    )
+
+
+def ensure_celebratory_dates_table(cursor) -> None:
+    """Cria/atualiza a tabela de datas comemorativas (aditivo/idempotente)."""
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.datas_comemorativas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.datas_comemorativas (
+                id_data INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                titulo NVARCHAR(255) NOT NULL,
+                dia INT NOT NULL,
+                mes INT NOT NULL,
+                descricao NVARCHAR(1000) NULL,
+                criado_por NVARCHAR(180) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    for column_name, sql_type in (
+        ("titulo", "NVARCHAR(255)"),
+        ("dia", "INT"),
+        ("mes", "INT"),
+        ("descricao", "NVARCHAR(1000)"),
+        ("criado_por", "NVARCHAR(180)"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.datas_comemorativas', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.datas_comemorativas
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+
+    cursor.execute(
+        """
+        UPDATE dbo.datas_comemorativas SET criado_em = GETDATE() WHERE criado_em IS NULL
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE dbo.datas_comemorativas SET atualizado_em = criado_em WHERE atualizado_em IS NULL
+        """
+    )
+
+
+def ensure_notification_automation_table(cursor) -> None:
+    """Cria/atualiza a tabela de configuracao (linha unica) que liga/desliga a
+    automacao de e-mail por etapa (aditivo/idempotente). Default desligado."""
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.configuracoes_notificacoes_automaticas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.configuracoes_notificacoes_automaticas (
+                id_configuracao INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                email_automatico_ativo BIT NOT NULL CONSTRAINT DF_configuracoes_notificacoes_email_ativo DEFAULT 0,
+                atualizado_por NVARCHAR(180) NULL,
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.configuracoes_notificacoes_automaticas', 'email_automatico_ativo') IS NULL
+        BEGIN
+            ALTER TABLE dbo.configuracoes_notificacoes_automaticas
+            ADD email_automatico_ativo BIT NOT NULL CONSTRAINT DF_configuracoes_notificacoes_email_ativo2 DEFAULT 0
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.configuracoes_notificacoes_automaticas', 'lembretes_automaticos_ativos') IS NULL
+        BEGIN
+            ALTER TABLE dbo.configuracoes_notificacoes_automaticas
+            ADD lembretes_automaticos_ativos BIT NOT NULL CONSTRAINT DF_configuracoes_notificacoes_lembretes_ativos DEFAULT 0
+        END
+        """
+    )
+
+
+def ensure_onboarding_tables(cursor) -> None:
+    """Trilhas de onboarding (checklist) e instâncias por candidato.
+
+    Aditivo e idempotente: nenhuma tabela ou coluna existente é alterada/removida.
+    Reflete a migration V009__onboarding_trilhas_e_templates_documentos.sql.
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.trilhas_onboarding', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.trilhas_onboarding (
+                id_trilha INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                nome NVARCHAR(255) NOT NULL,
+                descricao NVARCHAR(MAX) NULL,
+                ativo BIT NOT NULL CONSTRAINT DF_trilhas_onboarding_ativo DEFAULT 1,
+                criado_por NVARCHAR(180) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("nome", "NVARCHAR(255)"),
+        ("descricao", "NVARCHAR(MAX)"),
+        ("ativo", "BIT"),
+        ("criado_por", "NVARCHAR(180)"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.trilhas_onboarding', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.trilhas_onboarding
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+    cursor.execute("UPDATE dbo.trilhas_onboarding SET ativo = 1 WHERE ativo IS NULL")
+    cursor.execute("UPDATE dbo.trilhas_onboarding SET criado_em = GETDATE() WHERE criado_em IS NULL")
+    cursor.execute("UPDATE dbo.trilhas_onboarding SET atualizado_em = criado_em WHERE atualizado_em IS NULL")
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.trilhas_onboarding_itens', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.trilhas_onboarding_itens (
+                id_item INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                trilha_id INT NOT NULL,
+                titulo NVARCHAR(255) NOT NULL,
+                descricao NVARCHAR(MAX) NULL,
+                ordem INT NOT NULL CONSTRAINT DF_trilhas_onboarding_itens_ordem DEFAULT 0,
+                obrigatorio BIT NOT NULL CONSTRAINT DF_trilhas_onboarding_itens_obrigatorio DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("trilha_id", "INT"),
+        ("titulo", "NVARCHAR(255)"),
+        ("descricao", "NVARCHAR(MAX)"),
+        ("ordem", "INT"),
+        ("obrigatorio", "BIT"),
+        ("criado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.trilhas_onboarding_itens', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.trilhas_onboarding_itens
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+    cursor.execute("UPDATE dbo.trilhas_onboarding_itens SET ordem = 0 WHERE ordem IS NULL")
+    cursor.execute("UPDATE dbo.trilhas_onboarding_itens SET obrigatorio = 1 WHERE obrigatorio IS NULL")
+    cursor.execute("UPDATE dbo.trilhas_onboarding_itens SET criado_em = GETDATE() WHERE criado_em IS NULL")
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.onboarding_candidatos', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.onboarding_candidatos (
+                id_onboarding INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                id_registro INT NOT NULL,
+                trilha_id INT NOT NULL,
+                iniciado_por NVARCHAR(180) NULL,
+                iniciado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("id_registro", "INT"),
+        ("trilha_id", "INT"),
+        ("iniciado_por", "NVARCHAR(180)"),
+        ("iniciado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.onboarding_candidatos', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.onboarding_candidatos
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+    cursor.execute("UPDATE dbo.onboarding_candidatos SET iniciado_em = GETDATE() WHERE iniciado_em IS NULL")
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes
+            WHERE name = 'IX_onboarding_candidatos_id_registro'
+              AND object_id = OBJECT_ID('dbo.onboarding_candidatos')
+        )
+        BEGIN
+            CREATE INDEX IX_onboarding_candidatos_id_registro
+            ON dbo.onboarding_candidatos(id_registro)
+        END
+        """
+    )
+
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.onboarding_candidatos_itens', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.onboarding_candidatos_itens (
+                id_onboarding_item INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                onboarding_candidato_id INT NOT NULL,
+                trilha_item_id INT NULL,
+                titulo NVARCHAR(255) NOT NULL,
+                descricao NVARCHAR(MAX) NULL,
+                ordem INT NOT NULL CONSTRAINT DF_onboarding_candidatos_itens_ordem DEFAULT 0,
+                obrigatorio BIT NOT NULL CONSTRAINT DF_onboarding_candidatos_itens_obrigatorio DEFAULT 1,
+                concluido BIT NOT NULL CONSTRAINT DF_onboarding_candidatos_itens_concluido DEFAULT 0,
+                concluido_em DATETIME NULL,
+                concluido_por NVARCHAR(180) NULL
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("onboarding_candidato_id", "INT"),
+        ("trilha_item_id", "INT"),
+        ("titulo", "NVARCHAR(255)"),
+        ("descricao", "NVARCHAR(MAX)"),
+        ("ordem", "INT"),
+        ("obrigatorio", "BIT"),
+        ("concluido", "BIT"),
+        ("concluido_em", "DATETIME"),
+        ("concluido_por", "NVARCHAR(180)"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.onboarding_candidatos_itens', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.onboarding_candidatos_itens
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+    cursor.execute("UPDATE dbo.onboarding_candidatos_itens SET ordem = 0 WHERE ordem IS NULL")
+    cursor.execute("UPDATE dbo.onboarding_candidatos_itens SET obrigatorio = 1 WHERE obrigatorio IS NULL")
+    cursor.execute("UPDATE dbo.onboarding_candidatos_itens SET concluido = 0 WHERE concluido IS NULL")
+
+    cursor.execute("SELECT COUNT(1) FROM dbo.trilhas_onboarding")
+    row = cursor.fetchone()
+    if not row or int(row[0] or 0) == 0:
+        cursor.execute(
+            """
+            INSERT INTO dbo.trilhas_onboarding (nome, descricao, ativo, criado_por, criado_em, atualizado_em)
+            OUTPUT INSERTED.id_trilha
+            VALUES (?, ?, 1, 'bootstrap', GETDATE(), GETDATE())
+            """,
+            (
+                "Trilha padrão de onboarding",
+                "Trilha inicial sugerida pelo RH. Edite os itens conforme a necessidade da operação.",
+            ),
+        )
+        inserted = cursor.fetchone()
+        id_trilha_padrao = int(inserted[0] or 0)
+        itens_padrao = (
+            ("Documentação admissional", "Coletar e validar os documentos exigidos para a admissão.", 1, 1),
+            ("Provisionar acessos/e-mail corporativo", "Criar usuário, e-mail e acessos aos sistemas internos.", 2, 1),
+            ("Apresentação da equipe", "Apresentar o novo colaborador ao time e aos líderes diretos.", 3, 0),
+            ("Treinamento inicial da operação", "Realizar o treinamento inicial sobre processos e ferramentas.", 4, 1),
+            ("Entrega de materiais/equipamento", "Entregar crachá, equipamentos e materiais de trabalho.", 5, 1),
+            ("Alinhamento de metas do primeiro mês", "Alinhar expectativas e metas para os primeiros 30 dias.", 6, 0),
+        )
+        for titulo, descricao, ordem, obrigatorio in itens_padrao:
+            cursor.execute(
+                """
+                INSERT INTO dbo.trilhas_onboarding_itens (trilha_id, titulo, descricao, ordem, obrigatorio, criado_em)
+                VALUES (?, ?, ?, ?, ?, GETDATE())
+                """,
+                (id_trilha_padrao, titulo, descricao, ordem, obrigatorio),
+            )
+
+
+def ensure_document_templates_table(cursor) -> None:
+    """Templates de documentos com placeholders {{variavel}} (aditivo/idempotente)."""
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.templates_documentos', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.templates_documentos (
+                id_template INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                titulo NVARCHAR(255) NOT NULL,
+                corpo_texto NVARCHAR(MAX) NOT NULL,
+                ativo BIT NOT NULL CONSTRAINT DF_templates_documentos_ativo DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    for column_name, sql_type in (
+        ("titulo", "NVARCHAR(255)"),
+        ("corpo_texto", "NVARCHAR(MAX)"),
+        ("ativo", "BIT"),
+        ("criado_em", "DATETIME"),
+        ("atualizado_em", "DATETIME"),
+    ):
+        cursor.execute(
+            f"""
+            IF COL_LENGTH('dbo.templates_documentos', '{column_name}') IS NULL
+            BEGIN
+                ALTER TABLE dbo.templates_documentos
+                ADD {column_name} {sql_type} NULL
+            END
+            """
+        )
+    cursor.execute("UPDATE dbo.templates_documentos SET ativo = 1 WHERE ativo IS NULL")
+    cursor.execute("UPDATE dbo.templates_documentos SET criado_em = GETDATE() WHERE criado_em IS NULL")
+    cursor.execute("UPDATE dbo.templates_documentos SET atualizado_em = criado_em WHERE atualizado_em IS NULL")
+
+
+_DISC_SEED_BLOCOS: list[list[tuple[str, str]]] = [
+    [
+        ("D", "Gosto de tomar decisões rápidas quando o problema é urgente."),
+        ("I", "Prefiro conversar com as pessoas para resolver as coisas juntos."),
+        ("S", "Sinto-me mais seguro seguindo uma rotina já conhecida."),
+        ("C", "Gosto de checar os detalhes antes de dar uma resposta."),
+    ],
+    [
+        ("D", "Não tenho medo de assumir a liderança de uma tarefa."),
+        ("I", "Fico animado(a) ao conhecer pessoas novas no trabalho."),
+        ("S", "Prefiro terminar uma tarefa antes de começar outra."),
+        ("C", "Sigo as regras e procedimentos à risca."),
+    ],
+    [
+        ("D", "Costumo ir direto ao ponto quando estou falando com alguém."),
+        ("I", "Uso o bom humor para deixar o ambiente mais leve."),
+        ("S", "Sou paciente mesmo quando a tarefa é repetitiva."),
+        ("C", "Prefiro ter tudo documentado e organizado."),
+    ],
+    [
+        ("D", "Gosto de desafios e metas ambiciosas."),
+        ("I", "Costumo falar bastante e gosto de ser ouvido(a)."),
+        ("S", "Prefiro um ambiente de trabalho estável e previsível."),
+        ("C", "Analiso os dados com cuidado antes de agir."),
+    ],
+    [
+        ("D", "Tomo iniciativa mesmo sem esperar instruções."),
+        ("I", "Gosto de motivar os colegas ao meu redor."),
+        ("S", "Levo em conta os sentimentos da equipe antes de decidir."),
+        ("C", "Prefiro seguir um roteiro/script já validado."),
+    ],
+    [
+        ("D", "Não me abalo diante de um cliente mais exaltado."),
+        ("I", "Consigo me adaptar facilmente a pessoas diferentes."),
+        ("S", "Mantenho a calma mesmo em dias de muita repetição."),
+        ("C", "Prefiro confirmar as informações antes de responder o cliente."),
+    ],
+    [
+        ("D", "Gosto de resultados rápidos e objetivos."),
+        ("I", "Acredito que um bom relacionamento facilita o trabalho em equipe."),
+        ("S", "Prefiro apoiar os colegas a competir com eles."),
+        ("C", "Sigo os critérios de qualidade estabelecidos pela empresa."),
+    ],
+    [
+        ("D", "Não tenho problema em dizer o que penso, mesmo que seja direto."),
+        ("I", "Gosto de elogiar e reconhecer o trabalho dos colegas."),
+        ("S", "Prefiro ambientes de trabalho tranquilos e sem conflitos."),
+        ("C", "Presto atenção nos mínimos detalhes de uma instrução."),
+    ],
+    [
+        ("D", "Gosto de assumir responsabilidade por resultados do time."),
+        ("I", "Fico à vontade falando em público ou por telefone."),
+        ("S", "Prefiro rotinas de trabalho bem definidas."),
+        ("C", "Gosto de seguir processos passo a passo."),
+    ],
+    [
+        ("D", "Prefiro agir logo a ficar esperando aprovação demorada."),
+        ("I", "Gosto de manter contato próximo com clientes e colegas."),
+        ("S", "Sou uma pessoa confiável para tarefas repetitivas do dia a dia."),
+        ("C", "Prefiro dados concretos a opiniões pessoais."),
+    ],
+]
+
+
+def ensure_disc_tables(cursor) -> None:
+    """Teste DISC proprio: blocos de 4 frases (mais/menos) e aplicacoes por candidato.
+
+    Aditivo e idempotente. Reflete V010__disc_fit_cultural_raciocinio_logico.sql.
+    Ao criar as tabelas pela primeira vez, popula um banco inicial de blocos DISC
+    (frases originais no estilo do modelo de Marston, dominio publico).
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.disc_blocos', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.disc_blocos (
+                id_bloco INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                ordem INT NOT NULL CONSTRAINT DF_disc_blocos_ordem DEFAULT 0,
+                ativo BIT NOT NULL CONSTRAINT DF_disc_blocos_ativo DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.disc_frases', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.disc_frases (
+                id_frase INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                bloco_id INT NOT NULL,
+                dimensao CHAR(1) NOT NULL,
+                texto NVARCHAR(500) NOT NULL,
+                ordem INT NOT NULL CONSTRAINT DF_disc_frases_ordem DEFAULT 0
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.disc_aplicacoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.disc_aplicacoes (
+                id_aplicacao INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                id_teste NVARCHAR(60) NOT NULL,
+                id_processo_ref INT NULL,
+                status NVARCHAR(30) NOT NULL CONSTRAINT DF_disc_aplicacoes_status DEFAULT 'Disponivel',
+                iniciada_em DATETIME NULL,
+                finalizada_em DATETIME NULL,
+                resultado_json NVARCHAR(MAX) NULL,
+                criada_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.disc_respostas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.disc_respostas (
+                id_resposta INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                aplicacao_id INT NOT NULL,
+                bloco_id INT NOT NULL,
+                frase_mais_id INT NOT NULL,
+                frase_menos_id INT NOT NULL,
+                respondido_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    cursor.execute("SELECT COUNT(*) FROM dbo.disc_blocos")
+    row = cursor.fetchone()
+    if not row or int(row[0] or 0) == 0:
+        for ordem, bloco in enumerate(_DISC_SEED_BLOCOS):
+            cursor.execute(
+                "INSERT INTO dbo.disc_blocos (ordem, ativo, criado_em) OUTPUT INSERTED.id_bloco VALUES (?, 1, GETDATE())",
+                (ordem,),
+            )
+            id_bloco = int(cursor.fetchone()[0])
+            for frase_ordem, (dimensao, texto) in enumerate(bloco):
+                cursor.execute(
+                    """
+                    INSERT INTO dbo.disc_frases (bloco_id, dimensao, texto, ordem)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (id_bloco, dimensao, texto, frase_ordem),
+                )
+
+
+_VALORES_EMPRESA_SEED: list[tuple[str, str, list[str]]] = [
+    (
+        "Foco no cliente",
+        "Coloca a experiência do cliente/candidato no centro de toda decisão.",
+        [
+            "Procuro sempre entender o que o cliente realmente precisa, mesmo quando ele não sabe explicar.",
+            "Trato cada atendimento como se fosse o mais importante do dia.",
+        ],
+    ),
+    (
+        "Colaboração",
+        "Trabalha em equipe, compartilha conhecimento e ajuda os colegas.",
+        [
+            "Ofereço ajuda a colegas mesmo quando não é minha obrigação direta.",
+            "Prefiro resolver problemas em conjunto a competir com o time.",
+        ],
+    ),
+    (
+        "Resiliência",
+        "Mantém o desempenho estável mesmo sob pressão, repetição ou rotina intensa.",
+        [
+            "Consigo manter a qualidade do meu trabalho mesmo em dias muito corridos.",
+            "Não desanimo quando preciso repetir a mesma tarefa várias vezes ao dia.",
+        ],
+    ),
+    (
+        "Comunicação clara",
+        "Se expressa de forma objetiva, educada e fácil de entender.",
+        [
+            "Procuro explicar as coisas de um jeito simples, sem gerar dúvidas.",
+            "Tenho facilidade para ouvir e me adaptar ao jeito de falar do outro.",
+        ],
+    ),
+]
+
+
+def ensure_fit_cultural_tables(cursor) -> None:
+    """Fit cultural: valores da empresa, frases associadas e respostas Likert 1-5.
+
+    Aditivo e idempotente. Reflete V010__disc_fit_cultural_raciocinio_logico.sql.
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.valores_empresa', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.valores_empresa (
+                id_valor INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                nome NVARCHAR(150) NOT NULL,
+                descricao NVARCHAR(MAX) NULL,
+                ativo BIT NOT NULL CONSTRAINT DF_valores_empresa_ativo DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.valores_empresa_frases', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.valores_empresa_frases (
+                id_frase INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                valor_id INT NOT NULL,
+                frase NVARCHAR(500) NOT NULL,
+                ordem INT NOT NULL CONSTRAINT DF_valores_empresa_frases_ordem DEFAULT 0
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.fit_cultural_respostas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.fit_cultural_respostas (
+                id_resposta INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                candidato_processo_id INT NOT NULL,
+                frase_id INT NOT NULL,
+                nota_concordancia INT NOT NULL,
+                respondido_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    cursor.execute("SELECT COUNT(*) FROM dbo.valores_empresa")
+    row = cursor.fetchone()
+    if not row or int(row[0] or 0) == 0:
+        for nome, descricao, frases in _VALORES_EMPRESA_SEED:
+            cursor.execute(
+                """
+                INSERT INTO dbo.valores_empresa (nome, descricao, ativo, criado_em, atualizado_em)
+                OUTPUT INSERTED.id_valor
+                VALUES (?, ?, 1, GETDATE(), GETDATE())
+                """,
+                (nome, descricao),
+            )
+            id_valor = int(cursor.fetchone()[0])
+            for ordem, frase in enumerate(frases):
+                cursor.execute(
+                    """
+                    INSERT INTO dbo.valores_empresa_frases (valor_id, frase, ordem)
+                    VALUES (?, ?, ?)
+                    """,
+                    (id_valor, frase, ordem),
+                )
+
+
+_RACIOCINIO_SEED: list[tuple[str, str, list[str], int, str, str]] = [
+    (
+        "Complete a sequência: 2, 4, 6, 8, ?",
+        "sequencia_logica",
+        ["9", "10", "12", "16"],
+        1,
+        "facil",
+        "Revise progressões aritméticas simples (cada termo soma um valor fixo ao anterior).",
+    ),
+    (
+        "Complete a sequência: 1, 1, 2, 3, 5, 8, ?",
+        "sequencia_logica",
+        ["11", "13", "12", "10"],
+        1,
+        "medio",
+        "Essa é uma sequência de Fibonacci: cada termo é a soma dos dois anteriores.",
+    ),
+    (
+        "Qual número completa a sequência: 3, 6, 12, 24, ?",
+        "sequencia_logica",
+        ["30", "36", "48", "42"],
+        2,
+        "facil",
+        "Observe que cada termo é o dobro do anterior (progressão geométrica).",
+    ),
+    (
+        "Na sequência A, C, F, J, ?, qual é a próxima letra (avançando 2, 3, 4, 5 posições no alfabeto)?",
+        "sequencia_logica",
+        ["N", "O", "P", "M"],
+        1,
+        "dificil",
+        "Conte quantas posições o alfabeto avança a cada passo: 2, depois 3, depois 4, depois 5.",
+    ),
+    (
+        "Uma central de atendimento recebeu 120 ligações em 4 horas. Qual a média de ligações por hora?",
+        "interpretacao_numerica",
+        ["20", "25", "30", "40"],
+        2,
+        "facil",
+        "Divida o total de ligações pelo número de horas: 120 ÷ 4.",
+    ),
+    (
+        "A tabela mostra chamadas atendidas por turno: Manhã=80, Tarde=95, Noite=65. Qual turno teve o maior volume?",
+        "interpretacao_numerica",
+        ["Manhã", "Tarde", "Noite", "Todos iguais"],
+        1,
+        "facil",
+        "Compare os três valores da tabela: o maior número indica o turno de maior volume.",
+    ),
+    (
+        "Em uma operação, 30% de 200 atendimentos foram resolvidos no primeiro contato. Quantos atendimentos isso representa?",
+        "interpretacao_numerica",
+        ["50", "60", "70", "80"],
+        1,
+        "medio",
+        "Calcule 30% de 200: multiplique 200 por 0,30.",
+    ),
+    (
+        "Se o índice de satisfação subiu de 80 para 92 pontos, qual foi o aumento percentual aproximado?",
+        "interpretacao_numerica",
+        ["10%", "12%", "15%", "20%"],
+        2,
+        "dificil",
+        "Calcule a variação (92-80=12) dividida pelo valor inicial (80) e multiplique por 100.",
+    ),
+    (
+        "Um atendente resolve 15 chamados a cada 2 horas. Mantendo o ritmo, quantos chamados resolve em 8 horas?",
+        "problema_matematico",
+        ["45", "60", "75", "90"],
+        1,
+        "medio",
+        "Calcule quantos blocos de 2 horas cabem em 8 horas e multiplique pelo ritmo por bloco.",
+    ),
+    (
+        "Uma meta mensal é de 900 atendimentos, distribuídos igualmente em 30 dias. Quantos atendimentos por dia são necessários?",
+        "problema_matematico",
+        ["25", "30", "35", "40"],
+        1,
+        "facil",
+        "Divida a meta mensal pelo número de dias: 900 ÷ 30.",
+    ),
+    (
+        "Dois atendentes juntos resolvem 50 chamados em 1 hora, trabalhando no mesmo ritmo. Quanto cada um resolve, em média?",
+        "problema_matematico",
+        ["20", "25", "30", "15"],
+        1,
+        "facil",
+        "Divida o total resolvido pela quantidade de atendentes: 50 ÷ 2.",
+    ),
+    (
+        "Um script de atendimento tem 5 etapas. Se cada etapa leva em média 40 segundos, quanto tempo leva o atendimento completo?",
+        "problema_matematico",
+        ["3 minutos e 20 segundos", "3 minutos", "4 minutos", "2 minutos e 40 segundos"],
+        0,
+        "medio",
+        "Multiplique o tempo de cada etapa pelo número de etapas e converta o total de segundos para minutos.",
+    ),
+    (
+        "Uma fila tem 45 pessoas e cresce à razão de 3 pessoas por minuto. Quantas pessoas estarão na fila após 10 minutos, sem atendimento?",
+        "problema_matematico",
+        ["65", "70", "75", "80"],
+        2,
+        "dificil",
+        "Some ao valor inicial o produto da taxa de crescimento pelo tempo decorrido: 45 + (3 × 10).",
+    ),
+    (
+        "Complete a sequência: 100, 90, 81, 73, ?",
+        "sequencia_logica",
+        ["64", "66", "68", "70"],
+        1,
+        "dificil",
+        "Observe que a diferença entre os termos diminui 1 unidade a cada passo (10, 9, 8...).",
+    ),
+    (
+        "Um relatório mostra que 3 em cada 10 candidatos avançam de etapa. Em um grupo de 250 candidatos, quantos avançam?",
+        "interpretacao_numerica",
+        ["65", "70", "75", "80"],
+        2,
+        "medio",
+        "Calcule a proporção 3/10 aplicada a 250 candidatos: (3 ÷ 10) × 250.",
+    ),
+]
+
+
+def ensure_raciocinio_tables(cursor) -> None:
+    """Raciocinio logico/numerico: banco de questoes de multipla escolha com gabarito,
+    dificuldade e feedback de erro opcional; aplicacoes e respostas por candidato.
+
+    Aditivo e idempotente. Reflete V010__disc_fit_cultural_raciocinio_logico.sql.
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.raciocinio_perguntas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.raciocinio_perguntas (
+                id_pergunta INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                enunciado NVARCHAR(MAX) NOT NULL,
+                tipo NVARCHAR(30) NOT NULL,
+                alternativas_json NVARCHAR(MAX) NOT NULL,
+                gabarito INT NOT NULL,
+                dificuldade NVARCHAR(20) NOT NULL,
+                feedback_erro NVARCHAR(500) NULL,
+                ativo BIT NOT NULL CONSTRAINT DF_raciocinio_perguntas_ativo DEFAULT 1,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.raciocinio_aplicacoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.raciocinio_aplicacoes (
+                id_aplicacao INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                id_teste NVARCHAR(60) NOT NULL,
+                id_processo_ref INT NULL,
+                perguntas_snapshot_json NVARCHAR(MAX) NOT NULL,
+                tempo_limite_minutos INT NULL,
+                status NVARCHAR(30) NOT NULL CONSTRAINT DF_raciocinio_aplicacoes_status DEFAULT 'Disponivel',
+                iniciada_em DATETIME NULL,
+                finalizada_em DATETIME NULL,
+                resultado_json NVARCHAR(MAX) NULL,
+                criada_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.raciocinio_aplicacoes', 'modo_adaptativo') IS NULL
+        BEGIN
+            ALTER TABLE dbo.raciocinio_aplicacoes
+            ADD modo_adaptativo BIT NOT NULL CONSTRAINT DF_raciocinio_aplicacoes_modo_adaptativo DEFAULT 0
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.raciocinio_aplicacoes', 'nivel_vaga') IS NULL
+        BEGIN
+            ALTER TABLE dbo.raciocinio_aplicacoes
+            ADD nivel_vaga NVARCHAR(20) NULL
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.raciocinio_aplicacoes', 'estado_adaptativo_json') IS NULL
+        BEGIN
+            ALTER TABLE dbo.raciocinio_aplicacoes
+            ADD estado_adaptativo_json NVARCHAR(MAX) NULL
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.raciocinio_respostas', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.raciocinio_respostas (
+                id_resposta INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                aplicacao_id INT NOT NULL,
+                pergunta_id INT NOT NULL,
+                alternativa_marcada INT NULL,
+                correta BIT NOT NULL CONSTRAINT DF_raciocinio_respostas_correta DEFAULT 0,
+                respondido_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+
+    cursor.execute("SELECT COUNT(*) FROM dbo.raciocinio_perguntas")
+    row = cursor.fetchone()
+    if not row or int(row[0] or 0) == 0:
+        for enunciado, tipo, alternativas, gabarito, dificuldade, feedback_erro in _RACIOCINIO_SEED:
+            cursor.execute(
+                """
+                INSERT INTO dbo.raciocinio_perguntas
+                (enunciado, tipo, alternativas_json, gabarito, dificuldade, feedback_erro, ativo, criado_em)
+                VALUES (?, ?, ?, ?, ?, ?, 1, GETDATE())
+                """,
+                (enunciado, tipo, json.dumps(list(alternativas), ensure_ascii=False), gabarito, dificuldade, feedback_erro),
+            )
+
+
 def ensure_conecta_exams_tables(cursor) -> None:
     cursor.execute(
         """
@@ -1959,10 +2967,19 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_interview_slots_table(cursor)
             ensure_candidate_movements_table(cursor)
             ensure_process_dossier_notes_table(cursor)
+            ensure_scorecards_table(cursor)
             ensure_conecta_exams_tables(cursor)
             ensure_exam_analytics_tables(cursor, create_if_missing=True)
             ensure_process_reference_columns(cursor)
             ensure_decimal_process_columns(cursor)
+            ensure_policies_tables(cursor)
+            ensure_celebratory_dates_table(cursor)
+            ensure_notification_automation_table(cursor)
+            ensure_onboarding_tables(cursor)
+            ensure_document_templates_table(cursor)
+            ensure_disc_tables(cursor)
+            ensure_fit_cultural_tables(cursor)
+            ensure_raciocinio_tables(cursor)
         finally:
             conn.close()
 
@@ -2043,6 +3060,7 @@ def insert_candidate_process_record(
         "eh_indicacao",
         "tipo_indicacao",
         "indicacao_em",
+        "indicado_por",
     ]
     values = [
         payload.get("id_processo") or process_row.get("id_processo"),
@@ -2059,6 +3077,7 @@ def insert_candidate_process_record(
         1 if is_indication else 0,
         indication_type,
         datetime.now() if is_indication else None,
+        normalize_text(payload.get("indicado_por")),
     ]
     if not identity_id_registro:
         columns.insert(0, "id_registro")
@@ -2263,7 +3282,10 @@ def _select_process_query() -> str:
             responsabilidades_publicas,
             observacoes_publicas_vaga,
             configuracao_prova_json,
-            prova_configurada_em
+            prova_configurada_em,
+            urgente,
+            urgente_marcado_em,
+            urgente_marcado_por
         FROM processos_seletivos
     """
 

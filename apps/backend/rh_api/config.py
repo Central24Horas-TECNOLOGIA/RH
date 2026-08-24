@@ -217,6 +217,12 @@ class Settings:
     ai_timeout_seconds: int
     ai_max_curriculo_chars: int
     ai_duplicate_window_seconds: int
+    scheduler_enabled: bool
+    scheduler_inactivity_interval_hours: int
+    scheduler_inactivity_dias_sem_movimentacao: int
+    scheduler_inactivity_dias_realerta: int
+    email_inactivity_alert_recipients: tuple[str, ...]
+    redis_url: str
 
     @property
     def is_development(self) -> bool:
@@ -400,6 +406,24 @@ def get_settings() -> Settings:
         ai_duplicate_window_seconds=_read_int_env(
             "AI_DUPLICATE_WINDOW_SECONDS", default=30, minimum=0, maximum=600
         ),
+        scheduler_enabled=_read_bool_env("RH_SCHEDULER_ENABLED", default=True),
+        scheduler_inactivity_interval_hours=_read_int_env(
+            "RH_SCHEDULER_INACTIVITY_INTERVAL_HORAS", default=1, minimum=1, maximum=168
+        ),
+        scheduler_inactivity_dias_sem_movimentacao=_read_int_env(
+            "RH_SCHEDULER_INACTIVITY_DIAS", default=30, minimum=1, maximum=365
+        ),
+        scheduler_inactivity_dias_realerta=_read_int_env(
+            "RH_SCHEDULER_INACTIVITY_REALERTA_DIAS", default=7, minimum=1, maximum=365
+        ),
+        email_inactivity_alert_recipients=tuple(
+            _split_csv(_env("RH_EMAIL_INACTIVITY_ALERT_RECIPIENTS"))
+        ),
+        # Redis é infraestrutura leve e opcional/degradável (CLAUDE.md,
+        # roadmap "cache de queries" e "fila de tarefas assíncronas"): vazio
+        # por padrão, o que desativa cache (rh_api/cache.py) e enfileiramento
+        # (rh_api/task_queue.py) sem quebrar nada.
+        redis_url=_env("RH_REDIS_URL", default=""),
     )
     validate_environment_database(
         settings.app_env,

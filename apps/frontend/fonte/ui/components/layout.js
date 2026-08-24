@@ -2,6 +2,31 @@ import { html, useEffect, useState } from '../../infraestrutura-react.js';
 import { BuscaGlobalTopbar } from '../busca-global.js';
 import { obterTourDaTela } from '../../shared/tour-config.js';
 import { BotaoAjudaTour, TourGuiado } from '../tour-guiado.js';
+import { definirTema, obterTemaSalvo, proximoTema } from '../../shared/tema.js';
+
+const TEMA_ROTULO = { claro: 'Claro', escuro: 'Escuro', auto: 'Automático (segue o sistema)' };
+const TEMA_ICONE = { claro: 'light_mode', escuro: 'dark_mode', auto: 'brightness_auto' };
+
+function SeletorTema() {
+  const [tema, setTema] = useState(() => obterTemaSalvo());
+
+  const alternar = () => {
+    const novoTema = definirTema(proximoTema(tema));
+    setTema(novoTema);
+  };
+
+  return html`
+    <button
+      type="button"
+      class="c24-icon-btn c24-theme-toggle"
+      title=${`Tema: ${TEMA_ROTULO[tema]}. Clique para alternar.`}
+      aria-label=${`Alternar tema. Tema atual: ${TEMA_ROTULO[tema]}.`}
+      onClick=${alternar}
+    >
+      <span class="material-symbols-outlined c24-icon">${TEMA_ICONE[tema]}</span>
+    </button>
+  `;
+}
 
 function BarraLateral({
   navAtiva,
@@ -33,6 +58,11 @@ function BarraLateral({
       icone: 'group',
       label: 'Banco de Talentos',
       permissao: 'candidatos.visualizar',
+    },
+    {
+      tela: 'screen-calendario',
+      icone: 'celebration',
+      label: 'Calendário',
     },
     // Item removido do menu lateral por decisão de interface.
     // {
@@ -72,6 +102,12 @@ function BarraLateral({
       permissao: 'relatorios.visualizar',
     },
     {
+      tela: 'screen-dashboard-funil',
+      icone: 'monitoring',
+      label: 'Dashboard de Funil',
+      permissao: 'relatorios.visualizar',
+    },
+    {
       tela: 'screen-candidates',
       icone: 'groups',
       label: 'Candidatos',
@@ -98,6 +134,42 @@ function BarraLateral({
       label: 'Logs',
       permissao: 'logs.visualizar',
     },
+    {
+      tela: 'screen-settings-policies',
+      icone: 'policy',
+      label: 'Políticas',
+      permissao: 'politicas.editar',
+    },
+    {
+      tela: 'screen-settings-onboarding',
+      icone: 'checklist',
+      label: 'Trilhas de Onboarding',
+      permissao: 'onboarding.editar',
+    },
+    {
+      tela: 'screen-settings-document-templates',
+      icone: 'description',
+      label: 'Templates de Documentos',
+      permissao: 'documentos_templates.editar',
+    },
+    {
+      tela: 'screen-settings-disc',
+      icone: 'insights',
+      label: 'Teste DISC',
+      permissao: 'provas.questoes_criar',
+    },
+    {
+      tela: 'screen-settings-fit-cultural',
+      icone: 'diversity_3',
+      label: 'Fit Cultural',
+      permissao: 'fit_cultural.editar',
+    },
+    {
+      tela: 'screen-settings-raciocinio-logico',
+      icone: 'psychology',
+      label: 'Raciocínio Lógico',
+      permissao: 'provas.questoes_criar',
+    },
   ];
   const telasRelacionadasProcessos = [
     'screen-process-create',
@@ -111,6 +183,7 @@ function BarraLateral({
   ];
   const telasRelacionadasRelatorios = [
     'screen-analysis-candidates',
+    'screen-dashboard-funil',
     'screen-candidates',
     'screen-candidate-details',
     'screen-candidate-pipeline',
@@ -120,6 +193,12 @@ function BarraLateral({
     'screen-settings-users',
     'screen-settings-profiles',
     'screen-settings-logs',
+    'screen-settings-policies',
+    'screen-settings-onboarding',
+    'screen-settings-document-templates',
+    'screen-settings-disc',
+    'screen-settings-fit-cultural',
+    'screen-settings-raciocinio-logico',
   ];
   const possuiPermissao = (permissao) =>
     !permissao || controlador?.possuiPermissao?.(permissao);
@@ -713,6 +792,7 @@ export function PainelRh({
                   `
       : null}
               ${acoesTopo}
+              <${SeletorTema} />
               <${CartaoUsuarioTopo} controlador=${controlador} />
             </div>
           </header>

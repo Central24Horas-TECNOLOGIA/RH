@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "conecta-rh",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["run.py", "--no-reload"],
+      "port": 8000
+    }
+  ]
+}

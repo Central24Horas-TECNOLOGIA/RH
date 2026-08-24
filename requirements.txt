@@ -1,6 +1,7 @@
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
+apscheduler==3.11.3
 certifi==2026.4.22
 cffi==2.1.0
 charset-normalizer==3.4.9
@@ -43,5 +44,15 @@ striprtf==0.0.29
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2026.2
+tzlocal==5.4.4
 urllib3==2.7.0
 uvicorn==0.44.0
+
+# Infraestrutura leve e opcional/degradável (CLAUDE.md, roadmap de expansão):
+# cache de queries (rh_api/cache.py) e fila de tarefas assíncronas
+# (rh_api/task_queue.py). Sem RH_REDIS_URL configurada, ou sem estas
+# dependências instaladas, o sistema continua funcionando normalmente (cache
+# vira sempre miss / tarefas rodam de forma síncrona). Descomente para
+# habilitar em ambientes com Redis disponível.
+# redis==5.2.1
+# rq==2.1.0

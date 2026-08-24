@@ -71,6 +71,35 @@ export {
   salvarRespostasConectaProvas,
 } from './services/api/generated-exams.js?v=20260721-exam-analytics-2';
 export {
+  criarAplicacaoDisc,
+  criarBlocoDisc,
+  finalizarAplicacaoDiscPublica,
+  lerAplicacaoDisc,
+  lerAplicacaoDiscPublica,
+  lerResultadoDiscCandidato,
+  listarBlocosDisc,
+} from './services/api/disc.js';
+export {
+  atualizarValorEmpresa,
+  criarValorEmpresa,
+  enviarRespostasFitCulturalPublicas,
+  lerResultadoFitCultural,
+  listarFrasesFitCulturalPublicas,
+  listarValoresEmpresa,
+} from './services/api/fit-cultural.js';
+export {
+  atualizarPerguntaRaciocinio,
+  avancarRaciocinioAdaptativoPublico,
+  criarAplicacaoRaciocinio,
+  criarPerguntaRaciocinio,
+  excluirPerguntaRaciocinio,
+  finalizarAplicacaoRaciocinioPublica,
+  lerAplicacaoRaciocinio,
+  lerAplicacaoRaciocinioPublica,
+  lerResultadoRaciocinioCandidato,
+  listarPerguntasRaciocinio,
+} from './services/api/raciocinio-logico.js';
+export {
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
   analisarCurriculoIa,
@@ -110,6 +139,8 @@ export {
   lerUltimaAnaliseCurriculoIa,
   lerPreAnalisesCv,
   lerProcessos,
+  lerScorecardCandidato,
+  salvarScorecardCandidato,
   limparListaPreAnalisesCv,
   pausarProcesso,
   marcarAnaliseCurriculoIaRevisada,
@@ -122,7 +153,7 @@ export {
   cancelarProcesso,
   excluirEmailRecebido,
   vincularEmailRecebidoProcesso,
-} from './services/api/processes.js';
+} from './services/api/processes.js?v=20260824-kanban-scorecard';
 export {
   enviarCandidaturaPublica,
   lerPaginaPublicaCandidatura,
@@ -132,6 +163,7 @@ export {
   baixarRelatorioProcessos,
   lerAnalisesCandidatos,
   lerDetalheAnaliseCandidato,
+  lerFunilDashboard,
   lerRelatorioCandidatos,
   lerRelatorioProcessos,
 } from './services/api/analytics.js';
@@ -162,6 +194,7 @@ export {
 } from './services/api/interviews.js';
 export {
   alterarStatusUsuario,
+  atualizarAutomacaoNotificacoes,
   atualizarItemConfiguracao,
   atualizarPermissoesPerfil,
   atualizarUsuario,
@@ -170,6 +203,7 @@ export {
   criarUsuario,
   desativarItemConfiguracao,
   excluirUsuario,
+  lerAutomacaoNotificacoes,
   listarCatalogoConfiguracoes,
   listarLogsAuditoria,
   listarPerfis,
@@ -178,3 +212,33 @@ export {
   redefinirSenhaUsuario,
   registrarSolicitacaoLgpd,
 } from './services/api/settings.js';
+export {
+  atualizarPolitica,
+  buscarPoliticaPendente,
+  confirmarLeituraPolitica,
+  criarPolitica,
+  listarPoliticas,
+} from './services/api/policies.js';
+export {
+  atualizarDataComemorativa,
+  criarDataComemorativa,
+  listarDatasComemorativas,
+  removerDataComemorativa,
+} from './services/api/calendar.js';
+export {
+  atualizarTrilhaOnboarding,
+  criarTrilhaOnboarding,
+  iniciarOnboardingCandidato,
+  lerProgressoOnboardingCandidato,
+  lerTrilhaOnboarding,
+  listarTrilhasOnboarding,
+  marcarItemOnboarding,
+} from './services/api/onboarding.js';
+export {
+  atualizarTemplateDocumento,
+  criarTemplateDocumento,
+  excluirTemplateDocumento,
+  gerarDocumentoPorTemplate,
+  listarTemplatesDocumentos,
+  listarVariaveisTemplatesDocumentos,
+} from './services/api/document-templates.js';

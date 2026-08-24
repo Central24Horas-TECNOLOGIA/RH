@@ -1,11 +1,15 @@
-﻿import { html, lazy, Suspense, useEffect } from '../infraestrutura-react.js';
+﻿import { html, lazy, Suspense, useEffect, useState } from '../infraestrutura-react.js';
 "Teste de commit - AplicaÃ§Ã£o Raiz";
 import {
   navegarParaTela,
   usarTelaAtual,
   useControladorAplicacao,
 } from './controlador-aplicacao.js';
-import { LoadingState } from '../ui/componentes-compartilhados.js';
+import { LoadingState, ModalPadrao } from '../ui/componentes-compartilhados.js';
+import {
+  buscarPoliticaPendente,
+  confirmarLeituraPolitica,
+} from '../servico-api.js';
 
 function carregarTela(importador, nomeExportado) {
   return lazy(() => importador().then((modulo) => ({ default: modulo[nomeExportado] })));
@@ -57,6 +61,26 @@ const TelaConfiguracoesSistema = carregarTela(
   () => import('../features/configuracoes/index.js?v=20260713-config-users-fix7'),
   'TelaConfiguracoesSistema',
 );
+const TelaCalendario = carregarTela(() => import('../features/calendario/index.js'), 'TelaCalendario');
+const TelaPoliticas = carregarTela(() => import('../features/politicas/index.js'), 'TelaPoliticas');
+const TelaOnboarding = carregarTela(() => import('../features/onboarding/index.js'), 'TelaOnboarding');
+const TelaDashboardFunil = carregarTela(
+  () => import('../features/dashboard-funil/index.js'),
+  'TelaDashboardFunil',
+);
+const TelaTemplatesDocumentos = carregarTela(
+  () => import('../features/documentos-template/index.js'),
+  'TelaTemplatesDocumentos',
+);
+const importarDisc = () => import('../features/disc/index.js');
+const importarFitCultural = () => import('../features/fit-cultural/index.js');
+const importarRaciocinio = () => import('../features/raciocinio-logico/index.js');
+const TelaDiscAdmin = carregarTela(importarDisc, 'TelaDiscAdmin');
+const TelaDiscTestePublico = carregarTela(importarDisc, 'TelaDiscTestePublico');
+const TelaFitCulturalAdmin = carregarTela(importarFitCultural, 'TelaFitCulturalAdmin');
+const TelaFitCulturalTestePublico = carregarTela(importarFitCultural, 'TelaFitCulturalTestePublico');
+const TelaRaciocinioAdmin = carregarTela(importarRaciocinio, 'TelaRaciocinioAdmin');
+const TelaRaciocinioTestePublico = carregarTela(importarRaciocinio, 'TelaRaciocinioTestePublico');
 const TelaCandidato = carregarTela(importarProva, 'TelaCandidato');
 const TelaConfiguracao = carregarTela(importarProva, 'TelaConfiguracao');
 const TelaConclusao = carregarTela(importarProva, 'TelaConclusao');
@@ -66,7 +90,13 @@ const TelaResultado = carregarTela(importarProva, 'TelaResultado');
 function resolverTelaProtegida(telaAtual, controlador) {
   const { estado, blueprint } = controlador;
 
-  if (telaAtual === 'screen-public-candidacy' || telaAtual === 'screen-conecta-provas') {
+  if (
+    telaAtual === 'screen-public-candidacy' ||
+    telaAtual === 'screen-conecta-provas' ||
+    telaAtual === 'screen-disc-teste' ||
+    telaAtual === 'screen-fit-cultural-teste' ||
+    telaAtual === 'screen-raciocinio-teste'
+  ) {
     return telaAtual;
   }
 
@@ -123,6 +153,9 @@ function ConteudoAplicacao() {
   const controlador = useControladorAplicacao();
   const telaAtual = usarTelaAtual(controlador.estado.autenticado);
   const telaResolvida = resolverTelaProtegida(telaAtual, controlador);
+  const [politicaPendente, setPoliticaPendente] = useState(null);
+  const [confirmandoPolitica, setConfirmandoPolitica] = useState(false);
+  const [erroPoliticaPendente, setErroPoliticaPendente] = useState('');
 
   useEffect(() => {
     if (telaResolvida !== telaAtual) {
@@ -132,12 +165,62 @@ function ConteudoAplicacao() {
     }
   }, [telaAtual, telaResolvida]);
 
+  useEffect(() => {
+    let cancelado = false;
+    if (
+      controlador.estado.autenticado &&
+      telaResolvida !== 'screen-login' &&
+      telaResolvida !== 'screen-public-candidacy' &&
+      telaResolvida !== 'screen-conecta-provas'
+    ) {
+      buscarPoliticaPendente()
+        .then((politica) => {
+          if (!cancelado) setPoliticaPendente(politica || null);
+        })
+        .catch(() => {
+          // Falha silenciosa: a política pendente não deve bloquear o uso do
+          // sistema caso a checagem falhe (ex.: backend indisponível).
+        });
+    }
+    return () => {
+      cancelado = true;
+    };
+  }, [controlador.estado.autenticado, telaResolvida]);
+
+  const confirmarLeituraDaPoliticaPendente = async () => {
+    if (!politicaPendente?.id_politica) return;
+    setConfirmandoPolitica(true);
+    setErroPoliticaPendente('');
+    try {
+      await confirmarLeituraPolitica(politicaPendente.id_politica);
+      setPoliticaPendente(null);
+    } catch (error) {
+      setErroPoliticaPendente(
+        error?.message || 'Não foi possível registrar a confirmação de leitura.',
+      );
+    } finally {
+      setConfirmandoPolitica(false);
+    }
+  };
+
   if (telaResolvida === 'screen-public-candidacy') {
     return html`<${TelaCandidaturaPublica} />`;
   }
 
   if (telaResolvida === 'screen-conecta-provas') {
     return html`<${TelaConectaProvas} />`;
+  }
+
+  if (telaResolvida === 'screen-disc-teste') {
+    return html`<${TelaDiscTestePublico} />`;
+  }
+
+  if (telaResolvida === 'screen-fit-cultural-teste') {
+    return html`<${TelaFitCulturalTestePublico} />`;
+  }
+
+  if (telaResolvida === 'screen-raciocinio-teste') {
+    return html`<${TelaRaciocinioTestePublico} />`;
   }
 
   if (controlador.estado.validandoSessao) {
@@ -151,6 +234,38 @@ function ConteudoAplicacao() {
 
   if (!controlador.estado.autenticado || telaResolvida === 'screen-login') {
     return html`<${TelaLogin} controlador=${controlador} />`;
+  }
+
+  if (politicaPendente?.id_politica) {
+    return html`
+      <${ModalPadrao}
+        aberto=${true}
+        titulo=${politicaPendente.titulo || 'Política institucional'}
+        subtitulo="Leitura obrigatória antes de continuar."
+        className="rh-policy-gate-modal"
+        ocultarFechar=${true}
+        onClose=${() => {}}
+      >
+        <div class="rh-details-body">
+          <div class="rh-policy-gate-body">${politicaPendente.corpo_texto}</div>
+          ${erroPoliticaPendente
+        ? html`<div class="alert alert-warning">${erroPoliticaPendente}</div>`
+        : null}
+        </div>
+        <footer class="rh-modal-footer">
+          <div class="rh-modal-footer-actions">
+            <button
+              type="button"
+              class="btn btn-primary"
+              disabled=${confirmandoPolitica}
+              onClick=${confirmarLeituraDaPoliticaPendente}
+            >
+              ${confirmandoPolitica ? 'Confirmando...' : 'Li e confirmo'}
+            </button>
+          </div>
+        </footer>
+      </${ModalPadrao}>
+    `;
   }
 
   if (telaResolvida === 'screen-menu') {
@@ -209,10 +324,15 @@ function ConteudoAplicacao() {
     return html`<${TelaAnaliseCandidatos} controlador=${controlador} />`;
   }
 
+  if (telaResolvida === 'screen-dashboard-funil') {
+    return html`<${TelaDashboardFunil} controlador=${controlador} />`;
+  }
+
   if (
     telaResolvida === 'screen-settings' ||
     telaResolvida === 'screen-settings-users' ||
     telaResolvida === 'screen-settings-profiles' ||
+    telaResolvida === 'screen-settings-notifications' ||
     telaResolvida === 'screen-settings-logs'
   ) {
     return html`
@@ -221,6 +341,34 @@ function ConteudoAplicacao() {
         telaAtual=${telaResolvida}
       />
     `;
+  }
+
+  if (telaResolvida === 'screen-settings-policies') {
+    return html`<${TelaPoliticas} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-calendario') {
+    return html`<${TelaCalendario} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-settings-onboarding') {
+    return html`<${TelaOnboarding} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-settings-document-templates') {
+    return html`<${TelaTemplatesDocumentos} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-settings-disc') {
+    return html`<${TelaDiscAdmin} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-settings-fit-cultural') {
+    return html`<${TelaFitCulturalAdmin} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-settings-raciocinio-logico') {
+    return html`<${TelaRaciocinioAdmin} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-generated-exams') {

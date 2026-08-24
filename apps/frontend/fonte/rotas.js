@@ -17,7 +17,12 @@ export const ROTAS_POR_TELA = {
   'screen-settings-users': 'configuracoes/usuario',
   'screen-settings-profiles': 'configuracoes/perfis-permissoes',
   'screen-settings-logs': 'configuracoes/logs',
+  'screen-settings-notifications': 'configuracoes/notificacoes',
+  'screen-settings-policies': 'configuracoes/politicas',
+  'screen-settings-onboarding': 'configuracoes/onboarding',
+  'screen-settings-document-templates': 'configuracoes/templates-documentos',
   'screen-settings': 'configuracoes/usuario',
+  'screen-calendario': 'calendario',
   'screen-generated-exams': 'processos/provas-resultados',
   'screen-process-analytical-results': 'processos/resultados-analiticos',
   'screen-config': 'configuracao',
@@ -26,9 +31,16 @@ export const ROTAS_POR_TELA = {
   'screen-thanks': 'conclusao',
   'screen-result': 'resultado',
   'screen-analysis-candidates': 'analise-candidatos',
+  'screen-dashboard-funil': 'processos/dashboard-funil',
   'screen-public-candidacy': 'candidatar',
   'screen-conecta-provas': 'conecta-provas',
   'screen-forbidden': 'acesso-negado',
+  'screen-settings-disc': 'configuracoes/teste-disc',
+  'screen-settings-fit-cultural': 'configuracoes/fit-cultural',
+  'screen-settings-raciocinio-logico': 'configuracoes/raciocinio-logico',
+  'screen-disc-teste': 'disc-teste',
+  'screen-fit-cultural-teste': 'fit-cultural-teste',
+  'screen-raciocinio-teste': 'raciocinio-teste',
 };
 
 export const TELAS_POR_ROTA = Object.entries(ROTAS_POR_TELA).reduce(
@@ -94,6 +106,9 @@ export function obterTelaPorRota(rotaAtual = obterRotaAtual()) {
     return 'screen-conecta-provas';
   }
   if (rota.startsWith('candidatar/')) return 'screen-public-candidacy';
+  if (rota.startsWith('disc-teste/')) return 'screen-disc-teste';
+  if (rota.startsWith('fit-cultural-teste/')) return 'screen-fit-cultural-teste';
+  if (rota.startsWith('raciocinio-teste/')) return 'screen-raciocinio-teste';
   if (/^processos\/.+\/resultados-analiticos$/.test(rota)) {
     return 'screen-process-analytical-results';
   }
@@ -132,4 +147,39 @@ export function obterSlugCandidaturaPorHash(hashAtual) {
 
 export function montarHashCandidatura(slug) {
   return `/candidatar/${encodeURIComponent(String(slug || '').trim())}`;
+}
+
+// Testes complementares (DISC, Fit Cultural, Raciocínio Lógico): link público
+// enviado ao candidato carrega o identificador da aplicação (ou, no caso do
+// Fit Cultural, o id_registro do vínculo candidato/processo) direto no path,
+// no mesmo espírito das rotas públicas já existentes acima (sem autenticação
+// de RH — o backend valida o identificador em si).
+function extrairParametroRota(hashAtual, prefixo) {
+  const rota = normalizarRota(hashAtual || obterRotaAtual());
+  if (!rota.startsWith(prefixo)) return '';
+  return decodeURIComponent(rota.slice(prefixo.length));
+}
+
+export function obterIdAplicacaoDiscPorHash(hashAtual) {
+  return extrairParametroRota(hashAtual, 'disc-teste/');
+}
+
+export function montarHashDiscTeste(idAplicacao) {
+  return `/disc-teste/${encodeURIComponent(String(idAplicacao || '').trim())}`;
+}
+
+export function obterCandidatoProcessoIdFitCulturalPorHash(hashAtual) {
+  return extrairParametroRota(hashAtual, 'fit-cultural-teste/');
+}
+
+export function montarHashFitCulturalTeste(candidatoProcessoId) {
+  return `/fit-cultural-teste/${encodeURIComponent(String(candidatoProcessoId || '').trim())}`;
+}
+
+export function obterIdAplicacaoRaciocinioPorHash(hashAtual) {
+  return extrairParametroRota(hashAtual, 'raciocinio-teste/');
+}
+
+export function montarHashRaciocinioTeste(idAplicacao) {
+  return `/raciocinio-teste/${encodeURIComponent(String(idAplicacao || '').trim())}`;
 }

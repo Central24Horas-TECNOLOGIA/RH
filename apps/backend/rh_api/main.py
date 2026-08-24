@@ -23,18 +23,30 @@ from .repositories import (
 )
 from .routers.analytics import router as analytics_router
 from .routers.auth import router as auth_router
+from .routers.calendar import router as calendar_router
 from .routers.curriculos_ia import router as curriculos_ia_router
+from .routers.disc import public_router as disc_public_router
+from .routers.disc import router as disc_router
+from .routers.document_templates import router as document_templates_router
 from .routers.email_inbox import router as email_inbox_router
 from .routers.exam_analytics import router as exam_analytics_router
+from .routers.fit_cultural import public_router as fit_cultural_public_router
+from .routers.fit_cultural import router as fit_cultural_router
 from .routers.generated_exams import public_router as generated_exams_public_router
 from .routers.generated_exams import router as generated_exams_router
 from .routers.history import router as history_router
 from .routers.interviews import router as interviews_router
+from .routers.onboarding import router as onboarding_router
 from .routers.pipeline import router as pipeline_router
+from .routers.policies import router as policies_router
 from .routers.processes import router as processes_router
 from .routers.public_candidacy import router as public_candidacy_router
+from .routers.raciocinio_logico import public_router as raciocinio_logico_public_router
+from .routers.raciocinio_logico import router as raciocinio_logico_router
+from .routers.scorecards import router as scorecards_router
 from .routers.settings import router as settings_router
 from .routers.system import build_system_status, router as system_router
+from .scheduler import start_scheduler, stop_scheduler
 from conecta.interfaces.http.middlewares.request_context import (
     RequestContextMiddleware,
 )
@@ -230,7 +242,12 @@ def create_app() -> FastAPI:
                 )
         else:
             logger.info("Bootstrap automático de schema desativado; use migrations versionadas.")
-        yield
+
+        scheduler = start_scheduler(settings)
+        try:
+            yield
+        finally:
+            stop_scheduler(scheduler)
 
     app = FastAPI(title="Conecta C24h API", lifespan=lifespan)
 
@@ -325,10 +342,21 @@ def create_app() -> FastAPI:
     app.include_router(generated_exams_public_router)
     app.include_router(exam_analytics_router)
     app.include_router(processes_router)
+    app.include_router(scorecards_router)
     app.include_router(public_candidacy_router)
     app.include_router(interviews_router)
     app.include_router(analytics_router)
     app.include_router(pipeline_router)
+    app.include_router(policies_router)
+    app.include_router(calendar_router)
+    app.include_router(onboarding_router)
+    app.include_router(document_templates_router)
+    app.include_router(disc_router)
+    app.include_router(disc_public_router)
+    app.include_router(fit_cultural_router)
+    app.include_router(fit_cultural_public_router)
+    app.include_router(raciocinio_logico_router)
+    app.include_router(raciocinio_logico_public_router)
     app.include_router(settings_router)
     _register_frontend_routes(app, settings)
 
