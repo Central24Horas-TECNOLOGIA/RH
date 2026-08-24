@@ -310,6 +310,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "provas.editar",
         "relatorios.visualizar",
         "relatorios.exportar",
+        "notificacoes.configurar",
         "politicas.visualizar",
         "politicas.editar",
         "calendario.visualizar",
