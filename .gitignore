@@ -58,6 +58,11 @@ node_modules/
 dist/
 build/
 
+# Playwright (testes E2E do frontend)
+apps/frontend/playwright-report/
+apps/frontend/test-results/
+apps/frontend/blob-report/
+
 # Volumes e estado Docker
 infra/docker/volumes/
 caddy_data/
