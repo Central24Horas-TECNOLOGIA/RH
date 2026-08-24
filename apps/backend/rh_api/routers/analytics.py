@@ -76,6 +76,20 @@ def get_candidate_report(
     )
 
 
+@router.get("/reports/funnel-dashboard", dependencies=[Depends(require_permissions("relatorios.visualizar"))])
+def get_funnel_dashboard(
+    start_date: str = Query(default=""),
+    end_date: str = Query(default=""),
+    id_processo: str = Query(default=""),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.get_funnel_dashboard(
+        start_date=start_date,
+        end_date=end_date,
+        id_processo=id_processo,
+    )
+
+
 @router.get("/reports/candidates/export", dependencies=[Depends(require_permissions("relatorios.exportar"))])
 def export_candidate_report(
     start_date: str = Query(default=""),

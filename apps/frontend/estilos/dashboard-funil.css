@@ -1,0 +1,145 @@
+/* Dashboard de funil e métricas (time-to-hire) — roadmap respostas.txt */
+
+.funnel-dashboard-filter-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.funnel-dashboard-filter-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.funnel-dashboard-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  margin-bottom: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.funnel-dashboard-hero-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.funnel-dashboard-hero-label .material-symbols-outlined {
+  font-size: 20px;
+  color: var(--color-primary);
+}
+
+.funnel-dashboard-hero-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.funnel-dashboard-hero-value strong {
+  font-size: 3rem;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.funnel-dashboard-hero-value span {
+  font-size: var(--font-lg);
+  color: var(--color-text-soft);
+  font-weight: 500;
+}
+
+.funnel-dashboard-hero-empty {
+  font-size: var(--font-lg);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.funnel-dashboard-hero-helper {
+  margin: 0;
+  max-width: 640px;
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.funnel-stage-list,
+.funnel-origin-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.funnel-stage-row,
+.funnel-origin-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.funnel-stage-label,
+.funnel-origin-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.funnel-stage-count,
+.funnel-origin-count {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.funnel-stage-track,
+.funnel-origin-track {
+  position: relative;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-strong);
+  overflow: hidden;
+}
+
+.funnel-stage-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  transition: width var(--transition-lg);
+}
+
+.funnel-origin-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--color-info);
+  transition: width var(--transition-lg);
+}
+
+@media (max-width: 640px) {
+  .funnel-dashboard-hero {
+    padding: var(--space-4);
+  }
+
+  .funnel-dashboard-hero-value strong {
+    font-size: 2.25rem;
+  }
+
+  .funnel-dashboard-filter-actions {
+    align-items: stretch;
+  }
+}

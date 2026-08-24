@@ -79,6 +79,7 @@ import {
   montarTextoCompartilhamentoVaga,
 } from '../../shared/components/share-job-modal.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
+import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 import {
   getCandidateActionState,
   getCandidateVisibleStatus,
@@ -2387,7 +2388,7 @@ export function TelaHistorico({ controlador }) {
             </thead>
             <tbody>
               ${carregando
-      ? html`<${TabelaVazia} colunas=${7} texto="Carregando histórico..." />`
+      ? html`<${SkeletonTableRows} colunas=${7} linhas=${6} />`
       : linhas.length
         ? linhas.map(
           (linha) => html`
@@ -2441,6 +2442,7 @@ export function TelaHistorico({ controlador }) {
                       <${TabelaVazia}
                         colunas=${7}
                         texto="Nenhum registro encontrado para os filtros informados."
+                        icone="search_off"
                       />
                     `}
             </tbody>
@@ -2481,6 +2483,7 @@ export function TelaCriarProcesso({ controlador }) {
     dataEncerramento: '',
     operacao: '',
     trilha: '',
+    urgente: false,
     usaNotaCorte: false,
     notaCorte: '',
     areaProva: '',
@@ -2940,6 +2943,7 @@ export function TelaCriarProcesso({ controlador }) {
         link_agendamento: '',
         configuracao_prova_json: JSON.stringify(configuracaoProva),
         prova_configurada_em: configuracaoProva.configurada_em,
+        urgente: Boolean(formulario.urgente),
       });
 
       controlador.irParaTelaProtegida('screen-processes');
@@ -3035,6 +3039,22 @@ export function TelaCriarProcesso({ controlador }) {
         (opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`,
       )}
                         </select>
+                      </label>
+                    </div>
+                  </section>
+                  <section class="process-create-card">
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">bolt</span>
+                      <h2>Botão Expresso</h2>
+                    </div>
+                    <div class="process-cutoff-panel">
+                      <label class="process-switch-row">
+                        <input type="checkbox" checked=${formulario.urgente} onChange=${(event) => atualizarCampo('urgente', event.target.checked)} />
+                        <span class="process-switch-visual"></span>
+                        <span>
+                          <strong>Urgente (Botão Expresso)</strong>
+                          <small>Use apenas para emergências reais. Existe um limite de vagas urgentes abertas ao mesmo tempo — se o limite for excedido, o sistema recusará a marcação.</small>
+                        </span>
                       </label>
                     </div>
                   </section>
@@ -3237,6 +3257,7 @@ export function TelaCriarProcesso({ controlador }) {
           ['Encerramento', formatarDataResumoProcesso(formulario.dataEncerramento)],
           ['Operação', formulario.operacao || '-'],
           ['Área / Trilha', trilhaEfetiva || '-'],
+          ['Botão Expresso', formulario.urgente ? 'Urgente' : 'Não urgente'],
           ['Nota de corte', formulario.usaNotaCorte ? formulario.notaCorte || '-' : 'Não ativada'],
           ['Prova', blueprint?.label || '-'],
           ['Tempo', `${formulario.tempoTotal || 0} min`],
@@ -3567,14 +3588,7 @@ export function TelaBancoTalentos({ controlador }) {
         description="Reaproveitamento, perfil RH e filtros avançados funcionando sobre dados persistidos."
         tourId="talent-table"
       >
-        ${carregando
-      ? html`
-              <${LoadingState}
-                titulo="Carregando banco de talentos"
-                descricao="Buscando candidatos, tags e observações persistidas."
-              />
-            `
-      : html`
+        ${html`
               <div class="table-responsive">
                 <table class="table align-middle rh-modern-history-table">
                   <thead>
@@ -3593,10 +3607,12 @@ export function TelaBancoTalentos({ controlador }) {
                     </tr>
                   </thead>
                   <tbody>
-                    ${linhas.length
+                    ${carregando
+          ? html`<${SkeletonTableRows} colunas=${11} linhas=${6} />`
+          : linhas.length
           ? linhas.map(
             (linha) => html`
-                            <tr key=${linha.id_banco}>
+                            <tr key=${linha.id_banco} class="c24-fade-in">
                               <td>${linha.id_processo || '-'}</td>
                               <td>
                                 <strong>${linha.nome_candidato || '-'}</strong>
@@ -3689,6 +3705,7 @@ export function TelaBancoTalentos({ controlador }) {
                           <${TabelaVazia}
                             colunas=${11}
                             texto="Nenhum candidato no banco de talentos."
+                            icone="person_off"
                           />
                         `}
                   </tbody>
