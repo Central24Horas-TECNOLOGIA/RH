@@ -5,4 +5,6 @@
 @import url('./process-details.css');
 @import url('./exam-steps.css?v=20260720-conecta-provas-etapas-vagas');
 @import url('./exam-analytics.css?v=20260720-exam-analytics-v1');
+@import url('./testes-complementares.css?v=20260824-testes-complementares-v1');
+@import url('./dashboard-funil.css?v=20260824-dashboard-funil-v1');
 @import url('./print.css');

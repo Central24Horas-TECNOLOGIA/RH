@@ -10,6 +10,24 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <link href="estilos/estilos.css?v=20260720-conecta-provas-etapas-vagas" rel="stylesheet" />
+  <script>
+    (function () {
+      try {
+        var tema = window.localStorage.getItem('c24_tema_preferido');
+        var raiz = document.documentElement;
+        var escuroSistema = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var escuroEfetivo = tema === 'escuro' || (tema !== 'claro' && escuroSistema);
+        if (tema === 'escuro') {
+          raiz.setAttribute('data-theme', 'dark');
+        } else if (tema === 'claro') {
+          raiz.setAttribute('data-theme', 'light');
+        }
+        raiz.setAttribute('data-bs-theme', escuroEfetivo ? 'dark' : 'light');
+      } catch (erro) {
+        /* localStorage/matchMedia indisponível: segue o padrão claro */
+      }
+    })();
+  </script>
 </head>
 
 <body data-screen="screen-login">

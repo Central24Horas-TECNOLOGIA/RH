@@ -6,7 +6,7 @@
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
-  transition: grid-template-columns 180ms ease;
+  transition: grid-template-columns var(--transition-md);
 }
 
 .rh-modern-shell.is-sidebar-collapsed {
@@ -33,7 +33,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.74rem;
-  transition: width 180ms ease, padding 180ms ease;
+  transition: width var(--transition-md), padding var(--transition-md);
 }
 
 .rh-modern-sidebar::-webkit-scrollbar {
@@ -137,7 +137,7 @@
   font-weight: 700;
   text-align: left;
   font-size: 0.86rem;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+  transition: background var(--transition-sm), border-color var(--transition-sm), color var(--transition-sm);
   flex: 0 0 auto;
   overflow: hidden;
   cursor: pointer;
@@ -196,7 +196,7 @@
 .rh-modern-nav-chevron {
   margin-left: auto;
   opacity: 0.72;
-  transition: transform 160ms ease, opacity 160ms ease;
+  transition: transform var(--transition-sm), opacity var(--transition-sm);
 }
 
 .rh-modern-nav-group.is-open .rh-modern-nav-chevron {
@@ -425,7 +425,7 @@
   padding: 0.32rem 0.52rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
   text-align: left;
@@ -439,7 +439,7 @@
 .c24-user-menu:hover,
 .c24-user-menu:focus {
   border-color: rgba(21, 61, 138, 0.28);
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .c24-user-avatar {
@@ -513,7 +513,7 @@
   padding: 0.35rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: var(--shadow-md);
 }
 
@@ -556,7 +556,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 0 0.58rem 0 0.72rem;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .rh-modern-search-shell {
@@ -808,7 +808,7 @@
   padding: 0.36rem 0.58rem;
   border: 1px solid rgba(198, 211, 228, 0.95);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   font-size: 0.82rem;
 }
 
@@ -827,9 +827,9 @@
   padding: 0.58rem 0.68rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 5px 16px rgba(15, 33, 57, 0.05);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  transition: border-color var(--transition-md), box-shadow var(--transition-md), transform var(--transition-md);
 }
 
 .rh-metric-card:hover {
@@ -956,7 +956,7 @@
 .rh-action-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+  background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-soft) 100%);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
@@ -1145,6 +1145,21 @@
   background: var(--color-surface-soft);
 }
 
+.rh-policy-gate-modal {
+  width: min(720px, 100%);
+}
+
+.rh-policy-gate-body {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
 .rh-modal-footer-actions {
   display: flex;
   gap: 0.5rem;
@@ -1175,7 +1190,7 @@
 .rh-stage-result-card {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    background: #fff;
+    background: var(--color-surface);
     padding: var(--space-3);
     height: fit-content;
 }

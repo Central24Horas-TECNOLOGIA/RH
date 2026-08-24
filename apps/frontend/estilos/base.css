@@ -12,7 +12,7 @@ html {
 
 body {
   margin: 0;
-  background: linear-gradient(180deg, #f8fbff 0%, var(--color-bg) 100%);
+  background: linear-gradient(180deg, var(--color-surface-soft) 0%, var(--color-bg) 100%);
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: var(--font-md);
@@ -24,6 +24,38 @@ body {
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/*
+ * Sistema de ícones (Material Symbols Outlined)
+ * ------------------------------------------------------------------
+ * Peso/preenchimento/tamanho padrão para todo ícone da aplicação.
+ * Telas específicas podem sobrepor o tamanho com as classes utilitárias
+ * abaixo (ou uma regra local mais específica), mas devem herdar o
+ * mesmo peso de traço (wght 400) para manter consistência visual.
+ */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 1.15rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.c24-icon,
+.c24-icon-md {
+  font-size: 1.15rem !important;
+}
+
+.c24-icon-sm {
+  font-size: 0.95rem !important;
+}
+
+.c24-icon-lg {
+  font-size: 1.5rem !important;
+}
+
+.c24-icon-xl {
+  font-size: 2rem !important;
 }
 
 #app,
@@ -98,7 +130,7 @@ a {
   overflow: hidden;
   border: 1px solid rgba(217, 226, 238, 0.96);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
 
@@ -191,7 +223,7 @@ margin-bottom: 0.28rem;
 
 .btn-outline-secondary-avr {
    border-color: #0f5be8;
-    background: white;
+    background: var(--color-surface);
     color: #0f5be8;
 }
 
@@ -400,7 +432,7 @@ margin-bottom: 0.28rem;
   min-height: clamp(260px, 44vh, 520px);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-surface);
   padding: 0.9rem;
   outline: none;
   line-height: 1.55;
@@ -475,6 +507,11 @@ margin-bottom: 0.28rem;
 .rh-chip.is-skill {
   background: var(--color-info-soft);
   color: var(--color-info);
+}
+
+.rh-chip.is-indicacao {
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .rh-link-inline {

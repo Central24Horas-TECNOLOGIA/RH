@@ -30,7 +30,7 @@ export function FormField({ label, help = '', error = '', required = false, chil
   `;
 }
 
-export function Table({ columns = [], rows = [], rowKey = 'id', renderCell = null, emptyText = 'Nenhum registro.' }) {
+export function Table({ columns = [], rows = [], rowKey = 'id', renderCell = null, emptyText = 'Nenhum registro.', emptyIcon = '' }) {
   return html`
     <div class="table-responsive">
       <table class="table align-middle">
@@ -44,7 +44,20 @@ export function Table({ columns = [], rows = [], rowKey = 'id', renderCell = nul
                   `)}
                 </tr>
               `)
-            : html`<tr><td colspan=${Math.max(1, columns.length)}>${emptyText}</td></tr>`}
+            : html`
+                <tr>
+                  <td colspan=${Math.max(1, columns.length)}>
+                    ${emptyIcon
+                      ? html`
+                          <div class="c24-table-empty-state">
+                            <span class="material-symbols-outlined" aria-hidden="true">${emptyIcon}</span>
+                            <span class="c24-table-empty-state-text">${emptyText}</span>
+                          </div>
+                        `
+                      : emptyText}
+                  </td>
+                </tr>
+              `}
         </tbody>
       </table>
     </div>

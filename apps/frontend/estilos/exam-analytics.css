@@ -5,7 +5,7 @@
 .exam-analytics-principle p, .exam-analytics-execution p, .exam-analytics-config-help p { margin: .2rem 0 0; color: #5c6f8d; }
 .exam-analytics-principle .material-symbols-outlined, .exam-analytics-execution .material-symbols-outlined, .exam-analytics-config-help .material-symbols-outlined { color: var(--bs-primary); }
 .exam-analytics-process-meta { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: .75rem; }
-.exam-analytics-process-meta > span { display: grid; gap: .25rem; padding: .75rem .9rem; border: 1px solid #e4e9f1; border-radius: 10px; background: #fff; color: #51627d; font-size: .82rem; }
+.exam-analytics-process-meta > span { display: grid; gap: .25rem; padding: .75rem .9rem; border: 1px solid #e4e9f1; border-radius: 10px; background: var(--color-surface); color: #51627d; font-size: .82rem; }
 .exam-analytics-process-meta strong { color: #263b5d; font-size: .72rem; text-transform: uppercase; }
 .exam-analytics-process-meta em { width: max-content; font-style: normal; }
 .exam-analytics-filters { display: grid; grid-template-columns: repeat(4, minmax(170px, 1fr)); gap: .75rem; align-items: end; margin-bottom: 1rem; }
