@@ -28,7 +28,7 @@ function SeletorTema() {
   `;
 }
 
-function BarraLateral({
+export function BarraLateral({
   navAtiva,
   controlador,
   subtituloMarca = 'Plataforma de Recrutamento e Seleção',
@@ -64,6 +64,12 @@ function BarraLateral({
       icone: 'celebration',
       label: 'Calendário',
     },
+    {
+      tela: 'screen-onedrive-files',
+      icone: 'cloud',
+      label: 'Drive-Conecta',
+      permissao: 'onedrive.visualizar',
+    },
     // Item removido do menu lateral por decisão de interface.
     // {
     //   tela: 'screen-help',
@@ -85,6 +91,12 @@ function BarraLateral({
       icone: 'radio_button_checked',
       label: 'Processos encerrados',
       status: 'is-closed',
+      permissao: 'vagas.visualizar',
+    },
+    {
+      tela: 'screen-process-decisions',
+      icone: 'fact_check',
+      label: 'Decisões Pendentes',
       permissao: 'vagas.visualizar',
     },
     {
@@ -285,7 +297,7 @@ function BarraLateral({
                 <img
                   alt="Conecta Central 24h"
                   class="rh-modern-logo"
-                  src="estilos/logo_conecta_branco_palavra.png"
+                  src="/estilos/logo_conecta_branco_palavra.png"
                   onError=${() => setLogoComErro(true)}
                 />
               `}
@@ -588,6 +600,45 @@ export function SectionCard({
   `;
 }
 
+export function Tabs({ tabs = [], activeKey, onChange, className = '' }) {
+  return html`
+    <div class=${`rh-tabs ${className}`.trim()} role="tablist">
+      ${tabs.map(
+        (tab) => html`
+          <button
+            key=${tab.key}
+            type="button"
+            role="tab"
+            id=${`rh-tab-${tab.key}`}
+            aria-selected=${activeKey === tab.key}
+            aria-controls=${`rh-tabpanel-${tab.key}`}
+            class=${`rh-tabs-btn ${activeKey === tab.key ? 'is-active' : ''}`.trim()}
+            onClick=${() => onChange(tab.key)}
+          >
+            ${tab.label}
+          </button>
+        `,
+      )}
+    </div>
+  `;
+}
+
+export function TabPanel({ tabKey, activeKey, className = '', children }) {
+  const ativo = activeKey === tabKey;
+  return html`
+    <div
+      id=${`rh-tabpanel-${tabKey}`}
+      role="tabpanel"
+      aria-labelledby=${`rh-tab-${tabKey}`}
+      aria-hidden=${!ativo}
+      class=${`rh-tab-panel ${className}`.trim()}
+      style=${{ display: ativo ? 'block' : 'none' }}
+    >
+      ${children}
+    </div>
+  `;
+}
+
 function obterIniciaisUsuario(nome) {
   const partes = String(nome || '')
     .trim()
@@ -600,7 +651,7 @@ function obterIniciaisUsuario(nome) {
   return `${partes[0].slice(0, 1)}${partes[partes.length - 1].slice(0, 1)}`.toUpperCase();
 }
 
-function CartaoUsuarioTopo({ controlador }) {
+export function CartaoUsuarioTopo({ controlador }) {
   const [aberto, setAberto] = useState(false);
   const estado = controlador?.estado || {};
   const nome =

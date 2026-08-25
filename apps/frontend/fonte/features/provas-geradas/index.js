@@ -30,8 +30,8 @@ import {
   salvarAvaliacaoManualProva,
 } from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { obterItensPaginados } from '../../utilitarios.js';
+import { abrirFichaCandidatoDaProva } from '../../app/controlador-aplicacao.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
-import { AcaoSair } from '../../shared/components/actions.js';
 import { formatarNotaVisual } from '../../shared/helpers-visuais.js';
 import {
   EmptyState,
@@ -55,6 +55,12 @@ const STATUS_APTOS_GERAR_PROVA = new Set([
   'Confirmado',
   'Reagendado',
 ]);
+
+const OPCOES_LOGIN_CONECTA_PROVA = [
+  { value: 'email', label: 'E-mail' },
+  { value: 'celular', label: 'Celular' },
+  { value: 'codigo_prova', label: 'Código da prova' },
+];
 
 const OPCOES_NIVEL = [
   { value: '1', label: 'Nível 1' },
@@ -357,6 +363,7 @@ function montarFormularioInicial(contexto = {}) {
         '',
     ),
     expira_em: normalizarTexto(candidato.expira_em || ''),
+    login_method: normalizarTexto(candidato.login_method || ''),
   };
 }
 
@@ -897,6 +904,7 @@ export function ModalGerarProva({
       tom_prova: formulario.tom_prova,
       situacao_pratica_operacao: formulario.situacao_pratica_operacao,
       expira_em: formulario.expira_em,
+      login_method: formulario.personalizacao_inteligente ? formulario.login_method : '',
       configuracao: {
         blueprint_key: blueprint.key || '',
         blueprint_label: blueprint.label || formulario.area_prova || '',
@@ -1247,7 +1255,19 @@ export function ModalGerarProva({
                       value=${formulario.situacao_pratica_operacao}
                       onInput=${(event) => atualizarCampo('situacao_pratica_operacao', event.target.value)}
                     ></textarea>
-                    
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Forma de login no Conecta Prova</label>
+                    <select
+                      class="form-select"
+                      value=${formulario.login_method}
+                      onChange=${(event) => atualizarCampo('login_method', event.target.value)}
+                    >
+                      <option value="">Selecione...</option>
+                      ${OPCOES_LOGIN_CONECTA_PROVA.map(
+                        (opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`,
+                      )}
+                    </select>
                   </div>
                 </div>
               `
@@ -1284,6 +1304,9 @@ export function ModalGerarProva({
             <span><strong>Nível</strong>${formulario.nivel || '-'}</span>
             <span><strong>Tempo</strong>${`${formulario.tempo_total || 0} min`}</span>
             <span><strong>Tom</strong>${formulario.personalizacao_inteligente ? formulario.tom_prova || '-' : 'Padrão'}</span>
+            ${formulario.personalizacao_inteligente
+              ? html`<span><strong>Login no Conecta Prova</strong>${OPCOES_LOGIN_CONECTA_PROVA.find((opcao) => opcao.value === formulario.login_method)?.label || 'Não definido'}</span>`
+              : null}
             <span><strong>E-mail de acesso</strong>${formulario.email || '-'}</span>
             <span><strong>Telefone de acesso</strong>${formulario.telefone || '-'}</span>
             <span><strong>Etapas</strong>${etapas.map((item) => item.label).join(', ') || '-'}</span>
@@ -1315,6 +1338,7 @@ function ModalDetalheProvaGerada({
   onReabrir,
   onCancelar,
   onDecisao,
+  onDadosCandidato,
 }) {
   const [mostrarResultadoCompleto, setMostrarResultadoCompleto] = useState(true);
   const [menuAcoesAberto, setMenuAcoesAberto] = useState(false);
@@ -1648,6 +1672,13 @@ function ModalDetalheProvaGerada({
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
+                    window.print();
+                  }}>
+                    <span class="material-symbols-outlined">print</span>
+                    Imprimir prova
+                  </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
                     onAvaliacaoManual?.();
                   }}>
                     <span class="material-symbols-outlined">menu_book</span>
@@ -1678,6 +1709,13 @@ function ModalDetalheProvaGerada({
                   }}>
                     <span class="material-symbols-outlined">person_add</span>
                     Decisão RH
+                  </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
+                    onDadosCandidato?.();
+                  }}>
+                    <span class="material-symbols-outlined">badge</span>
+                    Dados Candidato
                   </button>
                 </div>
               `
@@ -2114,7 +2152,6 @@ export function TelaProvasResultados({ controlador }) {
         permissoes: ['provas.criar', 'provas.enviar'],
         onClick: () => setModalGerarAberto(true),
       }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="CONECTA PROVAS > SCORE CONECTA"
@@ -2357,6 +2394,13 @@ export function TelaProvasResultados({ controlador }) {
         onReabrir=${() => executarReabertura(detalhe)}
         onCancelar=${() => executarCancelamento(detalhe)}
         onDecisao=${() => setDecisaoRh(detalhe)}
+        onDadosCandidato=${async () => {
+          try {
+            await abrirFichaCandidatoDaProva(detalhe);
+          } catch (error) {
+            window.alert('Não foi possível localizar a ficha deste candidato.');
+          }
+        }}
       />
 
       <${ModalAvaliacaoManual}

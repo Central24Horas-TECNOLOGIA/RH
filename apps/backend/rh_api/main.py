@@ -29,6 +29,7 @@ from .routers.disc import public_router as disc_public_router
 from .routers.disc import router as disc_router
 from .routers.document_templates import router as document_templates_router
 from .routers.email_inbox import router as email_inbox_router
+from .routers.email_send import router as email_send_router
 from .routers.exam_analytics import router as exam_analytics_router
 from .routers.fit_cultural import public_router as fit_cultural_public_router
 from .routers.fit_cultural import router as fit_cultural_router
@@ -37,6 +38,7 @@ from .routers.generated_exams import router as generated_exams_router
 from .routers.history import router as history_router
 from .routers.interviews import router as interviews_router
 from .routers.onboarding import router as onboarding_router
+from .routers.onedrive_files import router as onedrive_files_router
 from .routers.pipeline import router as pipeline_router
 from .routers.policies import router as policies_router
 from .routers.processes import router as processes_router
@@ -261,6 +263,16 @@ def create_app() -> FastAPI:
         https_only=session_cookie_secure(settings),
         domain=None,
     )
+    @app.middleware("http")
+    async def disable_frontend_cache(request: Request, call_next):
+        response = await call_next(request)
+        if request.method == "GET" and any(
+            request.url.path == f"/{asset_dir}" or request.url.path.startswith(f"/{asset_dir}/")
+            for asset_dir in (*FRONTEND_ASSET_DIRS, "Front")
+        ):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return response
+
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
 
@@ -358,6 +370,8 @@ def create_app() -> FastAPI:
     app.include_router(raciocinio_logico_router)
     app.include_router(raciocinio_logico_public_router)
     app.include_router(settings_router)
+    app.include_router(onedrive_files_router)
+    app.include_router(email_send_router)
     _register_frontend_routes(app, settings)
 
     logger.info(

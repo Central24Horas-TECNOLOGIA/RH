@@ -6728,15 +6728,6 @@
     grid-template-columns: 1fr;
   }
 
-  #screen-settings-users .users-drawer,
-  #screen-settings .users-drawer {
-    width: 100vw;
-  }
-
-  #screen-settings-users .users-drawer-footer,
-  #screen-settings .users-drawer-footer {
-    flex-direction: column-reverse;
-  }
 }
 
 /* ===============================
@@ -10949,7 +10940,7 @@
   min-height: 26px;
   padding-inline: 0.62rem;
   font-size: 0.72rem;
-  line-height: 1.1;
+  line-height: 2.1;
 }
 
 .rh-modern-history-table > :not(caption) > * > *,
@@ -14766,4 +14757,59 @@
   #screen-menu .day-summary-stats {
     grid-template-columns: 1fr;
   }
+}
+
+/* OneDrive/SharePoint — repositório de arquivos M365 */
+.rh-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.rh-breadcrumb .btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  font-size: inherit;
+}
+
+.rh-breadcrumb .btn-link:last-child {
+  color: var(--color-text, inherit);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .rh-breadcrumb {
+    font-size: 0.8rem;
+  }
+}
+
+/* Composição de e-mail (modelos M365 + anexos do OneDrive) */
+.rh-compose-email-variables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+.rh-compose-email-preview {
+  min-height: 96px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--color-surface-muted, #f6f8fb);
+}
+
+.rh-onedrive-picker {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.rh-onedrive-picker-list {
+  max-height: 220px;
+  overflow-y: auto;
 }

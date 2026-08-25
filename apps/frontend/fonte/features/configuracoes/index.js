@@ -19,8 +19,7 @@ import {
   redefinirSenhaUsuario,
 } from '../../app/controlador-aplicacao.js';
 import { baixarBlob, obterItensPaginados } from '../../utilitarios.js';
-import { AcaoSair } from '../../shared/components/actions.js';
-import { PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
+import { ModalPadrao, PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
 
 const ABAS = [
   { id: 'usuarios', tela: 'screen-settings-users', label: 'Usuários', permissao: 'usuarios.visualizar', icon: 'person' },
@@ -121,17 +120,6 @@ function formatarData(valor) {
     year: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  });
-}
-
-function formatarDataCurta(valor) {
-  if (!valor) return 'Sem acesso';
-  const data = new Date(valor);
-  if (Number.isNaN(data.getTime())) return String(valor);
-  return data.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
   });
 }
 
@@ -1358,30 +1346,15 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               `}
         </section>
 
-        ${drawerUsuarioAberto
-        ? html`
-              <div class="users-drawer-backdrop" onClick=${fecharDrawerUsuario}>
-                <aside
-                  class="users-drawer"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="users-drawer-title"
-                  onClick=${(event) => event.stopPropagation()}
-                >
-                  <header class="users-drawer-header">
-                    <div>
-                      <span class="c24-eyebrow">${criandoUsuario ? 'Cadastro' : 'Editar usuário'}</span>
-                      <h3 id="users-drawer-title">${criandoUsuario ? 'Criar usuário' : 'Editar usuário'}</h3>
-                      <p>${nomeDrawer}</p>
-                    </div>
-                    <button type="button" class="c24-icon-btn" title="Fechar" aria-label="Fechar" onClick=${fecharDrawerUsuario}>
-                      <${Icone} name="close" />
-                    </button>
-                  </header>
-
-                  <form class="users-drawer-form" onSubmit=${salvarUsuario}>
-                    <div class="users-drawer-body">
-                      <label>
+        <${ModalPadrao}
+          aberto=${drawerUsuarioAberto}
+          titulo=${criandoUsuario ? 'Criar usuário' : 'Editar usuário'}
+          subtitulo=${nomeDrawer}
+          onClose=${fecharDrawerUsuario}
+        >
+          <form class="users-drawer-form" onSubmit=${salvarUsuario}>
+            <div class="users-drawer-body">
+              <label>
                         <span>Nome</span>
                         <input
                           class="form-control"
@@ -1488,21 +1461,18 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                             </div>
                           `
             : null}
-                    </div>
+            </div>
 
-                    <footer class="users-drawer-footer">
-                      <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${fecharDrawerUsuario}>
-                        Cancelar
-                      </button>
-                      <button type="submit" class="btn btn-primary" disabled=${salvando || !podeSalvar}>
-                        ${salvando ? 'Salvando...' : 'Salvar'}
-                      </button>
-                    </footer>
-                  </form>
-                </aside>
-              </div>
-            `
-        : null}
+            <footer class="rh-modal-footer">
+              <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${fecharDrawerUsuario}>
+                Cancelar
+              </button>
+              <button type="submit" class="btn btn-primary" disabled=${salvando || !podeSalvar}>
+                ${salvando ? 'Salvando...' : 'Salvar'}
+              </button>
+            </footer>
+          </form>
+        </${ModalPadrao}>
       </div>
     `;
   };
@@ -2403,7 +2373,6 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       placeholderBusca="Configurações, usuários, permissões e logs"
       controlador=${controlador}
       mostrarAtalhos=${false}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Console - Administração"

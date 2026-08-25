@@ -73,3 +73,11 @@ caddy_config/
 MAPA_COMPLETO_CONECTA/
 .dockerignore
 SECURTITY.md
+
+
+#Pastas 
+.CLAUDE.MD
+.claude/
+docs/
+resposta.txt
+promt.txt

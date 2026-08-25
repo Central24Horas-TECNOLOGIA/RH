@@ -18,6 +18,7 @@ import {
   atualizarPreAnaliseCv,
   atualizarProcesso,
   atualizarStatusCandidato,
+  atualizarStatusCandidatoAvulso,
   analisarCvProcesso,
   baixarPacoteHistorico,
   baixarCvCandidato,
@@ -53,11 +54,13 @@ import {
 } from '../../app/controlador-aplicacao.js';
 import {
   baixarBlob,
+  formatarDataCurta,
   formatarDataParaInput,
   obterItensPaginados,
 } from '../../utilitarios.js';
 import {
   formatarDataHora,
+  formatarDataNascimento,
   montarResumoAnaliticoCv,
   obterClasseStatusEntrevista,
   obterClasseStatusProcesso,
@@ -69,7 +72,7 @@ import {
   obterBasePublicaCandidatura,
   toDatetimeLocal,
 } from '../../shared/browser-utils.js';
-import { AcaoSair } from '../../shared/components/actions.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   ModalCompartilharVaga,
   montarTextoCompartilhamentoVaga,
@@ -1274,14 +1277,6 @@ function formatarOrigemCandidato(candidato) {
     return 'Processo Único';
   }
   return String(candidato?.origem || '-').trim() || '-';
-}
-
-function formatarDataCurta(valor) {
-  const texto = String(valor || '').trim();
-  if (!texto) return '-';
-  const data = new Date(texto);
-  if (Number.isNaN(data.getTime())) return texto;
-  return data.toLocaleDateString('pt-BR');
 }
 
 function formatarHoraCurta(valor) {
@@ -2863,6 +2858,7 @@ function ModalFichaCandidato({
   onAnalisarCv,
   onEditar,
   onEliminar,
+  onBanco,
   onAprovar,
   onNotaCompleta,
 }) {
@@ -2951,7 +2947,7 @@ function ModalFichaCandidato({
             </section>
             <section class="candidate-profile-side-card">
               <h3>Informações gerais</h3>
-              <dl><dt>Endereço</dt><dd>${endereco || 'Não informado'}</dd><dd>${localidade || '–'}</dd><dt>Idade</dt><dd>${candidato.idade ? `${candidato.idade} anos` : 'Não informado'}</dd><dt>Escolaridade</dt><dd>${candidato.escolaridade || 'Não informado'}</dd></dl>
+              <dl><dt>Endereço</dt><dd>${endereco || 'Não informado'}</dd><dd>${localidade || '–'}</dd><dt>Data de nascimento</dt><dd>${formatarDataNascimento(candidato.data_nascimento) || 'Não informado'}</dd><dt>Idade</dt><dd>${candidato.idade ? `${candidato.idade} anos` : 'Não informado'}</dd><dt>Escolaridade</dt><dd>${candidato.escolaridade || 'Não informado'}</dd></dl>
             </section>
             <section class="candidate-profile-side-card">
               <h3>Informações de contato</h3>
@@ -3045,6 +3041,7 @@ function ModalFichaCandidato({
               <button type="button" class="btn btn-outline-primary" onClick=${onEditar}><span class="material-symbols-outlined">edit</span>Editar candidato</button>
               <button type="button" class="btn btn-outline-primary" onClick=${onPrint}><span class="material-symbols-outlined">download</span>Baixar ficha</button>
               <button type="button" class="btn btn-outline-danger" onClick=${onEliminar}><span class="material-symbols-outlined">delete</span>Eliminar</button>
+              ${typeof onBanco === 'function' ? html`<button type="button" class="btn btn-outline-secondary" onClick=${onBanco}><span class="material-symbols-outlined">inventory_2</span>Banco</button>` : ''}
               <button type="button" class="btn btn-primary" onClick=${onAprovar}><span class="material-symbols-outlined">check</span>Aprovar</button>
             </footer>
           </main>
@@ -3728,6 +3725,7 @@ function DossieProcesso({
 }
 
 export function TelaProcessos({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [processos, setProcessos] = useState([]);
@@ -3878,11 +3876,19 @@ export function TelaProcessos({ controlador }) {
   );
 
   const atualizarStatus = async (
-    registro,
+    candidatoOuRegistro,
     statusCandidato,
     idProcesso,
     dadosAprovacao = {},
   ) => {
+    const registro =
+      candidatoOuRegistro && typeof candidatoOuRegistro === 'object'
+        ? candidatoOuRegistro.id_registro
+        : candidatoOuRegistro;
+    const idTeste =
+      candidatoOuRegistro && typeof candidatoOuRegistro === 'object'
+        ? candidatoOuRegistro.id_teste
+        : '';
     const processo = encontrarProcessoPorReferencia(processos, idProcesso);
     const candidatoAtual = candidatos.find(
       (item) => Number(item.id_registro || 0) === Number(registro || 0),
@@ -3892,12 +3898,12 @@ export function TelaProcessos({ controlador }) {
     );
 
     if (statusAtual === CANDIDATE_STATUS_APPROVED) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
     if (isProcessClosed(processo)) {
-      window.alert('O processo seletivo está encerrado e não permite novas movimentações.');
+      showToast('O processo seletivo está encerrado e não permite novas movimentações.', 'warning');
       return;
     }
 
@@ -3911,11 +3917,20 @@ export function TelaProcessos({ controlador }) {
       if (!confirmar) return;
     }
 
-    await atualizarStatusCandidato(registro, {
+    const dadosStatus = {
       status_candidato: statusCandidato,
       data_movimentacao: new Date().toISOString(),
       ...(statusCandidato === CANDIDATE_STATUS_APPROVED ? dadosAprovacao : {}),
-    });
+    };
+
+    if (registro) {
+      await atualizarStatusCandidato(registro, dadosStatus);
+    } else if (idTeste) {
+      await atualizarStatusCandidatoAvulso(idTeste, dadosStatus);
+    } else {
+      window.alert('Não foi possível identificar o candidato para atualizar o status.');
+      return;
+    }
 
     await carregar();
   };
@@ -3928,12 +3943,12 @@ export function TelaProcessos({ controlador }) {
     const estadoAcoes = candidato?.acoes_fluxo || getCandidateActionState(candidato);
 
     if (estadoAcoes.processClosed || isProcessClosed(processo)) {
-      window.alert('Processo encerrado. Movimentações não são permitidas.');
+      showToast('Processo encerrado. Movimentações não são permitidas.', 'warning');
       return;
     }
 
     if (!estadoAcoes.canApprove) {
-      window.alert('A aprovação não está disponível para o status atual deste candidato.');
+      showToast('A aprovação não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
 
@@ -3947,7 +3962,7 @@ export function TelaProcessos({ controlador }) {
     try {
       const candidato = aprovacaoSelecionada.candidato;
       await atualizarStatus(
-        candidato.id_registro,
+        candidato,
         CANDIDATE_STATUS_APPROVED,
         obterReferenciaProcessoDoCandidato(candidato),
         dadosAprovacao,
@@ -4024,8 +4039,8 @@ export function TelaProcessos({ controlador }) {
       placeholderBusca="Gerenciamento de processos e candidatos"
       controlador=${controlador}
       acaoPrimaria=${null}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Receptivo"
         title="Processos Seletivos"
@@ -4197,7 +4212,7 @@ export function TelaProcessos({ controlador }) {
           onAprovar: abrirAprovacao,
           onAtualizarStatus: (item, status) =>
             atualizarStatus(
-              item.id_registro || item.id_teste || item.id_candidato,
+              item,
               status,
               obterReferenciaProcessoDoCandidato(item),
             ),
@@ -4390,7 +4405,7 @@ export function TelaProcessos({ controlador }) {
           onAprovar: abrirAprovacao,
           onAtualizarStatus: (item, status) =>
             atualizarStatus(
-              item.id_registro || item.id_teste || item.id_candidato,
+              item,
               status,
               obterReferenciaProcessoDoCandidato(item),
             ),
@@ -4764,7 +4779,6 @@ export function TelaProcessosAbertos({ controlador }) {
       permissao: 'vagas.criar',
       onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Processos"
@@ -5178,7 +5192,6 @@ export function TelaProcessosEncerrados({ controlador }) {
       subtituloMarca="Processos seletivos"
       placeholderBusca="Processos encerrados"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Processos"
@@ -5393,7 +5406,6 @@ export function TelaProcessosDecisoesPendentes({ controlador }) {
       subtituloMarca="Processos seletivos"
       placeholderBusca="Decisões pendentes"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Processos"
@@ -6375,6 +6387,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
 }
 
 export function TelaDetalhesProcesso({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [salvandoEntrevista, setSalvandoEntrevista] = useState(false);
   const [erro, setErro] = useState('');
@@ -8209,7 +8222,7 @@ export function TelaDetalhesProcesso({ controlador }) {
         tipo_indicacao: candidato.tipo_indicacao || '',
       });
       await carregar(paginaPreAnalises, filtrosPreAnalises, paginaCvsNaoQualificados);
-      window.alert(resultado?.message || 'Candidato enviado para o Banco de Talentos.');
+      showToast(resultado?.message || 'Candidato enviado para o Banco de Talentos.', 'success');
       return true;
     } catch (error) {
       setErro(
@@ -8223,7 +8236,10 @@ export function TelaDetalhesProcesso({ controlador }) {
   };
 
   const confirmarEliminacao = async () => {
-    if (!eliminacaoSelecionada?.id_registro) return;
+    if (!eliminacaoSelecionada?.id_registro) {
+      setErroEliminacao('Não foi possível identificar o vínculo deste candidato com o processo para eliminação.');
+      return;
+    }
 
     const motivo = String(formularioEliminacao.motivo_eliminacao || '').trim();
     const etapa = String(formularioEliminacao.etapa_eliminacao || '').trim();
@@ -8451,7 +8467,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       setPreAnaliseSelecionada(null);
       await carregar(paginaPreAnalises);
     } catch (error) {
-      alert(error.message || 'Não foi possível salvar a edição.');
+      showToast(error.message || 'Não foi possível salvar a edição.', 'error');
     }
   };
 
@@ -8495,7 +8511,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       setCandidatoEditando(null);
       await carregar(paginaPreAnalises);
     } catch (error) {
-      alert(error.message || 'Não foi possível salvar os dados do candidato.');
+      showToast(error.message || 'Não foi possível salvar os dados do candidato.', 'error');
     }
   };
 
@@ -9085,7 +9101,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       const mensagem = resultado?.mensagem_base || mensagemFinal;
       await copiarTexto(mensagem).catch(() => null);
 
-      window.alert('Entrevista registrada como pendente e mensagem copiada para a área de transferência.');
+      showToast('Entrevista registrada como pendente e mensagem copiada para a área de transferência.', 'success');
 
       setAgendamentoSelecionado(null);
       await carregar(paginaPreAnalises);
@@ -9418,8 +9434,8 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         label: 'Voltar para processos',
         onClick: () => controlador.irParaTelaProtegida('screen-processes'),
       }}
-        acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
-      >
+        >
+        <${ToastHost} />
         <${LoadingState}
           titulo="Carregando detalhes do processo"
           descricao="Buscando dados da vaga, candidatos, entrevistas e histórico."
@@ -9440,8 +9456,8 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         label: 'Voltar aos detalhes',
         onClick: () => setModoDossieProcessoAberto(false),
       }}
-        acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
-      >
+        >
+        <${ToastHost} />
         <${PageIntro}
           kicker="Processo seletivo"
           title="Dossiê do Processo"
@@ -9482,8 +9498,8 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       label: 'Gerenciar processos',
       onClick: () => controlador.irParaTelaProtegida('screen-processes'),
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${DetalhesProcessoRedesenhado}
         model=${{
       processo,
@@ -10659,7 +10675,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                 podeBaixarCv,
                 onAtualizarStatus: (item, status) =>
                   atualizarStatus(
-                    item.id_registro || item.id_teste || item.id_candidato,
+                    item.id_registro,
                     status,
                     obterReferenciaProcessoDoCandidato(item),
                   ),
@@ -11601,6 +11617,10 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         onEliminar=${() => {
       setFichaCandidatoSelecionada(null);
       abrirEliminacao(candidatoFichaOperacional);
+    }}
+        onBanco=${() => {
+      setFichaCandidatoSelecionada(null);
+      enviarCandidatoBancoTalentos(candidatoFichaOperacional);
     }}
         onAprovar=${() => {
       setFichaCandidatoSelecionada(null);

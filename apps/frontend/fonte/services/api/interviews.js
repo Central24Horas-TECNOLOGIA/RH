@@ -45,7 +45,7 @@ export async function criarSlotsEntrevista(payload) {
     body: JSON.stringify(payload),
   });
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -59,7 +59,7 @@ export async function atualizarSlotEntrevista(idSlot, payload) {
     },
   );
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -69,7 +69,7 @@ export async function excluirSlotEntrevista(idSlot) {
     { method: 'DELETE' },
   );
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -80,7 +80,7 @@ export async function agendarEntrevista(payload) {
     body: JSON.stringify(payload),
   });
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -94,6 +94,6 @@ export async function atualizarEntrevista(idEntrevista, payload) {
     },
   );
 
-  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista');
+  invalidarCacheApi('candidatos-processos', 'pipeline-candidatos', 'processos', 'entrevistas', 'slots-entrevista', 'relatorios', 'historico');
   return resultado;
 }

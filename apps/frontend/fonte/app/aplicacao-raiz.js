@@ -6,6 +6,7 @@ import {
   useControladorAplicacao,
 } from './controlador-aplicacao.js';
 import { LoadingState, ModalPadrao } from '../ui/componentes-compartilhados.js';
+import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js';
 import {
   buscarPoliticaPendente,
   confirmarLeituraPolitica,
@@ -31,9 +32,54 @@ function TelaCarregando({
   `;
 }
 
+// Mantém o menu lateral e o topo fixos enquanto o conteúdo de uma tela
+// autenticada ainda está sendo carregado (evita a sensação de que a
+// plataforma inteira "sumiu" durante a navegação entre telas).
+function TelaCarregandoComShell({ controlador, navAtiva }) {
+  const sidebarRecolhida = !!controlador?.estado?.barraLateralRecolhida;
+  return html`
+    <section class="active screen" id="screen-loading">
+      <div class=${`rh-modern-shell ${sidebarRecolhida ? 'is-sidebar-collapsed' : ''}`.trim()}>
+        <${BarraLateral}
+          navAtiva=${navAtiva}
+          controlador=${controlador}
+          recolhida=${sidebarRecolhida}
+        />
+        <div class="rh-modern-main">
+          <header class="rh-modern-topbar">
+            <div class="rh-modern-topbar-left"></div>
+            <div class="rh-modern-topbar-actions">
+              <${CartaoUsuarioTopo} controlador=${controlador} />
+            </div>
+          </header>
+          <main class="rh-modern-page">
+            <${LoadingState}
+              titulo="Carregando tela"
+              descricao="Aguarde: carregando o conteúdo desta página."
+            />
+          </main>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+// Telas que não usam o layout padrão do RH (PainelRh/menu lateral) — o
+// candidato realizando a prova não deve ver o menu do RH aparecendo e
+// sumindo durante o carregamento.
+const TELAS_SEM_SHELL_FIXO = new Set([
+  'screen-public-candidacy',
+  'screen-conecta-provas',
+  'screen-login',
+  'screen-candidate',
+  'screen-exam',
+  'screen-thanks',
+  'screen-result',
+]);
+
 const importarGestao = () => import('../features/telas-gestao.js?v=20260716-microsoft-login-fallback');
-const importarProcessos = () => import('../features/telas-processos.js');
-const importarProva = () => import('../features/telas-prova.js');
+const importarProcessos = () => import('../features/telas-processos.js?v=20260823-cache-busting-fix');
+const importarProva = () => import('../features/telas-prova.js?v=20260823-cache-busting-fix');
 
 const TelaAnaliseCandidatos = carregarTela(importarGestao, 'TelaAnaliseCandidatos');
 const TelaBancoTalentos = carregarTela(importarGestao, 'TelaBancoTalentos');
@@ -50,6 +96,7 @@ const TelaCandidatos = carregarTela(() => import('../features/candidatos/index.j
 const TelaDetalhesCandidato = carregarTela(() => import('../features/candidatos/index.js'), 'TelaDetalhesCandidato');
 const TelaPipelineCandidatos = carregarTela(() => import('../features/tela-pipeline.js'), 'TelaPipelineCandidatos');
 const TelaEntrevistas = carregarTela(() => import('../features/tela-entrevistas.js'), 'TelaEntrevistas');
+const TelaOneDriveArquivos = carregarTela(() => import('../features/onedrive/index.js?v=20260823-drive-conecta-filters'), 'TelaOneDriveArquivos');
 const TelaCandidaturaPublica = carregarTela(() => import('../features/public-candidacy/index.js'), 'TelaCandidaturaPublica');
 const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js?v=20260721-exam-analytics-2'), 'TelaConectaProvas');
 const TelaProvasResultados = carregarTela(() => import('../features/provas-geradas/index.js'), 'TelaProvasResultados');
@@ -149,10 +196,7 @@ function resolverTelaProtegida(telaAtual, controlador) {
   return telaAtual;
 }
 
-function ConteudoAplicacao() {
-  const controlador = useControladorAplicacao();
-  const telaAtual = usarTelaAtual(controlador.estado.autenticado);
-  const telaResolvida = resolverTelaProtegida(telaAtual, controlador);
+function ConteudoAplicacao({ controlador, telaAtual, telaResolvida }) {
   const [politicaPendente, setPoliticaPendente] = useState(null);
   const [confirmandoPolitica, setConfirmandoPolitica] = useState(false);
   const [erroPoliticaPendente, setErroPoliticaPendente] = useState('');
@@ -320,6 +364,10 @@ function ConteudoAplicacao() {
     return html`<${TelaBancoTalentos} controlador=${controlador} />`;
   }
 
+  if (telaResolvida === 'screen-onedrive-files') {
+    return html`<${TelaOneDriveArquivos} controlador=${controlador} />`;
+  }
+
   if (telaResolvida === 'screen-analysis-candidates') {
     return html`<${TelaAnaliseCandidatos} controlador=${controlador} />`;
   }
@@ -385,7 +433,7 @@ function ConteudoAplicacao() {
         <div class="container py-5">
           <div class="alert alert-warning mb-3">
             ${controlador.estado.avisoAcessoNegado ||
-      'VocÃª nÃ£o possui permissÃ£o para acessar esta Ã¡rea ou executar esta aÃ§Ã£o.'}
+      'Você não possui permissão para acessar esta área ou executar esta ação.'}
           </div>
           <button
             type="button"
@@ -419,9 +467,26 @@ function ConteudoAplicacao() {
 }
 
 export function Aplicacao() {
+  const controlador = useControladorAplicacao();
+  const telaAtual = usarTelaAtual(controlador.estado.autenticado);
+  const telaResolvida = resolverTelaProtegida(telaAtual, controlador);
+
+  const usaShellFixo =
+    controlador.estado.autenticado &&
+    !controlador.estado.validandoSessao &&
+    !TELAS_SEM_SHELL_FIXO.has(telaResolvida);
+
+  const fallback = usaShellFixo
+    ? html`<${TelaCarregandoComShell} controlador=${controlador} navAtiva=${telaResolvida} />`
+    : html`<${TelaCarregando} />`;
+
   return html`
-    <${Suspense} fallback=${html`<${TelaCarregando} />`}>
-      <${ConteudoAplicacao} />
+    <${Suspense} fallback=${fallback}>
+      <${ConteudoAplicacao}
+        controlador=${controlador}
+        telaAtual=${telaAtual}
+        telaResolvida=${telaResolvida}
+      />
     </${Suspense}>
   `;
 }

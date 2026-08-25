@@ -30,8 +30,10 @@ import {
   PageIntro,
   PainelRh,
   SectionCard,
+  Tabs,
+  TabPanel,
 } from '../../ui/componentes-compartilhados.js';
-import { AcaoSair } from '../../shared/components/actions.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import { ModalAprovacaoCandidato } from '../../shared/components/approval-modal.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
@@ -169,9 +171,9 @@ function obterEstadoAcoesCentral(candidato) {
 function possuiReferenciaProcessoReal(candidato) {
   const referencia = String(
     candidato?.id_processo_ref ||
-      candidato?.id_processo ||
-      candidato?.processo_nome ||
-      '',
+    candidato?.id_processo ||
+    candidato?.processo_nome ||
+    '',
   ).trim();
 
   if (!referencia) return false;
@@ -289,22 +291,22 @@ function renderizarAcoesCandidatoCentral({
       aria-label=${`Ações para ${candidato.nome_candidato || 'candidato'}`}
       value=""
       onChange=${(event) => {
-        const acaoSelecionada = acoes.find(
-          (acao) => acao.valor === event.target.value,
-        );
-        event.target.value = '';
-        if (!acaoSelecionada || acaoSelecionada.disabled) return;
-        acaoSelecionada.executar();
-      }}
+      const acaoSelecionada = acoes.find(
+        (acao) => acao.valor === event.target.value,
+      );
+      event.target.value = '';
+      if (!acaoSelecionada || acaoSelecionada.disabled) return;
+      acaoSelecionada.executar();
+    }}
     >
       <option value="">Ações</option>
       ${acoes.map(
-        (acao) => html`
+      (acao) => html`
           <option key=${acao.valor} value=${acao.valor} disabled=${!!acao.disabled}>
             ${acao.label}
           </option>
         `,
-      )}
+    )}
     </select>
   `;
 }
@@ -394,8 +396,8 @@ function renderizarAcoesRapidasDetalhe({
     return html`
       <span class="text-muted">
         ${estadoAcoes.processClosed
-          ? MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO
-          : 'Sem ações pendentes para este candidato.'}
+        ? MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO
+        : 'Sem ações pendentes para este candidato.'}
       </span>
     `;
   }
@@ -403,7 +405,7 @@ function renderizarAcoesRapidasDetalhe({
   return html`
     <div class="rh-modal-footer-actions">
       ${estadoAcoes.canApprove && podeAprovar
-        ? html`
+      ? html`
             <button
               type="button"
               class="btn btn-outline-success"
@@ -413,9 +415,9 @@ function renderizarAcoesRapidasDetalhe({
               Aprovar
             </button>
           `
-        : null}
+      : null}
       ${estadoAcoes.canEliminate && podeEliminar
-        ? html`
+      ? html`
             <button
               type="button"
               class="btn btn-outline-danger"
@@ -425,12 +427,12 @@ function renderizarAcoesRapidasDetalhe({
               Eliminar
             </button>
           `
-        : null}
+      : null}
       ${estadoAcoes.canSendToTalentBank &&
       detalhe.origem_cadastro !== 'banco' &&
       detalhe.id_teste &&
       podeMover
-        ? html`
+      ? html`
             <button
               type="button"
               class="btn btn-outline-warning"
@@ -440,9 +442,9 @@ function renderizarAcoesRapidasDetalhe({
               Banco de Talentos
             </button>
           `
-        : null}
+      : null}
       ${podeEditar
-        ? html`
+      ? html`
             <button
               type="button"
               class="btn btn-outline-secondary"
@@ -452,9 +454,9 @@ function renderizarAcoesRapidasDetalhe({
               Editar
             </button>
           `
-        : null}
+      : null}
       ${candidatoPodeAtrelar(detalhe) && podeCriar
-        ? html`
+      ? html`
             <button
               type="button"
               class="btn btn-outline-primary"
@@ -464,7 +466,7 @@ function renderizarAcoesRapidasDetalhe({
               Adicionar a processo seletivo
             </button>
           `
-        : null}
+      : null}
     </div>
   `;
 }
@@ -803,27 +805,27 @@ function SelectProcesso({ processos, valor, onChange, disabled = false }) {
     >
       <option value="">Selecione um processo aberto</option>
       ${processos.map((processo) => {
-        const referencia = obterReferenciaProcesso(processo);
-        const rotulo = [
-          processo.id_processo || processo.nome || 'Processo',
-          processo.vaga ? `| Vaga: ${processo.vaga}` : '',
-          processo.operacao || processo.cliente
-            ? `| ${processo.operacao || processo.cliente}`
-            : '',
-          processo.data_criacao ? `| Início: ${processo.data_criacao}` : '',
-          processo.data_encerramento ? `| Enc.: ${processo.data_encerramento}` : '',
-          processo.quantidade_vagas || processo.vagas
-            ? `| Vagas: ${processo.vagas_preenchidas || 0}/${processo.quantidade_vagas || processo.vagas}`
-            : '',
-          processo.status ? `| ${processo.status}` : '',
-        ]
-          .filter(Boolean)
-          .join(' ');
+    const referencia = obterReferenciaProcesso(processo);
+    const rotulo = [
+      processo.id_processo || processo.nome || 'Processo',
+      processo.vaga ? `| Vaga: ${processo.vaga}` : '',
+      processo.operacao || processo.cliente
+        ? `| ${processo.operacao || processo.cliente}`
+        : '',
+      processo.data_criacao ? `| Início: ${processo.data_criacao}` : '',
+      processo.data_encerramento ? `| Enc.: ${processo.data_encerramento}` : '',
+      processo.quantidade_vagas || processo.vagas
+        ? `| Vagas: ${processo.vagas_preenchidas || 0}/${processo.quantidade_vagas || processo.vagas}`
+        : '',
+      processo.status ? `| ${processo.status}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
 
-        return html`
+    return html`
           <option key=${referencia} value=${referencia}>${rotulo}</option>
         `;
-      })}
+  })}
     </select>
   `;
 }
@@ -853,6 +855,7 @@ function montarFormularioPerfil(candidato) {
     endereco: candidato?.endereco || '',
     cidade: candidato?.cidade || '',
     bairro: candidato?.bairro || '',
+    data_nascimento: candidato?.data_nascimento || '',
     escolaridade: candidato?.escolaridade || '',
     possui_experiencia: candidato?.possui_experiencia || '',
     musica: candidato?.musica || '',
@@ -886,6 +889,8 @@ function aplicarDadosFichaAoCandidato(candidato, ficha) {
     endereco: dados.endereco || candidato?.endereco || '',
     cidade: dados.cidade || candidato?.cidade || '',
     bairro: dados.bairro || candidato?.bairro || '',
+    data_nascimento: dados.data_nascimento || candidato?.data_nascimento || '',
+    idade: dados.idade || candidato?.idade || '',
     escolaridade: dados.escolaridade || candidato?.escolaridade || '',
     possui_experiencia: dados.possui_experiencia || candidato?.possui_experiencia || '',
     musica: dados.musica || candidato?.musica || '',
@@ -1038,18 +1043,22 @@ function renderizarLinhasFicha(itens, colunas) {
       (item) => `
         <tr>
           ${colunas
-            .map((coluna) => `<td>${escaparHtml(coluna.valor(item))}</td>`)
-            .join('')}
+          .map((coluna) => `<td>${escaparHtml(coluna.valor(item))}</td>`)
+          .join('')}
         </tr>
       `,
     )
     .join('');
 }
 
-function abrirFichaImpressao(candidato, dossie) {
+function abrirFichaImpressao(candidato, dossie, notificar = null) {
   const janela = window.open('', '_blank');
   if (!janela) {
-    window.alert('Não foi possível abrir a ficha para impressão.');
+    if (notificar) {
+      notificar('Não foi possível abrir a ficha para impressão.', 'error');
+    } else {
+      window.alert('Não foi possível abrir a ficha para impressão.');
+    }
     return;
   }
   const ficha = dossie || {
@@ -1106,12 +1115,12 @@ function abrirFichaImpressao(candidato, dossie) {
           <thead><tr><th>Processo</th><th>Vaga</th><th>Status</th><th>Score</th><th>Data</th></tr></thead>
           <tbody>
             ${renderizarLinhasFicha(ficha.processos, [
-              { valor: (item) => item.id_processo || '-' },
-              { valor: (item) => item.vaga || '-' },
-              { valor: (item) => item.status_candidato || '-' },
-              { valor: (item) => obterNotaCandidato(item) },
-              { valor: (item) => formatarDataHora(obterDataEvento(item)) },
-            ])}
+    { valor: (item) => item.id_processo || '-' },
+    { valor: (item) => item.vaga || '-' },
+    { valor: (item) => item.status_candidato || '-' },
+    { valor: (item) => obterNotaCandidato(item) },
+    { valor: (item) => formatarDataHora(obterDataEvento(item)) },
+  ])}
           </tbody>
         </table>
 
@@ -1120,12 +1129,12 @@ function abrirFichaImpressao(candidato, dossie) {
           <thead><tr><th>ID</th><th>Vaga</th><th>Nota geral</th><th>Análise por etapa</th><th>Data</th></tr></thead>
           <tbody>
             ${renderizarLinhasFicha(ficha.provas, [
-              { valor: (item) => item.id_teste || '-' },
-              { valor: (item) => item.vaga || '-' },
-              { valor: (item) => obterNotaCandidato(item) },
-              { valor: (item) => montarTextoEtapasProvaCandidato(item) },
-              { valor: (item) => formatarDataHora(obterDataEvento(item)) },
-            ])}
+    { valor: (item) => item.id_teste || '-' },
+    { valor: (item) => item.vaga || '-' },
+    { valor: (item) => obterNotaCandidato(item) },
+    { valor: (item) => montarTextoEtapasProvaCandidato(item) },
+    { valor: (item) => formatarDataHora(obterDataEvento(item)) },
+  ])}
           </tbody>
         </table>
 
@@ -1140,6 +1149,7 @@ function abrirFichaImpressao(candidato, dossie) {
 }
 
 export function TelaDetalhesCandidato({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
@@ -1166,6 +1176,7 @@ export function TelaDetalhesCandidato({ controlador }) {
   const [arquivoCvFicha, setArquivoCvFicha] = useState(null);
   const [enviandoCvFicha, setEnviandoCvFicha] = useState(false);
   const [analisandoCvFicha, setAnalisandoCvFicha] = useState(false);
+  const [abaDetalheAtiva, setAbaDetalheAtiva] = useState('geral');
 
   const carregar = async ({ forcar = false } = {}) => {
     setCarregando(true);
@@ -1262,6 +1273,7 @@ export function TelaDetalhesCandidato({ controlador }) {
         endereco: formPerfil.endereco,
         cidade: formPerfil.cidade,
         bairro: formPerfil.bairro,
+        data_nascimento: formPerfil.data_nascimento,
         escolaridade: formPerfil.escolaridade,
         possui_experiencia: formPerfil.possui_experiencia,
         musica: formPerfil.musica,
@@ -1299,7 +1311,7 @@ export function TelaDetalhesCandidato({ controlador }) {
 
   const abrirCurriculo = async () => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
-      window.alert('Não há currículo disponível para este candidato.');
+      showToast('Não há currículo disponível para este candidato.', 'warning');
       return;
     }
     try {
@@ -1379,11 +1391,11 @@ export function TelaDetalhesCandidato({ controlador }) {
 
   const abrirModalVinculo = () => {
     if (!candidatoPodeAtrelar(candidato)) {
-      window.alert('Este candidato não possui ações pendentes para vínculo.');
+      showToast('Este candidato não possui ações pendentes para vínculo.', 'warning');
       return;
     }
     if (!processosAbertos.length) {
-      window.alert('Nenhum processo seletivo aberto encontrado.');
+      showToast('Nenhum processo seletivo aberto encontrado.', 'warning');
       return;
     }
     setProcessoSelecionado('');
@@ -1420,7 +1432,7 @@ export function TelaDetalhesCandidato({ controlador }) {
 
   const confirmarVinculoProcesso = async () => {
     if (!processoSelecionado) {
-      window.alert('Selecione um processo seletivo aberto.');
+      showToast('Selecione um processo seletivo aberto.', 'warning');
       return;
     }
 
@@ -1428,12 +1440,12 @@ export function TelaDetalhesCandidato({ controlador }) {
       (item) => obterReferenciaProcesso(item) === processoSelecionado,
     );
     if (!processo) {
-      window.alert('Processo selecionado não encontrado.');
+      showToast('Processo selecionado não encontrado.', 'warning');
       return;
     }
 
     if (candidatoJaVinculadoAoProcessoFicha()) {
-      window.alert('Este candidato já está vinculado a este processo seletivo.');
+      showToast('Este candidato já está vinculado a este processo seletivo.', 'warning');
       return;
     }
 
@@ -1487,8 +1499,8 @@ export function TelaDetalhesCandidato({ controlador }) {
       subtituloMarca="Detalhes do candidato"
       placeholderBusca="Buscar candidatos"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Central de candidatos"
         title=${candidato?.nome_candidato || 'Detalhes do Candidato'}
@@ -1497,9 +1509,9 @@ export function TelaDetalhesCandidato({ controlador }) {
             type="button"
             class="btn btn-outline-secondary btn-sm"
             onClick=${() =>
-              window.history.length > 1
-                ? window.history.back()
-                : controlador.irParaTelaProtegida('screen-candidates')}
+        window.history.length > 1
+          ? window.history.back()
+          : controlador.irParaTelaProtegida('screen-candidates')}
           >
             <span class="material-symbols-outlined">arrow_back</span>
             Voltar
@@ -1512,11 +1524,11 @@ export function TelaDetalhesCandidato({ controlador }) {
             <span class="material-symbols-outlined">groups</span>
             Lista geral de candidatos
           </button>
-          <button type="button" class="btn btn-outline-primary btn-sm" onClick=${() => abrirFichaImpressao(candidato, dossie)}>
+          <button type="button" class="btn btn-outline-primary btn-sm" onClick=${() => abrirFichaImpressao(candidato, dossie, showToast)}>
             Baixar ficha
           </button>
           ${candidatoPodeAtrelar(candidato) && controlador?.possuiPermissao?.('candidatos.criar')
-            ? html`
+        ? html`
                 <button
                   type="button"
                   class="btn btn-outline-primary btn-sm"
@@ -1526,7 +1538,7 @@ export function TelaDetalhesCandidato({ controlador }) {
                   Adicionar a processo seletivo
                 </button>
               `
-            : null}
+        : null}
           <button type="button" class="btn btn-primary btn-sm" disabled=${salvando} onClick=${salvar}>
             ${salvando ? 'Salvando...' : 'Salvar alterações'}
           </button>
@@ -1536,35 +1548,45 @@ export function TelaDetalhesCandidato({ controlador }) {
       ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
       ${mensagem ? html`<div class="alert alert-success">${mensagem}</div>` : null}
       ${carregando
-        ? html`
+      ? html`
             <${LoadingState}
               titulo="Carregando candidato"
               descricao="Buscando ficha, histórico e vínculos do candidato."
             />
           `
-        : null}
+      : null}
 
+      <${Tabs}
+        tabs=${[
+          { key: 'geral', label: 'Informações gerais' },
+          { key: 'provas', label: 'Provas e testes' },
+        ]}
+        activeKey=${abaDetalheAtiva}
+        onChange=${setAbaDetalheAtiva}
+      />
+
+      <${TabPanel} tabKey="geral" activeKey=${abaDetalheAtiva}>
       <${MetricGrid}
         items=${[
-          { label: 'Status atual', value: candidato.status_visivel || candidato.status_candidato || '-' },
-          { label: 'Score do CV', value: candidato.nota_exibicao || candidato.cv_score_final || '-' },
-          { label: 'Score Conecta', value: candidato.score_conecta || candidato.score_final || candidato.nota_exibicao || '-' },
-          { label: 'Processo atual', value: candidato.processo_nome || candidato.id_processo_ref || candidato.id_processo || '-' },
-        ]}
+      { label: 'Status atual', value: candidato.status_visivel || candidato.status_candidato || '-' },
+      { label: 'Score do CV', value: candidato.nota_exibicao || candidato.cv_score_final || '-' },
+      { label: 'Score Conecta', value: candidato.score_conecta || candidato.score_final || candidato.nota_exibicao || '-' },
+      { label: 'Processo atual', value: candidato.processo_nome || candidato.id_processo_ref || candidato.id_processo || '-' },
+    ]}
       />
       ${montarTagsOperacionaisCandidato(candidato).length
-        ? html`
+      ? html`
             <div class="rh-chip-wrap candidate-tag-row candidate-sheet-tag-row">
               ${montarTagsOperacionaisCandidato(candidato).map(
-                (tag) => html`
+        (tag) => html`
                   <span key=${`ficha-${tag.chave}`} class=${`rh-chip ${tag.className}`}>
                     ${tag.label}
                   </span>
                 `,
-              )}
+      )}
             </div>
           `
-        : null}
+      : null}
 
       <${SectionCard} title="Dados pessoais e contato" className="rh-section-card--flat">
         <div class="row g-3">
@@ -1597,6 +1619,14 @@ export function TelaDetalhesCandidato({ controlador }) {
             <input class="form-control" value=${formPerfil.bairro} onInput=${(event) => atualizarCampo('bairro', event.target.value)} />
           </div>
           <div class="col-md-3">
+            <label class="form-label">Data de nascimento</label>
+            <input type="date" class="form-control" value=${formPerfil.data_nascimento} onInput=${(event) => atualizarCampo('data_nascimento', event.target.value)} />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Idade</label>
+            <input class="form-control" readonly value=${candidato.idade ? `${candidato.idade} anos` : 'Não informado'} />
+          </div>
+          <div class="col-md-3">
             <label class="form-label">Escolaridade</label>
             <input class="form-control" value=${formPerfil.escolaridade} onInput=${(event) => atualizarCampo('escolaridade', event.target.value)} />
           </div>
@@ -1621,8 +1651,8 @@ export function TelaDetalhesCandidato({ controlador }) {
             >
               <option value="">Não definida</option>
               ${CLASSIFICACOES_RH_CANDIDATO.map(
-                (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
-              )}
+        (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+      )}
             </select>
           </div>
         </div>
@@ -1662,13 +1692,13 @@ export function TelaDetalhesCandidato({ controlador }) {
           <div class="col-12">
             <div class="candidate-cv-action-row">
               ${candidato.cv_disponivel
-                ? html`
+      ? html`
                     <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${abrirCurriculo}>
                       <span class="material-symbols-outlined">description</span>
                       Ver CV
                     </button>
                   `
-                : html`
+      : html`
                     <label class="process-cv-picker candidate-cv-picker">
                       <input
                         key=${arquivoCvFicha?.name || 'cv-ficha-vazio'}
@@ -1714,15 +1744,17 @@ export function TelaDetalhesCandidato({ controlador }) {
         candidato=${candidato}
         podeAnalisar=${controlador?.possuiPermissao?.('candidatos.avaliar_curriculo')}
       />
+      </${TabPanel}>
 
+      <${TabPanel} tabKey="provas" activeKey=${abaDetalheAtiva}>
       <${SectionCard} title="Resultados da prova" className="rh-section-card--flat">
         <div class="table-responsive">
           <table class="table align-middle rh-modern-history-table">
             <thead><tr><th>Tipo</th><th>Data</th><th>Processo</th><th>Resultado</th><th>Observações</th></tr></thead>
             <tbody>
               ${eventosAvaliacao.length
-                ? eventosAvaliacao.map(
-                    (item) => html`
+      ? eventosAvaliacao.map(
+        (item) => html`
                       <tr key=${`${item.tipo}-${item.data}-${item.processo}`}>
                         <td>${item.tipo}</td>
                         <td>${formatarDataHora(item.data)}</td>
@@ -1731,8 +1763,8 @@ export function TelaDetalhesCandidato({ controlador }) {
                         <td>${item.observacao || '-'}</td>
                       </tr>
                     `,
-                  )
-                : html`<${TabelaVazia} colunas=${5} texto="Sem resultado de prova registrado." />`}
+      )
+      : html`<${TabelaVazia} colunas=${5} texto="Sem resultado de prova registrado." />`}
             </tbody>
           </table>
         </div>
@@ -1789,28 +1821,29 @@ export function TelaDetalhesCandidato({ controlador }) {
           </div>
         </div>
       </${SectionCard}>
+      </${TabPanel}>
 
       <${ModalPadrao}
         aberto=${modalVinculoAberto}
         titulo=${`Adicionar a processo seletivo | ${candidato?.nome_candidato || 'Candidato'}`}
         subtitulo="Selecione um processo seletivo aberto para vincular este candidato."
         onClose=${() => {
-          setModalVinculoAberto(false);
-          setProcessoSelecionado('');
-        }}
+      setModalVinculoAberto(false);
+      setProcessoSelecionado('');
+    }}
       >
         <div class="rh-details-body">
           <${MetricGrid}
             items=${[
-              { label: 'Candidato', value: candidato?.nome_candidato || '-' },
-              { label: 'Vaga atual', value: candidato?.vaga || '-' },
-              { label: 'Origem', value: candidato?.origem_rotulo || 'Ficha do candidato' },
-            ]}
+      { label: 'Candidato', value: candidato?.nome_candidato || '-' },
+      { label: 'Vaga atual', value: candidato?.vaga || '-' },
+      { label: 'Origem', value: candidato?.origem_rotulo || 'Ficha do candidato' },
+    ]}
           />
           <div class="rh-filter-field">
             <label>Processo seletivo</label>
             ${processosAbertos.length
-              ? html`
+      ? html`
                   <${SelectProcesso}
                     processos=${processosAbertos}
                     valor=${processoSelecionado}
@@ -1818,7 +1851,7 @@ export function TelaDetalhesCandidato({ controlador }) {
                     onChange=${setProcessoSelecionado}
                   />
                 `
-              : html`<div class="alert alert-warning mb-0">Nenhum processo seletivo aberto encontrado.</div>`}
+      : html`<div class="alert alert-warning mb-0">Nenhum processo seletivo aberto encontrado.</div>`}
           </div>
         </div>
         <footer class="rh-modal-footer">
@@ -1828,9 +1861,9 @@ export function TelaDetalhesCandidato({ controlador }) {
               class="btn btn-outline-secondary"
               disabled=${salvandoVinculo}
               onClick=${() => {
-                setModalVinculoAberto(false);
-                setProcessoSelecionado('');
-              }}
+      setModalVinculoAberto(false);
+      setProcessoSelecionado('');
+    }}
             >
               Cancelar
             </button>
@@ -1850,6 +1883,7 @@ export function TelaDetalhesCandidato({ controlador }) {
 }
 
 export function TelaCandidatos({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -1885,7 +1919,7 @@ export function TelaCandidatos({ controlador }) {
 
   const abrirCurriculo = async (candidato) => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
-      window.alert('Não há currículo disponível para este candidato.');
+      showToast('Não há currículo disponível para este candidato.', 'warning');
       return;
     }
 
@@ -2050,7 +2084,7 @@ export function TelaCandidatos({ controlador }) {
       ) {
         setErro(
           falhas[0]?.message ||
-            'Não foi possível carregar a página de candidatos.',
+          'Não foi possível carregar a página de candidatos.',
         );
       }
 
@@ -2183,7 +2217,7 @@ export function TelaCandidatos({ controlador }) {
     if (!candidato) return;
 
     if (candidatoEstaAprovado(candidato)) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
@@ -2191,7 +2225,7 @@ export function TelaCandidatos({ controlador }) {
     const statusSeguro = canonicalizeCandidateStatus(status);
 
     if (estadoAcoes.processClosed) {
-      window.alert(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO);
+      showToast(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO, 'warning');
       return;
     }
 
@@ -2201,7 +2235,7 @@ export function TelaCandidatos({ controlador }) {
       (statusSeguro === CANDIDATE_STATUS_TALENT_BANK &&
         !estadoAcoes.canSendToTalentBank)
     ) {
-      window.alert('Este candidato não possui ações pendentes para esta movimentação.');
+      showToast('Este candidato não possui ações pendentes para esta movimentação.', 'warning');
       return;
     }
 
@@ -2223,7 +2257,7 @@ export function TelaCandidatos({ controlador }) {
         } catch (error) {
           setErro(
             error?.message ||
-              'Não foi possível remover o candidato do Banco de Talentos.',
+            'Não foi possível remover o candidato do Banco de Talentos.',
           );
         } finally {
           setSalvando(false);
@@ -2232,8 +2266,9 @@ export function TelaCandidatos({ controlador }) {
         return;
       }
 
-      window.alert(
+      showToast(
         'Este candidato está no Banco de Talentos. Para aprovar, primeiro atrele-o a um processo seletivo.',
+        'warning',
       );
       return;
     }
@@ -2243,14 +2278,15 @@ export function TelaCandidatos({ controlador }) {
         status !== CANDIDATE_STATUS_ELIMINATED &&
         status !== CANDIDATE_STATUS_APPROVED
       ) {
-        window.alert(
+        showToast(
           'Este candidato ainda não possui vínculo operacional com um processo. Atrele-o a um processo antes de aprovar.',
+          'warning',
         );
         return;
       }
 
       if (!candidato.id_teste) {
-        window.alert('Este candidato não possui ID de prova para eliminação.');
+        showToast('Este candidato não possui ID de prova para eliminação.', 'warning');
         return;
       }
 
@@ -2324,7 +2360,7 @@ export function TelaCandidatos({ controlador }) {
 
   const abrirEdicaoCandidato = (candidato) => {
     if (!candidato?.id_teste) {
-      window.alert('Este candidato não possui ID de prova para edição.');
+      showToast('Este candidato não possui ID de prova para edição.', 'warning');
       return;
     }
 
@@ -2362,6 +2398,7 @@ export function TelaCandidatos({ controlador }) {
         endereco: formPerfil.endereco,
         cidade: formPerfil.cidade,
         bairro: formPerfil.bairro,
+        data_nascimento: formPerfil.data_nascimento,
         escolaridade: formPerfil.escolaridade,
         possui_experiencia: formPerfil.possui_experiencia,
         musica: formPerfil.musica,
@@ -2422,27 +2459,27 @@ export function TelaCandidatos({ controlador }) {
 
   const enviarParaBanco = async (candidato) => {
     if (!candidato?.id_teste) {
-      window.alert('Este candidato não possui ID de prova para Banco de Talentos.');
+      showToast('Este candidato não possui ID de prova para Banco de Talentos.', 'warning');
       return;
     }
 
     if (candidato.origem_cadastro === 'banco') {
-      window.alert('Este candidato já está no Banco de Talentos.');
+      showToast('Este candidato já está no Banco de Talentos.', 'warning');
       return;
     }
 
     if (candidatoEstaAprovado(candidato)) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
     const estadoAcoes = obterEstadoAcoesCentral(candidato);
     if (estadoAcoes.processClosed) {
-      window.alert(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO);
+      showToast(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO, 'warning');
       return;
     }
     if (!estadoAcoes.canSendToTalentBank) {
-      window.alert('Este candidato não possui ações pendentes para envio ao Banco de Talentos.');
+      showToast('Este candidato não possui ações pendentes para envio ao Banco de Talentos.', 'warning');
       return;
     }
 
@@ -2499,18 +2536,18 @@ export function TelaCandidatos({ controlador }) {
 
   const abrirAprovacao = (candidato) => {
     if (candidatoEstaAprovado(candidato)) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
     const estadoAcoes = obterEstadoAcoesCentral(candidato);
     if (estadoAcoes.processClosed) {
-      window.alert(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO);
+      showToast(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO, 'warning');
       return;
     }
 
     if (!estadoAcoes.canApprove) {
-      window.alert('A aprovação não está disponível para o status atual deste candidato.');
+      showToast('A aprovação não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
 
@@ -2535,22 +2572,22 @@ export function TelaCandidatos({ controlador }) {
 
   const abrirAtrelar = (candidato, origem = 'Central de Candidatos') => {
     if (candidatoEstaAprovado(candidato)) {
-      window.alert(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO);
+      showToast(MENSAGEM_CANDIDATO_APROVADO_BLOQUEADO, 'warning');
       return;
     }
 
     if (!processosAbertos.length) {
-      window.alert('Nenhum processo seletivo aberto encontrado.');
+      showToast('Nenhum processo seletivo aberto encontrado.', 'warning');
       return;
     }
 
     const estadoAcoes = obterEstadoAcoesCentral(candidato);
     if (estadoAcoes.processClosed) {
-      window.alert(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO);
+      showToast(MENSAGEM_PROCESSO_ENCERRADO_BLOQUEADO, 'warning');
       return;
     }
     if (!candidatoPodeAtrelar(candidato)) {
-      window.alert('Este candidato não possui ações pendentes para vínculo.');
+      showToast('Este candidato não possui ações pendentes para vínculo.', 'warning');
       return;
     }
 
@@ -2566,7 +2603,7 @@ export function TelaCandidatos({ controlador }) {
 
     if (
       String(candidatoParaAtrelar.id_processo_ref || '').trim() ===
-        String(processoSelecionado || '').trim() &&
+      String(processoSelecionado || '').trim() &&
       candidatoParaAtrelar.origem_cadastro === 'processo'
     ) {
       return true;
@@ -2586,7 +2623,7 @@ export function TelaCandidatos({ controlador }) {
         if (
           item.origem_cadastro !== 'processo' ||
           String(item.id_processo_ref || '').trim() !==
-            String(processoSelecionado || '').trim()
+          String(processoSelecionado || '').trim()
         ) {
           return false;
         }
@@ -2609,7 +2646,7 @@ export function TelaCandidatos({ controlador }) {
 
   const confirmarAtrelar = async () => {
     if (!candidatoParaAtrelar || !processoSelecionado) {
-      window.alert('Selecione um processo seletivo aberto.');
+      showToast('Selecione um processo seletivo aberto.', 'warning');
       return;
     }
 
@@ -2617,12 +2654,12 @@ export function TelaCandidatos({ controlador }) {
       (item) => obterReferenciaProcesso(item) === processoSelecionado,
     );
     if (!processo) {
-      window.alert('Processo selecionado não encontrado.');
+      showToast('Processo selecionado não encontrado.', 'warning');
       return;
     }
 
     if (candidatoJaVinculadoAoProcessoSelecionado()) {
-      window.alert('Este candidato já está vinculado a este processo seletivo.');
+      showToast('Este candidato já está vinculado a este processo seletivo.', 'warning');
       return;
     }
 
@@ -2701,8 +2738,8 @@ export function TelaCandidatos({ controlador }) {
       subtituloMarca="Candidatos"
       placeholderBusca="Gestão centralizada de candidatos"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Console | Candidatos"
         title="Central de candidatos"
@@ -2711,8 +2748,8 @@ export function TelaCandidatos({ controlador }) {
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
       ${mensagemSucesso
-        ? html`<div class="alert alert-success">${mensagemSucesso}</div>`
-        : null}
+      ? html`<div class="alert alert-success">${mensagemSucesso}</div>`
+      : null}
 
       <${SectionCard}
         title="Resumo geral"
@@ -2720,13 +2757,13 @@ export function TelaCandidatos({ controlador }) {
       >
         <${MetricGrid}
           items=${[
-            { label: 'Total filtrado', value: resumo.total },
-            { label: 'Aprovados', value: resumo.aprovados },
-            { label: 'Eliminados', value: resumo.eliminados },
-            { label: 'Em análise', value: resumo.analise },
-            { label: 'Em processo', value: resumo.processo },
-            { label: 'Banco de Talentos', value: resumo.banco },
-          ]}
+      { label: 'Total filtrado', value: resumo.total },
+      { label: 'Aprovados', value: resumo.aprovados },
+      { label: 'Eliminados', value: resumo.eliminados },
+      { label: 'Em análise', value: resumo.analise },
+      { label: 'Em processo', value: resumo.processo },
+      { label: 'Banco de Talentos', value: resumo.banco },
+    ]}
         />
       </${SectionCard}>
 
@@ -2742,7 +2779,7 @@ export function TelaCandidatos({ controlador }) {
               placeholder="Nome, email, vaga, processo, status..."
               value=${filtros.busca}
               onInput=${(event) =>
-                setFiltros({ ...filtros, busca: event.target.value })}
+      setFiltros({ ...filtros, busca: event.target.value })}
             />
           </div>
 
@@ -2752,7 +2789,7 @@ export function TelaCandidatos({ controlador }) {
               class="form-select"
               value=${filtros.status}
               onChange=${(event) =>
-                setFiltros({ ...filtros, status: event.target.value })}
+      setFiltros({ ...filtros, status: event.target.value })}
             >
               <option value="">Todos</option>
               <option value="aprovado">Aprovados</option>
@@ -2769,7 +2806,7 @@ export function TelaCandidatos({ controlador }) {
               class="form-select"
               value=${filtros.origem}
               onChange=${(event) =>
-                setFiltros({ ...filtros, origem: event.target.value })}
+      setFiltros({ ...filtros, origem: event.target.value })}
             >
               <option value="">Todas</option>
               <option value="processo">Processo seletivo</option>
@@ -2828,10 +2865,10 @@ export function TelaCandidatos({ controlador }) {
                                   ${candidato.id_teste || '-'}
                                 </div>
                                 ${tagsOperacionais.length
-                                  ? html`
+                  ? html`
                                       <div class="rh-chip-wrap candidate-tag-row">
                                         ${tagsOperacionais.map(
-                                          (tag) => html`
+                    (tag) => html`
                                             <span
                                               key=${`${candidato.chave}-${tag.chave}`}
                                               class=${`rh-chip ${tag.className}`}
@@ -2839,10 +2876,10 @@ export function TelaCandidatos({ controlador }) {
                                               ${tag.label}
                                             </span>
                                           `,
-                                        )}
+                  )}
                                       </div>
                                     `
-                                  : null}
+                  : null}
                               </td>
                               <td>
                                 <div>${mascararEmailContato(candidato.email)}</div>
@@ -2868,8 +2905,8 @@ export function TelaCandidatos({ controlador }) {
                               <td>
                                 <span
                                   class=${`rh-status-pill ${obterClasseStatusEntrevista(
-                                    candidato.status_visivel,
-                                  )}`}
+                    candidato.status_visivel,
+                  )}`}
                                 >
                                   ${candidato.status_visivel || '-'}
                                 </span>
@@ -2878,8 +2915,8 @@ export function TelaCandidatos({ controlador }) {
                               <td>${formatarDataHora(candidato.data_exibicao)}</td>
                               <td>
                                 ${candidato.cv_disponivel &&
-                                controlador.possuiPermissao('candidatos.baixar_curriculo')
-                                  ? html`
+                  controlador.possuiPermissao('candidatos.baixar_curriculo')
+                  ? html`
                                       <button
                                         type="button"
                                         class="btn btn-sm btn-outline-secondary"
@@ -2888,31 +2925,31 @@ export function TelaCandidatos({ controlador }) {
                                         Ver CV
                                       </button>
                                     `
-                                  : 'Sem CV'}
+                  : 'Sem CV'}
                               </td>
                               <td class="text-end">
                                 ${renderizarAcoesCandidatoCentral({
-                                  candidato,
-                                  salvando,
-                                  onDetalhes: abrirTelaDetalhesCandidato,
-                                  onEditar: abrirEdicaoCandidato,
-                                  onAprovar: abrirAprovacao,
-                                  onEliminar: (item) =>
-                                    aplicarStatus(
-                                      item,
-                                      CANDIDATE_STATUS_ELIMINATED,
-                                    ),
-                                  onBanco: enviarParaBanco,
-                                  onAtrelar: (item) =>
-                                    abrirAtrelar(item, 'Central de Candidatos'),
-                                  controlador,
-                                })}
+                    candidato,
+                    salvando,
+                    onDetalhes: abrirTelaDetalhesCandidato,
+                    onEditar: abrirEdicaoCandidato,
+                    onAprovar: abrirAprovacao,
+                    onEliminar: (item) =>
+                      aplicarStatus(
+                        item,
+                        CANDIDATE_STATUS_ELIMINATED,
+                      ),
+                    onBanco: enviarParaBanco,
+                    onAtrelar: (item) =>
+                      abrirAtrelar(item, 'Central de Candidatos'),
+                    controlador,
+                  })}
                               </td>
                             </tr>
                           `;
-                          },
-                        )
-                      : html`
+            },
+          )
+          : html`
                           <${TabelaVazia}
                             colunas=${12}
                             texto="Nenhum candidato encontrado."
@@ -2939,12 +2976,12 @@ export function TelaCandidatos({ controlador }) {
         subtitulo="Dados consolidados, avaliação do RH e ações operacionais."
         className="candidate-sheet-dialog"
         onClose=${() => {
-          setDetalhe(null);
-          setArquivoCvDetalhe(null);
-        }}
+      setDetalhe(null);
+      setArquivoCvDetalhe(null);
+    }}
       >
         ${detalhe
-          ? html`
+      ? html`
               <div class="rh-details-body">
                 <${MetricGrid}
                   items=${[
@@ -3007,18 +3044,18 @@ export function TelaCandidatos({ controlador }) {
                   ]}
                 />
                 ${montarTagsOperacionaisCandidato(detalhe).length
-                  ? html`
+          ? html`
                       <div class="rh-chip-wrap candidate-tag-row candidate-sheet-tag-row">
                         ${montarTagsOperacionaisCandidato(detalhe).map(
-                          (tag) => html`
+            (tag) => html`
                             <span key=${`detalhe-${tag.chave}`} class=${`rh-chip ${tag.className}`}>
                               ${tag.label}
                             </span>
                           `,
-                        )}
+          )}
                       </div>
                     `
-                  : null}
+          : null}
 
                 <${SectionCard}
                   title="Dados pessoais e avaliação do RH"
@@ -3083,6 +3120,19 @@ export function TelaCandidatos({ controlador }) {
                       />
                     </div>
                     <div class="col-md-3">
+                      <label class="form-label">Data de nascimento</label>
+                      <input
+                        type="date"
+                        class="form-control"
+                        value=${formPerfil.data_nascimento}
+                        onInput=${(event) => atualizarCampoPerfil('data_nascimento', event.target.value)}
+                      />
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Idade</label>
+                      <input class="form-control" readonly value=${detalhe.idade ? `${detalhe.idade} anos` : 'Não informado'} />
+                    </div>
+                    <div class="col-md-3">
                       <label class="form-label">Escolaridade</label>
                       <input
                         class="form-control"
@@ -3111,8 +3161,8 @@ export function TelaCandidatos({ controlador }) {
                       >
                         <option value="">Não definida</option>
                         ${CLASSIFICACOES_RH_CANDIDATO.map(
-                          (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
-                        )}
+            (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+          )}
                       </select>
                     </div>
                     <div class="col-md-8">
@@ -3202,7 +3252,7 @@ export function TelaCandidatos({ controlador }) {
                   </div>
                   <div class="rh-modal-footer-actions">
                     ${detalhe.cv_disponivel
-                      ? html`
+          ? html`
                           <button
                             type="button"
                             class="btn btn-outline-secondary"
@@ -3212,7 +3262,7 @@ export function TelaCandidatos({ controlador }) {
                             Visualizar ou baixar CV
                           </button>
                         `
-                      : html`
+          : html`
                           <label class="process-cv-picker candidate-cv-picker">
                             <input
                               key=${arquivoCvDetalhe?.name || 'cv-detalhe-vazio'}
@@ -3259,8 +3309,8 @@ export function TelaCandidatos({ controlador }) {
                 >
                   <div class="rh-cell-stack">
                     ${(dossieDetalhe?.alertas || []).map(
-                      (alerta) => html`<span key=${alerta}>${alerta}</span>`,
-                    )}
+            (alerta) => html`<span key=${alerta}>${alerta}</span>`,
+          )}
                   </div>
                 </${SectionCard}>
 
@@ -3282,8 +3332,8 @@ export function TelaCandidatos({ controlador }) {
                       </thead>
                       <tbody>
                         ${dossieDetalhe?.processos?.length
-                          ? dossieDetalhe.processos.map(
-                              (item) => html`
+          ? dossieDetalhe.processos.map(
+            (item) => html`
                                 <tr key=${`${item.id_registro || item.id_teste || item.id_processo}-${obterDataEvento(item)}`}>
                                   <td>${item.id_processo || '-'}</td>
                                   <td>${item.vaga || '-'}</td>
@@ -3292,8 +3342,8 @@ export function TelaCandidatos({ controlador }) {
                                   <td>${formatarDataHora(obterDataEvento(item))}</td>
                                 </tr>
                               `,
-                            )
-                          : html`<${TabelaVazia} colunas=${5} texto="Sem processos vinculados." />`}
+          )
+          : html`<${TabelaVazia} colunas=${5} texto="Sem processos vinculados." />`}
                       </tbody>
                     </table>
                   </div>
@@ -3301,7 +3351,7 @@ export function TelaCandidatos({ controlador }) {
 
                 <${SectionCard}
                   title="Provas"
-                  description="Notas e an�lises por etapa encontradas."
+                  description="Notas e análises por etapa encontradas."
                   className="rh-section-card--flat"
                 >
                   <div class="table-responsive">
@@ -3317,8 +3367,8 @@ export function TelaCandidatos({ controlador }) {
                       </thead>
                       <tbody>
                         ${dossieDetalhe?.provas?.length
-                          ? dossieDetalhe.provas.map(
-                              (item) => html`
+          ? dossieDetalhe.provas.map(
+            (item) => html`
                                 <tr key=${`${item.id_teste || item.nome_candidato}-${obterDataEvento(item)}`}>
                                   <td>${item.id_teste || '-'}</td>
                                   <td>${item.vaga || '-'}</td>
@@ -3327,8 +3377,8 @@ export function TelaCandidatos({ controlador }) {
                                   <td>${formatarDataHora(obterDataEvento(item))}</td>
                                 </tr>
                               `,
-                            )
-                          : html`<${TabelaVazia} colunas=${5} texto="Sem provas encontradas." />`}
+          )
+          : html`<${TabelaVazia} colunas=${5} texto="Sem provas encontradas." />`}
                       </tbody>
                     </table>
                   </div>
@@ -3394,7 +3444,7 @@ export function TelaCandidatos({ controlador }) {
                 <button
                   type="button"
                   class="btn btn-outline-primary"
-                  onClick=${() => abrirFichaImpressao(detalhe, dossieDetalhe)}
+                  onClick=${() => abrirFichaImpressao(detalhe, dossieDetalhe, showToast)}
                 >
                   Baixar ficha
                 </button>
@@ -3407,7 +3457,7 @@ export function TelaCandidatos({ controlador }) {
                 </button>
               </footer>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
 
       <${ModalGerarDocumento}
@@ -3423,7 +3473,7 @@ export function TelaCandidatos({ controlador }) {
         onClose=${() => setCandidatoEditando(null)}
       >
         ${candidatoEditando
-          ? html`
+      ? html`
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="form-label">Nome do candidato</label>
@@ -3431,7 +3481,7 @@ export function TelaCandidatos({ controlador }) {
                     class="form-control"
                     value=${formPerfil.nome_candidato}
                     onInput=${(event) =>
-                      atualizarCampoPerfil('nome_candidato', event.target.value)}
+          atualizarCampoPerfil('nome_candidato', event.target.value)}
                   />
                 </div>
                 <div class="col-md-6">
@@ -3488,12 +3538,12 @@ export function TelaCandidatos({ controlador }) {
                     class="form-select"
                     value=${formPerfil.classificacao_indicacao}
                     onChange=${(event) =>
-                      atualizarCampoPerfil('classificacao_indicacao', event.target.value)}
+          atualizarCampoPerfil('classificacao_indicacao', event.target.value)}
                   >
                     <option value="">Não definida</option>
                     ${CLASSIFICACOES_RH_CANDIDATO.map(
-                      (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
-                    )}
+            (opcao) => html`<option key=${opcao} value=${opcao}>${opcao}</option>`,
+          )}
                   </select>
                 </div>
                 <div class="col-md-6">
@@ -3561,7 +3611,7 @@ export function TelaCandidatos({ controlador }) {
                     rows="4"
                     value=${formPerfil.observacao_rh}
                     onInput=${(event) =>
-                      atualizarCampoPerfil('observacao_rh', event.target.value)}
+          atualizarCampoPerfil('observacao_rh', event.target.value)}
                   ></textarea>
                 </div>
                 <div class="col-12">
@@ -3571,7 +3621,7 @@ export function TelaCandidatos({ controlador }) {
                     rows="3"
                     value=${formPerfil.justificativa_indicacao}
                     onInput=${(event) =>
-                      atualizarCampoPerfil('justificativa_indicacao', event.target.value)}
+          atualizarCampoPerfil('justificativa_indicacao', event.target.value)}
                   ></textarea>
                 </div>
               </div>
@@ -3595,17 +3645,17 @@ export function TelaCandidatos({ controlador }) {
                 </button>
               </footer>
             `
-          : null}
+      : null}
       </${ModalPadrao}>
 
       <${ModalAprovacaoCandidato}
         aberto=${!!aprovacaoSelecionada}
         candidato=${aprovacaoSelecionada}
         processo=${processosAbertos.find(
-          (processo) =>
-            obterReferenciaProcesso(processo) ===
-            String(aprovacaoSelecionada?.id_processo_ref || '').trim(),
-        )}
+        (processo) =>
+          obterReferenciaProcesso(processo) ===
+          String(aprovacaoSelecionada?.id_processo_ref || '').trim(),
+      )}
         salvando=${salvandoAprovacao}
         onClose=${() => setAprovacaoSelecionada(null)}
         onConfirm=${confirmarAprovacao}
@@ -3613,9 +3663,8 @@ export function TelaCandidatos({ controlador }) {
 
       <${ModalPadrao}
         aberto=${!!candidatoParaAtrelar}
-        titulo=${`Adicionar a processo seletivo | ${
-          candidatoParaAtrelar?.nome_candidato || 'Candidato'
-        }`}
+        titulo=${`Adicionar a processo seletivo | ${candidatoParaAtrelar?.nome_candidato || 'Candidato'
+    }`}
         subtitulo="Selecione um processo seletivo aberto para vincular este candidato."
         onClose=${() => {
           setCandidatoParaAtrelar(null);
@@ -3627,25 +3676,25 @@ export function TelaCandidatos({ controlador }) {
         <div class="rh-details-body">
           <${MetricGrid}
             items=${[
-              {
-                label: 'Candidato',
-                value: candidatoParaAtrelar?.nome_candidato || '-',
-              },
-              {
-                label: 'Vaga atual',
-                value: candidatoParaAtrelar?.vaga || '-',
-              },
-              {
-                label: 'Origem',
-                value: candidatoParaAtrelar?.origem_rotulo || '-',
-              },
-            ]}
+      {
+        label: 'Candidato',
+        value: candidatoParaAtrelar?.nome_candidato || '-',
+      },
+      {
+        label: 'Vaga atual',
+        value: candidatoParaAtrelar?.vaga || '-',
+      },
+      {
+        label: 'Origem',
+        value: candidatoParaAtrelar?.origem_rotulo || '-',
+      },
+    ]}
           />
 
           <div class="rh-filter-field">
             <label>Processo seletivo</label>
             ${processosAbertos.length
-              ? html`
+      ? html`
                   <${SelectProcesso}
                     processos=${processosAbertos}
                     valor=${processoSelecionado}
@@ -3653,7 +3702,7 @@ export function TelaCandidatos({ controlador }) {
                     onChange=${setProcessoSelecionado}
                   />
                 `
-              : html`<div class="alert alert-warning mb-0">Nenhum processo seletivo aberto encontrado.</div>`}
+      : html`<div class="alert alert-warning mb-0">Nenhum processo seletivo aberto encontrado.</div>`}
           </div>
 
           ${candidatoParaAtrelar?.origem_cadastro !== 'banco'

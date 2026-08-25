@@ -14,6 +14,7 @@ import {
   salvarRespostasConectaProvas,
 } from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { formatarTempoRestante } from '../../shared/helpers-visuais.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   EditorTextoRich,
   PerguntaExcel,
@@ -24,7 +25,7 @@ import {
 const CHAVE_TOKEN_PUBLICO = 'conecta_provas_token';
 const CHAVE_TIMER_PUBLICO = 'conecta_provas_timer';
 const ERRO_GENERICO =
-  'Não encontramos uma prova disponível com os dados informados. Verifique as informações ou tente outro mÃ©todo de acesso.';
+  'Não encontramos uma prova disponível com os dados informados. Verifique as informações ou tente outro método de acesso.';
 const ERRO_GENERICO_TELEFONE =
   'Não encontramos uma prova disponível com os dados informados. Verifique as informações ou solicite apoio ao RH.';
 const LIMITE_LINHAS_REDACAO = 20;
@@ -554,7 +555,7 @@ function TelaAcesso({
     metodo === 'telefone'
       ? 'Tente acessar usando o telefone cadastrado pelo RH.'
       : metodo === 'codigo'
-        ? 'Se vocÃª Não souber os dados cadastrados, solicite ao RH o código da sua prova.'
+        ? 'Se você não souber os dados cadastrados, solicite ao RH o código da sua prova.'
         : 'Informe o email cadastrado pelo RH para localizar sua avaliação.';
 
   return html`
@@ -943,6 +944,7 @@ function TelaEtapasProva({
   onVoltar,
   onFinalizar,
 }) {
+  const { showToast, ToastHost } = useToast();
   const etapas = montarEtapasJornada(sessao?.prova || {}, respostas, cadastroConcluido);
   const etapasAvaliativas = etapas.filter((item) => item.key !== 'cadastro');
   const concluidas = etapas.filter((item) => item.status === 'concluida' || item.status === 'indisponivel').length;
@@ -952,6 +954,7 @@ function TelaEtapasProva({
 
   return html`
     <section class="exam-steps-page">
+      <${ToastHost} />
       <header class="exam-steps-header">
         <button type="button" class="exam-steps-back" aria-label="Voltar" onClick=${onVoltar}>
           <span class="material-symbols-outlined">arrow_back</span>
@@ -1013,7 +1016,7 @@ function TelaEtapasProva({
           </section>
           <section class="exam-info-panel">
             <span class="exam-info-icon material-symbols-outlined">sentiment_satisfied</span>
-            <div><h2>Seu processo está pronto</h2><p>Conclua as etapas na ordem indicada. Cada prova poderá ser iniciada individualmente e seu progresso será salvo.</p><a href="#entenda-etapas" onClick=${(event) => { event.preventDefault(); window.alert('Inicie uma etapa por vez. Suas respostas são salvas ao concluir cada bloco e você poderá continuar as etapas pendentes antes do envio final.'); }}><span class="material-symbols-outlined">open_in_new</span>Entenda mais</a></div>
+            <div><h2>Seu processo está pronto</h2><p>Conclua as etapas na ordem indicada. Cada prova poderá ser iniciada individualmente e seu progresso será salvo.</p><a href="#entenda-etapas" onClick=${(event) => { event.preventDefault(); showToast('Inicie uma etapa por vez. Suas respostas são salvas ao concluir cada bloco e você poderá continuar as etapas pendentes antes do envio final.', 'info'); }}><span class="material-symbols-outlined">open_in_new</span>Entenda mais</a></div>
           </section>
           ${confirmacao && todasConcluidas ? html`<button type="button" class="btn btn-primary exam-final-submit" disabled=${carregando} onClick=${onFinalizar}>${carregando ? 'Finalizando...' : 'Finalizar envio'}</button>` : null}
         </aside>
@@ -1764,14 +1767,14 @@ export function TelaConectaProvas() {
       let resposta;
       if (metodo === 'email') {
         if (!validarEmail(valorAcesso)) {
-          setErro('Informe um e-mail vÃ¡lido.');
+          setErro('Informe um e-mail válido.');
           setTentativasEmail((valor) => valor + 1);
           return;
         }
         resposta = await acessarProvaPorEmail(valorAcesso.trim().toLowerCase());
       } else if (metodo === 'telefone') {
         if (!validarTelefone(valorAcesso)) {
-          setErro('Informe um telefone vÃ¡lido.');
+          setErro('Informe um telefone válido.');
           setTentativasTelefone((valor) => valor + 1);
           return;
         }
@@ -1816,7 +1819,7 @@ export function TelaConectaProvas() {
       return;
     }
     if (!validarEmail(formularioDados.email)) {
-      setErro('Informe um e-mail vÃ¡lido.');
+      setErro('Informe um e-mail válido.');
       return;
     }
     if (normalizarTexto(formularioDados.confirmar_email).toLowerCase() !== normalizarTexto(formularioDados.email).toLowerCase()) {
@@ -1824,7 +1827,7 @@ export function TelaConectaProvas() {
       return;
     }
     if (!validarTelefone(formularioDados.telefone)) {
-      setErro('Informe um telefone vÃ¡lido.');
+      setErro('Informe um telefone válido.');
       return;
     }
     if (!validarTelefone(formularioDados.whatsapp)) {
