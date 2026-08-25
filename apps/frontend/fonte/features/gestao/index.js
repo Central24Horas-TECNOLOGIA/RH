@@ -100,6 +100,7 @@ import {
 } from '../../shared/validacoes.js';
 import { BlocoFiltro, CampoFiltro } from './components/filtros.js';
 import { listarOperacoes } from '../../services/api/operations.js';
+import { CHAVE_COMANDO_NOVO_PROCESSO } from '../../ui/busca-global.js';
 import {
   EmptyState,
   GrupoPaginacao,
@@ -2555,6 +2556,21 @@ export function TelaCriarProcesso({ controlador }) {
     const extras = OPCOES_OPERACOES.filter((nome) => !nomesCadastrados.has(nome));
     return [...operacoesCadastradas.map((item) => item.nome), ...extras];
   }, [operacoesCadastradas]);
+
+  useEffect(() => {
+    if (!opcoesOperacaoDisponiveis.length) return;
+    const argumento = sessionStorage.getItem(CHAVE_COMANDO_NOVO_PROCESSO);
+    if (argumento === null) return;
+    sessionStorage.removeItem(CHAVE_COMANDO_NOVO_PROCESSO);
+    if (!argumento.trim()) return;
+    const termo = normalizarTextoPainel(argumento);
+    const encontrada = opcoesOperacaoDisponiveis.find(
+      (nome) => normalizarTextoPainel(nome).includes(termo) || termo.includes(normalizarTextoPainel(nome)),
+    );
+    if (encontrada) {
+      setFormulario((anterior) => ({ ...anterior, operacao: encontrada }));
+    }
+  }, [opcoesOperacaoDisponiveis]);
 
   const regras = obterRegrasFormularioProcesso(formulario.vaga);
   const permiteTipoAtendimento = vagaPermiteTipoAtendimentoProcesso(formulario.vaga);
