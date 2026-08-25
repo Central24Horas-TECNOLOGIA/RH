@@ -486,7 +486,7 @@ export function TelaRaciocinioTestePublico() {
         ${aplicacao?.tempo_limite_minutos
       ? html`<p class="text-muted">Tempo sugerido: ${aplicacao.tempo_limite_minutos} minutos.</p>`
       : null}
-        <div class="rh-teste-publico-progresso"><span style=${`width:${progresso}%`}></span></div>
+        <div class="rh-teste-publico-progresso"><span style=${{ width: `${progresso}%` }}></span></div>
 
         ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
 

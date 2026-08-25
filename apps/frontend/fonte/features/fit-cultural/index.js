@@ -418,7 +418,7 @@ export function PainelResultadoFitCultural({ candidatoProcessoId }) {
         (item) => html`
           <div class="rh-score-bar-row" key=${item.valor_id}>
             <span class="rh-score-bar-label">${item.valor_nome}</span>
-            <div class="rh-score-bar-track"><div class="rh-score-bar-fill" style=${`width:${item.percentual_aderencia}%`}></div></div>
+            <div class="rh-score-bar-track"><div class="rh-score-bar-fill" style=${{ width: `${item.percentual_aderencia}%` }}></div></div>
             <span class="rh-score-bar-value">${item.percentual_aderencia}%</span>
           </div>
         `,

@@ -119,6 +119,10 @@ const TelaTemplatesDocumentos = carregarTela(
   () => import('../features/documentos-template/index.js'),
   'TelaTemplatesDocumentos',
 );
+const TelaTreinamentos = carregarTela(
+  () => import('../features/treinamentos/index.js'),
+  'TelaTreinamentos',
+);
 const importarDisc = () => import('../features/disc/index.js');
 const importarFitCultural = () => import('../features/fit-cultural/index.js');
 const importarRaciocinio = () => import('../features/raciocinio-logico/index.js');
@@ -425,6 +429,10 @@ function ConteudoAplicacao({ controlador, telaAtual, telaResolvida }) {
 
   if (telaResolvida === 'screen-process-analytical-results') {
     return html`<${TelaResultadosAnaliticosProcesso} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-training') {
+    return html`<${TelaTreinamentos} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-forbidden') {

@@ -26,6 +26,7 @@ export const ROTAS_POR_TELA = {
   'screen-calendario': 'calendario',
   'screen-generated-exams': 'processos/provas-resultados',
   'screen-process-analytical-results': 'processos/resultados-analiticos',
+  'screen-training': 'processos/treinamentos',
   'screen-config': 'configuracao',
   'screen-candidate': 'candidato',
   'screen-exam': 'prova',

@@ -330,7 +330,7 @@ export function TelaDiscTestePublico() {
       <div class="rh-teste-publico-shell">
         <h2>Teste de perfil comportamental</h2>
         <p class="text-muted">Em cada bloco, escolha a frase que <strong>mais</strong> e a que <strong>menos</strong> combina com você.</p>
-        <div class="rh-teste-publico-progresso"><span style=${`width:${progresso}%`}></span></div>
+        <div class="rh-teste-publico-progresso"><span style=${{ width: `${progresso}%` }}></span></div>
 
         ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
 
@@ -435,7 +435,7 @@ export function PainelResultadoDisc({ idTeste }) {
         (dim) => html`
           <div class="rh-score-bar-row" key=${dim}>
             <span class="rh-score-bar-label">${DIMENSAO_LABEL[dim]}</span>
-            <div class="rh-score-bar-track"><div class="rh-score-bar-fill" style=${`width:${percentuais[dim] || 0}%`}></div></div>
+            <div class="rh-score-bar-track"><div class="rh-score-bar-fill" style=${{ width: `${percentuais[dim] || 0}%` }}></div></div>
             <span class="rh-score-bar-value">${percentuais[dim] || 0}%</span>
           </div>
         `,
