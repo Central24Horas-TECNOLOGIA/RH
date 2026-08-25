@@ -384,6 +384,8 @@ function ConteudoAplicacao({ controlador, telaAtual, telaResolvida }) {
     telaResolvida === 'screen-settings' ||
     telaResolvida === 'screen-settings-users' ||
     telaResolvida === 'screen-settings-profiles' ||
+    telaResolvida === 'screen-settings-operations' ||
+    telaResolvida === 'screen-settings-catalog' ||
     telaResolvida === 'screen-settings-notifications' ||
     telaResolvida === 'screen-settings-logs'
   ) {

@@ -24,6 +24,8 @@ import { ModalPadrao, PageIntro, PainelRh } from '../../ui/componentes-compartil
 const ABAS = [
   { id: 'usuarios', tela: 'screen-settings-users', label: 'Usuários', permissao: 'usuarios.visualizar', icon: 'person' },
   { id: 'perfis', tela: 'screen-settings-profiles', label: 'Perfis e permissões', permissao: 'configuracoes.visualizar', icon: 'admin_panel_settings' },
+  { id: 'operacoes', tela: 'screen-settings-operations', label: 'Operações', permissao: 'configuracoes.visualizar', icon: 'apartment' },
+  { id: 'catalogos', tela: 'screen-settings-catalog', label: 'Catálogos', permissao: 'configuracoes.visualizar', icon: 'inventory_2' },
   { id: 'notificacoes', tela: 'screen-settings-notifications', label: 'Notificações', permissao: 'notificacoes.configurar', icon: 'notifications_active' },
   { id: 'logs', tela: 'screen-settings-logs', label: 'Logs', permissao: 'logs.visualizar', icon: 'history_edu' },
 ];
@@ -71,6 +73,7 @@ const CATALOGO_ICONS = {
   provas: 'quiz',
   questoes: 'help',
   notificacoes: 'notifications',
+  operacoes: 'apartment',
 };
 
 const STATUS_USUARIO = ['', 'Ativo', 'Inativo', 'Bloqueado'];
@@ -415,6 +418,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const abaRenderizada = abasPermitidas.some((aba) => aba.id === abaAtiva)
     ? abaAtiva
     : abasPermitidas[0]?.id || '';
+
+  useEffect(() => {
+    if (abaRenderizada === 'operacoes') setTipoCatalogo('operacoes');
+  }, [abaRenderizada]);
 
   const fecharDrawerUsuario = () => {
     setDrawerUsuarioAberto(false);
@@ -1877,9 +1884,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               />
             </label>
             <label>
-              <span>Categoria</span>
+              <span>${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'Tipo de operação' : 'Categoria'}</span>
               <input
                 class="form-control"
+                placeholder=${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'Ex.: Receptivo, Ativo, Backoffice, Híbrido' : ''}
                 value=${formItem.categoria}
                 onInput=${(event) => setFormItem({ ...formItem, categoria: event.target.value })}
               />
@@ -1897,10 +1905,11 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               </select>
             </label>
             <label class="is-wide">
-              <span>Descrição</span>
+              <span>${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'Visão geral e como funciona' : 'Descrição'}</span>
               <textarea
                 class="form-control"
-                rows="2"
+                rows=${secaoCatalogoAtiva?.tipo === 'operacoes' ? '5' : '2'}
+                placeholder=${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'O que é essa operação, para qual cliente, e como funciona no dia a dia — use este espaço como o formulário completo da operação.' : ''}
                 value=${formItem.descricao}
                 onInput=${(event) => setFormItem({ ...formItem, descricao: event.target.value })}
               ></textarea>
@@ -2403,11 +2412,13 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
           ? renderUsuarios()
           : abaRenderizada === 'perfis'
             ? renderPerfis()
-            : abaRenderizada === 'catalogos'
+            : abaRenderizada === 'operacoes'
               ? renderCatalogos()
-              : abaRenderizada === 'notificacoes'
-                ? renderNotificacoes()
-                : renderLogs()}
+              : abaRenderizada === 'catalogos'
+                ? renderCatalogos()
+                : abaRenderizada === 'notificacoes'
+                  ? renderNotificacoes()
+                  : renderLogs()}
     </${PainelRh}>
   `;
 }

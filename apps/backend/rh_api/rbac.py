@@ -219,6 +219,11 @@ PERMISSION_DEFINITIONS: dict[str, PermissionDefinition] = {
             "Cadastrar/editar valores e frases de fit cultural.",
             critical=True,
         ),
+        _permission(
+            "operacoes.visualizar",
+            "Operações",
+            "Visualizar operações cadastradas (usadas em processos, provas e treinamentos).",
+        ),
     )
 }
 
@@ -251,6 +256,7 @@ OPERATIONAL_SELECTION_PERMISSIONS = {
     "documentos.solicitar",
     "documentos.marcar_recebido",
     "emails.enviar_modelo",
+    "operacoes.visualizar",
 }
 
 
@@ -306,6 +312,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "relatorios.exportar",
         "lgpd.visualizar",
         "onedrive.visualizar",
+        "operacoes.visualizar",
     },
     ROLE_RH: set(OPERATIONAL_SELECTION_PERMISSIONS)
     | {
@@ -365,6 +372,8 @@ SCREEN_PERMISSIONS: dict[str, str] = {
     "screen-settings-policies": "politicas.editar",
     "screen-settings-onboarding": "onboarding.editar",
     "screen-settings-document-templates": "documentos_templates.editar",
+    "screen-settings-operations": "configuracoes.visualizar",
+    "screen-settings-catalog": "configuracoes.visualizar",
     "screen-generated-exams": "provas.visualizar",
     "screen-process-analytical-results": "provas.visualizar",
     "screen-config": "provas.enviar",
@@ -388,6 +397,7 @@ SETTINGS_CATALOGS: dict[str, dict[str, str]] = {
     "provas": {"table": "provas", "label": "Banco de provas"},
     "questoes": {"table": "questoes", "label": "Questões"},
     "notificacoes": {"table": "notificacoes_regras", "label": "Regras de notificação"},
+    "operacoes": {"table": "operacoes", "label": "Operações"},
 }
 
 

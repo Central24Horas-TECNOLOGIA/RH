@@ -160,6 +160,8 @@ export const PERMISSOES_TELAS = {
   'screen-settings': 'configuracoes.visualizar',
   'screen-settings-users': 'usuarios.visualizar',
   'screen-settings-profiles': 'configuracoes.visualizar',
+  'screen-settings-operations': 'configuracoes.visualizar',
+  'screen-settings-catalog': 'configuracoes.visualizar',
   'screen-settings-logs': 'logs.visualizar',
   'screen-settings-notifications': 'notificacoes.configurar',
   'screen-settings-policies': 'politicas.editar',

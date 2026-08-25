@@ -30,6 +30,7 @@ import {
   salvarAvaliacaoManualProva,
 } from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { obterItensPaginados } from '../../utilitarios.js';
+import { listarOperacoes } from '../../services/api/operations.js';
 import { abrirFichaCandidatoDaProva } from '../../app/controlador-aplicacao.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
 import { formatarNotaVisual } from '../../shared/helpers-visuais.js';
@@ -686,9 +687,33 @@ export function ModalGerarProva({
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [operacoesCadastradas, setOperacoesCadastradas] = useState([]);
   const candidatosElegiveis = Array.isArray(contexto.candidatosElegiveis)
     ? contexto.candidatosElegiveis
     : [];
+
+  useEffect(() => {
+    if (!aberto) return;
+    let cancelado = false;
+    listarOperacoes()
+      .then((itens) => {
+        if (!cancelado && Array.isArray(itens)) setOperacoesCadastradas(itens);
+      })
+      .catch(() => {
+        // Mantém OPCOES_OPERACOES_MODAL como fallback silencioso.
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [aberto]);
+
+  const opcoesOperacaoModal = useMemo(() => {
+    const nomesCadastrados = new Set(
+      operacoesCadastradas.map((item) => normalizarTexto(item.nome)).filter(Boolean),
+    );
+    const extras = OPCOES_OPERACOES_MODAL.filter((nome) => !nomesCadastrados.has(nome));
+    return [...operacoesCadastradas.map((item) => normalizarTexto(item.nome)).filter(Boolean), ...extras];
+  }, [operacoesCadastradas]);
 
   useEffect(() => {
     if (!aberto) return;
@@ -1164,7 +1189,7 @@ export function ModalGerarProva({
                         )}
                     >
                       <option value="">Selecione...</option>
-                      ${[...OPCOES_OPERACOES_MODAL, OPCAO_OUTRO].map(
+                      ${[...opcoesOperacaoModal, OPCAO_OUTRO].map(
                         (opcao) => html`
                           <option key=${opcao} value=${opcao}>
                             ${opcao}

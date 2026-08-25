@@ -411,6 +411,36 @@ def ensure_reusable_config_tables(cursor) -> None:
         )
 
 
+def ensure_operacoes_seed(cursor) -> None:
+    """Semeia as operações hoje hardcoded em OPERATION_OPTIONS (perguntas.js).
+
+    Mantém sincronizado com infra/sql/migrations/V013__operacoes.sql — este
+    bootstrap cobre DEV/HML (autobootstrap), a migration versionada cobre PROD.
+    """
+    operacoes_iniciais = (
+        ("CRF", "CRF / Flamengo", "Receptivo"),
+        ("DAVITA", "Davita", "Receptivo"),
+        ("ENDOVIEW", "Endoview", "Receptivo"),
+        ("NEWE", "Newe Seguros", "Receptivo"),
+        ("C24H", "Central24Horas", "Administrativo"),
+        ("BRAVA", "Brava", "Receptivo"),
+    )
+    for chave, nome, categoria in operacoes_iniciais:
+        cursor.execute(
+            "SELECT 1 FROM dbo.operacoes WHERE nome = ?",
+            (nome,),
+        )
+        if cursor.fetchone():
+            continue
+        cursor.execute(
+            """
+            INSERT INTO dbo.operacoes (chave, nome, descricao, categoria, payload_json, ativo, usado)
+            VALUES (?, ?, NULL, ?, N'{}', 1, 1)
+            """,
+            (chave, nome, categoria),
+        )
+
+
 def ensure_cv_pre_analises_table(cursor) -> None:
     cursor.execute(
         """
@@ -2961,6 +2991,7 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             cursor = conn.cursor()
             ensure_security_tables(cursor, settings)
             ensure_reusable_config_tables(cursor)
+            ensure_operacoes_seed(cursor)
             ensure_process_columns(cursor)
             ensure_pipeline_columns(cursor)
             ensure_candidate_metadata_table(cursor)

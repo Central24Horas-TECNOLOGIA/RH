@@ -99,6 +99,7 @@ import {
   validarPerfilCandidato,
 } from '../../shared/validacoes.js';
 import { BlocoFiltro, CampoFiltro } from './components/filtros.js';
+import { listarOperacoes } from '../../services/api/operations.js';
 import {
   EmptyState,
   GrupoPaginacao,
@@ -2533,6 +2534,27 @@ export function TelaCriarProcesso({ controlador }) {
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [modalCompartilharAberto, setModalCompartilharAberto] = useState(false);
+  const [operacoesCadastradas, setOperacoesCadastradas] = useState([]);
+
+  useEffect(() => {
+    let cancelado = false;
+    listarOperacoes()
+      .then((itens) => {
+        if (!cancelado && Array.isArray(itens)) setOperacoesCadastradas(itens);
+      })
+      .catch(() => {
+        // Mantém a lista estática (OPCOES_OPERACOES) como fallback silencioso.
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const opcoesOperacaoDisponiveis = useMemo(() => {
+    const nomesCadastrados = new Set(operacoesCadastradas.map((item) => item.nome));
+    const extras = OPCOES_OPERACOES.filter((nome) => !nomesCadastrados.has(nome));
+    return [...operacoesCadastradas.map((item) => item.nome), ...extras];
+  }, [operacoesCadastradas]);
 
   const regras = obterRegrasFormularioProcesso(formulario.vaga);
   const permiteTipoAtendimento = vagaPermiteTipoAtendimentoProcesso(formulario.vaga);
@@ -3051,7 +3073,7 @@ export function TelaCriarProcesso({ controlador }) {
                         <span>Operação / Cliente</span>
                         <select value=${formulario.operacao} onChange=${(event) => atualizarCampo('operacao', event.target.value)}>
                           <option value="">Selecione...</option>
-                          ${OPCOES_OPERACOES.map(
+                          ${opcoesOperacaoDisponiveis.map(
         (operacao) => html`<option key=${operacao} value=${operacao}>${operacao}</option>`,
       )}
                         </select>

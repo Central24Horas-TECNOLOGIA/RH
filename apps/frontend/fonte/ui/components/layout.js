@@ -136,6 +136,18 @@ export function BarraLateral({
       permissao: 'configuracoes.visualizar',
     },
     {
+      tela: 'screen-settings-operations',
+      icone: 'apartment',
+      label: 'Operações',
+      permissao: 'configuracoes.visualizar',
+    },
+    {
+      tela: 'screen-settings-catalog',
+      icone: 'inventory_2',
+      label: 'Catálogos',
+      permissao: 'configuracoes.visualizar',
+    },
+    {
       tela: 'screen-settings-logs',
       icone: 'history_edu',
       label: 'Logs',
@@ -204,6 +216,8 @@ export function BarraLateral({
     'screen-settings',
     'screen-settings-users',
     'screen-settings-profiles',
+    'screen-settings-operations',
+    'screen-settings-catalog',
     'screen-settings-logs',
     'screen-settings-policies',
     'screen-settings-onboarding',

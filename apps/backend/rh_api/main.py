@@ -39,6 +39,7 @@ from .routers.history import router as history_router
 from .routers.interviews import router as interviews_router
 from .routers.onboarding import router as onboarding_router
 from .routers.onedrive_files import router as onedrive_files_router
+from .routers.operations import router as operations_router
 from .routers.pipeline import router as pipeline_router
 from .routers.policies import router as policies_router
 from .routers.processes import router as processes_router
@@ -370,6 +371,7 @@ def create_app() -> FastAPI:
     app.include_router(raciocinio_logico_router)
     app.include_router(raciocinio_logico_public_router)
     app.include_router(settings_router)
+    app.include_router(operations_router)
     app.include_router(onedrive_files_router)
     app.include_router(email_send_router)
     _register_frontend_routes(app, settings)

@@ -17,6 +17,8 @@ export const ROTAS_POR_TELA = {
   'screen-onedrive-files': 'onedrive',
   'screen-settings-users': 'configuracoes/usuario',
   'screen-settings-profiles': 'configuracoes/perfis-permissoes',
+  'screen-settings-operations': 'configuracoes/operacoes',
+  'screen-settings-catalog': 'configuracoes/catalogos',
   'screen-settings-logs': 'configuracoes/logs',
   'screen-settings-notifications': 'configuracoes/notificacoes',
   'screen-settings-policies': 'configuracoes/politicas',
