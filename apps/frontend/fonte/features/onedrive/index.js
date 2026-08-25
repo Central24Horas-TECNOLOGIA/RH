@@ -115,6 +115,8 @@ export function TelaOneDriveArquivos({ controlador }) {
   const [itemParaExcluir, setItemParaExcluir] = useState(null);
   const [excluindo, setExcluindo] = useState(false);
   const [itemParaEnviarEmail, setItemParaEnviarEmail] = useState(null);
+  const [menuAcoesAbertoId, setMenuAcoesAbertoId] = useState('');
+  const [menuAcoesPosicao, setMenuAcoesPosicao] = useState(null);
   const inputArquivoRef = useRef(null);
 
   const [busca, setBusca] = useState('');
@@ -169,6 +171,27 @@ export function TelaOneDriveArquivos({ controlador }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!menuAcoesAbertoId) return undefined;
+    const fecharMenu = () => {
+      setMenuAcoesAbertoId('');
+      setMenuAcoesPosicao(null);
+    };
+    const fecharComEsc = (event) => {
+      if (event.key === 'Escape') fecharMenu();
+    };
+    document.addEventListener('click', fecharMenu);
+    document.addEventListener('keydown', fecharComEsc);
+    window.addEventListener('resize', fecharMenu);
+    window.addEventListener('scroll', fecharMenu, true);
+    return () => {
+      document.removeEventListener('click', fecharMenu);
+      document.removeEventListener('keydown', fecharComEsc);
+      window.removeEventListener('resize', fecharMenu);
+      window.removeEventListener('scroll', fecharMenu, true);
+    };
+  }, [menuAcoesAbertoId]);
 
   const usuariosCriadores = useMemo(() => {
     const nomes = new Set();
@@ -340,70 +363,88 @@ export function TelaOneDriveArquivos({ controlador }) {
     }
   };
 
-  const acoesDoItem = (item) => html`
-    <div class="d-flex gap-2 flex-wrap justify-content-center">
-      ${itemEhVisualizavel(item)
-        ? html`
-            <button
-              type="button"
-              class="btn btn-outline-secondary btn-sm"
-              title="Visualizar arquivo"
-              onClick=${(event) => {
-                event.stopPropagation();
-                abrirVisualizacao(item);
-              }}
-            >
-              <${Icone} name="visibility" />
-            </button>
-          `
-        : null}
-      ${item.tipo !== 'pasta'
-        ? html`
-            <button
-              type="button"
-              class="btn btn-outline-secondary btn-sm"
-              title="Baixar"
-              onClick=${(event) => {
-                event.stopPropagation();
-                baixarItem(item);
-              }}
-            >
-              <${Icone} name="download" />
-            </button>
-          `
-        : null}
-      ${item.tipo !== 'pasta' && podeComporEmail
-        ? html`
-            <button
-              type="button"
-              class="btn btn-outline-secondary btn-sm"
-              title="Enviar por e-mail"
-              onClick=${(event) => {
-                event.stopPropagation();
-                setItemParaEnviarEmail(item);
-              }}
-            >
-              <${Icone} name="forward_to_inbox" />
-            </button>
-          `
-        : null}
-      ${podeExcluir
-        ? html`
-            <button
-              type="button"
-              class="btn btn-outline-danger btn-sm"
-              title="Excluir"
-              onClick=${(event) => {
-                event.stopPropagation();
-                setItemParaExcluir(item);
-              }}
-            >
-              <${Icone} name="delete" />
-            </button>
-          `
-        : null}
-    </div>
-  `;
+  const acoesDoItem = (item) => {
+    const acoes = [];
+    if (itemEhVisualizavel(item)) {
+      acoes.push({ key: 'visualizar', label: 'Visualizar', icone: 'visibility', onClick: () => abrirVisualizacao(item) });
+    }
+    if (item.tipo !== 'pasta') {
+      acoes.push({ key: 'baixar', label: 'Baixar', icone: 'download', onClick: () => baixarItem(item) });
+    }
+    if (item.tipo !== 'pasta' && podeComporEmail) {
+      acoes.push({ key: 'email', label: 'Enviar por e-mail', icone: 'forward_to_inbox', onClick: () => setItemParaEnviarEmail(item) });
+    }
+    if (podeExcluir) {
+      acoes.push({ key: 'excluir', label: 'Excluir', icone: 'delete', perigo: true, onClick: () => setItemParaExcluir(item) });
+    }
+    return acoes;
+  };
+
+  const alternarMenuAcoes = (event, idItem) => {
+    event.stopPropagation();
+    if (String(menuAcoesAbertoId) === String(idItem)) {
+      setMenuAcoesAbertoId('');
+      setMenuAcoesPosicao(null);
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const largura = 196;
+    setMenuAcoesPosicao({
+      top: `${Math.min(window.innerHeight - 52, rect.bottom + 6)}px`,
+      left: `${Math.max(8, Math.min(window.innerWidth - largura - 8, rect.right - largura))}px`,
+    });
+    setMenuAcoesAbertoId(idItem);
+  };
+
+  const renderMenuAcoes = (item) => {
+    const acoes = acoesDoItem(item);
+    if (!acoes.length) return null;
+    const aberto = String(menuAcoesAbertoId) === String(item.id);
+    return html`
+      <div class="process-row-action-menu">
+        <button
+          type="button"
+          class="process-row-action-trigger"
+          title="Mais opções"
+          aria-label=${`Mais opções para ${item.nome}`}
+          aria-haspopup="menu"
+          aria-expanded=${aberto}
+          onClick=${(event) => alternarMenuAcoes(event, item.id)}
+        >
+          <${Icone} name="more_vert" />
+        </button>
+        ${aberto
+          ? html`
+              <div
+                class="process-row-actions-dropdown"
+                role="menu"
+                style=${menuAcoesPosicao || {}}
+                onClick=${(event) => event.stopPropagation()}
+              >
+                ${acoes.map(
+                  (acao) => html`
+                    <button
+                      key=${acao.key}
+                      type="button"
+                      role="menuitem"
+                      class=${`process-row-actions-item ${acao.perigo ? 'is-danger' : ''}`.trim()}
+                      onClick=${() => {
+                        setMenuAcoesAbertoId('');
+                        setMenuAcoesPosicao(null);
+                        acao.onClick();
+                      }}
+                    >
+                      <${Icone} name=${acao.icone} />
+                      <span>${acao.label}</span>
+                    </button>
+                  `,
+                )}
+              </div>
+            `
+          : null}
+      </div>
+    `;
+  };
 
   const abrirItem = (item) => {
     if (item.tipo === 'pasta') {
@@ -447,7 +488,7 @@ export function TelaOneDriveArquivos({ controlador }) {
       return item.criado_por || '-';
     }
     if (coluna.key === 'acoes') {
-      return acoesDoItem(item);
+      return renderMenuAcoes(item);
     }
     return null;
   };
@@ -628,7 +669,7 @@ export function TelaOneDriveArquivos({ controlador }) {
                             ${item.tipo === 'pasta' ? `${item.itens_na_pasta ?? 0} itens` : formatarTamanho(item.tamanho_bytes)}
                             · ${formatarDataCurta(item.modificado_em)}
                           </span>
-                          <div class="rh-onedrive-card-actions">${acoesDoItem(item)}</div>
+                          <div class="rh-onedrive-card-actions">${renderMenuAcoes(item)}</div>
                         </div>
                       `,
                     )}
