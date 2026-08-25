@@ -1,10 +1,10 @@
-@import url('./tokens.css');
-@import url('./base.css');
-@import url('./layout.css');
-@import url('./screens.css?v=20260720-conecta-provas-etapas-vagas');
-@import url('./process-details.css');
-@import url('./exam-steps.css?v=20260720-conecta-provas-etapas-vagas');
-@import url('./exam-analytics.css?v=20260720-exam-analytics-v1');
+@import url('./tokens.css?v=20260825-dark-mode-icones');
+@import url('./base.css?v=20260825-dark-mode-icones');
+@import url('./layout.css?v=20260825-dark-mode-icones');
+@import url('./screens.css?v=20260825-dark-mode-icones');
+@import url('./process-details.css?v=20260825-dark-mode-icones');
+@import url('./exam-steps.css?v=20260825-dark-mode-icones');
+@import url('./exam-analytics.css?v=20260825-dark-mode-icones');
 @import url('./testes-complementares.css?v=20260824-testes-complementares-v1');
 @import url('./dashboard-funil.css?v=20260824-dashboard-funil-v1');
 @import url('./print.css');

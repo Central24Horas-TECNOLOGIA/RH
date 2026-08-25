@@ -166,7 +166,7 @@ export {
   lerFunilDashboard,
   lerRelatorioCandidatos,
   lerRelatorioProcessos,
-} from './services/api/analytics.js';
+} from './services/api/analytics.js?v=20260825-dashboard-funil';
 export {
   compararResultadosAnaliticos,
   lerConfiguracaoResultadosAnaliticosProcesso,
@@ -211,7 +211,7 @@ export {
   listarUsuarios,
   redefinirSenhaUsuario,
   registrarSolicitacaoLgpd,
-} from './services/api/settings.js';
+} from './services/api/settings.js?v=20260825-notificacoes-automaticas';
 export {
   atualizarPolitica,
   buscarPoliticaPendente,
