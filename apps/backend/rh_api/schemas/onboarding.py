@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import field_validator
 
 from .common import BaseSchema
@@ -10,6 +12,8 @@ class OnboardingTrilhaItemInput(BaseSchema):
     descricao: str = ""
     ordem: int = 0
     obrigatorio: bool = True
+    tipo_conteudo: str = ""
+    conteudo_url: str = ""
 
     @field_validator("titulo")
     @classmethod
@@ -26,6 +30,10 @@ class OnboardingTrilhaCreateRequest(BaseSchema):
     nome: str = ""
     descricao: str = ""
     ativo: bool = True
+    categoria: str = "Onboarding"
+    id_operacao: int | None = None
+    modalidade: str = ""
+    local_padrao: str = ""
     itens: list[OnboardingTrilhaItemInput] = []
 
     @field_validator("nome")
@@ -46,6 +54,9 @@ class OnboardingTrilhaUpdateRequest(OnboardingTrilhaCreateRequest):
 class OnboardingStartRequest(BaseSchema):
     id_registro: int
     trilha_id: int
+    data_prevista: datetime | None = None
+    local: str = ""
+    ministrante: str = ""
 
     @field_validator("id_registro", "trilha_id")
     @classmethod
@@ -57,3 +68,10 @@ class OnboardingStartRequest(BaseSchema):
 
 class OnboardingItemToggleRequest(BaseSchema):
     concluido: bool = True
+
+
+class OnboardingAssignmentUpdateRequest(BaseSchema):
+    data_prevista: datetime | None = None
+    local: str = ""
+    ministrante: str = ""
+    status: str = "em_andamento"

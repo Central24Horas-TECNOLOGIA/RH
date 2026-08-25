@@ -433,8 +433,17 @@ function ConteudoAplicacao({ controlador, telaAtual, telaResolvida }) {
     return html`<${TelaResultadosAnaliticosProcesso} controlador=${controlador} />`;
   }
 
-  if (telaResolvida === 'screen-training') {
-    return html`<${TelaTreinamentos} controlador=${controlador} />`;
+  if (
+    telaResolvida === 'screen-training' ||
+    telaResolvida === 'screen-training-trilhas' ||
+    telaResolvida === 'screen-training-assignments'
+  ) {
+    return html`
+      <${TelaTreinamentos}
+        controlador=${controlador}
+        telaAtual=${telaResolvida}
+      />
+    `;
   }
 
   if (telaResolvida === 'screen-forbidden') {

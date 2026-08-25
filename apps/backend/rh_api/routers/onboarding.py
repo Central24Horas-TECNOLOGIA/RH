@@ -6,6 +6,7 @@ from ..auth import AuthenticatedUser
 from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
 from ..repositories import DatabaseRepository
 from ..schemas.onboarding import (
+    OnboardingAssignmentUpdateRequest,
     OnboardingItemToggleRequest,
     OnboardingStartRequest,
     OnboardingTrilhaCreateRequest,
@@ -17,8 +18,37 @@ router = APIRouter(prefix="/onboarding", tags=["onboarding"], dependencies=[Depe
 
 
 @router.get("/trilhas", dependencies=[Depends(require_permissions("onboarding.visualizar", "onboarding.editar"))])
-def list_onboarding_trilhas(repository: DatabaseRepository = Depends(get_repository)):
-    return repository.list_onboarding_trilhas()
+def list_onboarding_trilhas(
+    categoria: str = "",
+    id_operacao: int = 0,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.list_onboarding_trilhas(categoria=categoria or None, id_operacao=id_operacao or None)
+
+
+@router.get("/assignments", dependencies=[Depends(require_permissions("onboarding.visualizar", "onboarding.editar"))])
+def list_onboarding_assignments(status: str = "", repository: DatabaseRepository = Depends(get_repository)):
+    return repository.list_onboarding_assignments(status_filtro=status or None)
+
+
+@router.put("/assignments/{id_onboarding}", dependencies=[Depends(require_permissions("onboarding.editar"))])
+def update_onboarding_assignment(
+    id_onboarding: int,
+    payload: OnboardingAssignmentUpdateRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.update_onboarding_assignment(id_onboarding, payload.model_dump(), actor=user.username)
+    audit_action(
+        repository,
+        user,
+        modulo="Onboarding",
+        acao="atualizar_agenda_treinamento",
+        entidade="onboarding_candidato",
+        entidade_id=str(id_onboarding),
+        valor_novo=payload.model_dump(),
+    )
+    return result
 
 
 @router.get("/trilhas/{id_trilha}", dependencies=[Depends(require_permissions("onboarding.visualizar", "onboarding.editar"))])
@@ -71,7 +101,14 @@ def start_onboarding(
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    result = repository.start_onboarding(payload.id_registro, payload.trilha_id, actor=user.username)
+    result = repository.start_onboarding(
+        payload.id_registro,
+        payload.trilha_id,
+        actor=user.username,
+        data_prevista=payload.data_prevista,
+        local=payload.local,
+        ministrante=payload.ministrante,
+    )
     audit_action(
         repository,
         user,

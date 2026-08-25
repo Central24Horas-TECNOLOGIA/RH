@@ -238,11 +238,13 @@ export {
   removerDataComemorativa,
 } from './services/api/calendar.js';
 export {
+  atualizarAgendaTreinamento,
   atualizarTrilhaOnboarding,
   criarTrilhaOnboarding,
   iniciarOnboardingCandidato,
   lerProgressoOnboardingCandidato,
   lerTrilhaOnboarding,
+  listarAtribuicoesTreinamento,
   listarTrilhasOnboarding,
   marcarItemOnboarding,
 } from './services/api/onboarding.js';

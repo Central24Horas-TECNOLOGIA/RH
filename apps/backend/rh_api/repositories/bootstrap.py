@@ -1698,6 +1698,14 @@ def ensure_onboarding_tables(cursor) -> None:
         ("criado_por", "NVARCHAR(180)"),
         ("criado_em", "DATETIME"),
         ("atualizado_em", "DATETIME"),
+        # Extensão "Central de Treinamentos" (respostas.txt, rodada 25/ago/2026):
+        # a mesma trilha de onboarding passa a carregar categoria (LGPD,
+        # Segurança da Informação, Onboarding, Produto), a operação a que se
+        # aplica (NULL = genérica) e como o treinamento é ministrado.
+        ("categoria", "NVARCHAR(60)"),
+        ("id_operacao", "INT"),
+        ("modalidade", "NVARCHAR(20)"),
+        ("local_padrao", "NVARCHAR(180)"),
     ):
         cursor.execute(
             f"""
@@ -1709,6 +1717,7 @@ def ensure_onboarding_tables(cursor) -> None:
             """
         )
     cursor.execute("UPDATE dbo.trilhas_onboarding SET ativo = 1 WHERE ativo IS NULL")
+    cursor.execute("UPDATE dbo.trilhas_onboarding SET categoria = 'Onboarding' WHERE categoria IS NULL")
     cursor.execute("UPDATE dbo.trilhas_onboarding SET criado_em = GETDATE() WHERE criado_em IS NULL")
     cursor.execute("UPDATE dbo.trilhas_onboarding SET atualizado_em = criado_em WHERE atualizado_em IS NULL")
 
@@ -1735,6 +1744,10 @@ def ensure_onboarding_tables(cursor) -> None:
         ("ordem", "INT"),
         ("obrigatorio", "BIT"),
         ("criado_em", "DATETIME"),
+        # Cada item pode carregar um conteúdo (vídeo, texto, slide ou link),
+        # não só um checklist — ver extensão "Central de Treinamentos" acima.
+        ("tipo_conteudo", "NVARCHAR(20)"),
+        ("conteudo_url", "NVARCHAR(500)"),
     ):
         cursor.execute(
             f"""
@@ -1768,6 +1781,12 @@ def ensure_onboarding_tables(cursor) -> None:
         ("trilha_id", "INT"),
         ("iniciado_por", "NVARCHAR(180)"),
         ("iniciado_em", "DATETIME"),
+        # Agenda/local do treinamento (RH: "poderá ver o horário, tempo, sala")
+        # e status geral do check/OK do supervisor, além do checklist por item.
+        ("data_prevista", "DATETIME"),
+        ("local", "NVARCHAR(180)"),
+        ("ministrante", "NVARCHAR(180)"),
+        ("status", "NVARCHAR(20)"),
     ):
         cursor.execute(
             f"""
@@ -1779,6 +1798,7 @@ def ensure_onboarding_tables(cursor) -> None:
             """
         )
     cursor.execute("UPDATE dbo.onboarding_candidatos SET iniciado_em = GETDATE() WHERE iniciado_em IS NULL")
+    cursor.execute("UPDATE dbo.onboarding_candidatos SET status = 'em_andamento' WHERE status IS NULL")
     cursor.execute(
         """
         IF NOT EXISTS (

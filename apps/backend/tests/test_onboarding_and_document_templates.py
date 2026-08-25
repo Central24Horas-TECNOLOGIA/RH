@@ -124,7 +124,16 @@ class FakeOnboardingRepository:
     def list_onboarding_trilhas(self):
         return list(self.trilhas.values())
 
-    def start_onboarding(self, id_registro: int, trilha_id: int, *, actor: str = "") -> dict:
+    def start_onboarding(
+        self,
+        id_registro: int,
+        trilha_id: int,
+        *,
+        actor: str = "",
+        data_prevista=None,
+        local: str = "",
+        ministrante: str = "",
+    ) -> dict:
         progresso = {
             "iniciado": True,
             "candidato": {"id_registro": id_registro},

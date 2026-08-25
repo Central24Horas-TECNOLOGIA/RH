@@ -1,7 +1,31 @@
 import { invalidarCacheApi, requisitar } from './core.js';
 
-export async function listarTrilhasOnboarding() {
-  return requisitar('/onboarding/trilhas', { method: 'GET' });
+function montarQuery(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([chave, valor]) => {
+    if (valor === undefined || valor === null || valor === '') return;
+    query.set(chave, valor);
+  });
+  const texto = query.toString();
+  return texto ? `?${texto}` : '';
+}
+
+export async function listarTrilhasOnboarding(filtros = {}) {
+  return requisitar(`/onboarding/trilhas${montarQuery(filtros)}`, { method: 'GET' });
+}
+
+export async function listarAtribuicoesTreinamento(filtros = {}) {
+  return requisitar(`/onboarding/assignments${montarQuery(filtros)}`, { method: 'GET' });
+}
+
+export async function atualizarAgendaTreinamento(idOnboarding, payload) {
+  const resultado = await requisitar(`/onboarding/assignments/${encodeURIComponent(idOnboarding)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  invalidarCacheApi('onboarding-progresso');
+  return resultado;
 }
 
 export async function lerTrilhaOnboarding(idTrilha) {

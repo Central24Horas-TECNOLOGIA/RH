@@ -84,10 +84,19 @@ export function BarraLateral({
       label: 'Banco de Talentos',
       permissao: 'candidatos.visualizar',
     },
+  ];
+  const sublinksTreinamentos = [
     {
-      tela: 'screen-training',
+      tela: 'screen-training-trilhas',
       icone: 'school',
-      label: 'Treinamentos',
+      label: 'Trilhas',
+      permissao: 'onboarding.visualizar',
+    },
+    {
+      tela: 'screen-training-assignments',
+      icone: 'assignment_ind',
+      label: 'Atribuições',
+      permissao: 'onboarding.visualizar',
     },
   ];
   const sublinksGestao = [
@@ -201,7 +210,11 @@ export function BarraLateral({
     'screen-history',
     'screen-interviews',
     'screen-talent-bank',
+  ];
+  const telasRelacionadasTreinamentos = [
     'screen-training',
+    'screen-training-trilhas',
+    'screen-training-assignments',
   ];
   const telasRelacionadasGestao = [
     'screen-analysis-candidates',
@@ -250,12 +263,21 @@ export function BarraLateral({
   const subitemConfiguracaoAtivo = (subitem) =>
     navAtiva === subitem.tela ||
     (navAtiva === 'screen-settings' && subitem.tela === 'screen-settings-users');
+  const sublinksTreinamentosVisiveis = sublinksTreinamentos.filter((subitem) =>
+    possuiPermissao(subitem.permissao),
+  );
+  const grupoTreinamentosAtivo = telasRelacionadasTreinamentos.includes(navAtiva);
+  const subitemTreinamentoAtivo = (subitem) =>
+    navAtiva === subitem.tela ||
+    (navAtiva === 'screen-training' && subitem.tela === 'screen-training-trilhas');
   const [submenuProcessosAberto, setSubmenuProcessosAberto] =
     useState(grupoProcessosAtivo);
   const [submenuGestaoAberto, setSubmenuGestaoAberto] =
     useState(grupoGestaoAtivo);
   const [submenuConfiguracoesAberto, setSubmenuConfiguracoesAberto] =
     useState(grupoConfiguracoesAtivo);
+  const [submenuTreinamentosAberto, setSubmenuTreinamentosAberto] =
+    useState(grupoTreinamentosAtivo);
   const [logoComErro, setLogoComErro] = useState(false);
 
   useEffect(() => {
@@ -269,6 +291,10 @@ export function BarraLateral({
   useEffect(() => {
     setSubmenuConfiguracoesAberto(grupoConfiguracoesAtivo);
   }, [navAtiva, grupoConfiguracoesAtivo]);
+
+  useEffect(() => {
+    setSubmenuTreinamentosAberto(grupoTreinamentosAtivo);
+  }, [navAtiva, grupoTreinamentosAtivo]);
 
   const renderizarItem = (item) => {
     if (item.visivel === false || !possuiPermissao(item.permissao)) return null;
@@ -533,6 +559,77 @@ export function BarraLateral({
                 }`.trim()}
                               title=${subitem.label}
                               aria-current=${subitemConfiguracaoAtivo(subitem) ? 'page' : null
+              }
+                              onClick=${() =>
+                controlador.irParaTelaProtegida(subitem.tela)}
+                            >
+                              <span
+                                class="material-symbols-outlined"
+                                aria-hidden="true"
+                              >
+                                ${subitem.icone}
+                              </span>
+                              <span>${subitem.label}</span>
+                            </button>
+                          `,
+          )}
+                      </div>
+                    `
+          : null}
+              </div>
+            `
+      : null}
+        ${sublinksTreinamentosVisiveis.length
+      ? html`
+              <div
+                class=${`rh-modern-nav-group ${submenuTreinamentosAberto && !recolhida ? 'is-open' : ''
+          } ${grupoTreinamentosAtivo ? 'has-active' : ''}`.trim()}
+              >
+                <button
+                  type="button"
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoTreinamentosAtivo ? 'is-active' : ''
+          }`.trim()}
+                  title="Treinamentos"
+                  aria-expanded=${!recolhida && submenuTreinamentosAberto}
+                  aria-controls="rh-modern-subnav-treinamentos"
+                  onClick=${() => {
+          if (recolhida) {
+            controlador.irParaTelaProtegida(
+              sublinksTreinamentosVisiveis[0]?.tela || 'screen-training-trilhas',
+            );
+            return;
+          }
+          setSubmenuTreinamentosAberto((valor) => !valor);
+        }}
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">
+                    school
+                  </span>
+                  <span class="rh-modern-nav-label">Treinamentos</span>
+                  <span
+                    class="material-symbols-outlined rh-modern-nav-chevron"
+                    aria-hidden="true"
+                  >
+                    expand_more
+                  </span>
+                </button>
+                ${submenuTreinamentosAberto && !recolhida
+          ? html`
+                      <div
+                        class="rh-modern-subnav"
+                        id="rh-modern-subnav-treinamentos"
+                        role="group"
+                        aria-label="Submenu de Treinamentos"
+                      >
+                        ${sublinksTreinamentosVisiveis.map(
+            (subitem) => html`
+                            <button
+                              key=${subitem.tela}
+                              type="button"
+                              class=${`rh-modern-subnav-btn ${subitemTreinamentoAtivo(subitem) ? 'is-active' : ''
+                }`.trim()}
+                              title=${subitem.label}
+                              aria-current=${subitemTreinamentoAtivo(subitem) ? 'page' : null
               }
                               onClick=${() =>
                 controlador.irParaTelaProtegida(subitem.tela)}
