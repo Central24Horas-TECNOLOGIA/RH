@@ -29,7 +29,7 @@ import {
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
 } from '../../servico-api.js?v=20260721-exam-analytics-2';
-import { obterItensPaginados } from '../../utilitarios.js';
+import { escaparHtml, obterItensPaginados } from '../../utilitarios.js';
 import { listarOperacoes } from '../../services/api/operations.js';
 import { abrirFichaCandidatoDaProva } from '../../app/controlador-aplicacao.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
@@ -1354,6 +1354,136 @@ export function ModalGerarProva({
   `;
 }
 
+function imprimirResultadoProva(detalhe, { etapas, linhasResultado, alertas, notaGeral, scoreConecta, statusProva }) {
+  const nome = escaparHtml(detalhe?.nome_candidato || 'Candidato');
+  const dataGeracao = escaparHtml(formatarDataHoraDetalhe(new Date().toISOString()));
+
+  const linhasEtapas = etapas.length
+    ? etapas.map((etapa) => `
+        <tr>
+          <td>${escaparHtml(etapa.label)}</td>
+          <td>${escaparHtml(etapa.status)}</td>
+          <td>${etapa.score === null || etapa.score === undefined ? '-' : `${formatarNotaVisual(etapa.score, 0)}%`}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="3" class="exam-print-empty">Nenhuma etapa avaliada.</td></tr>';
+
+  const montarLista = (itens) => itens.length
+    ? `<ul>${itens.map((item) => `<li>${escaparHtml(item)}</li>`).join('')}</ul>`
+    : '<p class="exam-print-empty">Nenhum item registrado.</p>';
+
+  const linhasRespostas = linhasResultado.length
+    ? linhasResultado.map((linha) => `
+        <tr>
+          <td>${escaparHtml(linha.etapa)}</td>
+          <td>${escaparHtml(linha.questao)}</td>
+          <td>${escaparHtml(linha.resposta)}</td>
+          <td>${escaparHtml(linha.nota)}</td>
+          <td>${escaparHtml(linha.status?.label || '-')}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="5" class="exam-print-empty">Respostas completas não disponíveis.</td></tr>';
+
+  const janela = window.open('', '_blank');
+  if (!janela) {
+    throw new Error('Não foi possível abrir a janela de impressão. Verifique o bloqueador de pop-ups.');
+  }
+
+  const htmlImpressao = `
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8" />
+        <title>Resultado da prova - ${nome}</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #172033; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.45; }
+          .toolbar { display: flex; justify-content: flex-end; margin: 0 0 16px; }
+          .toolbar button { border: 1px solid #1b5fc1; border-radius: 6px; background: #1b5fc1; color: #fff; padding: 8px 14px; font-weight: 700; cursor: pointer; }
+          header { border-bottom: 2px solid #1b5fc1; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+          header h1 { margin: 0 0 4px; font-size: 22px; }
+          header small { color: #627085; }
+          .exam-print-issued { min-width: 140px; text-align: right; }
+          h2 { margin: 18px 0 8px; font-size: 15px; color: #1b5fc1; }
+          .exam-print-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 18px; margin-bottom: 6px; }
+          .exam-print-summary div { border: 1px solid #d8e0ec; border-radius: 6px; padding: 8px; }
+          .exam-print-summary span { display: block; font-size: 9px; color: #627085; text-transform: uppercase; letter-spacing: .04em; }
+          .exam-print-summary strong { font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+          th, td { border: 1px solid #d8e0ec; padding: 7px; vertical-align: top; text-align: left; font-size: 10px; }
+          th { background: #edf3fb; color: #172033; }
+          ul { margin: 4px 0 0; padding-left: 18px; }
+          .exam-print-empty { padding: 8px; color: #7a869a; }
+          .exam-print-section { margin-top: 14px; break-inside: avoid; }
+          @media print { .toolbar { display: none; } }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar">
+          <button type="button" onclick="window.print()">Imprimir / salvar PDF</button>
+        </div>
+        <header>
+          <div>
+            <h1>Resultado da prova - ${nome}</h1>
+            <small>Código: ${escaparHtml(detalhe?.codigo_acesso || '-')} · Status: ${escaparHtml(statusProva || '-')}</small>
+          </div>
+          <div class="exam-print-issued">
+            <strong>Conecta Provas</strong>
+            <br /><small>${dataGeracao}</small>
+          </div>
+        </header>
+
+        <section class="exam-print-section">
+          <h2>Resumo</h2>
+          <div class="exam-print-summary">
+            <div><span>Nota geral</span><strong>${escaparHtml(formatarScore(notaGeral))}</strong></div>
+            <div><span>Score Conecta</span><strong>${escaparHtml(formatarScore(scoreConecta))}</strong></div>
+            <div><span>Gerada em</span><strong>${escaparHtml(formatarDataHoraDetalhe(detalhe?.gerada_em))}</strong></div>
+            <div><span>Iniciada em</span><strong>${escaparHtml(formatarDataHoraDetalhe(detalhe?.iniciada_em, 'Não iniciado'))}</strong></div>
+            <div><span>Finalizada em</span><strong>${escaparHtml(formatarDataHoraDetalhe(detalhe?.finalizada_em, 'Não finalizado'))}</strong></div>
+          </div>
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Resultado por etapa</h2>
+          <table>
+            <thead><tr><th>Etapa</th><th>Status</th><th>Nota</th></tr></thead>
+            <tbody>${linhasEtapas}</tbody>
+          </table>
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Pontos fortes</h2>
+          ${montarLista(alertas.fortes)}
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Pontos de atenção</h2>
+          ${montarLista(alertas.atencao)}
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Alertas críticos</h2>
+          ${montarLista(alertas.criticos)}
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Respostas</h2>
+          <table>
+            <thead><tr><th>Etapa</th><th>Questão</th><th>Resposta</th><th>Nota</th><th>Status</th></tr></thead>
+            <tbody>${linhasRespostas}</tbody>
+          </table>
+        </section>
+      </body>
+    </html>
+  `;
+
+  janela.document.open();
+  janela.document.write(htmlImpressao);
+  janela.document.close();
+}
+
 function ModalDetalheProvaGerada({
   detalhe,
   onClose,
@@ -1697,10 +1827,14 @@ function ModalDetalheProvaGerada({
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
-                    window.print();
+                    try {
+                      imprimirResultadoProva(detalhe, { etapas, linhasResultado, alertas, notaGeral, scoreConecta, statusProva });
+                    } catch (error) {
+                      window.alert(error?.message || 'Não foi possível gerar o PDF do resultado.');
+                    }
                   }}>
-                    <span class="material-symbols-outlined">print</span>
-                    Imprimir prova
+                    <span class="material-symbols-outlined">picture_as_pdf</span>
+                    Exportar PDF
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
