@@ -536,6 +536,80 @@ function calcularTimestampTermino(sessao = {}, token = '') {
   return Date.now() + totalSegundos * 1000;
 }
 
+/**
+ * Duração/tolerância por etapa: opcional, configurada pelo RH por etapa do
+ * blueprint (ex.: "word_basic", "excel_basic") e guardada em prova.etapas.
+ * Uma etapa da jornada do candidato (ex.: "word") pode agrupar mais de uma
+ * etapa do blueprint quando elas compartilham o mesmo tipo — por isso a
+ * duração configurada de cada etapa do blueprint envolvida é somada.
+ * Etapas sem duração configurada (todo o histórico até aqui) retornam 0,
+ * e o cronômetro por etapa simplesmente não aparece — sem mudança de
+ * comportamento para provas já em andamento.
+ */
+function obterConfiguracaoTempoEtapa(prova = {}, etapaJornada = null) {
+  const indices = Array.isArray(etapaJornada?.indices) ? etapaJornada.indices : [];
+  const questoes = Array.isArray(prova.questoes) ? prova.questoes : [];
+  const etapasBlueprint = Array.isArray(prova.etapas) ? prova.etapas : [];
+  if (!indices.length || !etapasBlueprint.length) {
+    return { duracaoMinutos: 0, toleranciaMinutos: 0 };
+  }
+
+  const chavesBlueprint = new Set(
+    indices
+      .map((indice) => normalizarTexto(questoes[indice]?.stageKey || ''))
+      .filter(Boolean),
+  );
+  if (!chavesBlueprint.size) {
+    return { duracaoMinutos: 0, toleranciaMinutos: 0 };
+  }
+
+  let duracaoMinutos = 0;
+  let toleranciaMinutos = 0;
+  etapasBlueprint.forEach((etapa) => {
+    if (!chavesBlueprint.has(normalizarTexto(etapa?.key || ''))) return;
+    duracaoMinutos += Number(etapa?.duracao_minutos || 0);
+    toleranciaMinutos += Number(etapa?.tolerancia_minutos || 0);
+  });
+
+  return {
+    duracaoMinutos: Math.max(0, duracaoMinutos),
+    toleranciaMinutos: Math.max(0, toleranciaMinutos),
+  };
+}
+
+function obterChaveTimerEtapa(token = '', etapaKey = '') {
+  return `${CHAVE_TIMER_PUBLICO}:etapa:${normalizarTexto(token) || 'ativo'}:${normalizarTexto(etapaKey) || 'atual'}`;
+}
+
+function lerTimestampTimerEtapa(token = '', etapaKey = '') {
+  try {
+    const valor = Number(sessionStorage.getItem(obterChaveTimerEtapa(token, etapaKey)) || 0);
+    return Number.isFinite(valor) && valor > Date.now() ? valor : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function salvarTimestampTimerEtapa(token = '', etapaKey = '', timestamp = 0) {
+  try {
+    if (timestamp > Date.now()) {
+      sessionStorage.setItem(obterChaveTimerEtapa(token, etapaKey), String(timestamp));
+    }
+  } catch (error) {
+    // Sem persistência, o cronômetro da etapa ainda funciona em memória.
+  }
+}
+
+function calcularTimestampTerminoEtapa(token, etapaKey, etapaIniciadaEm, duracaoMinutos, toleranciaMinutos) {
+  const salvo = lerTimestampTimerEtapa(token, etapaKey);
+  if (salvo) return salvo;
+
+  const totalSegundos = Math.max(60, Math.round((Number(duracaoMinutos) + Number(toleranciaMinutos)) * 60));
+  const inicio = new Date(etapaIniciadaEm || '').getTime();
+  const base = Number.isFinite(inicio) && inicio > 0 ? inicio : Date.now();
+  return base + totalSegundos * 1000;
+}
+
 function TelaAcesso({
   metodo,
   valor,
@@ -1187,6 +1261,7 @@ function QuestaoProva({
   indice,
   total,
   tempoRestante,
+  tempoRestanteEtapa,
   progresso,
   nomeCandidato,
   onResposta,
@@ -1209,6 +1284,9 @@ function QuestaoProva({
         <div class="conecta-provas-status-card">
           <span>${`Questão ${indice + 1} de ${total}`}</span>
           <strong>${`Tempo restante: ${formatarTempoRestante(tempoRestante)}`}</strong>
+          ${tempoRestanteEtapa !== null && tempoRestanteEtapa !== undefined
+      ? html`<strong class="conecta-provas-status-etapa">${`Tempo desta etapa: ${formatarTempoRestante(tempoRestanteEtapa)}`}</strong>`
+      : null}
           <div class="conecta-provas-status-track">
             <div style=${{ width: `${progresso}%` }}></div>
           </div>
@@ -1507,6 +1585,8 @@ export function TelaConectaProvas() {
   const [etapaSelecionadaKey, setEtapaSelecionadaKey] = useState('');
   const [timestampTermino, setTimestampTermino] = useState(null);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
+  const [timestampTerminoEtapa, setTimestampTerminoEtapa] = useState(null);
+  const [segundosRestantesEtapa, setSegundosRestantesEtapa] = useState(null);
   const [pendenciasFinalizacao, setPendenciasFinalizacao] = useState([]);
   const [confirmarFinalizacaoAberta, setConfirmarFinalizacaoAberta] = useState(false);
   const interrupcaoRegistradaRef = useRef(false);
@@ -1723,6 +1803,8 @@ export function TelaConectaProvas() {
     telemetriaRef.current.indiceAtivo = null;
     telemetriaRef.current.acessoAtivoEm = 0;
     marcarEtapaIndisponivel(contexto.etapaSelecionadaKey);
+    setTimestampTerminoEtapa(null);
+    setSegundosRestantesEtapa(null);
     setEtapa('confirmacao-etapas');
     return true;
   };
@@ -1759,6 +1841,22 @@ export function TelaConectaProvas() {
       window.removeEventListener('hashchange', confirmarSaidaInterna);
     };
   }, [etapa, token, etapaSelecionadaKey]);
+
+  useEffect(() => {
+    if (!timestampTerminoEtapa || etapa !== 'prova') return undefined;
+    const atualizar = () => {
+      const restante = Math.max(0, Math.floor((timestampTerminoEtapa - Date.now()) / 1000));
+      setSegundosRestantesEtapa(restante);
+      if (restante <= 0) {
+        registrarInterrupcaoAtual().catch(() => {
+          setErro('O tempo desta etapa esgotou, mas não foi possível registrar automaticamente. Tente concluir a etapa.');
+        });
+      }
+    };
+    atualizar();
+    const intervalo = window.setInterval(atualizar, 1000);
+    return () => window.clearInterval(intervalo);
+  }, [timestampTerminoEtapa, etapa]);
 
   const selecionarToken = async (tokenSelecionado, opcoes = {}) => {
     if (!tokenSelecionado) return;
@@ -1948,6 +2046,26 @@ export function TelaConectaProvas() {
       interrupcaoRegistradaRef.current = false;
       setEtapa('prova');
       iniciarEtapaConectaProvas(token, etapaKey, primeiroIndice, etapaIniciadaEm).catch(() => {});
+
+      const { duracaoMinutos, toleranciaMinutos } = obterConfiguracaoTempoEtapa(
+        sessaoAtualizada?.prova,
+        etapaJornada,
+      );
+      if (duracaoMinutos > 0) {
+        const timestampEtapa = calcularTimestampTerminoEtapa(
+          token,
+          etapaKey,
+          etapaIniciadaEm,
+          duracaoMinutos,
+          toleranciaMinutos,
+        );
+        salvarTimestampTimerEtapa(token, etapaKey, timestampEtapa);
+        setTimestampTerminoEtapa(timestampEtapa);
+        setSegundosRestantesEtapa(Math.max(1, Math.floor((timestampEtapa - Date.now()) / 1000)));
+      } else {
+        setTimestampTerminoEtapa(null);
+        setSegundosRestantesEtapa(null);
+      }
     } catch (error) {
       setErro(error?.message || 'Não foi possível iniciar a prova.');
     } finally {
@@ -1991,6 +2109,8 @@ export function TelaConectaProvas() {
       setSessao((anterior) =>
         atualizarEstadoEtapaSessao(anterior, etapaSelecionadaKey, { status: 'concluida' }),
       );
+      setTimestampTerminoEtapa(null);
+      setSegundosRestantesEtapa(null);
       setEtapa('confirmacao-etapas');
     } catch (error) {
       setErro(error?.message || 'Não foi possível salvar esta etapa agora.');
@@ -2177,6 +2297,7 @@ export function TelaConectaProvas() {
               indice=${indiceAtual}
               total=${questoes.length}
               tempoRestante=${timestampTermino ? segundosRestantes : obterTempoTotalSegundos(sessao)}
+              tempoRestanteEtapa=${timestampTerminoEtapa ? segundosRestantesEtapa : null}
               progresso=${progresso}
               nomeCandidato=${formularioDados.nome_candidato || sessao?.candidato?.nome_candidato}
               onResposta=${(resposta) =>

@@ -328,6 +328,11 @@
   font-size: 0.95rem;
 }
 
+.conecta-provas-status-card strong.conecta-provas-status-etapa {
+  color: #b5530c;
+  font-size: 0.82rem;
+}
+
 .conecta-provas-status-track {
   overflow: hidden;
   height: 6px;
@@ -13195,6 +13200,48 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.55rem;
+}
+
+#screen-generated-exams .generated-stage-duration-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+#screen-generated-exams .generated-stage-duration-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  padding: 0.5rem 0.62rem;
+  border: 1px solid var(--generated-border);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+}
+
+#screen-generated-exams .generated-stage-duration-label {
+  flex: 1 1 160px;
+  min-width: 0;
+  color: var(--generated-text);
+  font-weight: 650;
+  font-size: 0.84rem;
+}
+
+#screen-generated-exams .generated-stage-duration-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+
+#screen-generated-exams .generated-stage-duration-field span {
+  color: var(--generated-muted);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+#screen-generated-exams .generated-stage-duration-field input {
+  width: 72px;
+  min-height: 34px;
 }
 
 #screen-generated-exams .generated-detail-summary-card {

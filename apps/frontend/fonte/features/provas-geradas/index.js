@@ -365,6 +365,19 @@ function montarFormularioInicial(contexto = {}) {
     ),
     expira_em: normalizarTexto(candidato.expira_em || ''),
     login_method: normalizarTexto(candidato.login_method || ''),
+    duracao_etapas: Array.isArray(candidato.etapas)
+      ? Object.fromEntries(
+        candidato.etapas
+          .filter((etapa) => etapa?.key)
+          .map((etapa) => [
+            etapa.key,
+            {
+              duracao_minutos: Number(etapa.duracao_minutos || 0),
+              tolerancia_minutos: Number(etapa.tolerancia_minutos || 0),
+            },
+          ]),
+      )
+      : {},
   };
 }
 
@@ -777,6 +790,21 @@ export function ModalGerarProva({
     setErro('');
   };
 
+  const atualizarDuracaoEtapa = (etapaKey, campo, valor) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      duracao_etapas: {
+        ...anterior.duracao_etapas,
+        [etapaKey]: {
+          duracao_minutos: 0,
+          tolerancia_minutos: 0,
+          ...anterior.duracao_etapas?.[etapaKey],
+          [campo]: valor,
+        },
+      },
+    }));
+  };
+
   const selecionarCandidato = (identificador) => {
     const candidato = candidatosElegiveis.find(
       (item) => String(item.id_registro || item.id_teste || '') === String(identificador || ''),
@@ -899,6 +927,12 @@ export function ModalGerarProva({
       ? personalizacao.operacao
       : normalizarTexto(formulario.operacao);
 
+    const etapasComDuracao = etapas.map((etapa) => ({
+      ...etapa,
+      duracao_minutos: Number(formulario.duracao_etapas?.[etapa.key]?.duracao_minutos) || 0,
+      tolerancia_minutos: Number(formulario.duracao_etapas?.[etapa.key]?.tolerancia_minutos) || 0,
+    }));
+
     const payload = {
       candidato_id: formulario.id_teste,
       id_teste: formulario.id_teste,
@@ -921,7 +955,7 @@ export function ModalGerarProva({
       tempo_total: Number(formulario.tempo_total || 40),
       tempo_minutos: Number(formulario.tempo_total || 40),
       quantidade_questoes: questoesPersonalizadas.length,
-      etapas,
+      etapas: etapasComDuracao,
       categorias,
       questoes_snapshot: questoesPersonalizadas,
       personalizacao,
@@ -1140,6 +1174,46 @@ export function ModalGerarProva({
             </div>
           </div>
         </${SectionCard}>
+
+        ${etapas.length
+      ? html`
+              <${SectionCard}
+                title="Duração por etapa"
+                description="Opcional. Deixe em 0 para a etapa usar apenas o tempo total da prova, sem limite próprio."
+                className="rh-section-card--flat"
+              >
+                <div class="generated-stage-duration-list">
+                  ${etapas.map((etapa) => html`
+                    <div class="generated-stage-duration-row" key=${etapa.key}>
+                      <span class="generated-stage-duration-label">${etapa.label}</span>
+                      <label class="generated-stage-duration-field">
+                        <span>Duração (min)</span>
+                        <input
+                          class="form-control"
+                          type="number"
+                          min="0"
+                          max="300"
+                          value=${formulario.duracao_etapas?.[etapa.key]?.duracao_minutos || 0}
+                          onInput=${(event) => atualizarDuracaoEtapa(etapa.key, 'duracao_minutos', Number(event.target.value))}
+                        />
+                      </label>
+                      <label class="generated-stage-duration-field">
+                        <span>Tolerância (min)</span>
+                        <input
+                          class="form-control"
+                          type="number"
+                          min="0"
+                          max="60"
+                          value=${formulario.duracao_etapas?.[etapa.key]?.tolerancia_minutos || 0}
+                          onInput=${(event) => atualizarDuracaoEtapa(etapa.key, 'tolerancia_minutos', Number(event.target.value))}
+                        />
+                      </label>
+                    </div>
+                  `)}
+                </div>
+              </${SectionCard}>
+            `
+      : null}
 
         <${SectionCard}
           title="Personalização da prova"
