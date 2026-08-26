@@ -6039,6 +6039,28 @@ function KanbanCandidatosProcesso({
   `;
 }
 
+const PADRAO_MENCAO_ANOTACAO = /(?<!\w)@([a-zA-Z0-9_.-]{2,60})/g;
+
+function renderizarTextoComMencoes(texto) {
+  const valor = String(texto || '');
+  if (!valor) return '';
+  const partes = [];
+  let ultimoIndice = 0;
+  let contador = 0;
+  valor.replace(PADRAO_MENCAO_ANOTACAO, (match, usuario, indice) => {
+    if (indice > ultimoIndice) {
+      partes.push(valor.slice(ultimoIndice, indice));
+    }
+    partes.push(html`<span class="dossier-note-mention" key=${`mencao-${contador++}`}>@${usuario}</span>`);
+    ultimoIndice = indice + match.length;
+    return match;
+  });
+  if (ultimoIndice < valor.length) {
+    partes.push(valor.slice(ultimoIndice));
+  }
+  return partes;
+}
+
 function DetalhesProcessoRedesenhado({ model, state, actions }) {
   const {
     processo,
@@ -6402,10 +6424,10 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
                   <option value="">Parecer geral do processo</option>
                   ${dossie.map((item) => html`<option key=${item.id} value=${item.id_teste || item.id}>${item.nome}</option>`)}
                 </select>
-                <textarea rows="3" value=${formularioAnotacaoDossie.texto} placeholder="Registre o parecer do RH ou uma observação relevante" onInput=${(event) => actions.atualizarCampoAnotacao('texto', event.target.value)}></textarea>
+                <textarea rows="3" value=${formularioAnotacaoDossie.texto} placeholder="Registre o parecer do RH ou uma observação relevante. Use @usuario para mencionar alguém." onInput=${(event) => actions.atualizarCampoAnotacao('texto', event.target.value)}></textarea>
                 <div><button type="button" class="btn btn-primary" disabled=${salvandoAnotacaoDossie} onClick=${actions.salvarAnotacao}>${salvandoAnotacaoDossie ? 'Salvando...' : anotacaoDossieEditandoId ? 'Atualizar parecer' : 'Salvar parecer'}</button>${anotacaoDossieEditandoId ? html`<button type="button" class="btn btn-outline-secondary" onClick=${actions.cancelarEdicaoAnotacao}>Cancelar</button>` : null}</div>
               </div>
-              <div class="process-dossier-note-list">${anotacoesDossie.length ? anotacoesDossie.slice(0, 8).map((anotacao) => html`<article key=${anotacao.id_anotacao}><div><strong>${anotacao.nome_candidato || 'Processo'}</strong><p>${anotacao.texto}</p><small>${formatarDataHora(anotacao.atualizado_em || anotacao.criado_em)}</small></div><button type="button" class="process-link-button" onClick=${() => actions.editarAnotacao(anotacao)}>Editar</button></article>`) : html`<p class="process-empty-row">Nenhum parecer registrado.</p>`}</div>
+              <div class="process-dossier-note-list">${anotacoesDossie.length ? anotacoesDossie.slice(0, 8).map((anotacao) => html`<article key=${anotacao.id_anotacao}><div><strong>${anotacao.nome_candidato || 'Processo'}</strong><p>${renderizarTextoComMencoes(anotacao.texto)}</p><small>${formatarDataHora(anotacao.atualizado_em || anotacao.criado_em)}</small></div><button type="button" class="process-link-button" onClick=${() => actions.editarAnotacao(anotacao)}>Editar</button></article>`) : html`<p class="process-empty-row">Nenhum parecer registrado.</p>`}</div>
             </section>
           ` : null}
 

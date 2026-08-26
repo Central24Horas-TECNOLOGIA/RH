@@ -273,6 +273,7 @@
 #screen-process-details .process-dossier-note-list { display: grid; gap: 0.5rem; }
 #screen-process-details .process-dossier-note-list article { display: flex; justify-content: space-between; gap: 1rem; border-top: 1px solid #edf0f5; padding-top: 0.65rem; }
 #screen-process-details .process-dossier-note-list small { color: #7b8799; }
+#screen-process-details .dossier-note-mention { color: var(--process-blue); font-weight: 700; }
 
 #screen-process-details .process-find-heading > div:last-child { display: flex; gap: 0.55rem; flex-wrap: wrap; }
 #screen-process-details .process-find-subtabs { display: flex; gap: 0.35rem; margin-bottom: 0.7rem; border-bottom: 1px solid var(--process-border); }

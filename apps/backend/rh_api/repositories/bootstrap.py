@@ -1367,6 +1367,7 @@ def ensure_process_dossier_notes_table(cursor) -> None:
         ("usuario_responsavel", "NVARCHAR(180)"),
         ("criado_em", "DATETIME"),
         ("atualizado_em", "DATETIME"),
+        ("mencoes_json", "NVARCHAR(MAX)"),
     ):
         cursor.execute(
             f"""

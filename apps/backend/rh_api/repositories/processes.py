@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import logging
 import math
+import re
 from datetime import datetime
 
 from fastapi import HTTPException, status
@@ -11,6 +13,7 @@ from ..services.helpers import (
     normalize_indication_type,
     normalize_text,
     rows_to_dicts,
+    safe_json_loads,
 )
 from ..services.pipeline import infer_pipeline_stage, map_pipeline_stage_to_status, normalize_pipeline_stage
 from ..services.process_flow import (
@@ -63,6 +66,32 @@ LIMITE_PERCENTUAL_VAGAS_URGENTES = 0.2
 # abertas do sistema, nao por RH individual. Se o RH quiser o limite por
 # usuario/empresa, sera necessario antes adicionar essa coluna de propriedade
 # da vaga - documentado tambem no relatorio final desta tarefa.
+
+# Padrao de mencao em anotacoes de dossie: @usuario, sem validar contra a
+# tabela de usuarios (evita expor a lista de usuarios do sistema para quem
+# nao tem a permissao usuarios.visualizar so para poder mencionar alguem).
+MENTION_PATTERN = re.compile(r"(?<!\w)@([a-zA-Z0-9_.\-]{2,60})")
+
+
+def extract_note_mentions(texto: str) -> list[str]:
+    texto_seguro = normalize_text(texto)
+    if not texto_seguro:
+        return []
+    mencoes: list[str] = []
+    for match in MENTION_PATTERN.finditer(texto_seguro):
+        usuario = match.group(1)
+        if usuario not in mencoes:
+            mencoes.append(usuario)
+    return mencoes
+
+
+def attach_note_mentions(rows: list[dict]) -> list[dict]:
+    for row in rows:
+        row["mencoes"] = safe_json_loads(row.get("mencoes_json"), [])
+        if not isinstance(row["mencoes"], list):
+            row["mencoes"] = []
+        row.pop("mencoes_json", None)
+    return rows
 
 
 class ProcessRepositoryMixin:
@@ -1372,7 +1401,8 @@ class ProcessRepositoryMixin:
                     texto,
                     usuario_responsavel,
                     criado_em,
-                    atualizado_em
+                    atualizado_em,
+                    mencoes_json
                 FROM processos_dossie_anotacoes
                 WHERE id_processo = ?
                   AND ISNULL(id_processo_ref, '') = ?
@@ -1380,7 +1410,7 @@ class ProcessRepositoryMixin:
                 """,
                 (processo.get("id_processo"), process_ref),
             )
-            return rows_to_dicts(cursor, cursor.fetchall())
+            return attach_note_mentions(rows_to_dicts(cursor, cursor.fetchall()))
         finally:
             conn.close()
 
@@ -1415,6 +1445,7 @@ class ProcessRepositoryMixin:
                 row = cursor.fetchone()
                 nome_candidato = normalize_text(row[0] if row else "")
 
+            texto_nota = normalize_text(data.get("texto"))
             cursor.execute(
                 """
                 INSERT INTO processos_dossie_anotacoes
@@ -1426,18 +1457,20 @@ class ProcessRepositoryMixin:
                     texto,
                     usuario_responsavel,
                     criado_em,
-                    atualizado_em
+                    atualizado_em,
+                    mencoes_json
                 )
                 OUTPUT INSERTED.id_anotacao
-                VALUES (?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, GETDATE(), GETDATE(), ?)
                 """,
                 (
                     processo.get("id_processo"),
                     normalize_text(processo.get("id_processo_ref")),
                     id_teste,
                     nome_candidato,
-                    normalize_text(data.get("texto")),
+                    texto_nota,
                     normalize_text(usuario_responsavel),
+                    json.dumps(extract_note_mentions(texto_nota)),
                 ),
             )
             inserted = cursor.fetchone()
@@ -1464,13 +1497,14 @@ class ProcessRepositoryMixin:
                     texto,
                     usuario_responsavel,
                     criado_em,
-                    atualizado_em
+                    atualizado_em,
+                    mencoes_json
                 FROM processos_dossie_anotacoes
                 WHERE id_anotacao = ?
                 """,
                 (int(id_anotacao or 0),),
             )
-            rows = rows_to_dicts(cursor, cursor.fetchall())
+            rows = attach_note_mentions(rows_to_dicts(cursor, cursor.fetchall()))
             if not rows:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anotação do dossiê não encontrada.")
             return rows[0]
@@ -1499,18 +1533,21 @@ class ProcessRepositoryMixin:
             if not cursor.fetchone():
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anotação do dossiê não encontrada.")
 
+            texto_nota = normalize_text(data.get("texto"))
             cursor.execute(
                 """
                 UPDATE processos_dossie_anotacoes
                 SET
                     texto = ?,
                     usuario_responsavel = COALESCE(NULLIF(?, ''), usuario_responsavel),
-                    atualizado_em = GETDATE()
+                    atualizado_em = GETDATE(),
+                    mencoes_json = ?
                 WHERE id_anotacao = ?
                 """,
                 (
-                    normalize_text(data.get("texto")),
+                    texto_nota,
                     normalize_text(usuario_responsavel),
+                    json.dumps(extract_note_mentions(texto_nota)),
                     int(id_anotacao or 0),
                 ),
             )
