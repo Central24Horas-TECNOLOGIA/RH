@@ -6516,6 +6516,7 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [formularioEliminacao, setFormularioEliminacao] = useState({
     motivo_eliminacao: '',
     etapa_eliminacao: '',
+    observacao_eliminacao: '',
   });
   const [erroEliminacao, setErroEliminacao] = useState('');
   const [entrevistaEdicao, setEntrevistaEdicao] = useState(null);
@@ -8144,6 +8145,7 @@ export function TelaDetalhesProcesso({ controlador }) {
     setFormularioEliminacao({
       motivo_eliminacao: '',
       etapa_eliminacao: '',
+      observacao_eliminacao: '',
     });
     setEliminacaoSelecionada(candidato);
   };
@@ -8163,7 +8165,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       return;
     }
     setErroEliminacao('');
-    setFormularioEliminacao({ motivo_eliminacao: '', etapa_eliminacao: '' });
+    setFormularioEliminacao({ motivo_eliminacao: '', etapa_eliminacao: '', observacao_eliminacao: '' });
     setEliminacaoSelecionada({
       id_registro: '__lote__',
       nome_candidato: `${candidatosValidos.length} candidatos selecionados`,
@@ -8290,6 +8292,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       motivo_eliminacao: motivo,
       etapa_eliminacao: motivo === 'Eliminado na entrevista' ? etapa : '',
       data_eliminacao: new Date().toISOString(),
+      observacao_eliminacao: String(formularioEliminacao.observacao_eliminacao || '').trim(),
     };
     const lote = Array.isArray(eliminacaoSelecionada.candidatos_lote)
       ? eliminacaoSelecionada.candidatos_lote
@@ -11549,6 +11552,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                       value=${formularioEliminacao.motivo_eliminacao}
                       onChange=${(event) =>
           setFormularioEliminacao({
+            ...formularioEliminacao,
             motivo_eliminacao: event.target.value,
             etapa_eliminacao:
               event.target.value === 'Eliminado na entrevista'
@@ -11587,6 +11591,21 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                         </div>
                       `
           : null}
+                  <div class="col-md-12">
+                    <label class="form-label">Observação complementar (opcional)</label>
+                    <textarea
+                      class="form-control"
+                      rows="2"
+                      maxlength="300"
+                      placeholder="Detalhe rápido para ajudar a auditar essa decisão depois, se precisar."
+                      value=${formularioEliminacao.observacao_eliminacao}
+                      onInput=${(event) =>
+          setFormularioEliminacao({
+            ...formularioEliminacao,
+            observacao_eliminacao: event.target.value,
+          })}
+                    ></textarea>
+                  </div>
                 </div>
                 ${erroEliminacao
           ? html`<div class="alert alert-warning mt-3 mb-0">${erroEliminacao}</div>`

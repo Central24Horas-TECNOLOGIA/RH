@@ -289,6 +289,7 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
     motivo_eliminacao: str = ""
     etapa_eliminacao: str = ""
     data_eliminacao: str | None = None
+    observacao_eliminacao: str = ""
 
     @field_validator("mensagem_aprovacao")
     @classmethod
@@ -341,6 +342,14 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
             raise ValueError("Os dados da eliminação devem ter no máximo 120 caracteres.")
         return safe_value
 
+    @field_validator("observacao_eliminacao")
+    @classmethod
+    def validate_elimination_note(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 300:
+            raise ValueError("A observação complementar deve ter no máximo 300 caracteres.")
+        return safe_value
+
 
 class StandaloneCandidateStatusUpdateRequest(BaseSchema):
     status_candidato: str = ""
@@ -355,6 +364,15 @@ class StandaloneCandidateStatusUpdateRequest(BaseSchema):
     motivo_eliminacao: str = ""
     etapa_eliminacao: str = ""
     data_eliminacao: str | None = None
+    observacao_eliminacao: str = ""
+
+    @field_validator("observacao_eliminacao")
+    @classmethod
+    def validate_elimination_note(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 300:
+            raise ValueError("A observação complementar deve ter no máximo 300 caracteres.")
+        return safe_value
 
 
 class WhatsAppManualContactRequest(BaseSchema):
