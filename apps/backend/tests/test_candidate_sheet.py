@@ -12,7 +12,7 @@ if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
 
 from rh_api.routers.processes import get_candidate_sheet, update_candidate_sheet
-from rh_api.repositories.candidate_sheet import _format_score
+from rh_api.repositories.candidate_sheet import CandidateSheetRepositoryMixin, _format_score
 from rh_api.schemas.processes import CandidateSheetUpdateRequest
 
 
@@ -82,3 +82,66 @@ def test_candidate_sheet_rejects_invalid_recommendation():
 
 def test_candidate_sheet_preserves_zero_cv_score():
     assert _format_score(0) == "0"
+
+
+def test_serialize_candidate_sheet_timeline_orders_events_newest_first():
+    mixin = CandidateSheetRepositoryMixin()
+
+    timeline = mixin._serialize_candidate_sheet_timeline(
+        movement_rows=[
+            {
+                "tipo_movimentacao": "Eliminação reconsiderada",
+                "status_anterior": "Eliminado",
+                "status_novo": "Em Análise",
+                "observacao": "Revisão solicitada pelo gestor.",
+                "usuario_responsavel": "rh.usuario",
+                "processo_destino": "",
+                "criado_em": "2026-08-20T10:00:00",
+            },
+        ],
+        history_rows=[
+            {
+                "trilha": "Atendimento",
+                "nivel": "",
+                "pontuacao_final": "8,0",
+                "vaga": "Analista",
+                "data_iso": "2026-08-10T09:00:00",
+                "data_exibicao": "",
+            },
+        ],
+        interview_rows=[
+            {
+                "status_entrevista": "Realizada",
+                "vaga": "Analista",
+                "data_entrevista": "2026-08-15T14:00:00",
+            },
+        ],
+        cv_pre_analysis={
+            "classificacao": "Indicado",
+            "criado_em": "2026-08-05T08:00:00",
+        },
+    )
+
+    assert [evento["tipo"] for evento in timeline] == [
+        "movimentacao",
+        "entrevista",
+        "prova",
+        "curriculo",
+    ]
+    assert timeline[0]["titulo"] == "Eliminação reconsiderada"
+    assert "Eliminado → Em Análise" in timeline[0]["descricao"]
+    assert "Revisão solicitada pelo gestor." in timeline[0]["descricao"]
+    assert "Responsável: rh.usuario" in timeline[0]["descricao"]
+
+
+def test_serialize_candidate_sheet_timeline_handles_empty_inputs():
+    mixin = CandidateSheetRepositoryMixin()
+
+    timeline = mixin._serialize_candidate_sheet_timeline(
+        movement_rows=[],
+        history_rows=[],
+        interview_rows=[],
+        cv_pre_analysis={},
+    )
+
+    assert timeline == []

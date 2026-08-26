@@ -2871,6 +2871,7 @@ function ModalFichaCandidato({
   const curriculo = candidato.curriculo || {};
   const processos = Array.isArray(ficha.processos) ? ficha.processos : [];
   const resultados = resultadosFichaVisiveis(ficha.resultados);
+  const timeline = Array.isArray(ficha.timeline) ? ficha.timeline : [];
   const processoPrincipal = processos[0] || {};
   const resultadosProva = resultados.filter((item) => {
     const etapa = normalizarTextoComparacao(item?.etapa || '');
@@ -3028,6 +3029,26 @@ function ModalFichaCandidato({
               ${analisandoCv ? 'Analisando...' : 'Analisar CV'}
             </button>
               </div>
+            </section>
+
+            <section class="candidate-complementary-card candidate-timeline-card">
+              <h2>Linha do tempo</h2>
+              ${timeline.length
+      ? html`
+                    <div class="process-history-list">
+                      ${timeline.map((evento, indice) => html`
+                        <article key=${`${evento.tipo || 'evento'}-${indice}`}>
+                          <span class="process-history-icon"><i class="material-symbols-outlined">${evento.icone || 'circle'}</i></span>
+                          <div>
+                            <strong>${evento.titulo || 'Evento'}</strong>
+                            <p>${evento.descricao || ''}</p>
+                            <small>${formatarDataHora(evento.data)}</small>
+                          </div>
+                        </article>
+                      `)}
+                    </div>
+                  `
+      : html`<p class="candidate-profile-uninformed">Nenhum evento registrado até o momento.</p>`}
             </section>
 
             <section class="candidate-rh-notes-card">

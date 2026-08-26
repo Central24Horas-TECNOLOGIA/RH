@@ -370,6 +370,8 @@
 #screen-process-details .candidate-complementary-card > h2,
 #screen-process-details .candidate-rh-notes-card h2 { margin: 0; color: #101d4f; font-size: 1rem; }
 #screen-process-details .candidate-complementary-card > h2 { padding: 0 0.15rem 0.85rem; border-bottom: 1px solid #dce3ed; }
+#screen-process-details .candidate-timeline-card { display: grid; gap: 0.85rem; }
+#screen-process-details .candidate-timeline-card .process-history-list { max-height: 320px; overflow-y: auto; padding-right: 0.15rem; }
 #screen-process-details .candidate-info-row { display: grid; grid-template-columns: minmax(180px, 32%) minmax(0, 1fr); gap: 1rem; align-items: center; min-height: 58px; border-bottom: 1px solid #e1e6ee; padding: 0.65rem 0.15rem; }
 #screen-process-details .candidate-info-row > span { color: #35435c; font-weight: 650; }
 #screen-process-details .candidate-info-row > strong { color: #41516e; font-weight: 600; }
