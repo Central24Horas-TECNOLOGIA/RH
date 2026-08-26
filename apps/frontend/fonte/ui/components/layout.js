@@ -67,12 +67,6 @@ export function BarraLateral({
       permissao: 'vagas.visualizar',
     },
     {
-      tela: 'screen-generated-exams',
-      icone: 'assignment',
-      label: 'Provas e Resultados',
-      permissao: 'provas.visualizar',
-    },
-    {
       tela: 'screen-interviews',
       icone: 'event_available',
       label: 'Entrevistas',
@@ -83,6 +77,20 @@ export function BarraLateral({
       icone: 'group',
       label: 'Banco de Talentos',
       permissao: 'candidatos.visualizar',
+    },
+  ];
+  const sublinksProvas = [
+    {
+      tela: 'screen-generated-exams',
+      icone: 'assignment',
+      label: 'Provas e Resultados',
+      permissao: 'provas.visualizar',
+    },
+    {
+      tela: 'screen-history',
+      icone: 'history',
+      label: 'Histórico de Provas',
+      permissao: 'candidatos.consultar_historico',
     },
   ];
   const sublinksTreinamentos = [
@@ -205,11 +213,13 @@ export function BarraLateral({
     'screen-processes-closed',
     'screen-process-decisions',
     'screen-process-details',
-    'screen-generated-exams',
     'screen-process-analytical-results',
-    'screen-history',
     'screen-interviews',
     'screen-talent-bank',
+  ];
+  const telasRelacionadasProvas = [
+    'screen-generated-exams',
+    'screen-history',
   ];
   const telasRelacionadasTreinamentos = [
     'screen-training',
@@ -250,6 +260,11 @@ export function BarraLateral({
   const sublinksProcessosVisiveis = sublinksProcessos.filter((subitem) =>
     possuiPermissao(subitem.permissao),
   );
+  const grupoProvasAtivo = telasRelacionadasProvas.includes(navAtiva);
+  const subitemProvaAtivo = (subitem) => navAtiva === subitem.tela;
+  const sublinksProvasVisiveis = sublinksProvas.filter((subitem) =>
+    possuiPermissao(subitem.permissao),
+  );
   const sublinksConfiguracoesVisiveis = sublinksConfiguracoes.filter((subitem) =>
     possuiPermissao(subitem.permissao),
   );
@@ -272,6 +287,8 @@ export function BarraLateral({
     (navAtiva === 'screen-training' && subitem.tela === 'screen-training-trilhas');
   const [submenuProcessosAberto, setSubmenuProcessosAberto] =
     useState(grupoProcessosAtivo);
+  const [submenuProvasAberto, setSubmenuProvasAberto] =
+    useState(grupoProvasAtivo);
   const [submenuGestaoAberto, setSubmenuGestaoAberto] =
     useState(grupoGestaoAtivo);
   const [submenuConfiguracoesAberto, setSubmenuConfiguracoesAberto] =
@@ -283,6 +300,10 @@ export function BarraLateral({
   useEffect(() => {
     setSubmenuProcessosAberto(grupoProcessosAtivo);
   }, [navAtiva, grupoProcessosAtivo]);
+
+  useEffect(() => {
+    setSubmenuProvasAberto(grupoProvasAtivo);
+  }, [navAtiva, grupoProvasAtivo]);
 
   useEffect(() => {
     setSubmenuGestaoAberto(grupoGestaoAtivo);
@@ -417,6 +438,77 @@ export function BarraLateral({
                 } ${subitem.status || ''}`.trim()}
                               title=${subitem.label}
                               aria-current=${navAtiva === subitem.tela ? 'page' : null
+              }
+                              onClick=${() =>
+                controlador.irParaTelaProtegida(subitem.tela)}
+                            >
+                              <span
+                                class="material-symbols-outlined"
+                                aria-hidden="true"
+                              >
+                                ${subitem.icone}
+                              </span>
+                              <span>${subitem.label}</span>
+                            </button>
+                          `,
+          )}
+                      </div>
+                    `
+          : null}
+              </div>
+            `
+      : null}
+        ${sublinksProvasVisiveis.length
+      ? html`
+              <div
+                class=${`rh-modern-nav-group ${submenuProvasAberto && !recolhida ? 'is-open' : ''
+          } ${grupoProvasAtivo ? 'has-active' : ''}`.trim()}
+              >
+                <button
+                  type="button"
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoProvasAtivo ? 'is-active' : ''
+          }`.trim()}
+                  title="Conecta Provas"
+                  aria-expanded=${!recolhida && submenuProvasAberto}
+                  aria-controls="rh-modern-subnav-provas"
+                  onClick=${() => {
+          if (recolhida) {
+            controlador.irParaTelaProtegida(
+              sublinksProvasVisiveis[0]?.tela || 'screen-generated-exams',
+            );
+            return;
+          }
+          setSubmenuProvasAberto((valor) => !valor);
+        }}
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">
+                    quiz
+                  </span>
+                  <span class="rh-modern-nav-label">Conecta Provas</span>
+                  <span
+                    class="material-symbols-outlined rh-modern-nav-chevron"
+                    aria-hidden="true"
+                  >
+                    expand_more
+                  </span>
+                </button>
+                ${submenuProvasAberto && !recolhida
+          ? html`
+                      <div
+                        class="rh-modern-subnav"
+                        id="rh-modern-subnav-provas"
+                        role="group"
+                        aria-label="Submenu de Conecta Provas"
+                      >
+                        ${sublinksProvasVisiveis.map(
+            (subitem) => html`
+                            <button
+                              key=${subitem.tela}
+                              type="button"
+                              class=${`rh-modern-subnav-btn ${subitemProvaAtivo(subitem) ? 'is-active' : ''
+                }`.trim()}
+                              title=${subitem.label}
+                              aria-current=${subitemProvaAtivo(subitem) ? 'page' : null
               }
                               onClick=${() =>
                 controlador.irParaTelaProtegida(subitem.tela)}
