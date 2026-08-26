@@ -1952,8 +1952,11 @@ export function TelaProvasResultados({ controlador }) {
   const [filtros, setFiltros] = useState({
     candidato: '',
     vaga: '',
+    operacao: '',
+    trilha: '',
     status: '',
     resultado: '',
+    notaMinima: '',
     dataGeracao: '',
   });
   const [modalGerarAberto, setModalGerarAberto] = useState(false);
@@ -1996,8 +1999,11 @@ export function TelaProvasResultados({ controlador }) {
   const provasFiltradas = useMemo(() => {
     const candidato = normalizarBusca(filtros.candidato);
     const vaga = normalizarBusca(filtros.vaga);
+    const operacao = normalizarBusca(filtros.operacao);
+    const trilha = normalizarBusca(filtros.trilha);
     const status = normalizarBusca(filtros.status);
     const resultado = normalizarBusca(filtros.resultado);
+    const notaMinima = filtros.notaMinima === '' ? null : Number(filtros.notaMinima);
     return provas.filter((item) => {
       const textoCandidato = normalizarBusca([
         item.nome_candidato,
@@ -2009,18 +2015,28 @@ export function TelaProvasResultados({ controlador }) {
         item.codigo_acesso,
       ].join(' '));
       const textoVaga = normalizarBusca(item.vaga);
+      const textoOperacao = normalizarBusca(item.operacao);
+      const textoTrilha = normalizarBusca(item.trilha);
       const textoStatus = normalizarBusca(item.status);
       const dataBase = String(item.gerada_em || '').slice(0, 10);
       const notaFinal = obterNotaFinal(item);
       const alertas = obterAlertas(item);
       if (candidato && !textoCandidato.includes(candidato)) return false;
       if (vaga && !textoVaga.includes(vaga)) return false;
+      if (operacao && textoOperacao !== operacao) return false;
+      if (trilha && textoTrilha !== trilha) return false;
       if (status && textoStatus !== status) return false;
       if (resultado === 'com_nota' && (notaFinal === null || notaFinal === undefined || notaFinal === '')) return false;
       if (resultado === 'sem_nota' && !(notaFinal === null || notaFinal === undefined || notaFinal === '')) return false;
       if (resultado === 'com_alertas' && !alertas.length) return false;
       if (resultado === 'sem_alertas' && alertas.length) return false;
       if (resultado === 'pendente_avaliacao' && !item.pendente_avaliacao_manual && !textoStatus.includes('pendente')) return false;
+      if (notaMinima !== null) {
+        const notaFinalNumerica = notaFinal === null || notaFinal === undefined || notaFinal === ''
+          ? null
+          : Number(String(notaFinal).replace(',', '.'));
+        if (notaFinalNumerica === null || !Number.isFinite(notaFinalNumerica) || notaFinalNumerica < notaMinima) return false;
+      }
       if (filtros.dataGeracao && dataBase !== filtros.dataGeracao) return false;
       return true;
     });
@@ -2150,6 +2166,8 @@ export function TelaProvasResultados({ controlador }) {
 
   const statusDisponiveis = Array.from(new Set(provas.map((item) => item.status).filter(Boolean)));
   const vagasDisponiveis = Array.from(new Set(provas.map((item) => item.vaga).filter(Boolean)));
+  const operacoesDisponiveis = Array.from(new Set(provas.map((item) => item.operacao).filter(Boolean)));
+  const trilhasDisponiveis = Array.from(new Set(provas.map((item) => item.trilha).filter(Boolean)));
   const atualizarFiltro = (campo, valor) =>
     setFiltros((anteriores) => ({
       ...anteriores,
@@ -2159,8 +2177,11 @@ export function TelaProvasResultados({ controlador }) {
     setFiltros({
       candidato: '',
       vaga: '',
+      operacao: '',
+      trilha: '',
       status: '',
       resultado: '',
+      notaMinima: '',
       dataGeracao: '',
     });
 
@@ -2221,6 +2242,22 @@ export function TelaProvasResultados({ controlador }) {
           </select>
           <select
             class="form-select"
+            value=${filtros.operacao}
+            onChange=${(event) => atualizarFiltro('operacao', event.target.value)}
+          >
+            <option value="">Todas as operações</option>
+            ${operacoesDisponiveis.map((operacao) => html`<option key=${operacao} value=${operacao}>${operacao}</option>`)}
+          </select>
+          <select
+            class="form-select"
+            value=${filtros.trilha}
+            onChange=${(event) => atualizarFiltro('trilha', event.target.value)}
+          >
+            <option value="">Todas as trilhas</option>
+            ${trilhasDisponiveis.map((trilha) => html`<option key=${trilha} value=${trilha}>${trilha}</option>`)}
+          </select>
+          <select
+            class="form-select"
             value=${filtros.status}
             onChange=${(event) => atualizarFiltro('status', event.target.value)}
           >
@@ -2239,6 +2276,19 @@ export function TelaProvasResultados({ controlador }) {
             <option value="com_alertas">Com alertas</option>
             <option value="sem_alertas">Sem alertas</option>
           </select>
+          <label class="generated-filter-field generated-filter-score">
+            <span class="material-symbols-outlined">trending_up</span>
+            <input
+              class="form-control"
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              placeholder="Nota mínima"
+              value=${filtros.notaMinima}
+              onInput=${(event) => atualizarFiltro('notaMinima', event.target.value)}
+            />
+          </label>
           <label class="generated-filter-field generated-filter-date">
             <span class="material-symbols-outlined">calendar_month</span>
             <input

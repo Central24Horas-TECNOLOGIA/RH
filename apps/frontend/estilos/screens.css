@@ -12814,10 +12814,7 @@
 
 #screen-generated-exams .generated-exams-filters.generated-exams-filters-wide {
   display: grid;
-  grid-template-columns: minmax(230px, 1.5fr) minmax(150px, 0.72fr) minmax(
-      150px,
-      0.72fr
-    ) minmax(170px, 0.82fr) minmax(170px, 0.72fr) auto;
+  grid-template-columns: minmax(230px, 1.5fr) repeat(auto-fit, minmax(150px, 1fr));
   align-items: center;
   gap: 0.55rem;
   width: 100%;
@@ -13476,7 +13473,7 @@
 @media (max-width: 1400px) {
   #screen-generated-exams
     .generated-exams-filters.generated-exams-filters-wide {
-    grid-template-columns: minmax(220px, 1.25fr) repeat(3, minmax(145px, 1fr));
+    grid-template-columns: minmax(220px, 1.25fr) repeat(auto-fit, minmax(145px, 1fr));
   }
 
   #screen-generated-exams .generated-clear-filters,
