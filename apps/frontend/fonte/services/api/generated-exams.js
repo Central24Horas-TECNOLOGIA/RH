@@ -57,6 +57,15 @@ export async function lerProvaGerada(idProva) {
   return requisitar(`/generated-exams/${encodeURIComponent(idProva)}`);
 }
 
+export async function lerReplayProvaGerada(idProva) {
+  return requisitar(`/generated-exams/${encodeURIComponent(idProva)}/replay`);
+}
+
+export async function lerHeatmapQuestoes(trilha = '') {
+  const query = trilha ? `?trilha=${encodeURIComponent(trilha)}` : '';
+  return requisitar(`/generated-exams/question-heatmap${query}`);
+}
+
 export async function recalcularScoreProva(idProva) {
   const resultado = await requisitar(
     `/generated-exams/${encodeURIComponent(idProva)}/score/recalculate`,

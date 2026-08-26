@@ -60,7 +60,9 @@ export {
   iniciarConectaProvas,
   iniciarEtapaConectaProvas,
   interromperEtapaConectaProvas,
+  lerHeatmapQuestoes,
   lerProvaGerada,
+  lerReplayProvaGerada,
   lerSessaoConectaProvas,
   listarProvasGeradas,
   marcarRevisaoConectaProvas,
@@ -69,7 +71,7 @@ export {
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
   salvarRespostasConectaProvas,
-} from './services/api/generated-exams.js?v=20260721-exam-analytics-2';
+} from './services/api/generated-exams.js?v=20260826-replay-heatmap';
 export {
   criarAplicacaoDisc,
   criarBlocoDisc,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from ..auth import AuthenticatedUser
 from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
@@ -34,6 +34,17 @@ def _user_label(user: AuthenticatedUser) -> str:
 )
 def list_generated_exams(repository: DatabaseRepository = Depends(get_repository)):
     return repository.list_generated_exams()
+
+
+@router.get(
+    "/generated-exams/question-heatmap",
+    dependencies=[Depends(get_current_user), Depends(require_permissions("provas.visualizar"))],
+)
+def get_question_heatmap(
+    trilha: str = Query(default="", max_length=120),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.get_question_heatmap(trilha=trilha)
 
 
 @router.post(
@@ -85,6 +96,14 @@ def get_generated_exam(id_prova: int, repository: DatabaseRepository = Depends(g
     except Exception:  # pragma: no cover - camada de apoio, nunca deve quebrar a tela de resultado
         pass
     return result
+
+
+@router.get(
+    "/generated-exams/{id_prova}/replay",
+    dependencies=[Depends(get_current_user), Depends(require_permissions("provas.visualizar"))],
+)
+def get_generated_exam_replay(id_prova: int, repository: DatabaseRepository = Depends(get_repository)):
+    return repository.get_exam_replay(id_prova)
 
 
 @router.put(

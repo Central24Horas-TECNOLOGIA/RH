@@ -13202,6 +13202,100 @@
   gap: 0.55rem;
 }
 
+#screen-generated-exams .generated-replay-list {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+}
+
+#screen-generated-exams .generated-replay-list article {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.8rem;
+  border: 1px solid var(--generated-border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
+  background: var(--color-surface);
+}
+
+#screen-generated-exams .generated-replay-list p {
+  margin: 0.2rem 0;
+  color: var(--generated-muted);
+  font-size: 0.84rem;
+}
+
+#screen-generated-exams .generated-replay-list small {
+  color: var(--generated-muted);
+}
+
+#screen-generated-exams .generated-heatmap-select {
+  max-width: 320px;
+  margin-bottom: 0.9rem;
+}
+
+#screen-generated-exams .generated-heatmap-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+#screen-generated-exams .generated-heatmap-item {
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid var(--generated-border);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  background: var(--color-surface);
+}
+
+#screen-generated-exams .generated-heatmap-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.8rem;
+}
+
+#screen-generated-exams .generated-heatmap-item-head strong {
+  color: var(--generated-text);
+  font-size: 0.86rem;
+}
+
+#screen-generated-exams .generated-heatmap-item-meta {
+  flex: 0 0 auto;
+  color: var(--generated-muted);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+#screen-generated-exams .generated-heatmap-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #eef1f6;
+  overflow: hidden;
+}
+
+#screen-generated-exams .generated-heatmap-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width var(--transition-sm);
+}
+
+#screen-generated-exams .generated-heatmap-item-percent {
+  justify-self: end;
+  color: var(--generated-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+#screen-generated-exams .generated-replay-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--generated-primary);
+  background: #edf4ff;
+}
+
 #screen-generated-exams .generated-stage-duration-list {
   display: grid;
   gap: 0.5rem;

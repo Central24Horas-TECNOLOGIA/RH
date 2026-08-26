@@ -22,18 +22,20 @@ import {
   atualizarProvaGerada,
   cancelarProvaGerada,
   criarProvaGerada,
+  lerHeatmapQuestoes,
   lerProvaGerada,
+  lerReplayProvaGerada,
   listarProvasGeradas,
   reabrirProvaGerada,
   recalcularScoreProva,
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
-} from '../../servico-api.js?v=20260721-exam-analytics-2';
+} from '../../servico-api.js?v=20260826-replay-heatmap';
 import { escaparHtml, obterItensPaginados } from '../../utilitarios.js';
 import { listarOperacoes } from '../../services/api/operations.js';
 import { abrirFichaCandidatoDaProva } from '../../app/controlador-aplicacao.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
-import { formatarNotaVisual } from '../../shared/helpers-visuais.js';
+import { formatarNotaVisual, formatarTempoRestante } from '../../shared/helpers-visuais.js';
 import {
   EmptyState,
   LoadingState,
@@ -1571,7 +1573,26 @@ function ModalDetalheProvaGerada({
 }) {
   const [mostrarResultadoCompleto, setMostrarResultadoCompleto] = useState(true);
   const [menuAcoesAberto, setMenuAcoesAberto] = useState(false);
+  const [replayAberto, setReplayAberto] = useState(false);
+  const [replay, setReplay] = useState(null);
+  const [carregandoReplay, setCarregandoReplay] = useState(false);
+  const [erroReplay, setErroReplay] = useState('');
   if (!detalhe) return null;
+
+  const abrirReplay = async () => {
+    setReplayAberto(true);
+    setErroReplay('');
+    if (replay) return;
+    setCarregandoReplay(true);
+    try {
+      const dados = await lerReplayProvaGerada(detalhe.id_prova);
+      setReplay(dados);
+    } catch (error) {
+      setErroReplay(error?.message || 'Não foi possível carregar o replay desta prova.');
+    } finally {
+      setCarregandoReplay(false);
+    }
+  };
   const score = detalhe.score || {};
   const resultado = detalhe.resultado || {};
   const alertas = montarAlertasDetalhe(score);
@@ -1912,6 +1933,13 @@ function ModalDetalheProvaGerada({
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
+                    abrirReplay();
+                  }}>
+                    <span class="material-symbols-outlined">history</span>
+                    Ver replay
+                  </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
                     onAvaliacaoManual?.();
                   }}>
                     <span class="material-symbols-outlined">menu_book</span>
@@ -1956,6 +1984,60 @@ function ModalDetalheProvaGerada({
         </div>
       </footer>
     </${ModalPadrao}>
+
+    ${replayAberto
+      ? html`
+            <${ModalPadrao}
+              aberto=${true}
+              titulo="Replay da prova"
+              subtitulo=${`Linha do tempo de ${detalhe.nome_candidato || 'candidato'} respondendo esta prova.`}
+              className="generated-replay-dialog"
+              onClose=${() => setReplayAberto(false)}
+            >
+              <div class="rh-details-body">
+                ${carregandoReplay
+          ? html`<${LoadingState} titulo="Carregando replay" descricao="Reconstruindo a jornada do candidato nesta prova." />`
+          : erroReplay
+            ? html`<div class="alert alert-warning">${erroReplay}</div>`
+            : replay?.eventos?.length
+              ? html`
+                    <div class="generated-detail-summary-grid">
+                      <article class="generated-detail-summary-card">
+                        <span class="material-symbols-outlined">timer</span>
+                        <small>Tempo ativo total</small>
+                        <strong>${formatarTempoRestante(replay.resumo?.tempo_ativo_total_segundos || 0)}</strong>
+                      </article>
+                      <article class="generated-detail-summary-card">
+                        <span class="material-symbols-outlined">visibility</span>
+                        <small>Questões visitadas</small>
+                        <strong>${replay.resumo?.questoes_visitadas ?? 0} de ${replay.resumo?.total_questoes ?? 0}</strong>
+                      </article>
+                    </div>
+                    <div class="generated-replay-list">
+                      ${replay.eventos.map((evento, indice) => html`
+                        <article key=${`${evento.tipo}-${indice}`}>
+                          <span class="generated-replay-icon">
+                            <i class="material-symbols-outlined">
+                              ${evento.tipo === 'etapa_iniciada' ? 'play_circle'
+                : evento.tipo === 'etapa_finalizada' ? 'flag'
+                  : evento.tipo === 'questao_respondida' ? 'edit'
+                    : 'visibility'}
+                            </i>
+                          </span>
+                          <div>
+                            <strong>${evento.titulo}</strong>
+                            ${evento.descricao ? html`<p>${evento.descricao}</p>` : null}
+                            <small>${formatarDataHoraDetalhe(evento.data)}</small>
+                          </div>
+                        </article>
+                      `)}
+                    </div>
+                  `
+              : html`<p class="text-muted">Sem telemetria registrada para esta prova ainda.</p>`}
+              </div>
+            </${ModalPadrao}>
+          `
+      : null}
   `;
 }
 
@@ -2168,6 +2250,11 @@ export function TelaProvasResultados({ controlador }) {
     dataGeracao: '',
   });
   const [modalGerarAberto, setModalGerarAberto] = useState(false);
+  const [modalHeatmapAberto, setModalHeatmapAberto] = useState(false);
+  const [heatmapTrilha, setHeatmapTrilha] = useState('');
+  const [heatmap, setHeatmap] = useState(null);
+  const [carregandoHeatmap, setCarregandoHeatmap] = useState(false);
+  const [erroHeatmap, setErroHeatmap] = useState('');
   const [detalhe, setDetalhe] = useState(null);
   const [avaliacaoManual, setAvaliacaoManual] = useState(null);
   const [decisaoRh, setDecisaoRh] = useState(null);
@@ -2191,6 +2278,24 @@ export function TelaProvasResultados({ controlador }) {
   useEffect(() => {
     carregar();
   }, []);
+
+  const carregarHeatmap = async (trilha = heatmapTrilha) => {
+    setCarregandoHeatmap(true);
+    setErroHeatmap('');
+    try {
+      const dados = await lerHeatmapQuestoes(trilha);
+      setHeatmap(dados);
+    } catch (error) {
+      setErroHeatmap(error?.message || 'Não foi possível carregar o heatmap de questões.');
+    } finally {
+      setCarregandoHeatmap(false);
+    }
+  };
+
+  const abrirHeatmap = () => {
+    setModalHeatmapAberto(true);
+    carregarHeatmap(heatmapTrilha);
+  };
 
   useEffect(() => {
     try {
@@ -2411,6 +2516,12 @@ export function TelaProvasResultados({ controlador }) {
         kicker="CONECTA PROVAS > SCORE CONECTA"
         title="Provas e resultados"
         description="Acompanhe o andamento, correções e resultados das provas."
+        actions=${html`
+          <button type="button" class="btn btn-outline-secondary rh-action-btn" onClick=${abrirHeatmap}>
+            <span class="material-symbols-outlined">grid_view</span>
+            Heatmap de questões
+          </button>
+        `}
       />
 
       ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
@@ -2721,6 +2832,65 @@ export function TelaProvasResultados({ controlador }) {
         onClose=${() => setDecisaoRh(null)}
         onSave=${salvarDecisao}
       />
+
+      ${modalHeatmapAberto
+      ? html`
+            <${ModalPadrao}
+              aberto=${true}
+              titulo="Heatmap de questões"
+              subtitulo="Taxa de acerto por questão, entre todos os candidatos que já responderam objetivamente."
+              className="generated-heatmap-dialog"
+              onClose=${() => setModalHeatmapAberto(false)}
+            >
+              <div class="rh-details-body">
+                <label class="form-label" for="generated-heatmap-trilha">Trilha</label>
+                <select
+                  id="generated-heatmap-trilha"
+                  class="form-select generated-heatmap-select"
+                  value=${heatmapTrilha}
+                  onChange=${(event) => {
+          setHeatmapTrilha(event.target.value);
+          carregarHeatmap(event.target.value);
+        }}
+                >
+                  <option value="">Todas as trilhas</option>
+                  ${(heatmap?.trilhas_disponiveis?.length ? heatmap.trilhas_disponiveis : trilhasDisponiveis).map(
+          (trilha) => html`<option key=${trilha} value=${trilha}>${trilha}</option>`,
+        )}
+                </select>
+
+                ${carregandoHeatmap
+          ? html`<${LoadingState} titulo="Carregando heatmap" descricao="Calculando a taxa de acerto de cada questão." />`
+          : erroHeatmap
+            ? html`<div class="alert alert-warning">${erroHeatmap}</div>`
+            : heatmap?.itens?.length
+              ? html`
+                    <div class="generated-heatmap-list">
+                      ${heatmap.itens.map((item) => html`
+                        <article key=${item.questao_id} class="generated-heatmap-item">
+                          <div class="generated-heatmap-item-head">
+                            <strong>${item.texto_questao || item.questao_id}</strong>
+                            <span class="generated-heatmap-item-meta">${item.categoria || 'Sem categoria'} · ${item.total_respostas} resposta(s)</span>
+                          </div>
+                          <div class="generated-heatmap-bar-track">
+                            <div
+                              class="generated-heatmap-bar-fill"
+                              style=${{
+              width: `${Math.round(item.taxa_acerto * 100)}%`,
+              background: item.taxa_acerto < 0.4 ? '#d92d20' : item.taxa_acerto < 0.7 ? '#f79009' : '#12b76a',
+            }}
+                            ></div>
+                          </div>
+                          <span class="generated-heatmap-item-percent">${Math.round(item.taxa_acerto * 100)}% de acerto</span>
+                        </article>
+                      `)}
+                    </div>
+                  `
+              : html`<p class="text-muted">Nenhuma questão com respostas objetivas corrigidas ainda${heatmapTrilha ? ` para a trilha "${heatmapTrilha}"` : ''}.</p>`}
+              </div>
+            </${ModalPadrao}>
+          `
+      : null}
     </${PainelRh}>
   `;
 }

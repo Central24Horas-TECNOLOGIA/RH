@@ -40,6 +40,7 @@ from .bootstrap import (
     ensure_process_reference_columns,
     get_process_row,
 )
+from .exam_analytics_schema import ensure_exam_analytics_tables
 
 
 EXAM_STATUS_GENERATED = "Gerada"
@@ -1340,6 +1341,184 @@ class GeneratedExamRepositoryMixin:
             answer.pop("alternativas_snapshot", None)
             answer.pop("resposta_json", None)
         return answers
+
+    @staticmethod
+    def _replay_result_label(correta: Any) -> str:
+        if correta is None:
+            return "não avaliada objetivamente"
+        return "correta" if bool(correta) else "incorreta"
+
+    def get_exam_replay(self, id_prova: int) -> dict:
+        """Reconstroi, em ordem cronológica, os eventos de uma prova já
+        respondida (etapas iniciadas/concluídas + questões vistas/respondidas)
+        a partir das tabelas de telemetria (analise_metricas_respostas,
+        analise_sessoes_etapas) e do conteúdo já corrigido (respostas_provas).
+
+        Não depende do job assíncrono de analytics (resultados_analiticos_processos):
+        funciona para qualquer prova assim que ela tem telemetria registrada,
+        sem esperar processamento em lote.
+        """
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            self._get_exam_row_with_result(cursor, id_prova)
+            ensure_exam_analytics_tables(cursor)
+
+            safe_id_prova = int(id_prova or 0)
+            cursor.execute(
+                """
+                SELECT
+                    questao_indice, questao_id, etapa_chave, primeiro_acesso_em,
+                    ultima_alteracao_em, tempo_ativo_segundos, quantidade_alteracoes
+                FROM dbo.analise_metricas_respostas
+                WHERE id_prova = ?
+                ORDER BY questao_indice
+                """,
+                (safe_id_prova,),
+            )
+            metrics = rows_to_dicts(cursor, cursor.fetchall())
+
+            cursor.execute(
+                """
+                SELECT etapa_chave, iniciada_em, finalizada_em, status_etapa, tempo_ativo_segundos
+                FROM dbo.analise_sessoes_etapas
+                WHERE id_prova = ?
+                ORDER BY id_sessao
+                """,
+                (safe_id_prova,),
+            )
+            sessions = rows_to_dicts(cursor, cursor.fetchall())
+
+            answers = self._get_exam_answers(cursor, safe_id_prova)
+            answers_by_index = {int(answer.get("questao_indice") or 0): answer for answer in answers}
+
+            status_labels = {
+                "iniciada": "iniciada",
+                "concluida": "concluída",
+                "interrompida": "interrompida",
+                "expirada": "expirada",
+                "cancelada": "cancelada",
+            }
+
+            events: list[dict] = []
+            for session in sessions:
+                etapa_chave = normalize_text(session.get("etapa_chave")) or "-"
+                if session.get("iniciada_em"):
+                    events.append({
+                        "tipo": "etapa_iniciada",
+                        "titulo": f'Etapa "{etapa_chave}" iniciada',
+                        "descricao": "",
+                        "data": session.get("iniciada_em"),
+                    })
+                if session.get("finalizada_em"):
+                    status_label = status_labels.get(
+                        normalize_compare_text(session.get("status_etapa")),
+                        normalize_text(session.get("status_etapa")) or "finalizada",
+                    )
+                    tempo_ativo = session.get("tempo_ativo_segundos")
+                    events.append({
+                        "tipo": "etapa_finalizada",
+                        "titulo": f'Etapa "{etapa_chave}" {status_label}',
+                        "descricao": f"Tempo ativo: {round(float(tempo_ativo))}s" if tempo_ativo else "",
+                        "data": session.get("finalizada_em"),
+                    })
+
+            for metric in metrics:
+                indice = int(metric.get("questao_indice") or 0)
+                answer = answers_by_index.get(indice, {})
+                titulo_questao = normalize_text(answer.get("texto_questao_snapshot")) or f"Questão {indice + 1}"
+                if metric.get("primeiro_acesso_em"):
+                    events.append({
+                        "tipo": "questao_vista",
+                        "titulo": f"Questão {indice + 1} visualizada",
+                        "descricao": titulo_questao[:140],
+                        "data": metric.get("primeiro_acesso_em"),
+                    })
+                if metric.get("ultima_alteracao_em"):
+                    resultado_label = self._replay_result_label(answer.get("correta"))
+                    tempo_ativo = round(float(metric.get("tempo_ativo_segundos") or 0))
+                    alteracoes = int(metric.get("quantidade_alteracoes") or 0)
+                    events.append({
+                        "tipo": "questao_respondida",
+                        "titulo": f"Questão {indice + 1} respondida ({resultado_label})",
+                        "descricao": f"Tempo ativo: {tempo_ativo}s · {alteracoes} alteração(ões)",
+                        "data": metric.get("ultima_alteracao_em"),
+                    })
+
+            events.sort(key=lambda item: normalize_text(item.get("data")) or "")
+
+            return {
+                "success": True,
+                "eventos": events,
+                "resumo": {
+                    "tempo_ativo_total_segundos": round(sum(float(m.get("tempo_ativo_segundos") or 0) for m in metrics)),
+                    "questoes_visitadas": len({m.get("questao_indice") for m in metrics if m.get("primeiro_acesso_em")}),
+                    "total_questoes": len(answers),
+                },
+            }
+        finally:
+            conn.close()
+
+    def get_question_heatmap(self, *, trilha: str = "") -> dict:
+        """Agrega, por questão (questao_id) dentro de uma trilha, a taxa de
+        acerto entre todos os candidatos que já responderam objetivamente
+        (correta IS NOT NULL — exclui questões discursivas/manuais ainda sem
+        avaliação). Agrupar por trilha evita comparar acerto de questões de
+        provas diferentes; questao_indice não serve para agrupar porque a
+        ordem das questões é embaralhada por candidato (_apply_question_shuffle).
+        """
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            safe_trilha = normalize_text(trilha)
+            filtro_trilha = "AND p.trilha = ?" if safe_trilha else ""
+            params: tuple = (safe_trilha,) if safe_trilha else ()
+            cursor.execute(
+                f"""
+                SELECT
+                    r.questao_id,
+                    r.categoria,
+                    MAX(r.texto_questao_snapshot) AS texto_questao_snapshot,
+                    p.trilha,
+                    COUNT(*) AS total_respostas,
+                    SUM(CASE WHEN r.correta = 1 THEN 1 ELSE 0 END) AS total_corretas
+                FROM dbo.respostas_provas r
+                INNER JOIN dbo.provas_geradas p ON p.id_prova = r.id_prova
+                WHERE r.correta IS NOT NULL
+                  {filtro_trilha}
+                GROUP BY r.questao_id, r.categoria, p.trilha
+                """,
+                params,
+            )
+            rows = rows_to_dicts(cursor, cursor.fetchall())
+
+            itens = []
+            for row in rows:
+                total = int(row.get("total_respostas") or 0)
+                if total <= 0:
+                    continue
+                corretas = int(row.get("total_corretas") or 0)
+                itens.append({
+                    "questao_id": normalize_text(row.get("questao_id")),
+                    "texto_questao": normalize_text(row.get("texto_questao_snapshot")),
+                    "categoria": normalize_text(row.get("categoria")),
+                    "trilha": normalize_text(row.get("trilha")),
+                    "total_respostas": total,
+                    "total_corretas": corretas,
+                    "taxa_acerto": round(corretas / total, 4),
+                })
+            itens.sort(key=lambda item: item["taxa_acerto"])
+
+            cursor.execute("SELECT DISTINCT trilha FROM dbo.provas_geradas WHERE ISNULL(trilha, '') <> ''")
+            trilhas_disponiveis = sorted(
+                {normalize_text(trilha_row[0]) for trilha_row in cursor.fetchall() if normalize_text(trilha_row[0])}
+            )
+
+            return {"success": True, "itens": itens, "trilhas_disponiveis": trilhas_disponiveis}
+        finally:
+            conn.close()
 
     def _available_exam_rows(self, cursor) -> list[dict]:
         cursor.execute(
