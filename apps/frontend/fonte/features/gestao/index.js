@@ -86,7 +86,7 @@ import {
   getCandidateVisibleStatus,
   isProcessClosed,
 } from '../../shared/process-flow.js';
-import { CHAVE_PROCESSO_DETALHE } from '../processos-estado.js';
+import { CHAVE_DUPLICAR_PROCESSO, CHAVE_PROCESSO_DETALHE } from '../processos-estado.js';
 import { obterTourLogin } from '../../shared/tour-config.js';
 import {
   obterChaveProcesso,
@@ -2571,6 +2571,25 @@ export function TelaCriarProcesso({ controlador }) {
       setFormulario((anterior) => ({ ...anterior, operacao: encontrada }));
     }
   }, [opcoesOperacaoDisponiveis]);
+
+  useEffect(() => {
+    const bruto = sessionStorage.getItem(CHAVE_DUPLICAR_PROCESSO);
+    if (bruto === null) return;
+    sessionStorage.removeItem(CHAVE_DUPLICAR_PROCESSO);
+    try {
+      const dados = JSON.parse(bruto) || {};
+      setFormulario((anterior) => ({
+        ...anterior,
+        vaga: dados.vaga || anterior.vaga,
+        operacao: dados.operacao || anterior.operacao,
+        trilha: dados.trilha || anterior.trilha,
+        usaNotaCorte: Boolean(dados.usaNotaCorte),
+        notaCorte: dados.notaCorte || anterior.notaCorte,
+      }));
+    } catch (error) {
+      // Prefill é um atalho opcional — se o JSON vier inválido, segue com o formulário em branco.
+    }
+  }, []);
 
   const regras = obterRegrasFormularioProcesso(formulario.vaga);
   const permiteTipoAtendimento = vagaPermiteTipoAtendimentoProcesso(formulario.vaga);

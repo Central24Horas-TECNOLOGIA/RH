@@ -116,7 +116,7 @@ import {
   obterReferenciaProcesso,
   obterReferenciaProcessoDoCandidato,
 } from '../../shared/process-reference.js';
-import { CHAVE_PROCESSO_DETALHE } from './state.js';
+import { CHAVE_DUPLICAR_PROCESSO, CHAVE_PROCESSO_DETALHE } from './state.js';
 import { gerarAnaliseInteligenteProcesso } from '../../services/process-dossier-ai.js';
 import {
   criarProvaGerada,
@@ -4027,6 +4027,20 @@ export function TelaProcessos({ controlador }) {
     controlador.irParaTelaProtegida('screen-process-details');
   };
 
+  const duplicarProcesso = (processo) => {
+    sessionStorage.setItem(
+      CHAVE_DUPLICAR_PROCESSO,
+      JSON.stringify({
+        vaga: processo.vaga || '',
+        operacao: processo.operacao || '',
+        trilha: processo.trilha || '',
+        usaNotaCorte: Boolean(Number(processo.usa_nota_corte || 0)),
+        notaCorte: processo.nota_corte || '',
+      }),
+    );
+    controlador.irParaTelaProtegida('screen-process-create');
+  };
+
   const processoSelecionadoParaEncerramento = useMemo(
     () => encontrarProcessoPorReferencia(processos, processoParaEncerrar),
     [processoParaEncerrar, processos],
@@ -4327,6 +4341,13 @@ export function TelaProcessos({ controlador }) {
                     ),
                   }),
               },
+              controlador.possuiPermissao('vagas.criar')
+                ? {
+                  label: 'Duplicar processo',
+                  icon: 'content_copy',
+                  onClick: () => duplicarProcesso(processo),
+                }
+                : null,
               {
                 label: 'Ver candidatos',
                 icon: 'groups',
@@ -4717,6 +4738,20 @@ export function TelaProcessosAbertos({ controlador }) {
     controlador.irParaTelaProtegida('screen-process-details');
   };
 
+  const duplicarProcesso = (processo) => {
+    sessionStorage.setItem(
+      CHAVE_DUPLICAR_PROCESSO,
+      JSON.stringify({
+        vaga: processo.vaga || '',
+        operacao: processo.operacao || '',
+        trilha: processo.trilha || '',
+        usaNotaCorte: Boolean(Number(processo.usa_nota_corte || 0)),
+        notaCorte: processo.nota_corte || '',
+      }),
+    );
+    controlador.irParaTelaProtegida('screen-process-create');
+  };
+
   const salvarEdicao = async () => {
     const mensagemErro = validarFormularioProcesso(
       {
@@ -4870,6 +4905,13 @@ export function TelaProcessosAbertos({ controlador }) {
                   label: 'Editar',
                   icon: 'edit',
                   onClick: () => setEdicao({ ...processo }),
+                }
+                : null,
+              controlador.possuiPermissao('vagas.criar')
+                ? {
+                  label: 'Duplicar processo',
+                  icon: 'content_copy',
+                  onClick: () => duplicarProcesso(processo),
                 }
                 : null,
               {
@@ -5186,6 +5228,20 @@ export function TelaProcessosEncerrados({ controlador }) {
     controlador.irParaTelaProtegida('screen-process-details');
   };
 
+  const duplicarProcesso = (processo) => {
+    sessionStorage.setItem(
+      CHAVE_DUPLICAR_PROCESSO,
+      JSON.stringify({
+        vaga: processo.vaga || '',
+        operacao: processo.operacao || '',
+        trilha: processo.trilha || '',
+        usaNotaCorte: Boolean(Number(processo.usa_nota_corte || 0)),
+        notaCorte: processo.nota_corte || '',
+      }),
+    );
+    controlador.irParaTelaProtegida('screen-process-create');
+  };
+
   return html`
     <${PainelRh}
       screenId="screen-processes-closed"
@@ -5300,6 +5356,13 @@ export function TelaProcessosEncerrados({ controlador }) {
                 icon: 'article',
                 onClick: () => abrirDetalhe(processo),
               },
+              controlador.possuiPermissao('vagas.criar')
+                ? {
+                  label: 'Duplicar processo',
+                  icon: 'content_copy',
+                  onClick: () => duplicarProcesso(processo),
+                }
+                : null,
             ]}
                               />
                             </div>
