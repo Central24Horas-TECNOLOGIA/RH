@@ -234,6 +234,16 @@ export async function lerBancoTalentos({
   return resultado;
 }
 
+export async function lerCandidatosSugeridosProcesso(idProcesso, { limit = 15 } = {}) {
+  if (!idProcesso) return { candidatos: [], total_sugestoes: 0 };
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', String(limit));
+  const sufixo = params.toString() ? `?${params.toString()}` : '';
+  return requisitar(`/processes/${encodeURIComponent(idProcesso)}/candidatos-sugeridos${sufixo}`, {
+    method: 'GET',
+  });
+}
+
 export async function removerBancoTalentos(idBanco) {
   const resultado = await requisitar(`/talent-bank/${idBanco}`, {
     method: 'DELETE',

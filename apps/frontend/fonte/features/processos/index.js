@@ -35,6 +35,7 @@ import {
   lerEmailsRecebidosProcesso,
   lerAnotacoesDossieProcesso,
   lerBancoTalentos,
+  lerCandidatosSugeridosProcesso,
   lerCandidatosProcessos,
   lerDetalheProcesso,
   lerEntrevistas,
@@ -5970,6 +5971,8 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
     historico,
     bancoTalentos,
     bancoTalentosPagina,
+    sugeridosProcesso,
+    carregandoSugeridos,
     preAnalises,
     emails,
     requisitos,
@@ -6327,7 +6330,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
 
           ${aba === 'encontrar' ? html`
             <div class="process-section-heading process-find-heading"><div><h3>Encontrar mais candidatos</h3><p>Analise novos currículos ou reutilize candidatos do Banco de Talentos.</p></div><div><button type="button" class="btn btn-outline-primary" onClick=${() => actions.trocarAba('candidatos')}>Voltar aos candidatos</button></div></div>
-            <nav class="process-find-subtabs" aria-label="Fontes de candidatos"><button type="button" class=${subAbaEncontrar === 'cvs' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('cvs')}>CVs não qualificados <span>${cvsNaoQualificadosPaginacao.totalItens}</span></button><button type="button" class=${subAbaEncontrar === 'banco' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('banco')}>Banco de Talentos <span>${bancoTalentos.length}</span></button></nav>
+            <nav class="process-find-subtabs" aria-label="Fontes de candidatos"><button type="button" class=${subAbaEncontrar === 'cvs' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('cvs')}>CVs não qualificados <span>${cvsNaoQualificadosPaginacao.totalItens}</span></button><button type="button" class=${subAbaEncontrar === 'banco' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('banco')}>Banco de Talentos <span>${bancoTalentos.length}</span></button><button type="button" class=${subAbaEncontrar === 'sugeridos' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('sugeridos')}>Sugeridos para esta vaga <span>${sugeridosProcesso.length}</span></button></nav>
 
             ${subAbaEncontrar === 'cvs' ? html`
               <div class="process-find-toolbar"><label class="process-search-control"><span class="material-symbols-outlined">search</span><input value=${buscaTalentos} placeholder="Buscar por nome, e-mail, telefone ou arquivo" onInput=${(event) => actions.setBuscaTalentos(event.target.value)} /></label><strong>${cvsNaoQualificadosFiltrados.length} currículo(s)</strong></div>
@@ -6338,6 +6341,13 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
             ${subAbaEncontrar === 'banco' ? html`
               <section class="process-filter-bar process-talent-filters process-talent-filters--compact"><label><span>Busca</span><div class="process-input-icon"><i class="material-symbols-outlined">search</i><input value=${buscaTalentos} placeholder="Nome, contato, cargo ou tag" onInput=${(event) => actions.setBuscaTalentos(event.target.value)} /></div></label><label><span>Status</span><input value=${filtrosTalentos.status} placeholder="Todos" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, status: event.target.value })} /></label><label><span>Área</span><input value=${filtrosTalentos.area} placeholder="Todas" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, area: event.target.value })} /></label><label><span>Cargo</span><input value=${filtrosTalentos.cargo} placeholder="Todos" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, cargo: event.target.value })} /></label><label><span>Indicação</span><select value=${filtrosTalentos.indicacao} onChange=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, indicacao: event.target.value })}><option value="">Todas</option><option value="sim">Sim</option><option value="nao">Não</option></select></label></section>
               <div class="process-table-shell"><table class="process-table process-find-table"><thead><tr><th>Candidato</th><th>Contato</th><th>Cargo / origem</th><th>Pontuação</th><th>Situação</th><th>Ação</th></tr></thead><tbody>${bancoTalentosPagina.itens.length ? bancoTalentosPagina.itens.map((candidato) => { const vinculado = candidatoBancoJaEstaNoProcesso(candidato, todosCandidatos); return html`<tr key=${candidato.id_banco || candidato.id_teste}><td><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span><div><strong>${candidato.nome_candidato || '-'}</strong><small>ID: ${candidato.id_teste || candidato.id_banco || '-'}</small></div></div></td><td>${candidato.email || candidato.telefone || candidato.whatsapp || '-'}</td><td><strong>${candidato.vaga || candidato.cargo || '-'}</strong><small class="process-cell-subtitle">${candidato.origem || 'Banco de Talentos'}</small></td><td>${candidato.pontuacao_final || candidato.nota_prova || '-'}</td><td><span class=${`process-status-tag ${vinculado ? 'is-warning' : 'is-info'}`}>${vinculado ? 'Já vinculado' : 'Disponível'}</span></td><td><button type="button" class="btn btn-sm btn-primary" disabled=${vinculado || actions.usandoTalento} onClick=${() => actions.iniciarUsoTalento(candidato)}>${vinculado ? 'Já no processo' : 'Atrelar ao processo'}</button>${actions.talentoPendente === String(candidato.id_banco || '') ? html`<${PainelIndicacaoUso} formulario=${actions.formIndicacaoTalento} salvando=${actions.usandoTalento} onChange=${actions.setFormIndicacaoTalento} onConfirmar=${actions.confirmarUsoTalento} onCancelar=${actions.cancelarUsoTalento} />` : null}</td></tr>`; }) : html`<tr><td colspan="6" class="process-empty-row">Nenhum candidato encontrado no Banco de Talentos.</td></tr>`}</tbody></table><${PaginacaoCompacta} paginaAtual=${bancoTalentosPagina.paginaAtual} totalPaginas=${bancoTalentosPagina.totalPaginas} totalItens=${bancoTalentosPagina.totalItens} tamanhoPagina=${TAMANHO_PAGINA_BANCO_TALENTOS_DETALHE} itensNaPagina=${bancoTalentosPagina.itens.length} onChange=${actions.setPaginaTalentos} /></div>
+            ` : null}
+
+            ${subAbaEncontrar === 'sugeridos' ? html`
+              <div class="process-friendly-notice"><span class="material-symbols-outlined">auto_awesome</span>Cruza palavras-chave da vaga com o perfil de cada candidato do Banco de Talentos — sem custo, sem IA. Quem já está neste processo não aparece aqui.</div>
+              ${carregandoSugeridos
+                ? html`<div class="process-empty-row">Buscando sugestões para esta vaga...</div>`
+                : html`<div class="process-table-shell"><table class="process-table process-find-table"><thead><tr><th>Candidato</th><th>Por que combina</th><th>Pontuação</th><th>Ação</th></tr></thead><tbody>${sugeridosProcesso.length ? sugeridosProcesso.map((candidato) => html`<tr key=${candidato.id_banco || candidato.id_teste}><td><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span><div><strong>${candidato.nome_candidato || '-'}</strong><small>${candidato.vaga_anterior || candidato.origem || '-'}</small></div></div></td><td><small class="process-cell-subtitle">${candidato.motivo || '-'}</small></td><td><strong>${candidato.pontuacao_match ?? '-'}</strong></td><td><button type="button" class="btn btn-sm btn-primary" disabled=${actions.usandoTalento} onClick=${() => actions.iniciarUsoTalento(candidato)}>Atrelar ao processo</button>${actions.talentoPendente === String(candidato.id_banco || '') ? html`<${PainelIndicacaoUso} formulario=${actions.formIndicacaoTalento} salvando=${actions.usandoTalento} onChange=${actions.setFormIndicacaoTalento} onConfirmar=${actions.confirmarUsoTalento} onCancelar=${actions.cancelarUsoTalento} />` : null}</td></tr>`) : html`<tr><td colspan="4" class="process-empty-row">Nenhuma sugestão encontrada — tente ampliar os requisitos publicados da vaga.</td></tr>`}</tbody></table></div>`}
             ` : null}
           ` : null}
 
@@ -6401,6 +6411,9 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [carregandoSlotsEntrevista, setCarregandoSlotsEntrevista] = useState(false);
   const [preAnalises, setPreAnalises] = useState([]);
   const [bancoTalentosProcesso, setBancoTalentosProcesso] = useState([]);
+  const [sugeridosProcesso, setSugeridosProcesso] = useState([]);
+  const [carregandoSugeridos, setCarregandoSugeridos] = useState(false);
+  const [sugeridosCarregados, setSugeridosCarregados] = useState(false);
   const [buscaBancoTalentos, setBuscaBancoTalentos] = useState('');
   const [paginaBancoTalentos, setPaginaBancoTalentos] = useState(1);
   const [bancoTalentosSelecionado, setBancoTalentosSelecionado] = useState('');
@@ -6545,6 +6558,27 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [paginaCandidatosAprovados, setPaginaCandidatosAprovados] = useState(1);
   const [abaDetalheAtiva, setAbaDetalheAtiva] = useState('candidatos');
   const [subAbaEncontrar, setSubAbaEncontrar] = useState('cvs');
+
+  useEffect(() => {
+    if (subAbaEncontrar !== 'sugeridos' || sugeridosCarregados || !idProcesso) return;
+    let cancelado = false;
+    setCarregandoSugeridos(true);
+    lerCandidatosSugeridosProcesso(idProcesso)
+      .then((resultado) => {
+        if (cancelado) return;
+        setSugeridosProcesso(Array.isArray(resultado?.candidatos) ? resultado.candidatos : []);
+        setSugeridosCarregados(true);
+      })
+      .catch(() => {
+        if (!cancelado) setSugeridosCarregados(true);
+      })
+      .finally(() => {
+        if (!cancelado) setCarregandoSugeridos(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [subAbaEncontrar, sugeridosCarregados, idProcesso]);
   const [resumoVagaAberto, setResumoVagaAberto] = useState(false);
   const [candidatosSelecionados, setCandidatosSelecionados] = useState([]);
   const [filtroStatusCandidatos, setFiltroStatusCandidatos] = useState('');
@@ -9524,6 +9558,8 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       bancoTalentos: bancoTalentosTodosFiltrados,
       bancoTalentosPagina: bancoTalentosPaginados,
       talentosJaVinculados: Math.max(0, bancoTalentosProcesso.length - bancoTalentosDisponiveis.length),
+      sugeridosProcesso,
+      carregandoSugeridos,
       preAnalises,
       emails: emailsRecebidos,
       requisitos: requisitosPublicos,

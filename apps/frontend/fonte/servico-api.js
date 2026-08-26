@@ -128,6 +128,7 @@ export {
   enviarEmailAprovacao,
   ignorarEmailRecebido,
   lerBancoTalentos,
+  lerCandidatosSugeridosProcesso,
   lerAnotacoesDossieProcesso,
   lerCandidatosProcessos,
   lerDetalheProcesso,
