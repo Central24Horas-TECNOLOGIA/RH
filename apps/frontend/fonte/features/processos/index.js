@@ -6576,6 +6576,8 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [salvandoAprovacao, setSalvandoAprovacao] = useState(false);
   const [enviandoCanalAprovacao, setEnviandoCanalAprovacao] = useState('');
   const [eliminacaoSelecionada, setEliminacaoSelecionada] = useState(null);
+  const [aprovacaoLoteSelecionados, setAprovacaoLoteSelecionados] = useState(null);
+  const [aprovandoLote, setAprovandoLote] = useState(false);
   const [formularioEliminacao, setFormularioEliminacao] = useState({
     motivo_eliminacao: '',
     etapa_eliminacao: '',
@@ -8236,6 +8238,38 @@ export function TelaDetalhesProcesso({ controlador }) {
     });
   };
 
+  const abrirAprovacaoSelecionados = () => {
+    if (candidatosSelecionadosDetalhe.length < 2) return;
+    const candidatosValidos = candidatosSelecionadosDetalhe.filter((candidato) => {
+      const estado = candidato?.acoes_fluxo || getCandidateActionState(candidato, processo?.status || '');
+      return estado.canApprove;
+    });
+    if (!candidatosValidos.length) {
+      setErro('Os candidatos selecionados não permitem aprovação no status atual.');
+      return;
+    }
+    setErro('');
+    setAprovacaoLoteSelecionados(candidatosValidos);
+  };
+
+  const confirmarAprovacaoLote = async () => {
+    if (!aprovacaoLoteSelecionados?.length) return;
+    setAprovandoLote(true);
+    try {
+      await Promise.all(
+        aprovacaoLoteSelecionados.map((candidato) =>
+          atualizarStatus(candidato.id_registro, CANDIDATE_STATUS_APPROVED, {}),
+        ),
+      );
+      setCandidatosSelecionados([]);
+      setAprovacaoLoteSelecionados(null);
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível aprovar todos os candidatos selecionados.');
+    } finally {
+      setAprovandoLote(false);
+    }
+  };
+
   const atualizarStatus = async (idRegistro, status, dadosStatus = {}) => {
     const statusSeguro = String(status || '').trim();
     const candidatoAtual = candidatos.find(
@@ -9504,12 +9538,21 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
   };
 
   const acoesRapidasDetalhe = candidatosSelecionadosDetalhe.length > 1
-    ? [{
-      label: 'Eliminar candidato',
-      icon: 'person_remove',
-      danger: true,
-      onClick: abrirEliminacaoSelecionados,
-    }]
+    ? [
+      controlador.possuiPermissao('candidatos.aprovar_final')
+        ? {
+          label: 'Aprovar selecionados',
+          icon: 'task_alt',
+          onClick: abrirAprovacaoSelecionados,
+        }
+        : null,
+      {
+        label: 'Eliminar candidato',
+        icon: 'person_remove',
+        danger: true,
+        onClick: abrirEliminacaoSelecionados,
+      },
+    ].filter(Boolean)
     : candidatosSelecionadosDetalhe.length === 1
       ? abaDetalheAtiva === 'provas'
         ? montarAcoesProvaDetalhe(candidatosSelecionadosDetalhe[0])
@@ -9747,6 +9790,20 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         erro=${erro}
         onClose=${() => setAcaoProvaSensivel(null)}
         onConfirm=${confirmarAcaoProva}
+      />
+
+      <${ModalConfirmacaoAcao}
+        aberto=${Boolean(aprovacaoLoteSelecionados)}
+        titulo="Aprovar candidatos selecionados"
+        descricao=${`${aprovacaoLoteSelecionados?.length || 0} candidato(s) serão aprovados.`}
+        consequencia="Cada candidato passa para o status Aprovado neste processo. Comunicação por e-mail/WhatsApp continua sendo feita individualmente, pela ficha de cada candidato."
+        textoConfirmar="Confirmar aprovação"
+        textoCancelar="Voltar"
+        tipo="aviso"
+        carregando=${aprovandoLote}
+        erro=${erro}
+        onClose=${aprovandoLote ? () => null : () => setAprovacaoLoteSelecionados(null)}
+        onConfirm=${confirmarAprovacaoLote}
       />
 
       <${ModalAnaliseCvProcesso}
