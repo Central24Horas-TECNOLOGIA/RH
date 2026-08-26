@@ -255,6 +255,7 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
   const [carregando, setCarregando] = useState(false);
   const [indice, setIndice] = useState(null);
   const caixaRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const fecharAoClicarFora = (event) => {
@@ -265,6 +266,25 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
 
     window.addEventListener('mousedown', fecharAoClicarFora);
     return () => window.removeEventListener('mousedown', fecharAoClicarFora);
+  }, []);
+
+  useEffect(() => {
+    const acionarAtalho = (event) => {
+      const teclaBusca = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k';
+      if (teclaBusca) {
+        event.preventDefault();
+        inputRef.current?.focus();
+        setAberta(true);
+        return;
+      }
+      if (event.key === 'Escape' && document.activeElement === inputRef.current) {
+        inputRef.current?.blur();
+        setAberta(false);
+      }
+    };
+
+    window.addEventListener('keydown', acionarAtalho);
+    return () => window.removeEventListener('keydown', acionarAtalho);
   }, []);
 
   const garantirIndice = async () => {
@@ -294,6 +314,7 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
         </label>
         <input
           id="rh-global-search-input"
+          ref=${inputRef}
           type="text"
           aria-label="Pesquisar candidatos, processos e informações"
           placeholder=${placeholderBusca}
@@ -308,7 +329,9 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
             await garantirIndice();
           }}
         />
-       
+        <kbd class="rh-global-search-shortcut" aria-hidden="true">
+          ${/mac/i.test(navigator.platform || navigator.userAgent || '') ? '⌘K' : 'Ctrl+K'}
+        </kbd>
       </div>
 
       ${aberta
