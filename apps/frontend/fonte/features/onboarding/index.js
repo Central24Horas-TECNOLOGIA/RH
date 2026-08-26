@@ -20,6 +20,33 @@ import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 const ITEM_INICIAL = { titulo: '', descricao: '', obrigatorio: true };
 const FORM_INICIAL = { id_trilha: '', nome: '', descricao: '', ativo: true, itens: [] };
 
+function normalizarTextoPerfil(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Sugere a trilha mais aderente à vaga do candidato comparando o texto da
+ * vaga com a categoria/nome de cada trilha ativa (correspondência parcial
+ * nos dois sentidos). Sem match, cai para a primeira trilha ativa.
+ */
+function sugerirTrilhaPorPerfil(trilhasAtivas, vagaCandidato) {
+  const vaga = normalizarTextoPerfil(vagaCandidato);
+  if (!vaga || !trilhasAtivas.length) return trilhasAtivas[0] || null;
+
+  const encontrada = trilhasAtivas.find((trilha) => {
+    const categoria = normalizarTextoPerfil(trilha.categoria);
+    const nome = normalizarTextoPerfil(trilha.nome);
+    return (categoria && (vaga.includes(categoria) || categoria.includes(vaga))) ||
+      (nome && (vaga.includes(nome) || nome.includes(vaga)));
+  });
+
+  return encontrada || trilhasAtivas[0] || null;
+}
+
 function normalizarItensParaEnvio(itens) {
   return itens.map((item, index) => ({
     titulo: item.titulo.trim(),
@@ -341,12 +368,13 @@ export function TelaOnboarding({ controlador }) {
  * mostra o progresso do checklist se já iniciado, ou permite escolher uma
  * trilha ativa e iniciar o onboarding.
  */
-export function PainelOnboardingCandidato({ idRegistro, controlador }) {
+export function PainelOnboardingCandidato({ idRegistro, controlador, vagaCandidato = '' }) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [progresso, setProgresso] = useState(null);
   const [trilhas, setTrilhas] = useState([]);
   const [trilhaSelecionada, setTrilhaSelecionada] = useState('');
+  const [trilhaSugeridaId, setTrilhaSugeridaId] = useState('');
   const [iniciando, setIniciando] = useState(false);
 
   const podeEditar = controlador?.possuiPermissao?.('onboarding.editar');
@@ -362,9 +390,11 @@ export function PainelOnboardingCandidato({ idRegistro, controlador }) {
       ]);
       setProgresso(progressoResp);
       const ativas = (Array.isArray(trilhasResp) ? trilhasResp : []).filter((item) => item.ativo);
+      const sugerida = sugerirTrilhaPorPerfil(ativas, vagaCandidato);
       setTrilhas(ativas);
+      setTrilhaSugeridaId(sugerida ? String(sugerida.id_trilha) : '');
       if (ativas.length && !trilhaSelecionada) {
-        setTrilhaSelecionada(String(ativas[0].id_trilha));
+        setTrilhaSelecionada(String((sugerida || ativas[0]).id_trilha));
       }
     } catch (error) {
       setErro(error?.message || 'Não foi possível carregar o onboarding deste candidato.');
@@ -413,6 +443,12 @@ export function PainelOnboardingCandidato({ idRegistro, controlador }) {
   }
 
   if (!progresso?.iniciado) {
+    const trilhasOrdenadas = trilhaSugeridaId
+      ? [
+        ...trilhas.filter((trilha) => String(trilha.id_trilha) === trilhaSugeridaId),
+        ...trilhas.filter((trilha) => String(trilha.id_trilha) !== trilhaSugeridaId),
+      ]
+      : trilhas;
     return html`
       <div class="rh-filter-field">
         <p class="text-muted">Nenhum onboarding iniciado para este candidato.</p>
@@ -424,8 +460,8 @@ export function PainelOnboardingCandidato({ idRegistro, controlador }) {
                   value=${trilhaSelecionada}
                   onChange=${(event) => setTrilhaSelecionada(event.target.value)}
                 >
-                  ${trilhas.map(
-        (trilha) => html`<option key=${trilha.id_trilha} value=${trilha.id_trilha}>${trilha.nome}</option>`,
+                  ${trilhasOrdenadas.map(
+        (trilha) => html`<option key=${trilha.id_trilha} value=${trilha.id_trilha}>${trilha.nome}${String(trilha.id_trilha) === trilhaSugeridaId ? ' (sugerida para esta vaga)' : ''}</option>`,
       )}
                 </select>
                 <button
@@ -437,6 +473,9 @@ export function PainelOnboardingCandidato({ idRegistro, controlador }) {
                   ${iniciando ? 'Iniciando...' : 'Iniciar onboarding'}
                 </button>
               </div>
+              ${trilhaSugeridaId
+        ? html`<small class="text-muted">Sugerida com base na vaga do candidato. Você pode escolher outra trilha na lista.</small>`
+        : null}
             `
       : html`<p class="text-muted">Nenhuma trilha ativa cadastrada. Cadastre uma trilha em Configurações &gt; Trilhas de onboarding.</p>`}
       </div>

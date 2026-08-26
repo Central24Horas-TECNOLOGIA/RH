@@ -3426,6 +3426,7 @@ export function TelaCandidatos({ controlador }) {
                         <${PainelOnboardingCandidato}
                           idRegistro=${detalhe.id_registro_processo}
                           controlador=${controlador}
+                          vagaCandidato=${detalhe.vaga}
                         />
                       </${SectionCard}>
                     `
