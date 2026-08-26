@@ -75,6 +75,7 @@ import {
   lerSlotsEntrevista,
   limparListaPreAnalisesCv,
   moverCardPipeline,
+  reconsiderarEliminacaoCandidato,
   registrarWhatsappAprovacao,
   registrarWhatsappContatoManual,
   vincularEmailRecebidoProcesso,
@@ -107,7 +108,7 @@ import {
   registrarSolicitacaoLgpd,
   retomarProcesso,
   cancelarProcesso,
-} from '../servico-api.js?v=20260721-exam-analytics-2';
+} from '../servico-api.js?v=20260826-reconsider-elim';
 import { criarLogger } from '../logger.js';
 import {
   montarProvaPorBlueprint,
@@ -1798,6 +1799,7 @@ export {
   lerSlotsEntrevista,
   limparListaPreAnalisesCv,
   moverCardPipeline,
+  reconsiderarEliminacaoCandidato,
   registrarWhatsappAprovacao,
   registrarWhatsappContatoManual,
   removerBancoTalentos,

@@ -46,6 +46,7 @@ import {
   salvarScorecardCandidato,
   lerSlotsEntrevista,
   limparListaPreAnalisesCv,
+  reconsiderarEliminacaoCandidato,
   registrarWhatsappAprovacao,
   registrarWhatsappContatoManual,
   uploadCvCandidato,
@@ -94,6 +95,7 @@ import {
   CANDIDATE_STATUS_ATTENDED,
   CANDIDATE_STATUS_CONFIRMED,
   CANDIDATE_STATUS_ELIMINATED,
+  CANDIDATE_STATUS_NOT_QUALIFIED,
   CANDIDATE_STATUS_PENDING_CONFIRMATION,
   CANDIDATE_STATUS_QUALIFIED,
   CANDIDATE_STATUS_RESCHEDULED,
@@ -6569,6 +6571,8 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [tempoPausaProcesso, setTempoPausaProcesso] = useState('');
   const [erroAcaoProcesso, setErroAcaoProcesso] = useState('');
   const [acaoProvaSensivel, setAcaoProvaSensivel] = useState(null);
+  const [candidatoReconsiderar, setCandidatoReconsiderar] = useState(null);
+  const [reconsiderandoCandidato, setReconsiderandoCandidato] = useState(false);
   const [liberacaoProvaSelecionada, setLiberacaoProvaSelecionada] = useState(null);
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState(null);
   const [documentosEntrevista, setDocumentosEntrevista] = useState([]);
@@ -8046,6 +8050,30 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
   };
 
+  const abrirReconsideracao = (candidato) => {
+    if (processoEncerrado) {
+      setErro('O processo seletivo está encerrado e não permite novas movimentações.');
+      return;
+    }
+    setCandidatoReconsiderar(candidato);
+  };
+
+  const confirmarReconsideracao = async ({ justificativa }) => {
+    if (!candidatoReconsiderar?.id_registro) return;
+    try {
+      setErro('');
+      setReconsiderandoCandidato(true);
+      await reconsiderarEliminacaoCandidato(candidatoReconsiderar.id_registro, { justificativa });
+      setCandidatoReconsiderar(null);
+      await carregar(paginaPreAnalises, filtrosPreAnalises, paginaCvsNaoQualificados);
+      showToast('Eliminação reconsiderada. O candidato voltou para Em Análise.', 'success');
+    } catch (error) {
+      setErro(obterMensagemOperacionalErro(error, 'Não foi possível reconsiderar a eliminação do candidato.'));
+    } finally {
+      setReconsiderandoCandidato(false);
+    }
+  };
+
   const deletarProvaDoCandidato = async (candidato) => {
     const idProva = obterIdProvaGeradaCandidato(candidato);
     if (!idProva || !window.confirm('Deseja apagar definitivamente esta prova e seus resultados técnicos?')) return;
@@ -9490,6 +9518,13 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         danger: true,
         onClick: () => abrirEliminacao(candidato),
       } : null,
+      [CANDIDATE_STATUS_ELIMINATED, CANDIDATE_STATUS_NOT_QUALIFIED, CANDIDATE_STATUS_WITHDREW].includes(
+        canonicalizeCandidateStatus(candidato?.status_fluxo || candidato?.status_candidato),
+      ) && !estadoAcoes.processClosed && controlador?.possuiPermissao?.('candidatos.reverter_eliminacao') ? {
+        label: 'Reconsiderar eliminação',
+        icon: 'settings_backup_restore',
+        onClick: () => abrirReconsideracao(candidato),
+      } : null,
     ];
     return acoes.filter(Boolean);
   };
@@ -9790,6 +9825,23 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         erro=${erro}
         onClose=${() => setAcaoProvaSensivel(null)}
         onConfirm=${confirmarAcaoProva}
+      />
+
+      <${ModalConfirmacaoAcao}
+        aberto=${Boolean(candidatoReconsiderar)}
+        titulo="Reconsiderar eliminação"
+        descricao=${`Candidato: ${candidatoReconsiderar?.nome_candidato || 'não informado'}.`}
+        consequencia="O candidato voltará para o status Em Análise, na etapa de Triagem, e passa a concorrer normalmente neste processo novamente."
+        reversibilidade="Esta ação fica registrada no histórico do candidato e pode ser seguida por uma nova eliminação, se necessário."
+        labelJustificativa="Justificativa da reconsideração"
+        justificativaObrigatoria=${true}
+        textoConfirmar="Confirmar reconsideração"
+        textoCancelar="Voltar"
+        tipo="aviso"
+        carregando=${reconsiderandoCandidato}
+        erro=${erro}
+        onClose=${reconsiderandoCandidato ? () => null : () => setCandidatoReconsiderar(null)}
+        onConfirm=${confirmarReconsideracao}
       />
 
       <${ModalConfirmacaoAcao}

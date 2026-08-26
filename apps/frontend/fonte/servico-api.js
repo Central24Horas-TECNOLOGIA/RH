@@ -145,6 +145,7 @@ export {
   limparListaPreAnalisesCv,
   pausarProcesso,
   marcarAnaliseCurriculoIaRevisada,
+  reconsiderarEliminacaoCandidato,
   registrarWhatsappAprovacao,
   registrarWhatsappContatoManual,
   retomarProcesso,
@@ -154,7 +155,7 @@ export {
   cancelarProcesso,
   excluirEmailRecebido,
   vincularEmailRecebidoProcesso,
-} from './services/api/processes.js?v=20260824-kanban-scorecard';
+} from './services/api/processes.js?v=20260826-reconsider-elim';
 export {
   enviarCandidaturaPublica,
   lerPaginaPublicaCandidatura,

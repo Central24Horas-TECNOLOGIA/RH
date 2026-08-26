@@ -164,6 +164,20 @@ export async function atualizarStatusCandidato(idRegistro, dadosStatus) {
   return resultado;
 }
 
+export async function reconsiderarEliminacaoCandidato(idRegistro, dadosReconsideracao) {
+  const resultado = await requisitar(
+    `/process-candidates/${idRegistro}/reconsider`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dadosReconsideracao),
+    },
+  );
+
+  invalidarCacheApi('candidatos-processos', 'banco-talentos', 'processos', 'pipeline-candidatos', 'relatorios', 'historico');
+  return resultado;
+}
+
 export async function lerScorecardCandidato(idRegistro) {
   return requisitar(`/process-candidates/${idRegistro}/scorecard`, {
     method: 'GET',
