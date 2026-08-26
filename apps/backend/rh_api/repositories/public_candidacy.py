@@ -8,7 +8,12 @@ from fastapi import HTTPException, status
 
 from ..services.cv import is_valid_email, is_valid_phone
 from ..services.helpers import normalize_text, rows_to_dicts
-from ..services.process_flow import CANDIDATE_STATUS_ANALYSIS, is_process_closed
+from ..services.process_flow import (
+    CANDIDATE_STATUS_ANALYSIS,
+    PROCESS_STATUS_CLOSED,
+    is_process_closed,
+    resolve_effective_process_status,
+)
 from ..services.public_candidacy import (
     PUBLIC_APPLICATION_CLOSED_MESSAGE,
     PUBLIC_APPLICATION_DUPLICATE_MESSAGE,
@@ -76,7 +81,10 @@ class PublicCandidacyRepositoryMixin:
     @staticmethod
     def _is_public_link_active(processo: dict | None) -> bool:
         safe_process = processo or {}
-        return bool(safe_process.get("link_publico_ativo")) and not is_process_closed(safe_process.get("status"))
+        effective_status = resolve_effective_process_status(
+            safe_process.get("status"), safe_process.get("data_encerramento")
+        )
+        return bool(safe_process.get("link_publico_ativo")) and effective_status != PROCESS_STATUS_CLOSED and not is_process_closed(safe_process.get("status"))
 
     def _build_public_process_payload(self, processo: dict) -> dict:
         return {

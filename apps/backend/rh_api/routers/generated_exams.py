@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from ..auth import AuthenticatedUser
 from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
 from ..repositories import DatabaseRepository
+from ..services.feedback_qualitativo import build_qualitative_feedback
 from ..schemas.generated_exams import (
     CancelExamRequest,
     DecisionRhRequest,
@@ -33,6 +34,17 @@ def _user_label(user: AuthenticatedUser) -> str:
 )
 def list_generated_exams(repository: DatabaseRepository = Depends(get_repository)):
     return repository.list_generated_exams()
+
+
+@router.get(
+    "/generated-exams/question-heatmap",
+    dependencies=[Depends(get_current_user), Depends(require_permissions("provas.visualizar"))],
+)
+def get_question_heatmap(
+    trilha: str = Query(default="", max_length=120),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.get_question_heatmap(trilha=trilha)
 
 
 @router.post(
@@ -71,7 +83,27 @@ def create_generated_exam(
     dependencies=[Depends(get_current_user), Depends(require_permissions("provas.visualizar"))],
 )
 def get_generated_exam(id_prova: int, repository: DatabaseRepository = Depends(get_repository)):
-    return repository.get_generated_exam(id_prova)
+    result = repository.get_generated_exam(id_prova)
+    # Camada aditiva de feedback qualitativo (item 4 do roadmap): não altera a
+    # pontuação/correção já calculada pelo repositório, apenas anexa texto
+    # explicativo por questão errada + um resumo por categoria/dificuldade,
+    # calculado em tempo de leitura a partir das respostas já corrigidas.
+    try:
+        respostas = result.get("respostas") if isinstance(result, dict) else None
+        if respostas:
+            questoes = result.get("questoes") if isinstance(result, dict) else None
+            result["feedback_qualitativo"] = build_qualitative_feedback(respostas, questoes)
+    except Exception:  # pragma: no cover - camada de apoio, nunca deve quebrar a tela de resultado
+        pass
+    return result
+
+
+@router.get(
+    "/generated-exams/{id_prova}/replay",
+    dependencies=[Depends(get_current_user), Depends(require_permissions("provas.visualizar"))],
+)
+def get_generated_exam_replay(id_prova: int, repository: DatabaseRepository = Depends(get_repository)):
+    return repository.get_exam_replay(id_prova)
 
 
 @router.put(

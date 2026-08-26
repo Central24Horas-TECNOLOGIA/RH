@@ -201,6 +201,14 @@ class Settings:
     email_graph_mailbox: str
     email_graph_scope: str
     email_graph_base_url: str
+    email_send_client_secret_env: str
+    sharepoint_site_id: str
+    sharepoint_drive_id: str
+    sharepoint_tenant_id: str
+    sharepoint_client_id: str
+    sharepoint_client_secret_env: str
+    sharepoint_scope: str
+    sharepoint_graph_base_url: str
     email_smtp_enabled: bool
     email_smtp_host: str
     email_smtp_port: int
@@ -217,6 +225,12 @@ class Settings:
     ai_timeout_seconds: int
     ai_max_curriculo_chars: int
     ai_duplicate_window_seconds: int
+    scheduler_enabled: bool
+    scheduler_inactivity_interval_hours: int
+    scheduler_inactivity_dias_sem_movimentacao: int
+    scheduler_inactivity_dias_realerta: int
+    email_inactivity_alert_recipients: tuple[str, ...]
+    redis_url: str
 
     @property
     def is_development(self) -> bool:
@@ -242,6 +256,16 @@ class Settings:
                 self.microsoft_redirect_uri,
             )
         )
+
+    @property
+    def email_send_client_secret(self) -> str:
+        env_name = self.email_send_client_secret_env
+        return os.getenv(env_name, "") if env_name else ""
+
+    @property
+    def sharepoint_client_secret(self) -> str:
+        env_name = self.sharepoint_client_secret_env
+        return os.getenv(env_name, "") if env_name else ""
 
 
 @lru_cache(maxsize=1)
@@ -372,6 +396,22 @@ def get_settings() -> Settings:
         email_graph_base_url=_env(
             "RH_EMAIL_GRAPH_BASE_URL", default="https://graph.microsoft.com/v1.0"
         ),
+        email_send_client_secret_env=_env(
+            "RH_EMAIL_SEND_CLIENT_SECRET_ENV", default="RH_EMAIL_GRAPH_CLIENT_SECRET"
+        ),
+        sharepoint_site_id=_env("RH_SHAREPOINT_SITE_ID"),
+        sharepoint_drive_id=_env("RH_SHAREPOINT_DRIVE_ID"),
+        sharepoint_tenant_id=_env("RH_SHAREPOINT_TENANT_ID", "MICROSOFT_TENANT_ID"),
+        sharepoint_client_id=_env("RH_SHAREPOINT_CLIENT_ID", "MICROSOFT_CLIENT_ID"),
+        sharepoint_client_secret_env=_env(
+            "RH_SHAREPOINT_CLIENT_SECRET_ENV", default="MICROSOFT_CLIENT_SECRET"
+        ),
+        sharepoint_scope=_env(
+            "RH_SHAREPOINT_SCOPE", default="https://graph.microsoft.com/.default"
+        ),
+        sharepoint_graph_base_url=_env(
+            "RH_SHAREPOINT_GRAPH_BASE_URL", default="https://graph.microsoft.com/v1.0"
+        ),
         email_smtp_enabled=_read_bool_env("RH_EMAIL_SMTP_ENABLED", default=False),
         email_smtp_host=_env("RH_EMAIL_SMTP_HOST"),
         email_smtp_port=_read_int_env(
@@ -400,6 +440,24 @@ def get_settings() -> Settings:
         ai_duplicate_window_seconds=_read_int_env(
             "AI_DUPLICATE_WINDOW_SECONDS", default=30, minimum=0, maximum=600
         ),
+        scheduler_enabled=_read_bool_env("RH_SCHEDULER_ENABLED", default=True),
+        scheduler_inactivity_interval_hours=_read_int_env(
+            "RH_SCHEDULER_INACTIVITY_INTERVAL_HORAS", default=1, minimum=1, maximum=168
+        ),
+        scheduler_inactivity_dias_sem_movimentacao=_read_int_env(
+            "RH_SCHEDULER_INACTIVITY_DIAS", default=30, minimum=1, maximum=365
+        ),
+        scheduler_inactivity_dias_realerta=_read_int_env(
+            "RH_SCHEDULER_INACTIVITY_REALERTA_DIAS", default=7, minimum=1, maximum=365
+        ),
+        email_inactivity_alert_recipients=tuple(
+            _split_csv(_env("RH_EMAIL_INACTIVITY_ALERT_RECIPIENTS"))
+        ),
+        # Redis é infraestrutura leve e opcional/degradável (CLAUDE.md,
+        # roadmap "cache de queries" e "fila de tarefas assíncronas"): vazio
+        # por padrão, o que desativa cache (rh_api/cache.py) e enfileiramento
+        # (rh_api/task_queue.py) sem quebrar nada.
+        redis_url=_env("RH_REDIS_URL", default=""),
     )
     validate_environment_database(
         settings.app_env,

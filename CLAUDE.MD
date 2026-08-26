@@ -11,6 +11,28 @@
 
 ## Restrições Técnicas e Segurança
 
-- **Alteração Lógica Zero**: É terminantemente proibido alterar rotas de backend, lógica de banco de dados ou funcionalidades existentes.
-- **Foco em UI**: As alterações devem se limitar estritamente a classes CSS/Tailwind ou estruturas visuais de componentes.
+- **Modo padrão (ajustes de UI)**: para pedidos de ajuste visual/estético, é proibido alterar rotas de backend, lógica de banco de dados ou funcionalidades existentes. As alterações devem se limitar estritamente a classes CSS/Tailwind ou estruturas visuais de componentes.
+- **Trabalho full-stack autorizado explicitamente**: quando o usuário solicitar explicitamente uma nova funcionalidade/integração full-stack (ex.: integração Microsoft 365), é permitido criar/alterar rotas de backend, serviços, migrations de banco e RBAC, desde que:
+  - a implementação siga os padrões arquiteturais já existentes no Conecta (camadas `routers/services/repositories/schemas` em `apps/backend/rh_api/`, SQL puro via `pyodbc`, migrations idempotentes em `infra/sql/migrations/`);
+  - funcionalidades e rotas já existentes não sejam reescritas, removidas ou comportamento alterado sem necessidade;
+  - toda mudança seja auditável e verificada de ponta a ponta (backend, frontend, permissões, menu) antes de ser considerada concluída.
+- **Identidade visual**: novos componentes de UI devem seguir as Regras de Design acima; não alterar o design de telas já existentes.
 - **Eficiência de Tokens**: Retorne apenas as alterações necessárias (estilo diff) ou substitua blocos específicos de código. Não gere arquivos inteiros desnecessariamente.
+
+### Exceção autorizada: roadmap de expansão (respostas.txt)
+
+As regras acima continuam valendo como padrão para qualquer manutenção, correção de bug ou tarefa não relacionada ao roadmap. Para as ideias explicitamente aprovadas pelo RH em `respostas.txt` (categorias "Pode aplicar" e "Pode aplicar mas com alteração", registradas no relatório `Correções Conecta`), o RH autorizou pontualmente ir além de UI quando a ideia exigir:
+
+- Novas rotas de backend, lógica de negócio e alterações de schema/banco, desde que aditivas (novas tabelas/colunas) e sem quebrar rotas, dados ou fluxos já existentes.
+- Nova infraestrutura leve quando a própria ideia pedir (ex.: Redis para cache/fila, Playwright para testes), desde que documentada e opcional/degradável (o sistema deve continuar funcionando sem essas peças, caso não estejam disponíveis no ambiente).
+- Identidade visual e padrões de design continuam obrigatórios (grade de 8px, sem gradiente genérico, cores sóbrias) mesmo para as telas novas.
+
+Fora do escopo do roadmap aprovado em respostas.txt, a restrição original de "zero alteração lógica / só UI" continua em vigor.
+
+### Exceção estendida: próxima evolução (respostas.txt, rodada de 25/ago/2026)
+
+A mesma exceção acima é estendida às novas frentes descritas na rodada seguinte de `respostas.txt` (Central de Treinamentos, entidade "Operação" cascateando por Provas/Processos/Treinamentos, expansão de Configurações, redesign do Drive-Conecta, sistema de notificações e relacionamento entre usuários), sob as mesmas condições: aditivo, sem quebrar rotas/dados/fluxos existentes, seguindo os padrões arquiteturais já em uso.
+
+Ressalva de segurança explícita: o pedido de tornar credenciais do arquivo `.env` (segredos, chaves de API, senhas) editáveis pela UI **não é implementado como pedido literalmente** — segredos de infraestrutura não devem transitar em texto plano por tela alguma. Configurações de negócio (catálogos, regras, cadastros) continuam liberadas para virar UI de administração.
+
+Os dois aplicativos móveis (Conecta mobile e Central de Treinamento mobile) tiveram a produção pausada pelo próprio RH nesta rodada — não devem ser iniciados até nova instrução.

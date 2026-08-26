@@ -1259,6 +1259,36 @@ class SecurityRepositoryMixin:
         writer.writerows(rows)
         return f"logs_auditoria_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", output.getvalue()
 
+    def list_catalog_items_by_type(self, tipo: str, *, apenas_ativos: bool = True) -> list[dict]:
+        """Leitura enxuta de um único catálogo (ex.: "operacoes"), só os campos
+        necessários para preencher um <select> — usada por telas operacionais
+        (criar processo, gerar prova) que não têm permissão de configurações."""
+        definition = SETTINGS_CATALOGS.get(normalize_text(tipo))
+        if not definition:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catálogo de configuração não encontrado.")
+        table = definition["table"]
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            where_ativo = "WHERE ativo = 1" if apenas_ativos else ""
+            cursor.execute(
+                f"""
+                SELECT id_item, chave, nome, descricao, categoria, payload_json
+                FROM {table}
+                {where_ativo}
+                ORDER BY nome
+                """
+            )
+            items = []
+            for row in rows_to_dicts(cursor, cursor.fetchall()):
+                item = dict(row)
+                item["payload"] = safe_json_loads(item.get("payload_json"), {})
+                item.pop("payload_json", None)
+                items.append(item)
+            return items
+        finally:
+            conn.close()
+
     def list_configuration_catalog(self) -> dict:
         conn = self._connect()
         try:

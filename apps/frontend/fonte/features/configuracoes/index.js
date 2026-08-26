@@ -1,6 +1,7 @@
 import { html, useEffect, useMemo, useState } from '../../infraestrutura-react.js';
 import {
   alterarStatusUsuario,
+  atualizarAutomacaoNotificacoes,
   atualizarItemConfiguracao,
   atualizarPermissoesPerfil,
   atualizarUsuario,
@@ -9,6 +10,7 @@ import {
   criarUsuario,
   desativarItemConfiguracao,
   excluirUsuario,
+  lerAutomacaoNotificacoes,
   listarCatalogoConfiguracoes,
   listarLogsAuditoria,
   listarPerfis,
@@ -17,12 +19,14 @@ import {
   redefinirSenhaUsuario,
 } from '../../app/controlador-aplicacao.js';
 import { baixarBlob, obterItensPaginados } from '../../utilitarios.js';
-import { AcaoSair } from '../../shared/components/actions.js';
-import { PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
+import { ModalPadrao, PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
 
 const ABAS = [
   { id: 'usuarios', tela: 'screen-settings-users', label: 'Usuários', permissao: 'usuarios.visualizar', icon: 'person' },
   { id: 'perfis', tela: 'screen-settings-profiles', label: 'Perfis e permissões', permissao: 'configuracoes.visualizar', icon: 'admin_panel_settings' },
+  { id: 'operacoes', tela: 'screen-settings-operations', label: 'Operações', permissao: 'configuracoes.visualizar', icon: 'apartment' },
+  { id: 'catalogos', tela: 'screen-settings-catalog', label: 'Catálogos', permissao: 'configuracoes.visualizar', icon: 'inventory_2' },
+  { id: 'notificacoes', tela: 'screen-settings-notifications', label: 'Notificações', permissao: 'notificacoes.configurar', icon: 'notifications_active' },
   { id: 'logs', tela: 'screen-settings-logs', label: 'Logs', permissao: 'logs.visualizar', icon: 'history_edu' },
 ];
 const ABA_POR_TELA = ABAS.reduce((mapa, aba) => ({ ...mapa, [aba.tela]: aba.id }), {
@@ -69,6 +73,7 @@ const CATALOGO_ICONS = {
   provas: 'quiz',
   questoes: 'help',
   notificacoes: 'notifications',
+  operacoes: 'apartment',
 };
 
 const STATUS_USUARIO = ['', 'Ativo', 'Inativo', 'Bloqueado'];
@@ -118,17 +123,6 @@ function formatarData(valor) {
     year: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  });
-}
-
-function formatarDataCurta(valor) {
-  if (!valor) return 'Sem acesso';
-  const data = new Date(valor);
-  if (Number.isNaN(data.getTime())) return String(valor);
-  return data.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
   });
 }
 
@@ -365,6 +359,11 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const [permissoes, setPermissoes] = useState([]);
   const [catalogo, setCatalogo] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [automacaoNotificacoes, setAutomacaoNotificacoes] = useState({
+    email_automatico_ativo: false,
+    lembretes_automaticos_ativos: false,
+  });
+  const [salvandoAutomacao, setSalvandoAutomacao] = useState(false);
   const [formUsuario, setFormUsuario] = useState(FORM_USUARIO_INICIAL);
   const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState('');
   const [criandoUsuario, setCriandoUsuario] = useState(false);
@@ -419,6 +418,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const abaRenderizada = abasPermitidas.some((aba) => aba.id === abaAtiva)
     ? abaAtiva
     : abasPermitidas[0]?.id || '';
+
+  useEffect(() => {
+    if (abaRenderizada === 'operacoes') setTipoCatalogo('operacoes');
+  }, [abaRenderizada]);
 
   const fecharDrawerUsuario = () => {
     setDrawerUsuarioAberto(false);
@@ -493,7 +496,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     setCarregando(true);
     setErro('');
     try {
-      const [usuariosResp, perfisResp, permissoesResp, catalogoResp, logsResp] =
+      const [usuariosResp, perfisResp, permissoesResp, catalogoResp, logsResp, automacaoResp] =
         await Promise.allSettled([
           controlador.possuiPermissao('usuarios.visualizar') ? listarUsuarios() : [],
           controlador.possuiPermissao('configuracoes.visualizar') ? listarPerfis() : [],
@@ -502,6 +505,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
             ? listarCatalogoConfiguracoes()
             : { sections: [] },
           controlador.possuiPermissao('logs.visualizar') ? listarLogsAuditoria({ limit: 160 }) : [],
+          controlador.possuiPermissao('notificacoes.configurar')
+            ? lerAutomacaoNotificacoes()
+            : { email_automatico_ativo: false, lembretes_automaticos_ativos: false },
         ]);
 
       if (usuariosResp.status === 'fulfilled') setUsuarios(normalizarLista(usuariosResp.value));
@@ -515,6 +521,12 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         );
       }
       if (logsResp.status === 'fulfilled') setLogs(normalizarLista(logsResp.value));
+      if (automacaoResp.status === 'fulfilled') {
+        setAutomacaoNotificacoes({
+          email_automatico_ativo: Boolean(automacaoResp.value?.email_automatico_ativo),
+          lembretes_automaticos_ativos: Boolean(automacaoResp.value?.lembretes_automaticos_ativos),
+        });
+      }
 
       const falha = [usuariosResp, perfisResp, permissoesResp, catalogoResp, logsResp].find(
         (item) => item.status === 'rejected',
@@ -1341,30 +1353,15 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               `}
         </section>
 
-        ${drawerUsuarioAberto
-        ? html`
-              <div class="users-drawer-backdrop" onClick=${fecharDrawerUsuario}>
-                <aside
-                  class="users-drawer"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="users-drawer-title"
-                  onClick=${(event) => event.stopPropagation()}
-                >
-                  <header class="users-drawer-header">
-                    <div>
-                      <span class="c24-eyebrow">${criandoUsuario ? 'Cadastro' : 'Editar usuário'}</span>
-                      <h3 id="users-drawer-title">${criandoUsuario ? 'Criar usuário' : 'Editar usuário'}</h3>
-                      <p>${nomeDrawer}</p>
-                    </div>
-                    <button type="button" class="c24-icon-btn" title="Fechar" aria-label="Fechar" onClick=${fecharDrawerUsuario}>
-                      <${Icone} name="close" />
-                    </button>
-                  </header>
-
-                  <form class="users-drawer-form" onSubmit=${salvarUsuario}>
-                    <div class="users-drawer-body">
-                      <label>
+        <${ModalPadrao}
+          aberto=${drawerUsuarioAberto}
+          titulo=${criandoUsuario ? 'Criar usuário' : 'Editar usuário'}
+          subtitulo=${nomeDrawer}
+          onClose=${fecharDrawerUsuario}
+        >
+          <form class="users-drawer-form" onSubmit=${salvarUsuario}>
+            <div class="users-drawer-body">
+              <label>
                         <span>Nome</span>
                         <input
                           class="form-control"
@@ -1471,21 +1468,18 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                             </div>
                           `
             : null}
-                    </div>
+            </div>
 
-                    <footer class="users-drawer-footer">
-                      <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${fecharDrawerUsuario}>
-                        Cancelar
-                      </button>
-                      <button type="submit" class="btn btn-primary" disabled=${salvando || !podeSalvar}>
-                        ${salvando ? 'Salvando...' : 'Salvar'}
-                      </button>
-                    </footer>
-                  </form>
-                </aside>
-              </div>
-            `
-        : null}
+            <footer class="rh-modal-footer">
+              <button type="button" class="btn btn-outline-secondary" disabled=${salvando} onClick=${fecharDrawerUsuario}>
+                Cancelar
+              </button>
+              <button type="submit" class="btn btn-primary" disabled=${salvando || !podeSalvar}>
+                ${salvando ? 'Salvando...' : 'Salvar'}
+              </button>
+            </footer>
+          </form>
+        </${ModalPadrao}>
       </div>
     `;
   };
@@ -1890,9 +1884,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               />
             </label>
             <label>
-              <span>Categoria</span>
+              <span>${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'Tipo de operação' : 'Categoria'}</span>
               <input
                 class="form-control"
+                placeholder=${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'Ex.: Receptivo, Ativo, Backoffice, Híbrido' : ''}
                 value=${formItem.categoria}
                 onInput=${(event) => setFormItem({ ...formItem, categoria: event.target.value })}
               />
@@ -1910,10 +1905,11 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               </select>
             </label>
             <label class="is-wide">
-              <span>Descrição</span>
+              <span>${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'Visão geral e como funciona' : 'Descrição'}</span>
               <textarea
                 class="form-control"
-                rows="2"
+                rows=${secaoCatalogoAtiva?.tipo === 'operacoes' ? '5' : '2'}
+                placeholder=${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'O que é essa operação, para qual cliente, e como funciona no dia a dia — use este espaço como o formulário completo da operação.' : ''}
                 value=${formItem.descricao}
                 onInput=${(event) => setFormItem({ ...formItem, descricao: event.target.value })}
               ></textarea>
@@ -2063,6 +2059,104 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       </div>
 
       ${renderAuditoriaRecente()}
+    </div>
+  `;
+
+  const alternarAutomacaoEmail = async (ativo) => {
+    setSalvandoAutomacao(true);
+    setErro('');
+    try {
+      const payload = { ...automacaoNotificacoes, email_automatico_ativo: ativo };
+      await atualizarAutomacaoNotificacoes(payload);
+      setAutomacaoNotificacoes(payload);
+      setFeedback(
+        ativo
+          ? 'Automação de e-mail por etapa ativada.'
+          : 'Automação de e-mail por etapa desativada.',
+      );
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível atualizar a automação de notificações.');
+    } finally {
+      setSalvandoAutomacao(false);
+    }
+  };
+
+  const alternarLembretesAutomaticos = async (ativo) => {
+    setSalvandoAutomacao(true);
+    setErro('');
+    try {
+      const payload = { ...automacaoNotificacoes, lembretes_automaticos_ativos: ativo };
+      await atualizarAutomacaoNotificacoes(payload);
+      setAutomacaoNotificacoes(payload);
+      setFeedback(
+        ativo
+          ? 'Lembretes automáticos de processos parados ativados.'
+          : 'Lembretes automáticos de processos parados desativados.',
+      );
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível atualizar a automação de lembretes.');
+    } finally {
+      setSalvandoAutomacao(false);
+    }
+  };
+
+  const renderNotificacoes = () => html`
+    <div class="settings-admin-shell">
+      <section class="c24-card">
+        <header class="c24-card-header">
+          <h2>E-mails automáticos por etapa</h2>
+        </header>
+        <div class="process-cutoff-panel">
+          <label class="process-switch-row">
+            <input
+              type="checkbox"
+              checked=${Boolean(automacaoNotificacoes.email_automatico_ativo)}
+              disabled=${salvandoAutomacao}
+              onChange=${(event) => alternarAutomacaoEmail(event.target.checked)}
+            />
+            <span class="process-switch-visual"></span>
+            <span>
+              <strong>Enviar e-mail automaticamente quando o candidato for aprovado</strong>
+              <small>
+                Reaproveita o mesmo texto que o RH prepara ao aprovar o candidato (mensagem, anexo e
+                documentos). O envio manual continua disponível normalmente, mesmo com a automação
+                ativada. Desligado por padrão — ative apenas quando o time estiver ciente da mudança.
+              </small>
+            </span>
+          </label>
+        </div>
+        <p class="settings-notifications-hint">
+          Hoje a automação cobre apenas a aprovação, por ser a única etapa com um modelo de mensagem já
+          estabelecido no sistema. Outras etapas (reprovação, proposta enviada) podem ser adicionadas no
+          futuro, assim como o disparo automático por WhatsApp.
+        </p>
+      </section>
+
+      <section class="c24-card">
+        <header class="c24-card-header">
+          <h2>Lembretes e alertas automáticos</h2>
+        </header>
+        <div class="process-cutoff-panel">
+          <label class="process-switch-row">
+            <input
+              type="checkbox"
+              checked=${Boolean(automacaoNotificacoes.lembretes_automaticos_ativos)}
+              disabled=${salvandoAutomacao}
+              onChange=${(event) => alternarLembretesAutomaticos(event.target.checked)}
+            />
+            <span class="process-switch-visual"></span>
+            <span>
+              <strong>Enviar lembrete automático de processos sem movimentação</strong>
+              <small>
+                Um job interno do backend verifica periodicamente os processos parados (mesma regra do
+                alerta de inatividade já existente) e envia um e-mail de aviso ao RH responsável, sem
+                repetir o alerta para o mesmo processo em menos de 7 dias. Desligado por padrão — ative
+                apenas quando o time estiver ciente da mudança.
+              </small>
+            </span>
+          </label>
+        </div>
+      </section>
     </div>
   `;
 
@@ -2288,7 +2382,6 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       placeholderBusca="Configurações, usuários, permissões e logs"
       controlador=${controlador}
       mostrarAtalhos=${false}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Console - Administração"
@@ -2319,9 +2412,13 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
           ? renderUsuarios()
           : abaRenderizada === 'perfis'
             ? renderPerfis()
-            : abaRenderizada === 'catalogos'
+            : abaRenderizada === 'operacoes'
               ? renderCatalogos()
-              : renderLogs()}
+              : abaRenderizada === 'catalogos'
+                ? renderCatalogos()
+                : abaRenderizada === 'notificacoes'
+                  ? renderNotificacoes()
+                  : renderLogs()}
     </${PainelRh}>
   `;
 }

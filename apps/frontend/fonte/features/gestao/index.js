@@ -70,7 +70,8 @@ import {
   obterClasseAderencia,
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
-import { AcaoSair } from '../../shared/components/actions.js';
+import { ModalComporEmail } from '../../shared/components/compose-email-modal.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   ModalCompartilharVaga,
   REQUISITOS_PUBLICOS_PADRAO,
@@ -79,12 +80,13 @@ import {
   montarTextoCompartilhamentoVaga,
 } from '../../shared/components/share-job-modal.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
+import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 import {
   getCandidateActionState,
   getCandidateVisibleStatus,
   isProcessClosed,
 } from '../../shared/process-flow.js';
-import { CHAVE_PROCESSO_DETALHE } from '../processos-estado.js';
+import { CHAVE_DUPLICAR_PROCESSO, CHAVE_PROCESSO_DETALHE } from '../processos-estado.js';
 import { obterTourLogin } from '../../shared/tour-config.js';
 import {
   obterChaveProcesso,
@@ -97,6 +99,8 @@ import {
   validarPerfilCandidato,
 } from '../../shared/validacoes.js';
 import { BlocoFiltro, CampoFiltro } from './components/filtros.js';
+import { listarOperacoes } from '../../services/api/operations.js';
+import { CHAVE_COMANDO_NOVO_PROCESSO } from '../../ui/busca-global.js';
 import {
   EmptyState,
   GrupoPaginacao,
@@ -775,6 +779,7 @@ function formatarPartesDataHoraEmail(valor) {
 }
 
 function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } = {}) {
+  const { showToast, ToastHost } = useToast();
   const compacto = modo !== 'completo';
   const chaveInicialEmail = montarChaveCacheSecaoEmail();
   const cacheInicialEmail = lerCacheSecaoEmail(chaveInicialEmail);
@@ -1066,6 +1071,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
 
   return html`
     <div class=${`mailbox-layout ${compacto ? 'is-compact' : 'is-full'} ${itensSelecionados.length ? 'has-selection' : ''}`}>
+      <${ToastHost} />
       <${SectionCard}
         className=${`mailbox-card ${compacto ? 'mailbox-card-compact' : 'mailbox-card-full'}`}
         title=${compacto ? 'Caixa de E-mail' : ''}
@@ -1688,6 +1694,7 @@ export function TelaLogin({ controlador }) {
 }
 
 export function TelaInicio({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [recentes, setRecentes] = useState([]);
   const [processos, setProcessos] = useState([]);
@@ -1695,11 +1702,25 @@ export function TelaInicio({ controlador }) {
   const [entrevistas, setEntrevistas] = useState([]);
   const [paginaRecentes, setPaginaRecentes] = useState(1);
   const [detalheAberto, setDetalheAberto] = useState(null);
+  const [ultimaVisita, setUltimaVisita] = useState('');
   const nomeUsuarioLogado = normalizarTextoPainel(
     controlador?.estado?.nomeUsuarioAutenticado ||
     controlador?.estado?.usuarioAutenticado ||
     'usuário',
   );
+
+  useEffect(() => {
+    const usuario = controlador?.estado?.usuarioAutenticado || 'anonimo';
+    const chave = `rh_home_ultima_visita_${usuario}`;
+    try {
+      const anterior = localStorage.getItem(chave) || '';
+      setUltimaVisita(anterior);
+      localStorage.setItem(chave, new Date().toISOString());
+    } catch (error) {
+      // Sem localStorage disponível (bloqueado pelo navegador), o resumo
+      // "desde a última visita" simplesmente não é exibido.
+    }
+  }, []);
 
   const carregar = async ({ forcar = false } = {}) => {
     setCarregando(true);
@@ -1852,6 +1873,24 @@ export function TelaInicio({ controlador }) {
   );
   const pendenciasResumo =
     candidatosEmAnalise.length + alertasOperacionais.length;
+  const desdeUltimaVisita = useMemo(() => {
+    if (!ultimaVisita) return null;
+    const marco = new Date(ultimaVisita).getTime();
+    if (!Number.isFinite(marco)) return null;
+
+    const novosProcessos = processosAtivos.filter((processo) => {
+      const data = new Date(processo.data_criacao || '').getTime();
+      return Number.isFinite(data) && data > marco;
+    }).length;
+
+    const novasContratacoes = contratacoesResumo.filter((candidato) => {
+      const data = new Date(candidato.aprovado_em || candidato.data_atualizacao_pipeline || '').getTime();
+      return Number.isFinite(data) && data > marco;
+    }).length;
+
+    if (!novosProcessos && !novasContratacoes) return null;
+    return { novosProcessos, novasContratacoes, marco };
+  }, [processosAtivos, contratacoesResumo, ultimaVisita]);
   const indicadoresPainel = useMemo(
     () => [
       {
@@ -1961,8 +2000,8 @@ export function TelaInicio({ controlador }) {
         controlador.irParaTelaProtegida('screen-generated-exams');
       },
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         title=${`Olá, ${nomeUsuarioLogado}!`}
         description="Panorama geral do recrutamento hoje."
@@ -1977,6 +2016,27 @@ export function TelaInicio({ controlador }) {
           </button>
         `}
       />
+
+      ${desdeUltimaVisita
+      ? html`
+            <div class="home-since-visit-banner">
+              <span class="material-symbols-outlined">update</span>
+              <div>
+                <strong>Desde sua última visita, em ${formatarDataHora(new Date(desdeUltimaVisita.marco).toISOString())}</strong>
+                <p>
+                  ${[
+          desdeUltimaVisita.novosProcessos
+            ? `${desdeUltimaVisita.novosProcessos} processo${desdeUltimaVisita.novosProcessos > 1 ? 's' : ''} novo${desdeUltimaVisita.novosProcessos > 1 ? 's' : ''} aberto${desdeUltimaVisita.novosProcessos > 1 ? 's' : ''}`
+            : '',
+          desdeUltimaVisita.novasContratacoes
+            ? `${desdeUltimaVisita.novasContratacoes} candidato${desdeUltimaVisita.novasContratacoes > 1 ? 's' : ''} aprovado${desdeUltimaVisita.novasContratacoes > 1 ? 's' : ''}`
+            : '',
+        ].filter(Boolean).join(' · ')}
+                </p>
+              </div>
+            </div>
+          `
+      : null}
 
       <${SectionCard}
         title="Acessos rápidos"
@@ -2235,7 +2295,7 @@ export function TelaInicio({ controlador }) {
       try {
         await abrirFichaCandidatoDaProva(detalheAberto);
       } catch (error) {
-        window.alert('Não foi possível localizar a ficha deste candidato.');
+        showToast('Não foi possível localizar a ficha deste candidato.', 'error');
       }
     }}
       />
@@ -2244,6 +2304,11 @@ export function TelaInicio({ controlador }) {
 }
 
 export function TelaCaixaEmail({ controlador }) {
+  const [modalComporAberto, setModalComporAberto] = useState(false);
+  const podeComporEmail =
+    controlador?.possuiPermissao?.('emails.enviar_modelo') ||
+    controlador?.possuiPermissao?.('emails.enviar_livre');
+
   return html`
     <${PainelRh}
       screenId="screen-email-inbox"
@@ -2251,23 +2316,40 @@ export function TelaCaixaEmail({ controlador }) {
       subtituloMarca="Central 24h"
       placeholderBusca="Caixa de e-mail"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Currículos recebidos"
         title="Caixa de E-mail"
         description=""
+        actions=${podeComporEmail
+          ? html`
+              <button type="button" class="btn btn-primary" onClick=${() => setModalComporAberto(true)}>
+                <span class="material-symbols-outlined" aria-hidden="true">edit_note</span> Compor e-mail
+              </button>
+            `
+          : null}
       />
 
       <${SecaoCurriculosRecebidosEmail}
         modo="completo"
         controlador=${controlador}
       />
+
+      ${podeComporEmail
+        ? html`
+            <${ModalComporEmail}
+              aberto=${modalComporAberto}
+              controlador=${controlador}
+              onClose=${() => setModalComporAberto(false)}
+            />
+          `
+        : null}
     </${PainelRh}>
   `;
 }
 
 export function TelaHistorico({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [linhas, setLinhas] = useState([]);
   const [pagina, setPagina] = useState(1);
@@ -2319,8 +2401,8 @@ export function TelaHistorico({ controlador }) {
       permissao: 'provas.enviar',
       onClick: () => controlador.iniciarNovoFluxo(),
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Console • Histórico"
         title="Histórico de exames"
@@ -2387,7 +2469,7 @@ export function TelaHistorico({ controlador }) {
             </thead>
             <tbody>
               ${carregando
-      ? html`<${TabelaVazia} colunas=${7} texto="Carregando histórico..." />`
+      ? html`<${SkeletonTableRows} colunas=${7} linhas=${6} />`
       : linhas.length
         ? linhas.map(
           (linha) => html`
@@ -2441,6 +2523,7 @@ export function TelaHistorico({ controlador }) {
                       <${TabelaVazia}
                         colunas=${7}
                         texto="Nenhum registro encontrado para os filtros informados."
+                        icone="search_off"
                       />
                     `}
             </tbody>
@@ -2466,7 +2549,7 @@ export function TelaHistorico({ controlador }) {
       try {
         await abrirFichaCandidatoDaProva(detalheAberto);
       } catch (error) {
-        window.alert('Não foi possível localizar a ficha deste candidato.');
+        showToast('Não foi possível localizar a ficha deste candidato.', 'error');
       }
     }}
       />
@@ -2481,6 +2564,7 @@ export function TelaCriarProcesso({ controlador }) {
     dataEncerramento: '',
     operacao: '',
     trilha: '',
+    urgente: false,
     usaNotaCorte: false,
     notaCorte: '',
     areaProva: '',
@@ -2504,6 +2588,61 @@ export function TelaCriarProcesso({ controlador }) {
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [modalCompartilharAberto, setModalCompartilharAberto] = useState(false);
+  const [operacoesCadastradas, setOperacoesCadastradas] = useState([]);
+
+  useEffect(() => {
+    let cancelado = false;
+    listarOperacoes()
+      .then((itens) => {
+        if (!cancelado && Array.isArray(itens)) setOperacoesCadastradas(itens);
+      })
+      .catch(() => {
+        // Mantém a lista estática (OPCOES_OPERACOES) como fallback silencioso.
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const opcoesOperacaoDisponiveis = useMemo(() => {
+    const nomesCadastrados = new Set(operacoesCadastradas.map((item) => item.nome));
+    const extras = OPCOES_OPERACOES.filter((nome) => !nomesCadastrados.has(nome));
+    return [...operacoesCadastradas.map((item) => item.nome), ...extras];
+  }, [operacoesCadastradas]);
+
+  useEffect(() => {
+    if (!opcoesOperacaoDisponiveis.length) return;
+    const argumento = sessionStorage.getItem(CHAVE_COMANDO_NOVO_PROCESSO);
+    if (argumento === null) return;
+    sessionStorage.removeItem(CHAVE_COMANDO_NOVO_PROCESSO);
+    if (!argumento.trim()) return;
+    const termo = normalizarTextoPainel(argumento);
+    const encontrada = opcoesOperacaoDisponiveis.find(
+      (nome) => normalizarTextoPainel(nome).includes(termo) || termo.includes(normalizarTextoPainel(nome)),
+    );
+    if (encontrada) {
+      setFormulario((anterior) => ({ ...anterior, operacao: encontrada }));
+    }
+  }, [opcoesOperacaoDisponiveis]);
+
+  useEffect(() => {
+    const bruto = sessionStorage.getItem(CHAVE_DUPLICAR_PROCESSO);
+    if (bruto === null) return;
+    sessionStorage.removeItem(CHAVE_DUPLICAR_PROCESSO);
+    try {
+      const dados = JSON.parse(bruto) || {};
+      setFormulario((anterior) => ({
+        ...anterior,
+        vaga: dados.vaga || anterior.vaga,
+        operacao: dados.operacao || anterior.operacao,
+        trilha: dados.trilha || anterior.trilha,
+        usaNotaCorte: Boolean(dados.usaNotaCorte),
+        notaCorte: dados.notaCorte || anterior.notaCorte,
+      }));
+    } catch (error) {
+      // Prefill é um atalho opcional — se o JSON vier inválido, segue com o formulário em branco.
+    }
+  }, []);
 
   const regras = obterRegrasFormularioProcesso(formulario.vaga);
   const permiteTipoAtendimento = vagaPermiteTipoAtendimentoProcesso(formulario.vaga);
@@ -2940,6 +3079,7 @@ export function TelaCriarProcesso({ controlador }) {
         link_agendamento: '',
         configuracao_prova_json: JSON.stringify(configuracaoProva),
         prova_configurada_em: configuracaoProva.configurada_em,
+        urgente: Boolean(formulario.urgente),
       });
 
       controlador.irParaTelaProtegida('screen-processes');
@@ -2961,7 +3101,6 @@ export function TelaCriarProcesso({ controlador }) {
       label: 'Ver processos',
       onClick: () => controlador.irParaTelaProtegida('screen-processes'),
     }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="Console • Novo processo"
@@ -3022,7 +3161,7 @@ export function TelaCriarProcesso({ controlador }) {
                         <span>Operação / Cliente</span>
                         <select value=${formulario.operacao} onChange=${(event) => atualizarCampo('operacao', event.target.value)}>
                           <option value="">Selecione...</option>
-                          ${OPCOES_OPERACOES.map(
+                          ${opcoesOperacaoDisponiveis.map(
         (operacao) => html`<option key=${operacao} value=${operacao}>${operacao}</option>`,
       )}
                         </select>
@@ -3035,6 +3174,22 @@ export function TelaCriarProcesso({ controlador }) {
         (opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`,
       )}
                         </select>
+                      </label>
+                    </div>
+                  </section>
+                  <section class="process-create-card">
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">bolt</span>
+                      <h2>Botão Expresso</h2>
+                    </div>
+                    <div class="process-cutoff-panel">
+                      <label class="process-switch-row">
+                        <input type="checkbox" checked=${formulario.urgente} onChange=${(event) => atualizarCampo('urgente', event.target.checked)} />
+                        <span class="process-switch-visual"></span>
+                        <span>
+                          <strong>Urgente (Botão Expresso)</strong>
+                          <small>Use apenas para emergências reais. Existe um limite de vagas urgentes abertas ao mesmo tempo — se o limite for excedido, o sistema recusará a marcação.</small>
+                        </span>
                       </label>
                     </div>
                   </section>
@@ -3237,6 +3392,7 @@ export function TelaCriarProcesso({ controlador }) {
           ['Encerramento', formatarDataResumoProcesso(formulario.dataEncerramento)],
           ['Operação', formulario.operacao || '-'],
           ['Área / Trilha', trilhaEfetiva || '-'],
+          ['Botão Expresso', formulario.urgente ? 'Urgente' : 'Não urgente'],
           ['Nota de corte', formulario.usaNotaCorte ? formulario.notaCorte || '-' : 'Não ativada'],
           ['Prova', blueprint?.label || '-'],
           ['Tempo', `${formulario.tempoTotal || 0} min`],
@@ -3337,6 +3493,7 @@ export function TelaCriarProcesso({ controlador }) {
 }
 
 export function TelaBancoTalentos({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -3393,7 +3550,7 @@ export function TelaBancoTalentos({ controlador }) {
 
   const abrirCurriculo = async (candidato) => {
     if (!candidato?.id_teste || !candidato?.cv_disponivel) {
-      window.alert('Não há currículo disponível para este candidato.');
+      showToast('Não há currículo disponível para este candidato.', 'warning');
       return;
     }
 
@@ -3473,7 +3630,7 @@ export function TelaBancoTalentos({ controlador }) {
 
   const confirmarUso = async () => {
     if (!candidatoParaUtilizar || !processoSelecionadoUso) {
-      window.alert('Selecione um processo antes de continuar.');
+      showToast('Selecione um processo antes de continuar.', 'warning');
       return;
     }
 
@@ -3513,8 +3670,8 @@ export function TelaBancoTalentos({ controlador }) {
       subtituloMarca="Banco de talentos"
       placeholderBusca="Reaproveitamento de candidatos"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Console • Banco de talentos"
         title="Banco de talentos"
@@ -3567,14 +3724,7 @@ export function TelaBancoTalentos({ controlador }) {
         description="Reaproveitamento, perfil RH e filtros avançados funcionando sobre dados persistidos."
         tourId="talent-table"
       >
-        ${carregando
-      ? html`
-              <${LoadingState}
-                titulo="Carregando banco de talentos"
-                descricao="Buscando candidatos, tags e observações persistidas."
-              />
-            `
-      : html`
+        ${html`
               <div class="table-responsive">
                 <table class="table align-middle rh-modern-history-table">
                   <thead>
@@ -3593,15 +3743,27 @@ export function TelaBancoTalentos({ controlador }) {
                     </tr>
                   </thead>
                   <tbody>
-                    ${linhas.length
+                    ${carregando
+          ? html`<${SkeletonTableRows} colunas=${11} linhas=${6} />`
+          : linhas.length
           ? linhas.map(
             (linha) => html`
-                            <tr key=${linha.id_banco}>
+                            <tr key=${linha.id_banco} class="c24-fade-in">
                               <td>${linha.id_processo || '-'}</td>
                               <td>
                                 <strong>${linha.nome_candidato || '-'}</strong>
                                 <div class="small text-muted mt-1">
                                   ${formatarDataHora(linha.data_movimentacao)}
+                                  ${linha.expirado
+              ? html`
+                                        <span
+                                          class="rh-status-pill is-not-qualified ms-2"
+                                          title="Mais de 180 dias no banco de talentos — revise antes de reutilizar."
+                                        >
+                                          Expirado
+                                        </span>
+                                      `
+              : null}
                                 </div>
                               </td>
                               <td>${linha.cidade || '-'}</td>
@@ -3689,6 +3851,7 @@ export function TelaBancoTalentos({ controlador }) {
                           <${TabelaVazia}
                             colunas=${11}
                             texto="Nenhum candidato no banco de talentos."
+                            icone="person_off"
                           />
                         `}
                   </tbody>
@@ -3884,6 +4047,7 @@ function GraficoComparativoAnalise({ itens = [] }) {
 }
 
 export function TelaAnaliseCandidatos({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [linhas, setLinhas] = useState([]);
   const [relatorioAtivo, setRelatorioAtivo] = useState('processos');
   const [carregandoRelatorio, setCarregandoRelatorio] = useState(false);
@@ -4123,28 +4287,28 @@ export function TelaAnaliseCandidatos({ controlador }) {
   const aplicarAcao = async (statusCandidato) => {
     if (!detalhe?.id_teste) return;
     if (detalheEstadoAcoes.processClosed) {
-      window.alert('O processo seletivo deste candidato está encerrado e não permite novas movimentações.');
+      showToast('O processo seletivo deste candidato está encerrado e não permite novas movimentações.', 'warning');
       return;
     }
     if (
       statusCandidato === 'Aprovado' &&
       !detalheEstadoAcoes.canApprove
     ) {
-      window.alert('A aprovação não está disponível para o status atual deste candidato.');
+      showToast('A aprovação não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
     if (
       statusCandidato === 'Eliminado' &&
       !detalheEstadoAcoes.canEliminate
     ) {
-      window.alert('A eliminação não está disponível para o status atual deste candidato.');
+      showToast('A eliminação não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
     if (
       statusCandidato === 'Banco de talentos' &&
       !detalheEstadoAcoes.canSendToTalentBank
     ) {
-      window.alert('O envio para banco de talentos não está disponível para o status atual deste candidato.');
+      showToast('O envio para banco de talentos não está disponível para o status atual deste candidato.', 'warning');
       return;
     }
 
@@ -4156,8 +4320,9 @@ export function TelaAnaliseCandidatos({ controlador }) {
     );
 
     if (!vinculo) {
-      window.alert(
+      showToast(
         'Não foi possível localizar o vínculo do candidato com o processo.',
+        'error',
       );
       return;
     }
@@ -4179,8 +4344,8 @@ export function TelaAnaliseCandidatos({ controlador }) {
       placeholderBusca="Inteligência analítica do RH"
       controlador=${controlador}
       mostrarAtalhos=${false}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
+      <${ToastHost} />
       <${PageIntro}
         title="Relatórios"
         description=${html`${formatarAtualizacaoRelatorio(ultimaAtualizacaoRelatorio)}

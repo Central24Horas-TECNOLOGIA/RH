@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from datetime import datetime
 
 import pyodbc
@@ -23,10 +24,52 @@ from .bootstrap import (
     describe_database_error,
     ensure_pipeline_columns,
     ensure_process_reference_columns,
+    ensure_scorecards_table,
     ensure_talent_bank_table,
     get_process_row,
     insert_candidate_process_record,
 )
+
+
+# Palavras muito genericas para o matching por palavra-chave (nao carregam
+# significado de aderencia a vaga). Motor de busca textual simples e
+# explicavel (sem IA/embeddings/servico pago) - roadmap de expansao definiu
+# "zero custo" para o matching automatico com banco de talentos.
+_MATCHING_STOPWORDS = {
+    "de", "da", "do", "das", "dos", "para", "com", "sem", "em", "e", "ou",
+    "a", "o", "as", "os", "um", "uma", "uns", "umas", "no", "na", "nos", "nas",
+    "vaga", "vagas", "processo", "candidato", "candidata", "empresa", "area",
+    "setor", "trabalho", "funcao", "cargo", "atividades", "requisitos",
+}
+
+
+# Roadmap de expansao (respostas.txt): "por questoes de seguranca, depois de
+# 6 meses o candidato deve sair do banco de talentos". Nao apagamos nada
+# automaticamente (decisao do RH continua manual, via remover_talent_bank
+# ja existente) - so marcamos o candidato como expirado, escondendo-o do
+# matching automatico e sinalizando na tela para revisao humana.
+TALENT_BANK_EXPIRATION_DAYS = 180
+
+
+def _dias_desde(valor) -> int | None:
+    texto = normalize_text(valor)
+    if not texto:
+        return None
+    try:
+        referencia = datetime.fromisoformat(texto.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    agora = datetime.now(referencia.tzinfo) if referencia.tzinfo else datetime.now()
+    return max(0, (agora - referencia).days)
+
+
+def _extract_matching_keywords(text) -> set[str]:
+    """Extrai palavras-chave normalizadas (sem acento, minusculas, >=3 letras)
+    de um texto livre, descartando stopwords. Base do motor de matching
+    textual (comparacao simples por palavras em comum, tipo LIKE)."""
+    normalized = normalize_compare_text(text)
+    tokens = re.findall(r"[a-z0-9]+", normalized)
+    return {token for token in tokens if len(token) >= 3 and token not in _MATCHING_STOPWORDS}
 
 
 class TalentBankRepositoryMixin:
@@ -122,6 +165,9 @@ class TalentBankRepositoryMixin:
                 )
                 item["data_entrevista"] = latest_interview.get("data_entrevista")
                 item["link_entrevista"] = normalize_text(latest_interview.get("link_agendamento"))
+                dias_no_banco = _dias_desde(item.get("data_movimentacao"))
+                item["dias_no_banco"] = dias_no_banco
+                item["expirado"] = dias_no_banco is not None and dias_no_banco >= TALENT_BANK_EXPIRATION_DAYS
 
                 item_search_text = " ".join(
                     [
@@ -590,6 +636,182 @@ class TalentBankRepositoryMixin:
                 "id_registro": id_registro,
                 "status_candidato": CANDIDATE_STATUS_ANALYSIS,
                 "message": "Candidato vinculado ao processo destino em análise.",
+            }
+        finally:
+            conn.close()
+
+    def get_talent_bank_matches(self, id_processo: str, limit: int = 15) -> dict:
+        """Matching automatico entre uma vaga e o Banco de Talentos.
+
+        Cruza palavras-chave da vaga (cargo/vaga, operacao, trilha, requisitos
+        e responsabilidades publicadas) com o texto do perfil de cada
+        candidato do Banco de Talentos (cargo/vaga anterior, habilidades e
+        tags cadastradas). Nao usa IA/embeddings/servico pago: e busca
+        textual simples por palavras-chave (comparacao de conjuntos,
+        equivalente a varios `LIKE` combinados), conforme o roadmap de
+        expansao definiu ("zero custo"). Candidatos ja vinculados ao
+        processo destino sao excluidos da sugestao. O motivo do match soma
+        as palavras em comum, o scorecard medio (quando existir) e a melhor
+        etapa do funil ja alcancada pelo candidato em processos anteriores.
+        """
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_talent_bank_table(cursor)
+            ensure_pipeline_columns(cursor)
+            ensure_process_reference_columns(cursor)
+            ensure_scorecards_table(cursor)
+
+            processo = get_process_row(cursor, id_processo)
+            if not processo:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
+
+            vaga_keywords: set[str] = set()
+            for campo in (
+                processo.get("vaga"),
+                processo.get("operacao"),
+                processo.get("trilha"),
+                processo.get("requisitos_publicos"),
+                processo.get("responsabilidades_publicas"),
+            ):
+                vaga_keywords |= _extract_matching_keywords(campo)
+
+            profile_map = self._get_candidate_profile_map(cursor)
+
+            cursor.execute(
+                """
+                SELECT
+                    id_banco,
+                    id_teste,
+                    nome_candidato,
+                    vaga,
+                    pontuacao_final,
+                    origem,
+                    data_movimentacao
+                FROM banco_talentos
+                """
+            )
+            candidatos_banco = rows_to_dicts(cursor, cursor.fetchall())
+
+            id_processo_norm = normalize_text(processo.get("id_processo"))
+            id_processo_ref_norm = normalize_text(processo.get("id_processo_ref")) or id_processo_norm
+            cursor.execute(
+                """
+                SELECT id_teste, id_processo, id_processo_ref
+                FROM candidatos_processos
+                WHERE id_processo = ? OR id_processo_ref = ?
+                """,
+                (id_processo_norm, id_processo_ref_norm),
+            )
+            ja_vinculados = {
+                normalize_text(row.get("id_teste"))
+                for row in rows_to_dicts(cursor, cursor.fetchall())
+                if normalize_text(row.get("id_teste"))
+            }
+
+            # Scorecard medio do candidato considerando todas as avaliacoes
+            # registradas em qualquer processo anterior (tabela criada para o
+            # Kanban de vagas com scorecard).
+            cursor.execute(
+                """
+                SELECT cp.id_teste AS id_teste, AVG(CAST(s.nota AS FLOAT)) AS media
+                FROM scorecards_avaliacao s
+                INNER JOIN candidatos_processos cp ON cp.id_registro = s.candidato_processo_id
+                WHERE cp.id_teste IS NOT NULL AND cp.id_teste <> ''
+                GROUP BY cp.id_teste
+                """
+            )
+            scorecard_medio_map = {
+                normalize_text(row.get("id_teste")): round(float(row.get("media") or 0), 1)
+                for row in rows_to_dicts(cursor, cursor.fetchall())
+            }
+
+            # Melhor etapa do funil ja alcancada pelo candidato (histórico
+            # completo, qualquer processo), usada apenas para compor o
+            # motivo textual do match.
+            cursor.execute(
+                """
+                SELECT id_teste, vaga, etapa_pipeline
+                FROM candidatos_processos
+                WHERE id_teste IS NOT NULL AND id_teste <> ''
+                """
+            )
+            etapa_ordem = {"Triagem": 0, "Reprovado": 0, "Prova": 1, "Entrevista": 2, "Aprovado": 3}
+            melhor_etapa_map: dict[str, dict] = {}
+            for row in rows_to_dicts(cursor, cursor.fetchall()):
+                id_teste_hist = normalize_text(row.get("id_teste"))
+                if not id_teste_hist:
+                    continue
+                etapa = normalize_text(row.get("etapa_pipeline")) or "Triagem"
+                atual = melhor_etapa_map.get(id_teste_hist)
+                if not atual or etapa_ordem.get(etapa, 0) > etapa_ordem.get(atual.get("etapa_pipeline", ""), 0):
+                    melhor_etapa_map[id_teste_hist] = {
+                        "etapa_pipeline": etapa,
+                        "vaga": normalize_text(row.get("vaga")),
+                    }
+
+            resultados = []
+            for candidato in candidatos_banco:
+                id_teste = normalize_text(candidato.get("id_teste"))
+                if not id_teste or id_teste in ja_vinculados:
+                    continue
+
+                dias_no_banco = _dias_desde(candidato.get("data_movimentacao"))
+                if dias_no_banco is not None and dias_no_banco >= TALENT_BANK_EXPIRATION_DAYS:
+                    continue
+
+                perfil = profile_map.get(id_teste, {})
+                candidato_keywords: set[str] = set()
+                candidato_keywords |= _extract_matching_keywords(candidato.get("vaga"))
+                for habilidade in perfil.get("habilidades", []) or []:
+                    candidato_keywords |= _extract_matching_keywords(habilidade)
+                for tag in perfil.get("tags", []) or []:
+                    candidato_keywords |= _extract_matching_keywords(tag)
+                candidato_keywords |= _extract_matching_keywords(perfil.get("observacao_rh"))
+
+                palavras_em_comum = sorted(vaga_keywords & candidato_keywords)
+                if not palavras_em_comum:
+                    continue
+
+                scorecard_medio = scorecard_medio_map.get(id_teste)
+                melhor_etapa = melhor_etapa_map.get(id_teste, {})
+
+                motivos = ["Palavras em comum com a vaga: " + ", ".join(palavras_em_comum[:5])]
+                if scorecard_medio:
+                    motivos.append(f"Scorecard médio {scorecard_medio:.1f} em processo anterior")
+                if melhor_etapa.get("etapa_pipeline") in {"Entrevista", "Aprovado"}:
+                    vaga_similar = melhor_etapa.get("vaga")
+                    motivos.append(
+                        "Chegou à entrevista em vaga similar"
+                        + (f" ({vaga_similar})" if vaga_similar else "")
+                    )
+
+                pontuacao_match = round(len(palavras_em_comum) * 10 + (scorecard_medio or 0), 1)
+
+                resultados.append(
+                    {
+                        "id_banco": candidato.get("id_banco"),
+                        "id_teste": id_teste,
+                        "nome_candidato": candidato.get("nome_candidato") or "",
+                        "vaga_anterior": candidato.get("vaga") or "",
+                        "origem": candidato.get("origem") or "",
+                        "scorecard_medio": scorecard_medio,
+                        "palavras_em_comum": palavras_em_comum,
+                        "pontuacao_match": pontuacao_match,
+                        "motivo": " • ".join(motivos),
+                        "habilidades": perfil.get("habilidades", []) or [],
+                        "tags": perfil.get("tags", []) or [],
+                    }
+                )
+
+            resultados.sort(key=lambda item: item["pontuacao_match"], reverse=True)
+            safe_limit = max(1, min(int(limit or 15), 50))
+            return {
+                "id_processo": processo.get("id_processo", ""),
+                "vaga": processo.get("vaga", ""),
+                "palavras_chave_vaga": sorted(vaga_keywords),
+                "total_sugestoes": len(resultados),
+                "candidatos": resultados[:safe_limit],
             }
         finally:
             conn.close()

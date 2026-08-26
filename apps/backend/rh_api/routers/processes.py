@@ -8,6 +8,7 @@ from ..dependencies import audit_action, ensure_user_permission, get_current_use
 from ..repositories import DatabaseRepository
 from ..schemas.processes import (
     CandidateProfileUpdateRequest,
+    CandidateReconsiderRequest,
     CandidateSheetUpdateRequest,
     CvPreAnalysisUpdateRequest,
     ProcessDossierNoteCreateRequest,
@@ -42,7 +43,7 @@ def create_process(
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    result = repository.create_process(payload.model_dump())
+    result = repository.create_process(payload.model_dump(), marcado_por=user.username)
     audit_action(
         repository,
         user,
@@ -52,6 +53,16 @@ def create_process(
         entidade_id=str(result.get("id_processo") or getattr(payload, "id_processo", "") or ""),
         valor_novo=payload.model_dump(),
     )
+    if payload.urgente:
+        audit_action(
+            repository,
+            user,
+            modulo="Vagas",
+            acao="marcar_vaga_urgente",
+            entidade="processo",
+            entidade_id=str(result.get("id_processo") or ""),
+            valor_novo={"urgente": True, "origem": "criacao_da_vaga"},
+        )
     return result
 
 
@@ -62,7 +73,7 @@ def update_process(
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    result = repository.update_process(id_processo, payload.model_dump())
+    result = repository.update_process(id_processo, payload.model_dump(), marcado_por=user.username)
     audit_action(
         repository,
         user,
@@ -72,6 +83,16 @@ def update_process(
         entidade_id=id_processo,
         valor_novo=payload.model_dump(),
     )
+    if result.get("urgente_alterado"):
+        audit_action(
+            repository,
+            user,
+            modulo="Vagas",
+            acao="marcar_vaga_urgente" if result.get("urgente") else "desmarcar_vaga_urgente",
+            entidade="processo",
+            entidade_id=id_processo,
+            valor_novo={"urgente": bool(result.get("urgente")), "origem": "edicao_da_vaga"},
+        )
     return result
 
 
@@ -252,6 +273,33 @@ def update_process_candidate_status(
         user,
         modulo="Candidatos",
         acao="atualizar_status_candidato",
+        entidade="candidato_processo",
+        entidade_id=str(id_registro),
+        valor_novo=payload.model_dump(),
+    )
+    return result
+
+
+@router.post(
+    "/process-candidates/{id_registro}/reconsider",
+    dependencies=[Depends(require_permissions("candidatos.reverter_eliminacao"))],
+)
+def reconsider_process_candidate(
+    id_registro: int,
+    payload: CandidateReconsiderRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.reconsider_candidate_elimination(
+        id_registro,
+        payload.justificativa,
+        actor=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Candidatos",
+        acao="reconsiderar_eliminacao",
         entidade="candidato_processo",
         entidade_id=str(id_registro),
         valor_novo=payload.model_dump(),
@@ -496,6 +544,18 @@ def get_process_details(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.get_process_details(id_processo)
+
+
+@router.get(
+    "/processes/{id_processo}/candidatos-sugeridos",
+    dependencies=[Depends(require_permissions("candidatos.visualizar", "vagas.visualizar"))],
+)
+def get_process_suggested_candidates(
+    id_processo: str,
+    limit: int = Query(default=15, ge=1, le=50),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.get_talent_bank_matches(id_processo, limit=limit)
 
 
 @router.get("/processes/{id_processo}/dossier/notes", dependencies=[Depends(require_permissions("processos.visualizar", "relatorios.visualizar"))])

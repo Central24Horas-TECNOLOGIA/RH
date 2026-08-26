@@ -156,6 +156,9 @@ PERMISSION_DEFINITIONS: dict[str, PermissionDefinition] = {
         _permission("emails.enviar_modelo", "E-mails", "Enviar e-mail usando modelos aprovados."),
         _permission("emails.enviar_livre", "E-mails", "Enviar e-mail livre quando permitido."),
         _permission("emails.configurar_modelos", "E-mails", "Configurar modelos de e-mail.", critical=True),
+        _permission("onedrive.visualizar", "OneDrive", "Visualizar e navegar no repositório de arquivos M365."),
+        _permission("onedrive.upload", "OneDrive", "Enviar (upload) arquivos para o repositório M365."),
+        _permission("onedrive.excluir", "OneDrive", "Excluir arquivos ou pastas do repositório M365.", critical=True),
         _permission("configuracoes.visualizar", "Configurações", "Visualizar configurações globais."),
         _permission("configuracoes.editar", "Configurações", "Editar configurações globais.", critical=True),
         _permission("usuarios.visualizar", "Usuários", "Listar e consultar usuários."),
@@ -181,6 +184,46 @@ PERMISSION_DEFINITIONS: dict[str, PermissionDefinition] = {
         _permission("relatorios.exportar", "Relatórios", "Exportar relatórios.", critical=True),
         _permission("etapas.configurar", "Etapas e Trilhas", "Configurar etapas do processo.", critical=True),
         _permission("trilhas.configurar", "Etapas e Trilhas", "Configurar trilhas de avaliação.", critical=True),
+        _permission("politicas.visualizar", "Políticas", "Visualizar políticas institucionais cadastradas."),
+        _permission(
+            "politicas.editar",
+            "Políticas",
+            "Cadastrar ou editar políticas institucionais.",
+            critical=True,
+        ),
+        _permission("calendario.visualizar", "Calendário", "Visualizar datas comemorativas cadastradas."),
+        _permission(
+            "calendario.editar",
+            "Calendário",
+            "Cadastrar, editar ou remover datas comemorativas.",
+            critical=True,
+        ),
+        _permission("onboarding.visualizar", "Onboarding", "Visualizar trilhas de onboarding e o progresso do checklist do candidato."),
+        _permission(
+            "onboarding.editar",
+            "Onboarding",
+            "Cadastrar/editar trilhas de onboarding, iniciar onboarding e marcar itens do checklist.",
+            critical=True,
+        ),
+        _permission("documentos_templates.visualizar", "Templates de Documentos", "Visualizar templates e gerar documentos a partir deles."),
+        _permission(
+            "documentos_templates.editar",
+            "Templates de Documentos",
+            "Cadastrar ou editar templates de documentos.",
+            critical=True,
+        ),
+        _permission("fit_cultural.visualizar", "Fit Cultural", "Visualizar valores da empresa e resultados de fit cultural dos candidatos."),
+        _permission(
+            "fit_cultural.editar",
+            "Fit Cultural",
+            "Cadastrar/editar valores e frases de fit cultural.",
+            critical=True,
+        ),
+        _permission(
+            "operacoes.visualizar",
+            "Operações",
+            "Visualizar operações cadastradas (usadas em processos, provas e treinamentos).",
+        ),
     )
 }
 
@@ -213,6 +256,7 @@ OPERATIONAL_SELECTION_PERMISSIONS = {
     "documentos.solicitar",
     "documentos.marcar_recebido",
     "emails.enviar_modelo",
+    "operacoes.visualizar",
 }
 
 
@@ -228,6 +272,8 @@ DOCUMENTATION_PERMISSIONS = {
     "lgpd.registrar_solicitacao",
     "relatorios.visualizar",
     "relatorios.exportar",
+    "onedrive.visualizar",
+    "onedrive.upload",
 }
 
 
@@ -265,6 +311,8 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "relatorios.visualizar",
         "relatorios.exportar",
         "lgpd.visualizar",
+        "onedrive.visualizar",
+        "operacoes.visualizar",
     },
     ROLE_RH: set(OPERATIONAL_SELECTION_PERMISSIONS)
     | {
@@ -275,6 +323,25 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "provas.editar",
         "relatorios.visualizar",
         "relatorios.exportar",
+        "notificacoes.configurar",
+        "politicas.visualizar",
+        "politicas.editar",
+        "calendario.visualizar",
+        "calendario.editar",
+        "onboarding.visualizar",
+        "onboarding.editar",
+        "documentos_templates.visualizar",
+        "documentos_templates.editar",
+        "fit_cultural.visualizar",
+        "fit_cultural.editar",
+        "provas.questoes_criar",
+        "provas.questoes_editar",
+        "provas.questoes_excluir",
+        "onedrive.visualizar",
+        "onedrive.upload",
+        "onedrive.excluir",
+        "emails.enviar_livre",
+        "emails.configurar_modelos",
     },
     ROLE_CANDIDATE: set(),
     ROLE_ADMIN: set(PERMISSION_DEFINITIONS.keys()),
@@ -297,10 +364,19 @@ SCREEN_PERMISSIONS: dict[str, str] = {
     "screen-interviews": "entrevistas.visualizar",
     "screen-analysis-candidates": "relatorios.visualizar",
     "screen-talent-bank": "candidatos.visualizar",
+    "screen-training": "onboarding.visualizar",
+    "screen-training-trilhas": "onboarding.visualizar",
+    "screen-training-assignments": "onboarding.visualizar",
+    "screen-onedrive-files": "onedrive.visualizar",
     "screen-settings": "configuracoes.visualizar",
     "screen-settings-users": "usuarios.visualizar",
     "screen-settings-profiles": "configuracoes.visualizar",
     "screen-settings-logs": "logs.visualizar",
+    "screen-settings-policies": "politicas.editar",
+    "screen-settings-onboarding": "onboarding.editar",
+    "screen-settings-document-templates": "documentos_templates.editar",
+    "screen-settings-operations": "configuracoes.visualizar",
+    "screen-settings-catalog": "configuracoes.visualizar",
     "screen-generated-exams": "provas.visualizar",
     "screen-process-analytical-results": "provas.visualizar",
     "screen-config": "provas.enviar",
@@ -324,6 +400,7 @@ SETTINGS_CATALOGS: dict[str, dict[str, str]] = {
     "provas": {"table": "provas", "label": "Banco de provas"},
     "questoes": {"table": "questoes", "label": "Questões"},
     "notificacoes": {"table": "notificacoes_regras", "label": "Regras de notificação"},
+    "operacoes": {"table": "operacoes", "label": "Operações"},
 }
 
 

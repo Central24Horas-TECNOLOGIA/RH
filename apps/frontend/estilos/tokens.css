@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --font-sans: 'DM Sans', sans-serif;
   --font-mono: 'DM Mono', monospace;
   --font-xs: 0.72rem;
@@ -43,4 +44,55 @@
   --space-6: 32px;
   --space-7: 40px;
   --space-8: 48px;
+  --transition-xs: 140ms ease;
+  --transition-sm: 160ms ease;
+  --transition-md: 180ms ease;
+  --transition-lg: 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-xs: 0ms;
+    --transition-sm: 0ms;
+    --transition-md: 0ms;
+    --transition-lg: 0ms;
+  }
+}
+
+/*
+ * Modo escuro
+ * ------------------------------------------------------------------
+ * O tema claro é o padrão do sistema para todo mundo. O escuro só é
+ * aplicado quando a pessoa escolhe explicitamente em Configurações
+ * (persistido em localStorage, aplicado via atributo data-theme na
+ * tag <html>, ver fonte/shared/tema.js e o script inline em
+ * index.html que aplica isso antes do primeiro paint) — o app não
+ * segue a preferência do sistema operacional.
+ */
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #0f1520;
+  --color-surface: #171f2e;
+  --color-surface-soft: #1c2536;
+  --color-surface-strong: #232e42;
+  --color-border: #2c3a52;
+  --color-border-strong: #3a4a67;
+  --color-text: #e8edf6;
+  --color-text-soft: #b6c2d6;
+  --color-text-muted: #8a97b0;
+  --color-primary: #4f8dff;
+  --color-primary-strong: #7dabff;
+  --color-primary-soft: #16273f;
+  --color-success: #3fc793;
+  --color-success-soft: #123227;
+  --color-danger: #ea6a7c;
+  --color-danger-soft: #3a1b22;
+  --color-warning: #f0ac4f;
+  --color-warning-soft: #3a2b12;
+  --color-info: #4fb8e6;
+  --color-info-soft: #12303d;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.38);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.46);
 }

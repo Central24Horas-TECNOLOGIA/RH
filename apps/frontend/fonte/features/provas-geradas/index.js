@@ -22,17 +22,20 @@ import {
   atualizarProvaGerada,
   cancelarProvaGerada,
   criarProvaGerada,
+  lerHeatmapQuestoes,
   lerProvaGerada,
+  lerReplayProvaGerada,
   listarProvasGeradas,
   reabrirProvaGerada,
   recalcularScoreProva,
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
-} from '../../servico-api.js?v=20260721-exam-analytics-2';
-import { obterItensPaginados } from '../../utilitarios.js';
+} from '../../servico-api.js?v=20260826-replay-heatmap';
+import { escaparHtml, obterItensPaginados } from '../../utilitarios.js';
+import { listarOperacoes } from '../../services/api/operations.js';
+import { abrirFichaCandidatoDaProva } from '../../app/controlador-aplicacao.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
-import { AcaoSair } from '../../shared/components/actions.js';
-import { formatarNotaVisual } from '../../shared/helpers-visuais.js';
+import { formatarNotaVisual, formatarTempoRestante } from '../../shared/helpers-visuais.js';
 import {
   EmptyState,
   LoadingState,
@@ -55,6 +58,12 @@ const STATUS_APTOS_GERAR_PROVA = new Set([
   'Confirmado',
   'Reagendado',
 ]);
+
+const OPCOES_LOGIN_CONECTA_PROVA = [
+  { value: 'email', label: 'E-mail' },
+  { value: 'celular', label: 'Celular' },
+  { value: 'codigo_prova', label: 'Código da prova' },
+];
 
 const OPCOES_NIVEL = [
   { value: '1', label: 'Nível 1' },
@@ -357,6 +366,20 @@ function montarFormularioInicial(contexto = {}) {
         '',
     ),
     expira_em: normalizarTexto(candidato.expira_em || ''),
+    login_method: normalizarTexto(candidato.login_method || ''),
+    duracao_etapas: Array.isArray(candidato.etapas)
+      ? Object.fromEntries(
+        candidato.etapas
+          .filter((etapa) => etapa?.key)
+          .map((etapa) => [
+            etapa.key,
+            {
+              duracao_minutos: Number(etapa.duracao_minutos || 0),
+              tolerancia_minutos: Number(etapa.tolerancia_minutos || 0),
+            },
+          ]),
+      )
+      : {},
   };
 }
 
@@ -679,9 +702,33 @@ export function ModalGerarProva({
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [operacoesCadastradas, setOperacoesCadastradas] = useState([]);
   const candidatosElegiveis = Array.isArray(contexto.candidatosElegiveis)
     ? contexto.candidatosElegiveis
     : [];
+
+  useEffect(() => {
+    if (!aberto) return;
+    let cancelado = false;
+    listarOperacoes()
+      .then((itens) => {
+        if (!cancelado && Array.isArray(itens)) setOperacoesCadastradas(itens);
+      })
+      .catch(() => {
+        // Mantém OPCOES_OPERACOES_MODAL como fallback silencioso.
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [aberto]);
+
+  const opcoesOperacaoModal = useMemo(() => {
+    const nomesCadastrados = new Set(
+      operacoesCadastradas.map((item) => normalizarTexto(item.nome)).filter(Boolean),
+    );
+    const extras = OPCOES_OPERACOES_MODAL.filter((nome) => !nomesCadastrados.has(nome));
+    return [...operacoesCadastradas.map((item) => normalizarTexto(item.nome)).filter(Boolean), ...extras];
+  }, [operacoesCadastradas]);
 
   useEffect(() => {
     if (!aberto) return;
@@ -743,6 +790,21 @@ export function ModalGerarProva({
       return campo === 'vaga' ? aplicarSugestoesDaVaga(proximo) : proximo;
     });
     setErro('');
+  };
+
+  const atualizarDuracaoEtapa = (etapaKey, campo, valor) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      duracao_etapas: {
+        ...anterior.duracao_etapas,
+        [etapaKey]: {
+          duracao_minutos: 0,
+          tolerancia_minutos: 0,
+          ...anterior.duracao_etapas?.[etapaKey],
+          [campo]: valor,
+        },
+      },
+    }));
   };
 
   const selecionarCandidato = (identificador) => {
@@ -867,6 +929,12 @@ export function ModalGerarProva({
       ? personalizacao.operacao
       : normalizarTexto(formulario.operacao);
 
+    const etapasComDuracao = etapas.map((etapa) => ({
+      ...etapa,
+      duracao_minutos: Number(formulario.duracao_etapas?.[etapa.key]?.duracao_minutos) || 0,
+      tolerancia_minutos: Number(formulario.duracao_etapas?.[etapa.key]?.tolerancia_minutos) || 0,
+    }));
+
     const payload = {
       candidato_id: formulario.id_teste,
       id_teste: formulario.id_teste,
@@ -889,7 +957,7 @@ export function ModalGerarProva({
       tempo_total: Number(formulario.tempo_total || 40),
       tempo_minutos: Number(formulario.tempo_total || 40),
       quantidade_questoes: questoesPersonalizadas.length,
-      etapas,
+      etapas: etapasComDuracao,
       categorias,
       questoes_snapshot: questoesPersonalizadas,
       personalizacao,
@@ -897,6 +965,7 @@ export function ModalGerarProva({
       tom_prova: formulario.tom_prova,
       situacao_pratica_operacao: formulario.situacao_pratica_operacao,
       expira_em: formulario.expira_em,
+      login_method: formulario.personalizacao_inteligente ? formulario.login_method : '',
       configuracao: {
         blueprint_key: blueprint.key || '',
         blueprint_label: blueprint.label || formulario.area_prova || '',
@@ -1108,6 +1177,46 @@ export function ModalGerarProva({
           </div>
         </${SectionCard}>
 
+        ${etapas.length
+      ? html`
+              <${SectionCard}
+                title="Duração por etapa"
+                description="Opcional. Deixe em 0 para a etapa usar apenas o tempo total da prova, sem limite próprio."
+                className="rh-section-card--flat"
+              >
+                <div class="generated-stage-duration-list">
+                  ${etapas.map((etapa) => html`
+                    <div class="generated-stage-duration-row" key=${etapa.key}>
+                      <span class="generated-stage-duration-label">${etapa.label}</span>
+                      <label class="generated-stage-duration-field">
+                        <span>Duração (min)</span>
+                        <input
+                          class="form-control"
+                          type="number"
+                          min="0"
+                          max="300"
+                          value=${formulario.duracao_etapas?.[etapa.key]?.duracao_minutos || 0}
+                          onInput=${(event) => atualizarDuracaoEtapa(etapa.key, 'duracao_minutos', Number(event.target.value))}
+                        />
+                      </label>
+                      <label class="generated-stage-duration-field">
+                        <span>Tolerância (min)</span>
+                        <input
+                          class="form-control"
+                          type="number"
+                          min="0"
+                          max="60"
+                          value=${formulario.duracao_etapas?.[etapa.key]?.tolerancia_minutos || 0}
+                          onInput=${(event) => atualizarDuracaoEtapa(etapa.key, 'tolerancia_minutos', Number(event.target.value))}
+                        />
+                      </label>
+                    </div>
+                  `)}
+                </div>
+              </${SectionCard}>
+            `
+      : null}
+
         <${SectionCard}
           title="Personalização da prova"
           description="Opcional. A prova padrão será gerada normalmente se esta opção ficar desmarcada."
@@ -1156,7 +1265,7 @@ export function ModalGerarProva({
                         )}
                     >
                       <option value="">Selecione...</option>
-                      ${[...OPCOES_OPERACOES_MODAL, OPCAO_OUTRO].map(
+                      ${[...opcoesOperacaoModal, OPCAO_OUTRO].map(
                         (opcao) => html`
                           <option key=${opcao} value=${opcao}>
                             ${opcao}
@@ -1247,7 +1356,19 @@ export function ModalGerarProva({
                       value=${formulario.situacao_pratica_operacao}
                       onInput=${(event) => atualizarCampo('situacao_pratica_operacao', event.target.value)}
                     ></textarea>
-                    
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Forma de login no Conecta Prova</label>
+                    <select
+                      class="form-select"
+                      value=${formulario.login_method}
+                      onChange=${(event) => atualizarCampo('login_method', event.target.value)}
+                    >
+                      <option value="">Selecione...</option>
+                      ${OPCOES_LOGIN_CONECTA_PROVA.map(
+                        (opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`,
+                      )}
+                    </select>
                   </div>
                 </div>
               `
@@ -1284,6 +1405,9 @@ export function ModalGerarProva({
             <span><strong>Nível</strong>${formulario.nivel || '-'}</span>
             <span><strong>Tempo</strong>${`${formulario.tempo_total || 0} min`}</span>
             <span><strong>Tom</strong>${formulario.personalizacao_inteligente ? formulario.tom_prova || '-' : 'Padrão'}</span>
+            ${formulario.personalizacao_inteligente
+              ? html`<span><strong>Login no Conecta Prova</strong>${OPCOES_LOGIN_CONECTA_PROVA.find((opcao) => opcao.value === formulario.login_method)?.label || 'Não definido'}</span>`
+              : null}
             <span><strong>E-mail de acesso</strong>${formulario.email || '-'}</span>
             <span><strong>Telefone de acesso</strong>${formulario.telefone || '-'}</span>
             <span><strong>Etapas</strong>${etapas.map((item) => item.label).join(', ') || '-'}</span>
@@ -1306,6 +1430,136 @@ export function ModalGerarProva({
   `;
 }
 
+function imprimirResultadoProva(detalhe, { etapas, linhasResultado, alertas, notaGeral, scoreConecta, statusProva }) {
+  const nome = escaparHtml(detalhe?.nome_candidato || 'Candidato');
+  const dataGeracao = escaparHtml(formatarDataHoraDetalhe(new Date().toISOString()));
+
+  const linhasEtapas = etapas.length
+    ? etapas.map((etapa) => `
+        <tr>
+          <td>${escaparHtml(etapa.label)}</td>
+          <td>${escaparHtml(etapa.status)}</td>
+          <td>${etapa.score === null || etapa.score === undefined ? '-' : `${formatarNotaVisual(etapa.score, 0)}%`}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="3" class="exam-print-empty">Nenhuma etapa avaliada.</td></tr>';
+
+  const montarLista = (itens) => itens.length
+    ? `<ul>${itens.map((item) => `<li>${escaparHtml(item)}</li>`).join('')}</ul>`
+    : '<p class="exam-print-empty">Nenhum item registrado.</p>';
+
+  const linhasRespostas = linhasResultado.length
+    ? linhasResultado.map((linha) => `
+        <tr>
+          <td>${escaparHtml(linha.etapa)}</td>
+          <td>${escaparHtml(linha.questao)}</td>
+          <td>${escaparHtml(linha.resposta)}</td>
+          <td>${escaparHtml(linha.nota)}</td>
+          <td>${escaparHtml(linha.status?.label || '-')}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="5" class="exam-print-empty">Respostas completas não disponíveis.</td></tr>';
+
+  const janela = window.open('', '_blank');
+  if (!janela) {
+    throw new Error('Não foi possível abrir a janela de impressão. Verifique o bloqueador de pop-ups.');
+  }
+
+  const htmlImpressao = `
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8" />
+        <title>Resultado da prova - ${nome}</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #172033; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.45; }
+          .toolbar { display: flex; justify-content: flex-end; margin: 0 0 16px; }
+          .toolbar button { border: 1px solid #1b5fc1; border-radius: 6px; background: #1b5fc1; color: #fff; padding: 8px 14px; font-weight: 700; cursor: pointer; }
+          header { border-bottom: 2px solid #1b5fc1; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+          header h1 { margin: 0 0 4px; font-size: 22px; }
+          header small { color: #627085; }
+          .exam-print-issued { min-width: 140px; text-align: right; }
+          h2 { margin: 18px 0 8px; font-size: 15px; color: #1b5fc1; }
+          .exam-print-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 18px; margin-bottom: 6px; }
+          .exam-print-summary div { border: 1px solid #d8e0ec; border-radius: 6px; padding: 8px; }
+          .exam-print-summary span { display: block; font-size: 9px; color: #627085; text-transform: uppercase; letter-spacing: .04em; }
+          .exam-print-summary strong { font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+          th, td { border: 1px solid #d8e0ec; padding: 7px; vertical-align: top; text-align: left; font-size: 10px; }
+          th { background: #edf3fb; color: #172033; }
+          ul { margin: 4px 0 0; padding-left: 18px; }
+          .exam-print-empty { padding: 8px; color: #7a869a; }
+          .exam-print-section { margin-top: 14px; break-inside: avoid; }
+          @media print { .toolbar { display: none; } }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar">
+          <button type="button" onclick="window.print()">Imprimir / salvar PDF</button>
+        </div>
+        <header>
+          <div>
+            <h1>Resultado da prova - ${nome}</h1>
+            <small>Código: ${escaparHtml(detalhe?.codigo_acesso || '-')} · Status: ${escaparHtml(statusProva || '-')}</small>
+          </div>
+          <div class="exam-print-issued">
+            <strong>Conecta Provas</strong>
+            <br /><small>${dataGeracao}</small>
+          </div>
+        </header>
+
+        <section class="exam-print-section">
+          <h2>Resumo</h2>
+          <div class="exam-print-summary">
+            <div><span>Nota geral</span><strong>${escaparHtml(formatarScore(notaGeral))}</strong></div>
+            <div><span>Score Conecta</span><strong>${escaparHtml(formatarScore(scoreConecta))}</strong></div>
+            <div><span>Gerada em</span><strong>${escaparHtml(formatarDataHoraDetalhe(detalhe?.gerada_em))}</strong></div>
+            <div><span>Iniciada em</span><strong>${escaparHtml(formatarDataHoraDetalhe(detalhe?.iniciada_em, 'Não iniciado'))}</strong></div>
+            <div><span>Finalizada em</span><strong>${escaparHtml(formatarDataHoraDetalhe(detalhe?.finalizada_em, 'Não finalizado'))}</strong></div>
+          </div>
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Resultado por etapa</h2>
+          <table>
+            <thead><tr><th>Etapa</th><th>Status</th><th>Nota</th></tr></thead>
+            <tbody>${linhasEtapas}</tbody>
+          </table>
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Pontos fortes</h2>
+          ${montarLista(alertas.fortes)}
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Pontos de atenção</h2>
+          ${montarLista(alertas.atencao)}
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Alertas críticos</h2>
+          ${montarLista(alertas.criticos)}
+        </section>
+
+        <section class="exam-print-section">
+          <h2>Respostas</h2>
+          <table>
+            <thead><tr><th>Etapa</th><th>Questão</th><th>Resposta</th><th>Nota</th><th>Status</th></tr></thead>
+            <tbody>${linhasRespostas}</tbody>
+          </table>
+        </section>
+      </body>
+    </html>
+  `;
+
+  janela.document.open();
+  janela.document.write(htmlImpressao);
+  janela.document.close();
+}
+
 function ModalDetalheProvaGerada({
   detalhe,
   onClose,
@@ -1315,10 +1569,30 @@ function ModalDetalheProvaGerada({
   onReabrir,
   onCancelar,
   onDecisao,
+  onDadosCandidato,
 }) {
   const [mostrarResultadoCompleto, setMostrarResultadoCompleto] = useState(true);
   const [menuAcoesAberto, setMenuAcoesAberto] = useState(false);
+  const [replayAberto, setReplayAberto] = useState(false);
+  const [replay, setReplay] = useState(null);
+  const [carregandoReplay, setCarregandoReplay] = useState(false);
+  const [erroReplay, setErroReplay] = useState('');
   if (!detalhe) return null;
+
+  const abrirReplay = async () => {
+    setReplayAberto(true);
+    setErroReplay('');
+    if (replay) return;
+    setCarregandoReplay(true);
+    try {
+      const dados = await lerReplayProvaGerada(detalhe.id_prova);
+      setReplay(dados);
+    } catch (error) {
+      setErroReplay(error?.message || 'Não foi possível carregar o replay desta prova.');
+    } finally {
+      setCarregandoReplay(false);
+    }
+  };
   const score = detalhe.score || {};
   const resultado = detalhe.resultado || {};
   const alertas = montarAlertasDetalhe(score);
@@ -1451,6 +1725,32 @@ function ModalDetalheProvaGerada({
             )}
           </div>
         </section>
+
+        ${detalhe.feedback_qualitativo
+          ? html`
+              <section class="generated-detail-section">
+                <h3>Feedback qualitativo automático</h3>
+                <div class="rh-feedback-qualitativo-resumo">
+                  ${detalhe.feedback_qualitativo.resumo_textual || 'Sem resumo qualitativo disponível.'}
+                </div>
+                ${(detalhe.feedback_qualitativo.questoes_erradas || []).length
+                  ? html`
+                      <div class="generated-answer-list">
+                        ${detalhe.feedback_qualitativo.questoes_erradas.map(
+                          (item) => html`
+                            <div class="rh-feedback-qualitativo-item" key=${`fb-${item.questao_indice}-${item.questao_id ?? ''}`}>
+                              <strong>Questão ${Number(item.questao_indice ?? 0) + 1} — ${item.categoria}</strong>
+                              ${item.dificuldade ? html`<span class="text-muted"> (${item.dificuldade})</span>` : null}
+                              <p style="margin:4px 0 0;">${item.feedback_qualitativo}</p>
+                            </div>
+                          `,
+                        )}
+                      </div>
+                    `
+                  : html`<p class="text-muted">Nenhuma questão errada com feedback registrado.</p>`}
+              </section>
+            `
+          : null}
 
         <section class="generated-detail-section generated-full-result">
           <button
@@ -1622,6 +1922,24 @@ function ModalDetalheProvaGerada({
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
+                    try {
+                      imprimirResultadoProva(detalhe, { etapas, linhasResultado, alertas, notaGeral, scoreConecta, statusProva });
+                    } catch (error) {
+                      window.alert(error?.message || 'Não foi possível gerar o PDF do resultado.');
+                    }
+                  }}>
+                    <span class="material-symbols-outlined">picture_as_pdf</span>
+                    Exportar PDF
+                  </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
+                    abrirReplay();
+                  }}>
+                    <span class="material-symbols-outlined">history</span>
+                    Ver replay
+                  </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
                     onAvaliacaoManual?.();
                   }}>
                     <span class="material-symbols-outlined">menu_book</span>
@@ -1653,12 +1971,73 @@ function ModalDetalheProvaGerada({
                     <span class="material-symbols-outlined">person_add</span>
                     Decisão RH
                   </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
+                    onDadosCandidato?.();
+                  }}>
+                    <span class="material-symbols-outlined">badge</span>
+                    Dados Candidato
+                  </button>
                 </div>
               `
             : null}
         </div>
       </footer>
     </${ModalPadrao}>
+
+    ${replayAberto
+      ? html`
+            <${ModalPadrao}
+              aberto=${true}
+              titulo="Replay da prova"
+              subtitulo=${`Linha do tempo de ${detalhe.nome_candidato || 'candidato'} respondendo esta prova.`}
+              className="generated-replay-dialog"
+              onClose=${() => setReplayAberto(false)}
+            >
+              <div class="rh-details-body">
+                ${carregandoReplay
+          ? html`<${LoadingState} titulo="Carregando replay" descricao="Reconstruindo a jornada do candidato nesta prova." />`
+          : erroReplay
+            ? html`<div class="alert alert-warning">${erroReplay}</div>`
+            : replay?.eventos?.length
+              ? html`
+                    <div class="generated-detail-summary-grid">
+                      <article class="generated-detail-summary-card">
+                        <span class="material-symbols-outlined">timer</span>
+                        <small>Tempo ativo total</small>
+                        <strong>${formatarTempoRestante(replay.resumo?.tempo_ativo_total_segundos || 0)}</strong>
+                      </article>
+                      <article class="generated-detail-summary-card">
+                        <span class="material-symbols-outlined">visibility</span>
+                        <small>Questões visitadas</small>
+                        <strong>${replay.resumo?.questoes_visitadas ?? 0} de ${replay.resumo?.total_questoes ?? 0}</strong>
+                      </article>
+                    </div>
+                    <div class="generated-replay-list">
+                      ${replay.eventos.map((evento, indice) => html`
+                        <article key=${`${evento.tipo}-${indice}`}>
+                          <span class="generated-replay-icon">
+                            <i class="material-symbols-outlined">
+                              ${evento.tipo === 'etapa_iniciada' ? 'play_circle'
+                : evento.tipo === 'etapa_finalizada' ? 'flag'
+                  : evento.tipo === 'questao_respondida' ? 'edit'
+                    : 'visibility'}
+                            </i>
+                          </span>
+                          <div>
+                            <strong>${evento.titulo}</strong>
+                            ${evento.descricao ? html`<p>${evento.descricao}</p>` : null}
+                            <small>${formatarDataHoraDetalhe(evento.data)}</small>
+                          </div>
+                        </article>
+                      `)}
+                    </div>
+                  `
+              : html`<p class="text-muted">Sem telemetria registrada para esta prova ainda.</p>`}
+              </div>
+            </${ModalPadrao}>
+          `
+      : null}
   `;
 }
 
@@ -1863,11 +2242,19 @@ export function TelaProvasResultados({ controlador }) {
   const [filtros, setFiltros] = useState({
     candidato: '',
     vaga: '',
+    operacao: '',
+    trilha: '',
     status: '',
     resultado: '',
+    notaMinima: '',
     dataGeracao: '',
   });
   const [modalGerarAberto, setModalGerarAberto] = useState(false);
+  const [modalHeatmapAberto, setModalHeatmapAberto] = useState(false);
+  const [heatmapTrilha, setHeatmapTrilha] = useState('');
+  const [heatmap, setHeatmap] = useState(null);
+  const [carregandoHeatmap, setCarregandoHeatmap] = useState(false);
+  const [erroHeatmap, setErroHeatmap] = useState('');
   const [detalhe, setDetalhe] = useState(null);
   const [avaliacaoManual, setAvaliacaoManual] = useState(null);
   const [decisaoRh, setDecisaoRh] = useState(null);
@@ -1892,6 +2279,24 @@ export function TelaProvasResultados({ controlador }) {
     carregar();
   }, []);
 
+  const carregarHeatmap = async (trilha = heatmapTrilha) => {
+    setCarregandoHeatmap(true);
+    setErroHeatmap('');
+    try {
+      const dados = await lerHeatmapQuestoes(trilha);
+      setHeatmap(dados);
+    } catch (error) {
+      setErroHeatmap(error?.message || 'Não foi possível carregar o heatmap de questões.');
+    } finally {
+      setCarregandoHeatmap(false);
+    }
+  };
+
+  const abrirHeatmap = () => {
+    setModalHeatmapAberto(true);
+    carregarHeatmap(heatmapTrilha);
+  };
+
   useEffect(() => {
     try {
       if (sessionStorage.getItem(CHAVE_ABRIR_MODAL_GERAR_PROVA) !== '1') {
@@ -1907,8 +2312,11 @@ export function TelaProvasResultados({ controlador }) {
   const provasFiltradas = useMemo(() => {
     const candidato = normalizarBusca(filtros.candidato);
     const vaga = normalizarBusca(filtros.vaga);
+    const operacao = normalizarBusca(filtros.operacao);
+    const trilha = normalizarBusca(filtros.trilha);
     const status = normalizarBusca(filtros.status);
     const resultado = normalizarBusca(filtros.resultado);
+    const notaMinima = filtros.notaMinima === '' ? null : Number(filtros.notaMinima);
     return provas.filter((item) => {
       const textoCandidato = normalizarBusca([
         item.nome_candidato,
@@ -1920,18 +2328,28 @@ export function TelaProvasResultados({ controlador }) {
         item.codigo_acesso,
       ].join(' '));
       const textoVaga = normalizarBusca(item.vaga);
+      const textoOperacao = normalizarBusca(item.operacao);
+      const textoTrilha = normalizarBusca(item.trilha);
       const textoStatus = normalizarBusca(item.status);
       const dataBase = String(item.gerada_em || '').slice(0, 10);
       const notaFinal = obterNotaFinal(item);
       const alertas = obterAlertas(item);
       if (candidato && !textoCandidato.includes(candidato)) return false;
       if (vaga && !textoVaga.includes(vaga)) return false;
+      if (operacao && textoOperacao !== operacao) return false;
+      if (trilha && textoTrilha !== trilha) return false;
       if (status && textoStatus !== status) return false;
       if (resultado === 'com_nota' && (notaFinal === null || notaFinal === undefined || notaFinal === '')) return false;
       if (resultado === 'sem_nota' && !(notaFinal === null || notaFinal === undefined || notaFinal === '')) return false;
       if (resultado === 'com_alertas' && !alertas.length) return false;
       if (resultado === 'sem_alertas' && alertas.length) return false;
       if (resultado === 'pendente_avaliacao' && !item.pendente_avaliacao_manual && !textoStatus.includes('pendente')) return false;
+      if (notaMinima !== null) {
+        const notaFinalNumerica = notaFinal === null || notaFinal === undefined || notaFinal === ''
+          ? null
+          : Number(String(notaFinal).replace(',', '.'));
+        if (notaFinalNumerica === null || !Number.isFinite(notaFinalNumerica) || notaFinalNumerica < notaMinima) return false;
+      }
       if (filtros.dataGeracao && dataBase !== filtros.dataGeracao) return false;
       return true;
     });
@@ -2061,6 +2479,8 @@ export function TelaProvasResultados({ controlador }) {
 
   const statusDisponiveis = Array.from(new Set(provas.map((item) => item.status).filter(Boolean)));
   const vagasDisponiveis = Array.from(new Set(provas.map((item) => item.vaga).filter(Boolean)));
+  const operacoesDisponiveis = Array.from(new Set(provas.map((item) => item.operacao).filter(Boolean)));
+  const trilhasDisponiveis = Array.from(new Set(provas.map((item) => item.trilha).filter(Boolean)));
   const atualizarFiltro = (campo, valor) =>
     setFiltros((anteriores) => ({
       ...anteriores,
@@ -2070,8 +2490,11 @@ export function TelaProvasResultados({ controlador }) {
     setFiltros({
       candidato: '',
       vaga: '',
+      operacao: '',
+      trilha: '',
       status: '',
       resultado: '',
+      notaMinima: '',
       dataGeracao: '',
     });
 
@@ -2088,12 +2511,17 @@ export function TelaProvasResultados({ controlador }) {
         permissoes: ['provas.criar', 'provas.enviar'],
         onClick: () => setModalGerarAberto(true),
       }}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
     >
       <${PageIntro}
         kicker="CONECTA PROVAS > SCORE CONECTA"
         title="Provas e resultados"
         description="Acompanhe o andamento, correções e resultados das provas."
+        actions=${html`
+          <button type="button" class="btn btn-outline-secondary rh-action-btn" onClick=${abrirHeatmap}>
+            <span class="material-symbols-outlined">grid_view</span>
+            Heatmap de questões
+          </button>
+        `}
       />
 
       ${erro ? html`<div class="alert alert-warning">${erro}</div>` : null}
@@ -2133,6 +2561,22 @@ export function TelaProvasResultados({ controlador }) {
           </select>
           <select
             class="form-select"
+            value=${filtros.operacao}
+            onChange=${(event) => atualizarFiltro('operacao', event.target.value)}
+          >
+            <option value="">Todas as operações</option>
+            ${operacoesDisponiveis.map((operacao) => html`<option key=${operacao} value=${operacao}>${operacao}</option>`)}
+          </select>
+          <select
+            class="form-select"
+            value=${filtros.trilha}
+            onChange=${(event) => atualizarFiltro('trilha', event.target.value)}
+          >
+            <option value="">Todas as trilhas</option>
+            ${trilhasDisponiveis.map((trilha) => html`<option key=${trilha} value=${trilha}>${trilha}</option>`)}
+          </select>
+          <select
+            class="form-select"
             value=${filtros.status}
             onChange=${(event) => atualizarFiltro('status', event.target.value)}
           >
@@ -2151,6 +2595,19 @@ export function TelaProvasResultados({ controlador }) {
             <option value="com_alertas">Com alertas</option>
             <option value="sem_alertas">Sem alertas</option>
           </select>
+          <label class="generated-filter-field generated-filter-score">
+            <span class="material-symbols-outlined">trending_up</span>
+            <input
+              class="form-control"
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              placeholder="Nota mínima"
+              value=${filtros.notaMinima}
+              onInput=${(event) => atualizarFiltro('notaMinima', event.target.value)}
+            />
+          </label>
           <label class="generated-filter-field generated-filter-date">
             <span class="material-symbols-outlined">calendar_month</span>
             <input
@@ -2276,7 +2733,31 @@ export function TelaProvasResultados({ controlador }) {
                   </div>
                 </div>
               `
-            : html`<${EmptyState} title="Nenhuma prova encontrada" text="Gere uma prova vinculada ao processo ou uma prova avulsa." />`}
+            : provas.length
+              ? html`
+                  <${EmptyState}
+                    icon="filter_alt_off"
+                    title="Nenhuma prova encontrada com esses filtros"
+                    text="Ajuste ou limpe os filtros aplicados para visualizar as provas geradas."
+                    action=${{
+                      label: 'Limpar filtros',
+                      icon: 'filter_alt_off',
+                      onClick: limparFiltros,
+                    }}
+                  />
+                `
+              : html`
+                  <${EmptyState}
+                    icon="assignment_add"
+                    title="Nenhuma prova gerada ainda"
+                    text="Quando uma prova for gerada para um candidato, ela aparecerá aqui com status, nota e alertas de correção."
+                    action=${{
+                      label: 'Gerar primeira prova',
+                      icon: 'assignment_add',
+                      onClick: () => setModalGerarAberto(true),
+                    }}
+                  />
+                `}
       </${SectionCard}>
 
       <${ModalConfirmacaoAcao}
@@ -2331,6 +2812,13 @@ export function TelaProvasResultados({ controlador }) {
         onReabrir=${() => executarReabertura(detalhe)}
         onCancelar=${() => executarCancelamento(detalhe)}
         onDecisao=${() => setDecisaoRh(detalhe)}
+        onDadosCandidato=${async () => {
+          try {
+            await abrirFichaCandidatoDaProva(detalhe);
+          } catch (error) {
+            window.alert('Não foi possível localizar a ficha deste candidato.');
+          }
+        }}
       />
 
       <${ModalAvaliacaoManual}
@@ -2344,6 +2832,65 @@ export function TelaProvasResultados({ controlador }) {
         onClose=${() => setDecisaoRh(null)}
         onSave=${salvarDecisao}
       />
+
+      ${modalHeatmapAberto
+      ? html`
+            <${ModalPadrao}
+              aberto=${true}
+              titulo="Heatmap de questões"
+              subtitulo="Taxa de acerto por questão, entre todos os candidatos que já responderam objetivamente."
+              className="generated-heatmap-dialog"
+              onClose=${() => setModalHeatmapAberto(false)}
+            >
+              <div class="rh-details-body">
+                <label class="form-label" for="generated-heatmap-trilha">Trilha</label>
+                <select
+                  id="generated-heatmap-trilha"
+                  class="form-select generated-heatmap-select"
+                  value=${heatmapTrilha}
+                  onChange=${(event) => {
+          setHeatmapTrilha(event.target.value);
+          carregarHeatmap(event.target.value);
+        }}
+                >
+                  <option value="">Todas as trilhas</option>
+                  ${(heatmap?.trilhas_disponiveis?.length ? heatmap.trilhas_disponiveis : trilhasDisponiveis).map(
+          (trilha) => html`<option key=${trilha} value=${trilha}>${trilha}</option>`,
+        )}
+                </select>
+
+                ${carregandoHeatmap
+          ? html`<${LoadingState} titulo="Carregando heatmap" descricao="Calculando a taxa de acerto de cada questão." />`
+          : erroHeatmap
+            ? html`<div class="alert alert-warning">${erroHeatmap}</div>`
+            : heatmap?.itens?.length
+              ? html`
+                    <div class="generated-heatmap-list">
+                      ${heatmap.itens.map((item) => html`
+                        <article key=${item.questao_id} class="generated-heatmap-item">
+                          <div class="generated-heatmap-item-head">
+                            <strong>${item.texto_questao || item.questao_id}</strong>
+                            <span class="generated-heatmap-item-meta">${item.categoria || 'Sem categoria'} · ${item.total_respostas} resposta(s)</span>
+                          </div>
+                          <div class="generated-heatmap-bar-track">
+                            <div
+                              class="generated-heatmap-bar-fill"
+                              style=${{
+              width: `${Math.round(item.taxa_acerto * 100)}%`,
+              background: item.taxa_acerto < 0.4 ? '#d92d20' : item.taxa_acerto < 0.7 ? '#f79009' : '#12b76a',
+            }}
+                            ></div>
+                          </div>
+                          <span class="generated-heatmap-item-percent">${Math.round(item.taxa_acerto * 100)}% de acerto</span>
+                        </article>
+                      `)}
+                    </div>
+                  `
+              : html`<p class="text-muted">Nenhuma questão com respostas objetivas corrigidas ainda${heatmapTrilha ? ` para a trilha "${heatmapTrilha}"` : ''}.</p>`}
+              </div>
+            </${ModalPadrao}>
+          `
+      : null}
     </${PainelRh}>
   `;
 }

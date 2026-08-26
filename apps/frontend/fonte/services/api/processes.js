@@ -67,7 +67,7 @@ export async function atualizarProcesso(idProcesso, dadosProcesso) {
     },
   );
 
-  invalidarCacheApi('processos', `processos:detalhe:${idProcesso}`, 'relatorios');
+  invalidarCacheApi('processos', `processos:detalhe:${idProcesso}`, 'relatorios', 'historico', 'candidatos-processos');
   return resultado;
 }
 
@@ -84,7 +84,7 @@ export async function encerrarProcesso(idProcesso, payload = null) {
     opcoes,
   );
 
-  invalidarCacheApi('processos', `processos:detalhe:${idProcesso}`, 'relatorios');
+  invalidarCacheApi('processos', `processos:detalhe:${idProcesso}`, 'relatorios', 'historico', 'candidatos-processos');
   return resultado;
 }
 
@@ -98,7 +98,7 @@ async function alterarEstadoProcesso(idProcesso, acao, payload = {}) {
     },
   );
 
-  invalidarCacheApi('processos', `processos:detalhe:${idProcesso}`, 'relatorios');
+  invalidarCacheApi('processos', `processos:detalhe:${idProcesso}`, 'relatorios', 'historico', 'candidatos-processos');
   return resultado;
 }
 
@@ -144,6 +144,8 @@ export async function criarCandidatoNoProcesso(dadosCandidato) {
     'banco-talentos',
     'processos',
     'pipeline-candidatos',
+    'relatorios',
+    'historico',
   );
   return resultado;
 }
@@ -158,7 +160,41 @@ export async function atualizarStatusCandidato(idRegistro, dadosStatus) {
     },
   );
 
-  invalidarCacheApi('candidatos-processos', 'banco-talentos', 'processos', 'pipeline-candidatos');
+  invalidarCacheApi('candidatos-processos', 'banco-talentos', 'processos', 'pipeline-candidatos', 'relatorios', 'historico');
+  return resultado;
+}
+
+export async function reconsiderarEliminacaoCandidato(idRegistro, dadosReconsideracao) {
+  const resultado = await requisitar(
+    `/process-candidates/${idRegistro}/reconsider`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dadosReconsideracao),
+    },
+  );
+
+  invalidarCacheApi('candidatos-processos', 'banco-talentos', 'processos', 'pipeline-candidatos', 'relatorios', 'historico');
+  return resultado;
+}
+
+export async function lerScorecardCandidato(idRegistro) {
+  return requisitar(`/process-candidates/${idRegistro}/scorecard`, {
+    method: 'GET',
+  });
+}
+
+export async function salvarScorecardCandidato(idRegistro, dadosScorecard) {
+  const resultado = await requisitar(
+    `/process-candidates/${idRegistro}/scorecard`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dadosScorecard),
+    },
+  );
+
+  invalidarCacheApi('candidatos-processos', 'processos');
   return resultado;
 }
 
@@ -172,7 +208,7 @@ export async function atualizarStatusCandidatoAvulso(idTeste, dadosStatus) {
     },
   );
 
-  invalidarCacheApi('gabaritos', 'banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('gabaritos', 'banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -212,12 +248,22 @@ export async function lerBancoTalentos({
   return resultado;
 }
 
+export async function lerCandidatosSugeridosProcesso(idProcesso, { limit = 15 } = {}) {
+  if (!idProcesso) return { candidatos: [], total_sugestoes: 0 };
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', String(limit));
+  const sufixo = params.toString() ? `?${params.toString()}` : '';
+  return requisitar(`/processes/${encodeURIComponent(idProcesso)}/candidatos-sugeridos${sufixo}`, {
+    method: 'GET',
+  });
+}
+
 export async function removerBancoTalentos(idBanco) {
   const resultado = await requisitar(`/talent-bank/${idBanco}`, {
     method: 'DELETE',
   });
 
-  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos');
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -230,7 +276,7 @@ export async function criarBancoTalentos(dadosCandidato) {
     body: JSON.stringify(payload),
   });
 
-  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos', 'pipeline-candidatos');
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -244,7 +290,7 @@ export async function atualizarPerfilCandidato(idTeste, payload) {
     },
   );
 
-  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos', 'relatorios');
   return resultado;
 }
 
@@ -264,7 +310,7 @@ export async function atualizarFichaCandidato(idTeste, payload) {
     },
   );
 
-  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos', 'relatorios');
   return resultado;
 }
 
@@ -293,6 +339,8 @@ export async function usarCandidatoDoBancoTalentos(idBanco, dadosUso) {
     'candidatos-processos',
     'processos',
     'pipeline-candidatos',
+    'relatorios',
+    'historico',
   );
   return resultado;
 }
@@ -393,7 +441,7 @@ export async function atualizarPreAnaliseCv(idPreAnalise, payload) {
     body: JSON.stringify(payload),
   });
 
-  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos');
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'pipeline-candidatos', 'processos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -454,7 +502,7 @@ export async function dispensarPreAnaliseCv(idPreAnalise) {
     { method: 'POST' },
   );
 
-  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos');
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos', 'relatorios');
   return resultado;
 }
 
@@ -464,7 +512,7 @@ export async function enviarPreAnaliseParaBancoTalentos(idPreAnalise) {
     { method: 'POST' },
   );
 
-  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos');
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos', 'relatorios', 'historico');
   return resultado;
 }
 

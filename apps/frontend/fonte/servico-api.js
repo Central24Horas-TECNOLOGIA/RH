@@ -60,7 +60,9 @@ export {
   iniciarConectaProvas,
   iniciarEtapaConectaProvas,
   interromperEtapaConectaProvas,
+  lerHeatmapQuestoes,
   lerProvaGerada,
+  lerReplayProvaGerada,
   lerSessaoConectaProvas,
   listarProvasGeradas,
   marcarRevisaoConectaProvas,
@@ -69,7 +71,36 @@ export {
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
   salvarRespostasConectaProvas,
-} from './services/api/generated-exams.js?v=20260721-exam-analytics-2';
+} from './services/api/generated-exams.js?v=20260826-replay-heatmap';
+export {
+  criarAplicacaoDisc,
+  criarBlocoDisc,
+  finalizarAplicacaoDiscPublica,
+  lerAplicacaoDisc,
+  lerAplicacaoDiscPublica,
+  lerResultadoDiscCandidato,
+  listarBlocosDisc,
+} from './services/api/disc.js';
+export {
+  atualizarValorEmpresa,
+  criarValorEmpresa,
+  enviarRespostasFitCulturalPublicas,
+  lerResultadoFitCultural,
+  listarFrasesFitCulturalPublicas,
+  listarValoresEmpresa,
+} from './services/api/fit-cultural.js';
+export {
+  atualizarPerguntaRaciocinio,
+  avancarRaciocinioAdaptativoPublico,
+  criarAplicacaoRaciocinio,
+  criarPerguntaRaciocinio,
+  excluirPerguntaRaciocinio,
+  finalizarAplicacaoRaciocinioPublica,
+  lerAplicacaoRaciocinio,
+  lerAplicacaoRaciocinioPublica,
+  lerResultadoRaciocinioCandidato,
+  listarPerguntasRaciocinio,
+} from './services/api/raciocinio-logico.js';
 export {
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
@@ -99,6 +130,7 @@ export {
   enviarEmailAprovacao,
   ignorarEmailRecebido,
   lerBancoTalentos,
+  lerCandidatosSugeridosProcesso,
   lerAnotacoesDossieProcesso,
   lerCandidatosProcessos,
   lerDetalheProcesso,
@@ -110,9 +142,12 @@ export {
   lerUltimaAnaliseCurriculoIa,
   lerPreAnalisesCv,
   lerProcessos,
+  lerScorecardCandidato,
+  salvarScorecardCandidato,
   limparListaPreAnalisesCv,
   pausarProcesso,
   marcarAnaliseCurriculoIaRevisada,
+  reconsiderarEliminacaoCandidato,
   registrarWhatsappAprovacao,
   registrarWhatsappContatoManual,
   retomarProcesso,
@@ -122,7 +157,7 @@ export {
   cancelarProcesso,
   excluirEmailRecebido,
   vincularEmailRecebidoProcesso,
-} from './services/api/processes.js';
+} from './services/api/processes.js?v=20260826-reconsider-elim';
 export {
   enviarCandidaturaPublica,
   lerPaginaPublicaCandidatura,
@@ -132,9 +167,10 @@ export {
   baixarRelatorioProcessos,
   lerAnalisesCandidatos,
   lerDetalheAnaliseCandidato,
+  lerFunilDashboard,
   lerRelatorioCandidatos,
   lerRelatorioProcessos,
-} from './services/api/analytics.js';
+} from './services/api/analytics.js?v=20260825-dashboard-funil';
 export {
   compararResultadosAnaliticos,
   lerConfiguracaoResultadosAnaliticosProcesso,
@@ -161,7 +197,20 @@ export {
   lerSlotsEntrevista,
 } from './services/api/interviews.js';
 export {
+  baixarArquivoOneDrive,
+  criarPastaOneDrive,
+  enviarArquivoOneDrive,
+  excluirItemOneDrive,
+  listarArquivosOneDrive,
+  obterPreviewOneDrive,
+} from './services/api/onedrive.js';
+export {
+  enviarEmail,
+  listarModelosEmail,
+} from './services/api/email-send.js';
+export {
   alterarStatusUsuario,
+  atualizarAutomacaoNotificacoes,
   atualizarItemConfiguracao,
   atualizarPermissoesPerfil,
   atualizarUsuario,
@@ -170,6 +219,7 @@ export {
   criarUsuario,
   desativarItemConfiguracao,
   excluirUsuario,
+  lerAutomacaoNotificacoes,
   listarCatalogoConfiguracoes,
   listarLogsAuditoria,
   listarPerfis,
@@ -177,4 +227,36 @@ export {
   listarUsuarios,
   redefinirSenhaUsuario,
   registrarSolicitacaoLgpd,
-} from './services/api/settings.js';
+} from './services/api/settings.js?v=20260825-notificacoes-automaticas';
+export {
+  atualizarPolitica,
+  buscarPoliticaPendente,
+  confirmarLeituraPolitica,
+  criarPolitica,
+  listarPoliticas,
+} from './services/api/policies.js';
+export {
+  atualizarDataComemorativa,
+  criarDataComemorativa,
+  listarDatasComemorativas,
+  removerDataComemorativa,
+} from './services/api/calendar.js';
+export {
+  atualizarAgendaTreinamento,
+  atualizarTrilhaOnboarding,
+  criarTrilhaOnboarding,
+  iniciarOnboardingCandidato,
+  lerProgressoOnboardingCandidato,
+  lerTrilhaOnboarding,
+  listarAtribuicoesTreinamento,
+  listarTrilhasOnboarding,
+  marcarItemOnboarding,
+} from './services/api/onboarding.js';
+export {
+  atualizarTemplateDocumento,
+  criarTemplateDocumento,
+  excluirTemplateDocumento,
+  gerarDocumentoPorTemplate,
+  listarTemplatesDocumentos,
+  listarVariaveisTemplatesDocumentos,
+} from './services/api/document-templates.js';

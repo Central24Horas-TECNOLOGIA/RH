@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from .helpers import normalize_compare_text, normalize_text
+
+
+_LOCAL_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
 PROCESS_STATUS_OPEN = "Aberto"
@@ -82,6 +88,30 @@ def is_process_closed(status: str | None) -> bool:
         PROCESS_STATUS_CANCELED,
         PROCESS_STATUS_PAUSED,
     }
+
+
+def is_process_expired(data_encerramento: str | None) -> bool:
+    """Processo é considerado vencido no dia seguinte à data de encerramento
+    (o campo não guarda horário, então o processo permanece ativo durante
+    todo o dia informado como encerramento)."""
+    safe_value = normalize_text(data_encerramento)
+    if not safe_value:
+        return False
+    try:
+        closing_date = datetime.strptime(safe_value[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return False
+    today = datetime.now(_LOCAL_TIMEZONE).date()
+    return today > closing_date
+
+
+def resolve_effective_process_status(status: str | None, data_encerramento: str | None) -> str:
+    """Retorna o status que o processo deveria ter neste momento, considerando
+    o prazo de encerramento, sem sobrepor encerramentos manuais/pausas/cancelamentos."""
+    normalized = normalize_process_status(status)
+    if normalized == PROCESS_STATUS_OPEN and is_process_expired(data_encerramento):
+        return PROCESS_STATUS_CLOSED
+    return normalized
 
 
 def canonicalize_candidate_status(status: str | None) -> str:

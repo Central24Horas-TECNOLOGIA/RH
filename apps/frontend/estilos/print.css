@@ -55,8 +55,8 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12mm;
-    margin-bottom: 4mm;
-    padding: 3.5mm 4mm;
+    margin-bottom: 3mm;
+    padding: 2.5mm 4mm;
     border: 1px solid #333;
   }
 
@@ -73,10 +73,10 @@
   }
 
   .print-candidate-header h1 {
-    margin: 1mm 0 0;
-    font-size: 17pt;
+    margin: 0.8mm 0 0;
+    font-size: 14pt;
     font-weight: 700;
-    line-height: 1.05;
+    line-height: 1.1;
     overflow-wrap: anywhere;
   }
 
@@ -92,9 +92,22 @@
   }
 
   .print-candidate-section {
+    margin-top: 2.5mm;
+  }
+
+  /*
+   * As seções pequenas (informações gerais, observação do RH) continuam
+   * "presas" para não partir no meio. Já as seções de conteúdo variável
+   * (tabela de resultados e lista de competências) NÃO usam avoid aqui:
+   * forçar a seção inteira a ficar junta empurraria o bloco todo para a
+   * página 2 mesmo quando só faltasse espaço para 1-2 linhas, gerando uma
+   * segunda folha com uma página anterior parcialmente em branco. Em vez
+   * disso, cada linha/item é protegido individualmente (ver regras abaixo)
+   * e a quebra, quando realmente necessária, acontece entre linhas/itens.
+   */
+  .print-candidate-section:not(.print-candidate-results):not(.print-candidate-competencies) {
     break-inside: avoid;
     page-break-inside: avoid;
-    margin-top: 3.5mm;
   }
 
   .print-candidate-section h2 {
@@ -106,15 +119,15 @@
 
   .print-candidate-info-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     border-top: 1px solid #444;
     border-left: 1px solid #444;
   }
 
   .print-candidate-info {
     min-width: 0;
-    min-height: 10mm;
-    padding: 1.6mm 2mm;
+    min-height: 8mm;
+    padding: 1.4mm 2mm;
     border-right: 1px solid #777;
     border-bottom: 1px solid #777;
   }
@@ -161,9 +174,18 @@
     table-layout: fixed;
   }
 
+  .print-candidate-results-table thead {
+    display: table-header-group;
+  }
+
+  .print-candidate-results-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .print-candidate-results-table th,
   .print-candidate-results-table td {
-    padding: 1.5mm 2mm;
+    padding: 1.3mm 2mm;
     border-right: 1px solid #999;
     border-bottom: 1px solid #999;
     overflow-wrap: anywhere;
@@ -229,6 +251,8 @@
 
   .print-candidate-competencies li {
     margin: 0 0 1mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .print-candidate-competencies li:last-child {
@@ -236,8 +260,8 @@
   }
 
   .print-candidate-observation {
-    min-height: 28mm;
-    padding: 2.5mm;
+    min-height: 18mm;
+    padding: 2mm 2.5mm;
     border: 1px solid #444;
     white-space: pre-wrap;
     overflow-wrap: anywhere;

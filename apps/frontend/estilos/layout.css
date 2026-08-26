@@ -6,7 +6,7 @@
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
-  transition: grid-template-columns 180ms ease;
+  transition: grid-template-columns var(--transition-md);
 }
 
 .rh-modern-shell.is-sidebar-collapsed {
@@ -33,7 +33,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.74rem;
-  transition: width 180ms ease, padding 180ms ease;
+  transition: width var(--transition-md), padding var(--transition-md);
 }
 
 .rh-modern-sidebar::-webkit-scrollbar {
@@ -137,7 +137,7 @@
   font-weight: 700;
   text-align: left;
   font-size: 0.86rem;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+  transition: background var(--transition-sm), border-color var(--transition-sm), color var(--transition-sm);
   flex: 0 0 auto;
   overflow: hidden;
   cursor: pointer;
@@ -196,7 +196,7 @@
 .rh-modern-nav-chevron {
   margin-left: auto;
   opacity: 0.72;
-  transition: transform 160ms ease, opacity 160ms ease;
+  transition: transform var(--transition-sm), opacity var(--transition-sm);
 }
 
 .rh-modern-nav-group.is-open .rh-modern-nav-chevron {
@@ -425,7 +425,7 @@
   padding: 0.32rem 0.52rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
   text-align: left;
@@ -439,7 +439,7 @@
 .c24-user-menu:hover,
 .c24-user-menu:focus {
   border-color: rgba(21, 61, 138, 0.28);
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .c24-user-avatar {
@@ -513,7 +513,7 @@
   padding: 0.35rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: var(--shadow-md);
 }
 
@@ -556,7 +556,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 0 0.58rem 0 0.72rem;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .rh-modern-search-shell {
@@ -772,6 +772,183 @@
   overflow-wrap: anywhere;
 }
 
+.rh-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  border-bottom: 1px solid var(--color-border);
+  margin: 24px 0 16px;
+  overflow-x: auto;
+}
+
+.rh-tabs-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm, 6px) var(--radius-sm, 6px) 0 0;
+  padding: 8px 16px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.rh-tabs-btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface-soft);
+}
+
+.rh-tabs-btn.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.rh-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rh-onedrive-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.rh-onedrive-search {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.rh-onedrive-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 2 1 420px;
+}
+
+.rh-onedrive-filters select,
+.rh-onedrive-filters input {
+  min-width: 150px;
+}
+
+.rh-onedrive-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  overflow: hidden;
+}
+
+.rh-onedrive-view-toggle button {
+  appearance: none;
+  background: var(--color-surface);
+  border: none;
+  border-left: 1px solid var(--color-border);
+  padding: 8px 10px;
+  color: var(--color-text-soft);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.rh-onedrive-view-toggle button:first-child {
+  border-left: none;
+}
+
+.rh-onedrive-view-toggle button.is-active {
+  background: var(--color-surface-soft);
+  color: var(--color-primary);
+}
+
+.rh-onedrive-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.rh-onedrive-grid--pequena {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.rh-onedrive-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.rh-onedrive-grid--pequena .rh-onedrive-card {
+  padding: 8px 4px;
+  gap: 4px;
+}
+
+.rh-onedrive-card-icon {
+  font-size: 2.5rem;
+  color: var(--color-text-soft);
+}
+
+.rh-onedrive-grid--pequena .rh-onedrive-card-icon {
+  font-size: 1.6rem;
+}
+
+.rh-onedrive-card-nome {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.rh-onedrive-card-meta {
+  font-size: 0.72rem;
+  color: var(--color-text-soft);
+}
+
+.rh-onedrive-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.rh-onedrive-preview-frame {
+  width: 100%;
+  height: 70vh;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.rh-onedrive-preview-text {
+  width: 100%;
+  max-height: 70vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-surface-soft);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+}
+
 .rh-filter-card {
   padding: 0.85rem;
   border: 1px solid var(--color-border);
@@ -808,7 +985,7 @@
   padding: 0.36rem 0.58rem;
   border: 1px solid rgba(198, 211, 228, 0.95);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   font-size: 0.82rem;
 }
 
@@ -827,9 +1004,9 @@
   padding: 0.58rem 0.68rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 5px 16px rgba(15, 33, 57, 0.05);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  transition: border-color var(--transition-md), box-shadow var(--transition-md), transform var(--transition-md);
 }
 
 .rh-metric-card:hover {
@@ -956,7 +1133,7 @@
 .rh-action-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+  background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-soft) 100%);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
@@ -1145,6 +1322,21 @@
   background: var(--color-surface-soft);
 }
 
+.rh-policy-gate-modal {
+  width: min(720px, 100%);
+}
+
+.rh-policy-gate-body {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
 .rh-modal-footer-actions {
   display: flex;
   gap: 0.5rem;
@@ -1175,7 +1367,7 @@
 .rh-stage-result-card {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
-    background: #fff;
+    background: var(--color-surface);
     padding: var(--space-3);
     height: fit-content;
 }
@@ -1536,4 +1728,8 @@
   .rh-tour-card {
     max-width: calc(100vw - 1.5rem);
   }
+}
+
+.rh-modal-dialog--wide {
+  width: min(960px, 100%);
 }

@@ -11,16 +11,18 @@ export function ModalPadrao({
   onClose,
   children,
   className = '',
+  ocultarFechar = false,
 }) {
   if (!aberto) return null;
 
   return html`
     <div
       class="rh-modal-overlay"
-      onClick=${(event) => event.target === event.currentTarget && onClose()}
+      onClick=${(event) =>
+      !ocultarFechar && event.target === event.currentTarget && onClose()}
     >
       <div
-        class=${`rh-modal-dialog ${className}`.trim()}
+        class=${`rh-modal-dialog c24-fade-in ${className}`.trim()}
         role="dialog"
         aria-modal="true"
       >
@@ -31,14 +33,18 @@ export function ModalPadrao({
       ? html`<p class="rh-modal-subtitle">${subtitulo}</p>`
       : null}
           </div>
-          <button
-            type="button"
-            class="btn rh-modal-close-btn"
-            aria-label="Fechar"
-            onClick=${onClose}
-          >
-            X
-          </button>
+          ${!ocultarFechar
+      ? html`
+                <button
+                  type="button"
+                  class="btn rh-modal-close-btn"
+                  aria-label="Fechar"
+                  onClick=${onClose}
+                >
+                  X
+                </button>
+              `
+      : null}
         </header>
         <div class="rh-modal-content">${children}</div>
       </div>

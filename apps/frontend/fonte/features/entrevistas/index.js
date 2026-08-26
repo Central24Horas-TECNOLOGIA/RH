@@ -18,7 +18,7 @@ import {
   obterClasseStatusEntrevista,
 } from '../../shared/helpers-visuais.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
-import { AcaoSair } from '../../shared/components/actions.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   ModalEdicaoEntrevista,
   STATUS_ENTREVISTA,
@@ -199,6 +199,7 @@ function PaginacaoCompacta({
 }
 
 export function TelaEntrevistas({ controlador }) {
+  const { showToast, ToastHost } = useToast();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -398,8 +399,9 @@ export function TelaEntrevistas({ controlador }) {
       });
 
       await carregar();
-      window.alert(
+      showToast(
         `Slots criados: ${resultado?.created || 0}. Ignorados por conflito: ${resultado?.skipped || 0}.`,
+        'success',
       );
     } catch (error) {
       setErro(error?.message || 'Não foi possível criar os horários.');
@@ -568,21 +570,21 @@ export function TelaEntrevistas({ controlador }) {
       subtituloMarca="Agenda de entrevistas"
       placeholderBusca="Entrevistas e confirmações"
       controlador=${controlador}
-      acoesTopo=${html`
-        <button
-          type="button"
-          class="btn btn-outline-secondary"
-          onClick=${() => carregar()}
-        >
-          <span class="material-symbols-outlined">refresh</span>
-          Atualizar
-        </button>
-        <${AcaoSair} controlador=${controlador} />
-      `}
     >
+      <${ToastHost} />
       <${PageIntro}
         kicker="Console | Entrevistas"
         title="Calendário de entrevistas"
+        actions=${html`
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            onClick=${() => carregar()}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+            Atualizar
+          </button>
+        `}
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
@@ -919,7 +921,7 @@ export function TelaEntrevistas({ controlador }) {
                   <div class="interview-slot-list">
                     ${slotsPaginados.itens.map(
                       (slot) => html`
-                        <article class="interview-slot-card" key=${slot.id_slot}>
+                        <article class="interview-slot-card c24-fade-in" key=${slot.id_slot}>
                           <div>
                             <strong>${formatarHorarioSlot(slot)}</strong>
                             <span>${slot.id_processo || 'Geral'}</span>
@@ -999,7 +1001,7 @@ export function TelaEntrevistas({ controlador }) {
                   <div class="interview-operation-list">
                     ${entrevistasPaginadas.itens.map(
                       (item) => html`
-                        <article class="interview-operation-row" key=${item.id_entrevista}>
+                        <article class="interview-operation-row c24-fade-in" key=${item.id_entrevista}>
                           <div>
                             <strong>${item.nome_candidato || '-'}</strong>
                             <span>${item.vaga || item.id_processo || '-'}</span>
@@ -1032,10 +1034,10 @@ export function TelaEntrevistas({ controlador }) {
                               onClick=${() =>
                                 copiarTexto(item.mensagem_base || '')
                                   .then(() =>
-                                    window.alert('Mensagem copiada para a área de transferência.'),
+                                    showToast('Mensagem copiada para a área de transferência.', 'success'),
                                   )
                                   .catch(() =>
-                                    window.alert('Não foi possível copiar a mensagem automaticamente.'),
+                                    showToast('Não foi possível copiar a mensagem automaticamente.', 'error'),
                                   )}
                             >
                               <span class="material-symbols-outlined">content_copy</span>

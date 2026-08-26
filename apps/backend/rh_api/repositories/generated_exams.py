@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 import re
 import secrets
 import string
@@ -39,6 +40,7 @@ from .bootstrap import (
     ensure_process_reference_columns,
     get_process_row,
 )
+from .exam_analytics_schema import ensure_exam_analytics_tables
 
 
 EXAM_STATUS_GENERATED = "Gerada"
@@ -109,6 +111,7 @@ EXAM_ROW_COLUMNS = """
     token_sessao_publica,
     token_expira_em,
     metodo_acesso,
+    login_method,
     tentativas_acesso,
     gerada_por,
     gerada_em,
@@ -555,6 +558,59 @@ class GeneratedExamRepositoryMixin:
         ]
 
     @staticmethod
+    def _exam_shuffle_seed(row: dict) -> str:
+        # Determinístico por prova + candidato: mesma pessoa recarregando a página
+        # vê sempre a mesma ordem; candidatos diferentes veem ordens diferentes.
+        id_prova = row.get("id_prova")
+        identificador_candidato = (
+            row.get("id_teste") or row.get("token_sessao_publica") or row.get("email_acesso") or ""
+        )
+        return f"{id_prova}:{identificador_candidato}"
+
+    @staticmethod
+    def _shuffled_order(length: int, seed: str) -> list[int]:
+        order = list(range(length))
+        random.Random(seed).shuffle(order)
+        return order
+
+    @staticmethod
+    def _apply_question_shuffle(questions: list[dict], row: dict) -> list[dict]:
+        """Reordena questões e (para múltipla escolha) alternativas apenas para
+        apresentação/leitura pelo candidato. NUNCA altera o que está persistido em
+        questoes_json (o snapshot original permanece intacto no banco). O índice da
+        alternativa correta ("answer"/"correctIndex") é remapeado junto com as
+        alternativas embaralhadas, então a correção continua funcionando: basta usar
+        a lista retornada por esta função (em vez da lista crua do banco) tanto para
+        montar o payload público quanto para validar/pontuar a resposta do candidato.
+        """
+        if not isinstance(questions, list) or not questions:
+            return questions
+        seed = GeneratedExamRepositoryMixin._exam_shuffle_seed(row)
+        order = GeneratedExamRepositoryMixin._shuffled_order(len(questions), f"{seed}:questoes")
+        shuffled: list[dict] = []
+        for new_index, original_index in enumerate(order):
+            question = dict(questions[original_index])
+            if normalize_text(question.get("type")) == "multiple" and isinstance(question.get("options"), list) and question["options"]:
+                original_options = question["options"]
+                opt_order = GeneratedExamRepositoryMixin._shuffled_order(
+                    len(original_options), f"{seed}:opcoes:{original_index}"
+                )
+                question["options"] = [original_options[i] for i in opt_order]
+                expected = question.get("answer", question.get("correctIndex"))
+                try:
+                    expected_int = int(expected)
+                except (TypeError, ValueError):
+                    expected_int = None
+                if expected_int is not None and 0 <= expected_int < len(opt_order):
+                    new_expected = opt_order.index(expected_int)
+                    if "answer" in question:
+                        question["answer"] = new_expected
+                    if "correctIndex" in question:
+                        question["correctIndex"] = new_expected
+            shuffled.append(question)
+        return shuffled
+
+    @staticmethod
     def _internal_stage_states(config: dict | None) -> dict:
         states = (config or {}).get("estado_etapas_publicas")
         return states if isinstance(states, dict) else {}
@@ -608,7 +664,11 @@ class GeneratedExamRepositoryMixin:
                 "quantidade_questoes": int(row.get("quantidade_questoes") or 0),
                 "etapas": safe_json_loads(row.get("etapas_json"), []),
                 "categorias": safe_json_loads(row.get("categorias_json"), []),
-                "questoes": _public_questions_payload(safe_json_loads(row.get("questoes_json"), [])),
+                "questoes": _public_questions_payload(
+                    GeneratedExamRepositoryMixin._apply_question_shuffle(
+                        safe_json_loads(row.get("questoes_json"), []), row
+                    )
+                ),
                 "configuracao": GeneratedExamRepositoryMixin._sanitize_public_config(config),
                 "instrucoes_operacao": normalize_text(row.get("instrucoes_operacao")),
                 "iniciada_em": _format_datetime(row.get("iniciada_em")),
@@ -1002,13 +1062,14 @@ class GeneratedExamRepositoryMixin:
                     instrucoes_operacao,
                     status,
                     codigo_acesso,
+                    login_method,
                     gerada_por,
                     gerada_em,
                     expira_em,
                     atualizado_em
                 )
                 OUTPUT INSERTED.id_prova
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, GETDATE())
                 """,
                 (
                     id_teste,
@@ -1033,6 +1094,7 @@ class GeneratedExamRepositoryMixin:
                     normalize_text(data.get("instrucoes_operacao")),
                     EXAM_STATUS_AVAILABLE,
                     access_code,
+                    normalize_text(data.get("login_method")) or None,
                     generated_by,
                     expires_at,
                 ),
@@ -1180,7 +1242,7 @@ class GeneratedExamRepositoryMixin:
                     vaga = ?, operacao = ?, trilha = ?, nivel = ?, tempo_total = ?,
                     quantidade_questoes = ?, etapas_json = ?, categorias_json = ?,
                     configuracao_json = ?, questoes_json = ?, instrucoes_operacao = ?,
-                    expira_em = ?, atualizado_em = GETDATE()
+                    expira_em = ?, login_method = ?, atualizado_em = GETDATE()
                 WHERE id_prova = ?
                 """,
                 (
@@ -1200,6 +1262,7 @@ class GeneratedExamRepositoryMixin:
                     _json_dumps(questions),
                     normalize_text(data.get("instrucoes_operacao")),
                     _parse_datetime(data.get("expira_em")),
+                    normalize_text(data.get("login_method")) or None,
                     int(id_prova or 0),
                 ),
             )
@@ -1279,6 +1342,184 @@ class GeneratedExamRepositoryMixin:
             answer.pop("resposta_json", None)
         return answers
 
+    @staticmethod
+    def _replay_result_label(correta: Any) -> str:
+        if correta is None:
+            return "não avaliada objetivamente"
+        return "correta" if bool(correta) else "incorreta"
+
+    def get_exam_replay(self, id_prova: int) -> dict:
+        """Reconstroi, em ordem cronológica, os eventos de uma prova já
+        respondida (etapas iniciadas/concluídas + questões vistas/respondidas)
+        a partir das tabelas de telemetria (analise_metricas_respostas,
+        analise_sessoes_etapas) e do conteúdo já corrigido (respostas_provas).
+
+        Não depende do job assíncrono de analytics (resultados_analiticos_processos):
+        funciona para qualquer prova assim que ela tem telemetria registrada,
+        sem esperar processamento em lote.
+        """
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            self._get_exam_row_with_result(cursor, id_prova)
+            ensure_exam_analytics_tables(cursor)
+
+            safe_id_prova = int(id_prova or 0)
+            cursor.execute(
+                """
+                SELECT
+                    questao_indice, questao_id, etapa_chave, primeiro_acesso_em,
+                    ultima_alteracao_em, tempo_ativo_segundos, quantidade_alteracoes
+                FROM dbo.analise_metricas_respostas
+                WHERE id_prova = ?
+                ORDER BY questao_indice
+                """,
+                (safe_id_prova,),
+            )
+            metrics = rows_to_dicts(cursor, cursor.fetchall())
+
+            cursor.execute(
+                """
+                SELECT etapa_chave, iniciada_em, finalizada_em, status_etapa, tempo_ativo_segundos
+                FROM dbo.analise_sessoes_etapas
+                WHERE id_prova = ?
+                ORDER BY id_sessao
+                """,
+                (safe_id_prova,),
+            )
+            sessions = rows_to_dicts(cursor, cursor.fetchall())
+
+            answers = self._get_exam_answers(cursor, safe_id_prova)
+            answers_by_index = {int(answer.get("questao_indice") or 0): answer for answer in answers}
+
+            status_labels = {
+                "iniciada": "iniciada",
+                "concluida": "concluída",
+                "interrompida": "interrompida",
+                "expirada": "expirada",
+                "cancelada": "cancelada",
+            }
+
+            events: list[dict] = []
+            for session in sessions:
+                etapa_chave = normalize_text(session.get("etapa_chave")) or "-"
+                if session.get("iniciada_em"):
+                    events.append({
+                        "tipo": "etapa_iniciada",
+                        "titulo": f'Etapa "{etapa_chave}" iniciada',
+                        "descricao": "",
+                        "data": session.get("iniciada_em"),
+                    })
+                if session.get("finalizada_em"):
+                    status_label = status_labels.get(
+                        normalize_compare_text(session.get("status_etapa")),
+                        normalize_text(session.get("status_etapa")) or "finalizada",
+                    )
+                    tempo_ativo = session.get("tempo_ativo_segundos")
+                    events.append({
+                        "tipo": "etapa_finalizada",
+                        "titulo": f'Etapa "{etapa_chave}" {status_label}',
+                        "descricao": f"Tempo ativo: {round(float(tempo_ativo))}s" if tempo_ativo else "",
+                        "data": session.get("finalizada_em"),
+                    })
+
+            for metric in metrics:
+                indice = int(metric.get("questao_indice") or 0)
+                answer = answers_by_index.get(indice, {})
+                titulo_questao = normalize_text(answer.get("texto_questao_snapshot")) or f"Questão {indice + 1}"
+                if metric.get("primeiro_acesso_em"):
+                    events.append({
+                        "tipo": "questao_vista",
+                        "titulo": f"Questão {indice + 1} visualizada",
+                        "descricao": titulo_questao[:140],
+                        "data": metric.get("primeiro_acesso_em"),
+                    })
+                if metric.get("ultima_alteracao_em"):
+                    resultado_label = self._replay_result_label(answer.get("correta"))
+                    tempo_ativo = round(float(metric.get("tempo_ativo_segundos") or 0))
+                    alteracoes = int(metric.get("quantidade_alteracoes") or 0)
+                    events.append({
+                        "tipo": "questao_respondida",
+                        "titulo": f"Questão {indice + 1} respondida ({resultado_label})",
+                        "descricao": f"Tempo ativo: {tempo_ativo}s · {alteracoes} alteração(ões)",
+                        "data": metric.get("ultima_alteracao_em"),
+                    })
+
+            events.sort(key=lambda item: normalize_text(item.get("data")) or "")
+
+            return {
+                "success": True,
+                "eventos": events,
+                "resumo": {
+                    "tempo_ativo_total_segundos": round(sum(float(m.get("tempo_ativo_segundos") or 0) for m in metrics)),
+                    "questoes_visitadas": len({m.get("questao_indice") for m in metrics if m.get("primeiro_acesso_em")}),
+                    "total_questoes": len(answers),
+                },
+            }
+        finally:
+            conn.close()
+
+    def get_question_heatmap(self, *, trilha: str = "") -> dict:
+        """Agrega, por questão (questao_id) dentro de uma trilha, a taxa de
+        acerto entre todos os candidatos que já responderam objetivamente
+        (correta IS NOT NULL — exclui questões discursivas/manuais ainda sem
+        avaliação). Agrupar por trilha evita comparar acerto de questões de
+        provas diferentes; questao_indice não serve para agrupar porque a
+        ordem das questões é embaralhada por candidato (_apply_question_shuffle).
+        """
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            safe_trilha = normalize_text(trilha)
+            filtro_trilha = "AND p.trilha = ?" if safe_trilha else ""
+            params: tuple = (safe_trilha,) if safe_trilha else ()
+            cursor.execute(
+                f"""
+                SELECT
+                    r.questao_id,
+                    r.categoria,
+                    MAX(r.texto_questao_snapshot) AS texto_questao_snapshot,
+                    p.trilha,
+                    COUNT(*) AS total_respostas,
+                    SUM(CASE WHEN r.correta = 1 THEN 1 ELSE 0 END) AS total_corretas
+                FROM dbo.respostas_provas r
+                INNER JOIN dbo.provas_geradas p ON p.id_prova = r.id_prova
+                WHERE r.correta IS NOT NULL
+                  {filtro_trilha}
+                GROUP BY r.questao_id, r.categoria, p.trilha
+                """,
+                params,
+            )
+            rows = rows_to_dicts(cursor, cursor.fetchall())
+
+            itens = []
+            for row in rows:
+                total = int(row.get("total_respostas") or 0)
+                if total <= 0:
+                    continue
+                corretas = int(row.get("total_corretas") or 0)
+                itens.append({
+                    "questao_id": normalize_text(row.get("questao_id")),
+                    "texto_questao": normalize_text(row.get("texto_questao_snapshot")),
+                    "categoria": normalize_text(row.get("categoria")),
+                    "trilha": normalize_text(row.get("trilha")),
+                    "total_respostas": total,
+                    "total_corretas": corretas,
+                    "taxa_acerto": round(corretas / total, 4),
+                })
+            itens.sort(key=lambda item: item["taxa_acerto"])
+
+            cursor.execute("SELECT DISTINCT trilha FROM dbo.provas_geradas WHERE ISNULL(trilha, '') <> ''")
+            trilhas_disponiveis = sorted(
+                {normalize_text(trilha_row[0]) for trilha_row in cursor.fetchall() if normalize_text(trilha_row[0])}
+            )
+
+            return {"success": True, "itens": itens, "trilhas_disponiveis": trilhas_disponiveis}
+        finally:
+            conn.close()
+
     def _available_exam_rows(self, cursor) -> list[dict]:
         cursor.execute(
             f"""
@@ -1316,6 +1557,7 @@ class GeneratedExamRepositoryMixin:
                 row
                 for row in self._available_exam_rows(cursor)
                 if _normalize_email(row.get("email_acesso")) == safe_email
+                and normalize_text(row.get("login_method")) in ("", "email")
             ]
             provas = [
                 self._public_exam_summary(row, token=self._issue_public_session(cursor, row, "email"))
@@ -1339,6 +1581,8 @@ class GeneratedExamRepositoryMixin:
             ensure_conecta_exams_tables(cursor)
             matches = []
             for row in self._available_exam_rows(cursor):
+                if normalize_text(row.get("login_method")) not in ("", "celular"):
+                    continue
                 row_phone = _normalize_phone(row.get("telefone_acesso"))
                 if row_phone and (row_phone == safe_phone or row_phone.endswith(safe_phone[-10:]) or safe_phone.endswith(row_phone[-10:])):
                     matches.append(row)
@@ -1366,6 +1610,7 @@ class GeneratedExamRepositoryMixin:
                 row
                 for row in self._available_exam_rows(cursor)
                 if normalize_text(row.get("codigo_acesso")).upper() == safe_code
+                and normalize_text(row.get("login_method")) in ("", "codigo_prova")
             ]
             provas = [
                 self._public_exam_summary(row, token=self._issue_public_session(cursor, row, "codigo"))
@@ -1520,7 +1765,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova ja finalizada.")
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             if not self._public_stage_indices(questions, stage_key):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa nao encontrada.")
             id_prova = int(row.get("id_prova") or 0)
@@ -1590,7 +1837,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova já finalizada.")
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             self._save_answer_rows(cursor, row, answers, questions)
             cursor.execute(
                 """
@@ -1625,7 +1874,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova jÃ¡ finalizada.")
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             indices = self._public_stage_indices(questions, stage_key)
             if not indices:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa nÃ£o encontrada.")
@@ -1682,7 +1933,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 return {"success": True, "etapa": {"key": stage_key, "status": "realizada"}}
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             if not self._public_stage_indices(questions, stage_key):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Etapa nÃ£o encontrada.")
             config = safe_json_loads(row.get("configuracao_json"), {})
@@ -1922,7 +2175,9 @@ class GeneratedExamRepositoryMixin:
             row = self._get_exam_row_by_token(cursor, data.get("token"))
             if normalize_text(row.get("status")) in {EXAM_STATUS_FINISHED, EXAM_STATUS_CORRECTED, EXAM_STATUS_PENDING_MANUAL}:
                 raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Prova já finalizada.")
-            questions = safe_json_loads(row.get("questoes_json"), [])
+            questions = self._apply_question_shuffle(
+                safe_json_loads(row.get("questoes_json"), []), row
+            )
             etapas_config = safe_json_loads(row.get("etapas_json"), [])
             configuracao = safe_json_loads(row.get("configuracao_json"), {})
             stage_states = self._internal_stage_states(configuracao)

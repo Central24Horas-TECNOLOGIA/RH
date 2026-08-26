@@ -4,12 +4,13 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
 from ..auth import AuthenticatedUser
-from ..dependencies import get_current_user, get_repository, require_permissions
+from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
 from ..repositories import DatabaseRepository
 from ..schemas.common import SuccessResponse
 from ..schemas.security import (
     ConfigurationItemRequest,
     LgpdRequestCreate,
+    NotificationAutomationSettingsRequest,
     RolePermissionsUpdateRequest,
     UserCreateRequest,
     UserPasswordRequest,
@@ -196,6 +197,38 @@ def register_lgpd_request(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.register_lgpd_request(payload.model_dump(), actor=user)
+
+
+@router.get(
+    "/automacao-notificacoes",
+    dependencies=[Depends(require_permissions("notificacoes.configurar"))],
+)
+def get_notification_automation_settings(repository: DatabaseRepository = Depends(get_repository)):
+    return repository.get_notification_automation_settings()
+
+
+@router.put(
+    "/automacao-notificacoes",
+    dependencies=[Depends(require_permissions("notificacoes.configurar"))],
+)
+def update_notification_automation_settings(
+    payload: NotificationAutomationSettingsRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.update_notification_automation_settings(
+        payload.model_dump(),
+        actor=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="atualizar_automacao_notificacoes",
+        entidade="configuracoes_notificacoes_automaticas",
+        valor_novo=payload.model_dump(),
+    )
+    return result
 
 
 @router.get("/health", response_model=SuccessResponse)

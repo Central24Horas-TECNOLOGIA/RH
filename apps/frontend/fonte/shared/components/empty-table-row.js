@@ -1,6 +1,6 @@
 import { html } from '../../infraestrutura-react.js';
 
-export function TabelaVazia({ colunas, texto }) {
+export function TabelaVazia({ colunas, texto, icone = '' }) {
   const carregando = String(texto || '').toLowerCase().includes('carregando');
 
   return html`
@@ -16,7 +16,14 @@ export function TabelaVazia({ colunas, texto }) {
                 </div>
               </div>
             `
-          : texto}
+          : icone
+            ? html`
+                <div class="c24-table-empty-state">
+                  <span class="material-symbols-outlined" aria-hidden="true">${icone}</span>
+                  <span class="c24-table-empty-state-text">${texto}</span>
+                </div>
+              `
+            : texto}
       </td>
     </tr>
   `;

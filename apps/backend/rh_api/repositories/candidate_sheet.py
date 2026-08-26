@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 
 from ..services.helpers import (
+    calculate_age_from_birth_date,
     normalize_compare_text,
     normalize_text,
     rows_to_dicts,
@@ -14,6 +15,7 @@ from .bootstrap import (
     ensure_candidate_attachments_table,
     ensure_candidate_metadata_columns,
     ensure_candidate_metadata_table,
+    ensure_candidate_movements_table,
     ensure_cv_pre_analises_table,
     ensure_decimal_process_columns,
     ensure_pipeline_columns,
@@ -285,6 +287,88 @@ class CandidateSheetRepositoryMixin:
         )
         return rows_to_dicts(cursor, cursor.fetchall())
 
+    def _list_candidate_sheet_movement_rows(self, cursor, id_teste: str) -> list[dict]:
+        ensure_candidate_movements_table(cursor)
+        cursor.execute(
+            """
+            SELECT
+                tipo_movimentacao,
+                status_anterior,
+                status_novo,
+                observacao,
+                usuario_responsavel,
+                vaga,
+                processo_destino,
+                criado_em
+            FROM candidatos_movimentacoes
+            WHERE id_teste = ?
+            ORDER BY criado_em DESC, id_movimentacao DESC
+            """,
+            (id_teste,),
+        )
+        return rows_to_dicts(cursor, cursor.fetchall())
+
+    def _serialize_candidate_sheet_timeline(
+        self,
+        movement_rows: list[dict],
+        history_rows: list[dict],
+        interview_rows: list[dict],
+        cv_pre_analysis: dict,
+    ) -> list[dict]:
+        eventos = []
+
+        if cv_pre_analysis:
+            eventos.append({
+                "tipo": "curriculo",
+                "icone": "description",
+                "titulo": "Currículo avaliado",
+                "descricao": f"Classificação: {normalize_text(cv_pre_analysis.get('classificacao')) or 'não avaliado'}.",
+                "data": cv_pre_analysis.get("criado_em"),
+            })
+
+        for row in history_rows:
+            eventos.append({
+                "tipo": "prova",
+                "icone": "assignment_turned_in",
+                "titulo": f"Prova concluída ({normalize_text(row.get('trilha') or row.get('nivel')) or 'Prova'})",
+                "descricao": f"Nota: {_format_score(row.get('pontuacao_final'))}. Vaga: {normalize_text(row.get('vaga')) or 'não informada'}.",
+                "data": row.get("data_iso") or row.get("data_exibicao"),
+            })
+
+        for row in interview_rows:
+            eventos.append({
+                "tipo": "entrevista",
+                "icone": "event",
+                "titulo": "Entrevista",
+                "descricao": f"Status: {normalize_text(row.get('status_entrevista')) or 'não realizado'}. Vaga: {normalize_text(row.get('vaga')) or 'não informada'}.",
+                "data": row.get("data_entrevista"),
+            })
+
+        for row in movement_rows:
+            tipo_movimentacao = normalize_text(row.get("tipo_movimentacao")) or "Movimentação"
+            status_anterior = normalize_text(row.get("status_anterior"))
+            status_novo = normalize_text(row.get("status_novo"))
+            partes_descricao = []
+            if status_anterior or status_novo:
+                partes_descricao.append(f"{status_anterior or '-'} → {status_novo or '-'}")
+            if normalize_text(row.get("processo_destino")):
+                partes_descricao.append(f"Processo destino: {row.get('processo_destino')}")
+            if normalize_text(row.get("observacao")):
+                partes_descricao.append(normalize_text(row.get("observacao")))
+            responsavel = normalize_text(row.get("usuario_responsavel"))
+            if responsavel:
+                partes_descricao.append(f"Responsável: {responsavel}")
+            eventos.append({
+                "tipo": "movimentacao",
+                "icone": "swap_horiz",
+                "titulo": tipo_movimentacao,
+                "descricao": " · ".join(partes_descricao) or "Sem detalhes adicionais.",
+                "data": row.get("criado_em"),
+            })
+
+        eventos.sort(key=lambda evento: normalize_text(evento.get("data")) or "", reverse=True)
+        return eventos
+
     def _get_candidate_sheet_cv_pre_analysis(
         self,
         cursor,
@@ -518,6 +602,7 @@ class CandidateSheetRepositoryMixin:
             bank_rows = self._list_candidate_sheet_bank_rows(cursor, safe_id_teste)
             history_rows = self._list_candidate_sheet_history_rows(cursor, safe_id_teste)
             interview_rows = self._list_candidate_sheet_interview_rows(cursor, safe_id_teste)
+            movement_rows = self._list_candidate_sheet_movement_rows(cursor, safe_id_teste)
             cv_pre_analysis = self._get_candidate_sheet_cv_pre_analysis(
                 cursor,
                 safe_id_teste,
@@ -583,7 +668,8 @@ class CandidateSheetRepositoryMixin:
                     "numero": normalize_text(profile.get("numero")),
                     "cidade": normalize_text(profile.get("cidade") or primary_process.get("cidade")),
                     "bairro": normalize_text(profile.get("bairro") or primary_process.get("bairro")),
-                    "idade": profile.get("idade"),
+                    "idade": calculate_age_from_birth_date(profile.get("data_nascimento")) or profile.get("idade"),
+                    "data_nascimento": normalize_text(profile.get("data_nascimento")),
                     "escolaridade": normalize_text(profile.get("escolaridade")),
                     "possui_experiencia": normalize_text(profile.get("possui_experiencia")),
                     "musica": normalize_text(profile.get("musica")),
@@ -601,6 +687,12 @@ class CandidateSheetRepositoryMixin:
                 },
                 "processos": self._serialize_candidate_sheet_processes(process_rows, bank_rows),
                 "resultados": self._serialize_candidate_sheet_results(
+                    history_rows,
+                    interview_rows,
+                    cv_pre_analysis,
+                ),
+                "timeline": self._serialize_candidate_sheet_timeline(
+                    movement_rows,
                     history_rows,
                     interview_rows,
                     cv_pre_analysis,
@@ -678,6 +770,7 @@ class CandidateSheetRepositoryMixin:
                 endereco=payload.get("endereco") if "endereco" in payload else None,
                 cidade=payload.get("cidade") if "cidade" in payload else None,
                 bairro=payload.get("bairro") if "bairro" in payload else None,
+                data_nascimento=payload.get("data_nascimento") if "data_nascimento" in payload else None,
                 escolaridade=payload.get("escolaridade") if "escolaridade" in payload else None,
                 possui_experiencia=payload.get("possui_experiencia") if "possui_experiencia" in payload else None,
                 musica=payload.get("musica") if "musica" in payload else None,

@@ -4,7 +4,13 @@ export {
   LoadingState,
   MetricGrid,
 } from './components/feedback.js';
-export { PainelRh, PageIntro, SectionCard } from './components/layout.js';
+export {
+  PainelRh,
+  PageIntro,
+  SectionCard,
+  Tabs,
+  TabPanel,
+} from './components/layout.js';
 export {
   ModalConfirmacaoAcao,
   ModalDetalhesProva,

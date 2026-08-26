@@ -4,22 +4,30 @@ from .analytics import AnalyticsRepositoryMixin
 from .analises_curriculo_ia_repository import AnalisesCurriculoIaRepositoryMixin
 from .base import BaseRepository
 from .candidate_sheet import CandidateSheetRepositoryMixin
+from .celebratory_dates import CelebratoryDateRepositoryMixin
 from .bootstrap import (
     bootstrap_runtime_schema,
     describe_database_error,
     is_deadlock_error,
 )
 from .cv_analysis import CvAnalysisRepositoryMixin
+from .disc import DiscRepositoryMixin
+from .document_templates import DocumentTemplateRepositoryMixin
 from .email_inbox import EmailInboxRepositoryMixin
 from .exam_analytics import ExamAnalyticsRepositoryMixin
 from .communications import CommunicationRepositoryMixin
+from .fit_cultural import FitCulturalRepositoryMixin
 from .generated_exams import GeneratedExamRepositoryMixin
 from .history import HistoryRepositoryMixin
 from .interviews import InterviewRepositoryMixin
+from .onboarding import OnboardingRepositoryMixin
 from .pipeline import PipelineRepositoryMixin
+from .policies import PolicyRepositoryMixin
 from .processes import ProcessRepositoryMixin
 from .profiles import CandidateProfileRepositoryMixin
 from .public_candidacy import PublicCandidacyRepositoryMixin
+from .raciocinio_logico import RaciocinioLogicoRepositoryMixin
+from .scorecards import ScorecardRepositoryMixin
 from .security import SecurityRepositoryMixin
 from .talent_bank import TalentBankRepositoryMixin
 
@@ -41,6 +49,14 @@ class DatabaseRepository(
     PipelineRepositoryMixin,
     InterviewRepositoryMixin,
     PublicCandidacyRepositoryMixin,
+    PolicyRepositoryMixin,
+    CelebratoryDateRepositoryMixin,
+    OnboardingRepositoryMixin,
+    DocumentTemplateRepositoryMixin,
+    DiscRepositoryMixin,
+    FitCulturalRepositoryMixin,
+    RaciocinioLogicoRepositoryMixin,
+    ScorecardRepositoryMixin,
     BaseRepository,
 ):
     """Fachada de compatibilidade que agrega os repositorios por dominio."""

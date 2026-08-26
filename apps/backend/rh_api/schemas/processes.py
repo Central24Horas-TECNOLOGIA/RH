@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import date, datetime
 
 from pydantic import Field, field_validator, model_validator
 
@@ -29,6 +30,7 @@ class ProcessCreateRequest(BaseSchema):
     link_agendamento: str = ""
     configuracao_prova_json: str | None = None
     prova_configurada_em: str | None = None
+    urgente: bool = False
 
     @field_validator("id_processo", "vaga", "data_encerramento")
     @classmethod
@@ -86,6 +88,7 @@ class ProcessUpdateRequest(BaseSchema):
     responsabilidades_publicas: str | None = None
     configuracao_prova_json: str | None = None
     prova_configurada_em: str | None = None
+    urgente: bool | None = None
 
     @field_validator("data_encerramento")
     @classmethod
@@ -232,6 +235,7 @@ class ProcessCandidateCreateRequest(BaseSchema):
     etapa_pipeline: str | None = None
     eh_indicacao: bool = False
     tipo_indicacao: str = ""
+    indicado_por: str = ""
 
     @field_validator("nome_candidato")
     @classmethod
@@ -263,6 +267,13 @@ class ProcessCandidateCreateRequest(BaseSchema):
             raise ValueError("Selecione o tipo de indicação.")
         return self
 
+    @model_validator(mode="after")
+    def validate_candidate_referral_origin(self):
+        self.indicado_por = str(self.indicado_por or "").strip()
+        if _normalize_compare_value(self.origem) == "indicacao" and not self.indicado_por:
+            raise ValueError("Informe o nome de quem indicou o candidato.")
+        return self
+
 
 class ProcessCandidateStatusUpdateRequest(BaseSchema):
     status_candidato: str = ""
@@ -278,6 +289,7 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
     motivo_eliminacao: str = ""
     etapa_eliminacao: str = ""
     data_eliminacao: str | None = None
+    observacao_eliminacao: str = ""
 
     @field_validator("mensagem_aprovacao")
     @classmethod
@@ -330,6 +342,14 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
             raise ValueError("Os dados da eliminação devem ter no máximo 120 caracteres.")
         return safe_value
 
+    @field_validator("observacao_eliminacao")
+    @classmethod
+    def validate_elimination_note(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 300:
+            raise ValueError("A observação complementar deve ter no máximo 300 caracteres.")
+        return safe_value
+
 
 class StandaloneCandidateStatusUpdateRequest(BaseSchema):
     status_candidato: str = ""
@@ -344,6 +364,29 @@ class StandaloneCandidateStatusUpdateRequest(BaseSchema):
     motivo_eliminacao: str = ""
     etapa_eliminacao: str = ""
     data_eliminacao: str | None = None
+    observacao_eliminacao: str = ""
+
+    @field_validator("observacao_eliminacao")
+    @classmethod
+    def validate_elimination_note(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 300:
+            raise ValueError("A observação complementar deve ter no máximo 300 caracteres.")
+        return safe_value
+
+
+class CandidateReconsiderRequest(BaseSchema):
+    justificativa: str = ""
+
+    @field_validator("justificativa")
+    @classmethod
+    def validate_justificativa(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) < 10:
+            raise ValueError("Informe uma justificativa com pelo menos 10 caracteres.")
+        if len(safe_value) > 500:
+            raise ValueError("A justificativa deve ter no máximo 500 caracteres.")
+        return safe_value
 
 
 class WhatsAppManualContactRequest(BaseSchema):
@@ -518,6 +561,7 @@ class CandidateProfileUpdateRequest(BaseSchema):
     endereco: str = ""
     cidade: str = ""
     bairro: str = ""
+    data_nascimento: str = ""
     escolaridade: str = ""
     possui_experiencia: str = ""
     musica: str = ""
@@ -525,6 +569,20 @@ class CandidateProfileUpdateRequest(BaseSchema):
     futebol: str = ""
     time: str = ""
     rede_social: str = ""
+
+    @field_validator("data_nascimento")
+    @classmethod
+    def validate_profile_birth_date(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        try:
+            parsed = datetime.strptime(safe_value[:10], "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("Informe uma data de nascimento válida.")
+        if parsed > date.today():
+            raise ValueError("A data de nascimento não pode estar no futuro.")
+        return parsed.isoformat()
 
     @field_validator("habilidades", "tags")
     @classmethod
@@ -615,6 +673,7 @@ class CandidateSheetUpdateRequest(BaseSchema):
     endereco: str | None = None
     cidade: str | None = None
     bairro: str | None = None
+    data_nascimento: str | None = None
     escolaridade: str | None = None
     possui_experiencia: str | None = None
     musica: str | None = None
@@ -627,6 +686,22 @@ class CandidateSheetUpdateRequest(BaseSchema):
     classificacao_indicacao: str | None = None
     justificativa: str | None = None
     justificativa_indicacao: str | None = None
+
+    @field_validator("data_nascimento")
+    @classmethod
+    def validate_sheet_birth_date(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if not safe_value:
+            return safe_value
+        try:
+            parsed = datetime.strptime(safe_value[:10], "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("Informe uma data de nascimento válida.")
+        if parsed > date.today():
+            raise ValueError("A data de nascimento não pode estar no futuro.")
+        return parsed.isoformat()
 
     @field_validator("nome_candidato")
     @classmethod

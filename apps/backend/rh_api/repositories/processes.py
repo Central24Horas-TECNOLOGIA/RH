@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import logging
 import math
+import re
 from datetime import datetime
 
 from fastapi import HTTPException, status
@@ -11,6 +13,7 @@ from ..services.helpers import (
     normalize_indication_type,
     normalize_text,
     rows_to_dicts,
+    safe_json_loads,
 )
 from ..services.pipeline import infer_pipeline_stage, map_pipeline_stage_to_status, normalize_pipeline_stage
 from ..services.process_flow import (
@@ -50,6 +53,45 @@ from .bootstrap import (
 
 
 logger = logging.getLogger(__name__)
+
+# Regra do RH para o "Botao Expresso" (vaga urgente): o recurso deve ficar
+# reservado para emergencias reais, entao no maximo esse percentual das vagas
+# ABERTAS simultaneamente (contadas na base toda, ver nota abaixo) podem estar
+# marcadas como urgentes ao mesmo tempo. Ajuste aqui se o RH pedir outro valor.
+LIMITE_PERCENTUAL_VAGAS_URGENTES = 0.2
+
+# Nota de produto: o modelo de dados de processos_seletivos nao tem hoje uma
+# coluna de "RH responsavel" ou "empresa" por vaga (nao ha id_usuario_criador
+# nem equivalente). Por isso o limite abaixo e calculado sobre TODAS as vagas
+# abertas do sistema, nao por RH individual. Se o RH quiser o limite por
+# usuario/empresa, sera necessario antes adicionar essa coluna de propriedade
+# da vaga - documentado tambem no relatorio final desta tarefa.
+
+# Padrao de mencao em anotacoes de dossie: @usuario, sem validar contra a
+# tabela de usuarios (evita expor a lista de usuarios do sistema para quem
+# nao tem a permissao usuarios.visualizar so para poder mencionar alguem).
+MENTION_PATTERN = re.compile(r"(?<!\w)@([a-zA-Z0-9_.\-]{2,60})")
+
+
+def extract_note_mentions(texto: str) -> list[str]:
+    texto_seguro = normalize_text(texto)
+    if not texto_seguro:
+        return []
+    mencoes: list[str] = []
+    for match in MENTION_PATTERN.finditer(texto_seguro):
+        usuario = match.group(1)
+        if usuario not in mencoes:
+            mencoes.append(usuario)
+    return mencoes
+
+
+def attach_note_mentions(rows: list[dict]) -> list[dict]:
+    for row in rows:
+        row["mencoes"] = safe_json_loads(row.get("mencoes_json"), [])
+        if not isinstance(row["mencoes"], list):
+            row["mencoes"] = []
+        row.pop("mencoes_json", None)
+    return rows
 
 
 class ProcessRepositoryMixin:
@@ -154,7 +196,15 @@ class ProcessRepositoryMixin:
         finally:
             conn.close()
 
-    def monitor_process_inactivity(self, *, dias: int = 30) -> dict:
+    def monitor_process_inactivity(self, *, dias: int = 30, dias_realerta: int = 7) -> dict:
+        """Detecta processos sem movimentação relevante há `dias` dias e
+        registra um alerta interno (tabela `processos_alertas_inatividade`).
+
+        `dias_realerta`: não cria um novo alerta para o mesmo processo se já
+        existe um alerta do mesmo tipo criado há menos de `dias_realerta`
+        dias — evita spammar o RH a cada execução do job agendado enquanto o
+        processo continuar parado (roadmap: lembretes e alertas automáticos).
+        """
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -195,14 +245,18 @@ class ProcessRepositoryMixin:
                     WHERE id_processo = ?
                       AND ISNULL(id_processo_ref, '') = ISNULL(?, '')
                       AND tipo = 'processo_sem_movimentacao'
-                      AND ISNULL(data_ultima_movimentacao, CONVERT(DATETIME, '19000101', 112))
-                          = ISNULL(?, CONVERT(DATETIME, '19000101', 112))
+                      AND (
+                        ISNULL(data_ultima_movimentacao, CONVERT(DATETIME, '19000101', 112))
+                            = ISNULL(?, CONVERT(DATETIME, '19000101', 112))
+                        OR criado_em >= DATEADD(day, -?, GETDATE())
+                      )
                     ORDER BY criado_em DESC
                     """,
                     (
                         normalize_text(processo.get("id_processo")),
                         normalize_text(processo.get("id_processo_ref")),
                         ultima,
+                        int(dias_realerta or 7),
                     ),
                 )
                 if cursor.fetchone():
@@ -271,7 +325,204 @@ class ProcessRepositoryMixin:
         finally:
             conn.close()
 
-    def create_process(self, data: dict) -> dict:
+    def _mark_inactivity_alert_email_status(self, id_alerta, status_envio: str) -> None:
+        if not id_alerta:
+            return
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE processos_alertas_inatividade SET status_envio = ? WHERE id_alerta = ?",
+                (status_envio, int(id_alerta)),
+            )
+            conn.commit()
+        except Exception:
+            self.logger.warning(
+                "Falha ao atualizar status de envio do alerta de inatividade %s.",
+                id_alerta,
+                exc_info=True,
+            )
+        finally:
+            conn.close()
+
+    def run_scheduled_inactivity_reminders(
+        self,
+        *,
+        dias: int | None = None,
+        dias_realerta: int | None = None,
+    ) -> dict:
+        """Ponto único de disparo automático (job agendado) dos lembretes de
+        processo sem movimentação (roadmap: "Lembretes e alertas
+        automáticos"). Reaproveita `monitor_process_inactivity` para
+        detectar/registrar os alertas e, quando a automação de lembretes
+        estiver ativa (`lembretes_automaticos_ativos`), envia e-mail de fato
+        para o(s) destinatário(s) configurados via
+        `send_internal_alert_email`.
+
+        Sempre respeita o interruptor: se desligado, não roda nada (nem
+        grava alerta) — mesma postura de `disparar_notificacao_por_etapa`
+        para e-mails automáticos por etapa. Default desligado.
+
+        Nunca deve propagar exceção: é chamado a partir de um job agendado
+        em background (APScheduler) e uma falha aqui não pode derrubar o
+        processo do backend nem impedir a próxima execução do job.
+        """
+        try:
+            automacao = self.get_notification_automation_settings()
+        except Exception:
+            self.logger.warning(
+                "Não foi possível checar a configuração de automação de lembretes; "
+                "job de inatividade não executado.",
+                exc_info=True,
+            )
+            return {"success": False, "skipped": "falha_ao_checar_configuracao"}
+
+        if not automacao.get("lembretes_automaticos_ativos"):
+            return {
+                "success": True,
+                "skipped": "automacao_desativada",
+                "alertas_criados": [],
+                "total": 0,
+            }
+
+        dias_efetivo = int(
+            dias
+            if dias is not None
+            else getattr(self.settings, "scheduler_inactivity_dias_sem_movimentacao", 30)
+        )
+        dias_realerta_efetivo = int(
+            dias_realerta
+            if dias_realerta is not None
+            else getattr(self.settings, "scheduler_inactivity_dias_realerta", 7)
+        )
+
+        try:
+            resultado = self.monitor_process_inactivity(
+                dias=dias_efetivo,
+                dias_realerta=dias_realerta_efetivo,
+            )
+        except Exception:
+            self.logger.exception("Falha ao monitorar inatividade de processos no job agendado.")
+            return {"success": False, "skipped": "falha_ao_monitorar"}
+
+        destinatarios = [
+            item for item in getattr(self.settings, "email_inactivity_alert_recipients", ()) if item
+        ]
+        if not destinatarios:
+            fallback = normalize_text(getattr(self.settings, "email_smtp_from", ""))
+            if fallback:
+                destinatarios = [fallback]
+
+        alertas_enviados = []
+        for alerta in resultado.get("alertas_criados", []):
+            if not destinatarios:
+                self.logger.warning(
+                    "Alerta de inatividade %s registrado, mas nenhum destinatário de e-mail "
+                    "configurado (RH_EMAIL_INACTIVITY_ALERT_RECIPIENTS).",
+                    alerta.get("id_alerta"),
+                )
+                continue
+
+            nome_processo = normalize_text(alerta.get("id_processo_ref")) or normalize_text(
+                alerta.get("id_processo")
+            )
+            assunto = f"[Conecta] Processo sem movimentação - {nome_processo}".strip()
+            mensagem = (
+                f"O processo seletivo '{nome_processo}' permanece há "
+                f"{alerta.get('dias_sem_movimentacao')} dias sem movimentações. Verifique se é "
+                "necessário atualizar, pausar ou cancelar o processo.\n\n"
+                "Este é um lembrete automático do Conecta."
+            )
+            try:
+                self.send_internal_alert_email(
+                    destinatarios=destinatarios,
+                    assunto=assunto,
+                    mensagem=mensagem,
+                )
+                self._mark_inactivity_alert_email_status(alerta.get("id_alerta"), "email_enviado")
+                self.logger.info(
+                    "E-mail automático de lembrete de inatividade enviado (id_alerta=%s, id_processo=%s).",
+                    alerta.get("id_alerta"),
+                    alerta.get("id_processo"),
+                )
+                try:
+                    self.record_audit_log(
+                        user={"nome": "Automação Conecta", "email": "", "perfil_nome": "Automação"},
+                        modulo="Notificações",
+                        acao="enviar_lembrete_inatividade_automatico",
+                        entidade="processo",
+                        entidade_id=str(alerta.get("id_processo") or ""),
+                        valor_novo={
+                            "id_alerta": alerta.get("id_alerta"),
+                            "dias_sem_movimentacao": alerta.get("dias_sem_movimentacao"),
+                            "destinatarios": destinatarios,
+                            "automatico": True,
+                        },
+                    )
+                except Exception:
+                    self.logger.warning(
+                        "Falha ao registrar auditoria do lembrete automático de inatividade.",
+                        exc_info=True,
+                    )
+                alertas_enviados.append(alerta.get("id_alerta"))
+            except Exception:
+                self.logger.warning(
+                    "Falha ao enviar e-mail automático de lembrete de inatividade (id_alerta=%s).",
+                    alerta.get("id_alerta"),
+                    exc_info=True,
+                )
+                self._mark_inactivity_alert_email_status(alerta.get("id_alerta"), "falha_envio_email")
+
+        resultado["emails_enviados"] = alertas_enviados
+        resultado["automatico"] = True
+        return resultado
+
+    @staticmethod
+    def _count_open_and_urgent_processes(cursor, *, exclude_process_id: str | None = None) -> tuple[int, int]:
+        """Conta vagas ABERTAS e, dentre elas, quantas estao marcadas urgentes.
+
+        Escopo: toda a base (ver nota de produto acima sobre a ausencia de
+        coluna de RH/empresa responsavel pela vaga).
+        """
+        cursor.execute("SELECT id_processo, status, urgente FROM processos_seletivos")
+        rows = rows_to_dicts(cursor, cursor.fetchall())
+        safe_exclude = normalize_text(exclude_process_id)
+        total_abertas = 0
+        total_urgentes = 0
+        for row in rows:
+            if safe_exclude and normalize_text(row.get("id_processo")) == safe_exclude:
+                continue
+            if normalize_process_status(row.get("status")) != "Aberto":
+                continue
+            total_abertas += 1
+            if bool(row.get("urgente")):
+                total_urgentes += 1
+        return total_abertas, total_urgentes
+
+    @staticmethod
+    def _assert_urgent_quota_available(cursor, *, exclude_process_id: str | None = None) -> None:
+        """Bloqueia marcar mais uma vaga como urgente se isso ultrapassar o
+        percentual maximo permitido de vagas abertas simultaneamente urgentes.
+        """
+        total_abertas, total_urgentes = ProcessRepositoryMixin._count_open_and_urgent_processes(
+            cursor, exclude_process_id=exclude_process_id
+        )
+        projecao_abertas = total_abertas + 1
+        projecao_urgentes = total_urgentes + 1
+        if (projecao_urgentes / projecao_abertas) > LIMITE_PERCENTUAL_VAGAS_URGENTES:
+            limite_percentual = int(round(LIMITE_PERCENTUAL_VAGAS_URGENTES * 100))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Limite de vagas urgentes atingido: no máximo "
+                    f"{limite_percentual}% das vagas abertas simultaneamente podem usar o "
+                    "Botão Expresso. Esse recurso é reservado para emergências reais — "
+                    "encerre ou desmarque outra vaga urgente antes de marcar esta, ou "
+                    "utilize o fluxo tradicional de contratação."
+                ),
+            )
+
+    def create_process(self, data: dict, *, marcado_por: str = "") -> dict:
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -282,6 +533,10 @@ class ProcessRepositoryMixin:
                 data.get("id_processo", ""),
             )
             created_at = normalize_text(data.get("data_criacao")) or datetime.now().isoformat()
+            status_novo = normalize_process_status(data.get("status", "Aberto"))
+            urgente_novo = bool(data.get("urgente"))
+            if urgente_novo and status_novo == "Aberto":
+                self._assert_urgent_quota_available(cursor)
             cursor.execute(
                 """
                 INSERT INTO processos_seletivos
@@ -299,9 +554,12 @@ class ProcessRepositoryMixin:
                     data_criacao,
                     link_agendamento,
                     configuracao_prova_json,
-                    prova_configurada_em
+                    prova_configurada_em,
+                    urgente,
+                    urgente_marcado_em,
+                    urgente_marcado_por
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     resolved_process_id,
@@ -313,11 +571,14 @@ class ProcessRepositoryMixin:
                     data.get("trilha", ""),
                     int(data.get("usa_nota_corte", 0) or 0),
                     data.get("nota_corte", None),
-                    normalize_process_status(data.get("status", "Aberto")),
+                    status_novo,
                     created_at,
                     data.get("link_agendamento", ""),
                     data.get("configuracao_prova_json"),
                     data.get("prova_configurada_em") or None,
+                    1 if urgente_novo else 0,
+                    datetime.now() if urgente_novo else None,
+                    normalize_text(marcado_por) if urgente_novo else None,
                 ),
             )
             conn.commit()
@@ -325,11 +586,12 @@ class ProcessRepositoryMixin:
             return {
                 "success": True,
                 "id_processo": resolved_process_id,
+                "urgente": urgente_novo,
             }
         finally:
             conn.close()
 
-    def update_process(self, id_processo: str, data: dict) -> dict:
+    def update_process(self, id_processo: str, data: dict, *, marcado_por: str = "") -> dict:
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -339,6 +601,15 @@ class ProcessRepositoryMixin:
             if not processo:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
             where_clause, params = build_process_where_clause(processo)
+
+            status_novo = normalize_process_status(data.get("status", "Aberto"))
+            urgente_atual = bool(processo.get("urgente"))
+            urgente_novo = data.get("urgente") if data.get("urgente") is not None else urgente_atual
+            urgente_novo = bool(urgente_novo)
+            marcando_urgente_agora = urgente_novo and not urgente_atual
+            if marcando_urgente_agora and status_novo == "Aberto":
+                self._assert_urgent_quota_available(cursor, exclude_process_id=processo.get("id_processo"))
+
             cursor.execute(
                 f"""
                 UPDATE processos_seletivos
@@ -356,7 +627,10 @@ class ProcessRepositoryMixin:
                     requisitos_publicos = ?,
                     responsabilidades_publicas = ?,
                     configuracao_prova_json = ?,
-                    prova_configurada_em = ?
+                    prova_configurada_em = ?,
+                    urgente = ?,
+                    urgente_marcado_em = ?,
+                    urgente_marcado_por = ?
                 WHERE {where_clause}
                 """,
                 (
@@ -369,7 +643,7 @@ class ProcessRepositoryMixin:
                     data.get("trilha", ""),
                     int(data.get("usa_nota_corte", 0) or 0),
                     data.get("nota_corte", None),
-                    normalize_process_status(data.get("status", "Aberto")),
+                    status_novo,
                     data.get("link_agendamento", ""),
                     data.get("observacoes_publicas_vaga")
                     if data.get("observacoes_publicas_vaga") is not None
@@ -386,6 +660,9 @@ class ProcessRepositoryMixin:
                     data.get("prova_configurada_em")
                     if data.get("prova_configurada_em") is not None
                     else processo.get("prova_configurada_em"),
+                    1 if urgente_novo else 0,
+                    datetime.now() if marcando_urgente_agora else (processo.get("urgente_marcado_em") if urgente_novo else None),
+                    normalize_text(marcado_por) if marcando_urgente_agora else (processo.get("urgente_marcado_por") if urgente_novo else None),
                     *params,
                 ),
             )
@@ -403,7 +680,11 @@ class ProcessRepositoryMixin:
             process_auto_close_if_full(cursor, processo)
             conn.commit()
             logger.info("Processo '%s' atualizado.", processo.get("id_processo_ref") or processo.get("id_processo"))
-            return {"success": True}
+            return {
+                "success": True,
+                "urgente": urgente_novo,
+                "urgente_alterado": urgente_novo != urgente_atual,
+            }
         finally:
             conn.close()
 
@@ -567,7 +848,8 @@ class ProcessRepositoryMixin:
                     motivo_eliminacao,
                     etapa_eliminacao,
                     eh_indicacao,
-                    tipo_indicacao
+                    tipo_indicacao,
+                    indicado_por
                 FROM candidatos_processos
             """
             params = []
@@ -685,7 +967,8 @@ class ProcessRepositoryMixin:
                         motivo_eliminacao,
                         etapa_eliminacao,
                         eh_indicacao,
-                        tipo_indicacao
+                        tipo_indicacao,
+                        indicado_por
                     FROM candidatos_processos
                     WHERE id_registro = ?
                     """,
@@ -715,7 +998,8 @@ class ProcessRepositoryMixin:
                         motivo_eliminacao,
                         etapa_eliminacao,
                         eh_indicacao,
-                        tipo_indicacao
+                        tipo_indicacao,
+                        indicado_por
                     FROM candidatos_processos
                     WHERE id_teste = ?
                     ORDER BY id_registro DESC
@@ -787,7 +1071,8 @@ class ProcessRepositoryMixin:
                         vaga = ?,
                         pontuacao_final = ?,
                         data_prova = ?,
-                        origem = ?
+                        origem = ?,
+                        indicado_por = ?
                     WHERE id_registro = ?
                     """,
                     (
@@ -799,6 +1084,7 @@ class ProcessRepositoryMixin:
                         data.get("pontuacao_final", current.get("pontuacao_final")),
                         effective_data_prova,
                         effective_origin or normalize_text(current.get("origem")),
+                        normalize_text(data.get("indicado_por")) or normalize_text(current.get("indicado_por")),
                         int(current.get("id_registro")),
                     ),
                 )
@@ -854,6 +1140,7 @@ class ProcessRepositoryMixin:
                     "data_atualizacao_pipeline": datetime.now(),
                     "eh_indicacao": is_indication,
                     "tipo_indicacao": indication_type,
+                    "indicado_por": normalize_text(data.get("indicado_por")),
                 },
             )
             self._upsert_candidate_profile(
@@ -938,7 +1225,8 @@ class ProcessRepositoryMixin:
                     motivo_eliminacao,
                     etapa_eliminacao,
                     eh_indicacao,
-                    tipo_indicacao
+                    tipo_indicacao,
+                    indicado_por
                 FROM candidatos_processos
                 WHERE id_registro = ?
                 """,
@@ -953,6 +1241,16 @@ class ProcessRepositoryMixin:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=build_terminal_candidate_locked_message(current_status),
+                )
+
+            processo = get_process_row(
+                cursor,
+                current.get("id_processo_ref") or current.get("id_processo", ""),
+            )
+            if processo and is_process_closed(processo.get("status")):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=build_process_closed_message("atualizar o status do candidato", processo.get("id_processo")),
                 )
 
             requested_status = normalize_text(data.get("status_candidato"))
@@ -983,6 +1281,104 @@ class ProcessRepositoryMixin:
         finally:
             conn.close()
 
+    def reconsider_candidate_elimination(
+        self,
+        id_registro: int,
+        justificativa: str,
+        *,
+        actor: str = "",
+    ) -> dict:
+        """Reverte um candidato eliminado/nao qualificado/desistente de volta
+        para Triagem. Rota deliberadamente separada de update_process_candidate_
+        status: aquele metodo trava qualquer mudanca em status terminal (regra
+        de integridade valida no dia a dia); reconsiderar uma eliminacao e uma
+        excecao pontual, gated pela permissao candidatos.reverter_eliminacao,
+        que precisa contornar essa trava com justificativa obrigatoria e
+        registro proprio em candidatos_movimentacoes (respostas.txt: "permitir
+        reverter uma eliminacao, mas registrando quem reverteu, quando e por
+        que")."""
+        justificativa_normalizada = normalize_text(justificativa)
+        if len(justificativa_normalizada) < 10:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Informe uma justificativa com pelo menos 10 caracteres para reconsiderar a eliminação.",
+            )
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_pipeline_columns(cursor)
+            ensure_process_reference_columns(cursor)
+
+            cursor.execute(
+                """
+                SELECT
+                    id_registro, id_processo, id_processo_ref, id_teste,
+                    nome_candidato, vaga, status_candidato, origem
+                FROM candidatos_processos
+                WHERE id_registro = ?
+                """,
+                (id_registro,),
+            )
+            current_rows = rows_to_dicts(cursor, cursor.fetchall())
+            if not current_rows:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato do processo não encontrado.")
+            current = current_rows[0]
+
+            status_atual = canonicalize_candidate_status(current.get("status_candidato"))
+            reconsideravel = {CANDIDATE_STATUS_ELIMINATED, CANDIDATE_STATUS_NOT_QUALIFIED, CANDIDATE_STATUS_WITHDREW}
+            if status_atual not in reconsideravel:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Este candidato não está eliminado neste processo — não há o que reconsiderar.",
+                )
+
+            processo = get_process_row(
+                cursor,
+                current.get("id_processo_ref") or current.get("id_processo", ""),
+            )
+            if processo and is_process_closed(processo.get("status")):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=build_process_closed_message("reconsiderar a eliminação do candidato", processo.get("id_processo")),
+                )
+
+            novo_status = CANDIDATE_STATUS_ANALYSIS
+            cursor.execute(
+                """
+                UPDATE candidatos_processos
+                SET status_candidato = ?, etapa_pipeline = ?, data_atualizacao_pipeline = GETDATE()
+                WHERE id_registro = ?
+                """,
+                (novo_status, "Triagem", id_registro),
+            )
+
+            self._record_candidate_movement(
+                cursor,
+                id_teste=normalize_text(current.get("id_teste")),
+                id_registro=id_registro,
+                id_processo=normalize_text(current.get("id_processo")),
+                id_processo_ref=normalize_text(current.get("id_processo_ref")),
+                nome_candidato=normalize_text(current.get("nome_candidato")),
+                vaga=normalize_text(current.get("vaga")),
+                origem_inicial=normalize_text(current.get("origem")),
+                tipo_movimentacao="Eliminação reconsiderada",
+                status_anterior=status_atual,
+                status_novo=novo_status,
+                observacao=justificativa_normalizada,
+                usuario_responsavel=normalize_text(actor),
+            )
+
+            conn.commit()
+            logger.info(
+                "Eliminação do candidato %s reconsiderada por '%s'.",
+                id_registro,
+                actor,
+            )
+            return {"success": True}
+        finally:
+            conn.close()
+
     def list_process_dossier_notes(self, id_processo: str) -> list[dict]:
         conn = self._connect()
         try:
@@ -1005,7 +1401,8 @@ class ProcessRepositoryMixin:
                     texto,
                     usuario_responsavel,
                     criado_em,
-                    atualizado_em
+                    atualizado_em,
+                    mencoes_json
                 FROM processos_dossie_anotacoes
                 WHERE id_processo = ?
                   AND ISNULL(id_processo_ref, '') = ?
@@ -1013,7 +1410,7 @@ class ProcessRepositoryMixin:
                 """,
                 (processo.get("id_processo"), process_ref),
             )
-            return rows_to_dicts(cursor, cursor.fetchall())
+            return attach_note_mentions(rows_to_dicts(cursor, cursor.fetchall()))
         finally:
             conn.close()
 
@@ -1048,6 +1445,7 @@ class ProcessRepositoryMixin:
                 row = cursor.fetchone()
                 nome_candidato = normalize_text(row[0] if row else "")
 
+            texto_nota = normalize_text(data.get("texto"))
             cursor.execute(
                 """
                 INSERT INTO processos_dossie_anotacoes
@@ -1059,18 +1457,20 @@ class ProcessRepositoryMixin:
                     texto,
                     usuario_responsavel,
                     criado_em,
-                    atualizado_em
+                    atualizado_em,
+                    mencoes_json
                 )
                 OUTPUT INSERTED.id_anotacao
-                VALUES (?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, GETDATE(), GETDATE(), ?)
                 """,
                 (
                     processo.get("id_processo"),
                     normalize_text(processo.get("id_processo_ref")),
                     id_teste,
                     nome_candidato,
-                    normalize_text(data.get("texto")),
+                    texto_nota,
                     normalize_text(usuario_responsavel),
+                    json.dumps(extract_note_mentions(texto_nota)),
                 ),
             )
             inserted = cursor.fetchone()
@@ -1097,13 +1497,14 @@ class ProcessRepositoryMixin:
                     texto,
                     usuario_responsavel,
                     criado_em,
-                    atualizado_em
+                    atualizado_em,
+                    mencoes_json
                 FROM processos_dossie_anotacoes
                 WHERE id_anotacao = ?
                 """,
                 (int(id_anotacao or 0),),
             )
-            rows = rows_to_dicts(cursor, cursor.fetchall())
+            rows = attach_note_mentions(rows_to_dicts(cursor, cursor.fetchall()))
             if not rows:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anotação do dossiê não encontrada.")
             return rows[0]
@@ -1132,18 +1533,21 @@ class ProcessRepositoryMixin:
             if not cursor.fetchone():
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anotação do dossiê não encontrada.")
 
+            texto_nota = normalize_text(data.get("texto"))
             cursor.execute(
                 """
                 UPDATE processos_dossie_anotacoes
                 SET
                     texto = ?,
                     usuario_responsavel = COALESCE(NULLIF(?, ''), usuario_responsavel),
-                    atualizado_em = GETDATE()
+                    atualizado_em = GETDATE(),
+                    mencoes_json = ?
                 WHERE id_anotacao = ?
                 """,
                 (
-                    normalize_text(data.get("texto")),
+                    texto_nota,
                     normalize_text(usuario_responsavel),
+                    json.dumps(extract_note_mentions(texto_nota)),
                     int(id_anotacao or 0),
                 ),
             )
@@ -1185,7 +1589,8 @@ class ProcessRepositoryMixin:
                         motivo_eliminacao,
                         etapa_eliminacao,
                         eh_indicacao,
-                        tipo_indicacao
+                        tipo_indicacao,
+                        indicado_por
                     FROM candidatos_processos
                     WHERE id_processo = ?
                     ORDER BY id_registro DESC

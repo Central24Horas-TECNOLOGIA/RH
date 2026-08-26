@@ -1,4 +1,7 @@
 import { React, createRoot, html } from './infraestrutura-react.js';
+import { inicializarTema } from './shared/tema.js';
+
+inicializarTema();
 
 class ErrorBoundary extends React.Component {
   constructor(props) {

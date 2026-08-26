@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from .common import BaseSchema
+
+LOGIN_METHODS_CONECTA_PROVA = {"email", "celular", "codigo_prova"}
 
 
 class GeneratedExamCreateRequest(BaseSchema):
@@ -45,6 +47,15 @@ class GeneratedExamCreateRequest(BaseSchema):
     instrucoes_especificas: str = ""
     instrucoes_operacao: str = ""
     expira_em: str = ""
+    login_method: str = ""
+
+    @field_validator("login_method")
+    @classmethod
+    def validate_login_method(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if safe_value and safe_value not in LOGIN_METHODS_CONECTA_PROVA:
+            raise ValueError("Forma de login do Conecta Prova inválida.")
+        return safe_value
 
 
 class PublicExamAccessRequest(BaseSchema):

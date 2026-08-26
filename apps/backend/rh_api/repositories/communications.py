@@ -38,6 +38,7 @@ from ..services.cv import (
     serialize_cv_problems,
 )
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
+from ..services.notifications import transicao_elegivel_para_email_automatico
 from ..services.process_flow import (
     CANDIDATE_STATUS_ANALYSIS,
     CANDIDATE_STATUS_QUALIFIED,
@@ -48,6 +49,7 @@ from ..services.process_flow import (
 from .bootstrap import (
     ensure_candidate_attachments_table,
     ensure_cv_pre_analises_table,
+    ensure_notification_automation_table,
     ensure_pipeline_columns,
     ensure_process_reference_columns,
     get_process_row,
@@ -1785,3 +1787,234 @@ class CommunicationRepositoryMixin:
             return {"success": True, "message": "E-mail de aprovação enviado."}
         finally:
             conn.close()
+
+    def send_internal_alert_email(
+        self,
+        *,
+        destinatarios: list[str],
+        assunto: str,
+        mensagem: str,
+    ) -> dict:
+        """Envio de e-mail de alerta interno para o RH (não para candidatos).
+
+        Reaproveita a mesma configuração SMTP de `send_candidate_approval_email`,
+        mas envia texto simples para uma lista de destinatários internos (ex.:
+        lembretes/alertas automáticos de processos parados). Levanta
+        HTTPException 503 se o SMTP ainda não estiver configurado, para que o
+        chamador (job agendado) trate isso como "automação indisponível" sem
+        derrubar o restante do backend.
+        """
+        if not getattr(self.settings, "email_smtp_enabled", False):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Envio de e-mail ainda não configurado. Configure EMAIL_SMTP/RH_EMAIL_SMTP_* no backend.",
+            )
+
+        recipients = [normalize_text(item) for item in (destinatarios or []) if normalize_text(item)]
+        if not recipients:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Nenhum destinatário configurado para o alerta.",
+            )
+
+        host = normalize_text(getattr(self.settings, "email_smtp_host", "")) or "smtp.gmail.com"
+        use_ssl = bool(getattr(self.settings, "email_smtp_use_ssl", False))
+        port = int(getattr(self.settings, "email_smtp_port", 465 if use_ssl else 587) or (465 if use_ssl else 587))
+        username = (
+            normalize_text(getattr(self.settings, "email_smtp_username", ""))
+            or normalize_text(getattr(self.settings, "email_inbox_username", ""))
+            or normalize_text(getattr(self.settings, "email_inbox_address", ""))
+        )
+        password = self._get_smtp_password()
+        sender = normalize_text(getattr(self.settings, "email_smtp_from", "")) or username
+        if not host or not sender:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Envio de e-mail ainda não configurado. Informe host e remetente SMTP.",
+            )
+        if username and not password:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Envio de e-mail ainda não configurado. Variável de senha SMTP não definida.",
+            )
+
+        message = EmailMessage()
+        message["From"] = sender
+        message["To"] = ", ".join(recipients)
+        message["Subject"] = normalize_text(assunto) or "Alerta automático - Conecta"
+        message.set_content(normalize_text(mensagem))
+
+        if use_ssl:
+            smtp_client = smtplib.SMTP_SSL(host, port, timeout=20)
+        else:
+            smtp_client = smtplib.SMTP(host, port, timeout=20)
+        try:
+            if not use_ssl and bool(getattr(self.settings, "email_smtp_use_tls", True)):
+                smtp_client.starttls()
+            if username:
+                smtp_client.login(username, password)
+            smtp_client.send_message(message)
+        finally:
+            smtp_client.quit()
+
+        return {"success": True, "destinatarios": recipients}
+
+    def get_notification_automation_settings(self) -> dict:
+        """Estado atual do interruptor de automação de e-mail por etapa
+        (roadmap: e-mails automáticos por etapa). Default: desligado."""
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_notification_automation_table(cursor)
+            cursor.execute(
+                """
+                SELECT TOP 1 email_automatico_ativo, lembretes_automaticos_ativos, atualizado_por, atualizado_em
+                FROM dbo.configuracoes_notificacoes_automaticas
+                ORDER BY id_configuracao DESC
+                """
+            )
+            row = cursor.fetchone()
+            if not row:
+                return {
+                    "email_automatico_ativo": False,
+                    "lembretes_automaticos_ativos": False,
+                    "atualizado_por": "",
+                    "atualizado_em": None,
+                }
+            return {
+                "email_automatico_ativo": bool(row[0]),
+                "lembretes_automaticos_ativos": bool(row[1]),
+                "atualizado_por": normalize_text(row[2]),
+                "atualizado_em": row[3],
+            }
+        finally:
+            conn.close()
+
+    def update_notification_automation_settings(self, data: dict, *, actor: str = "") -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_notification_automation_table(cursor)
+            ativo = bool(data.get("email_automatico_ativo"))
+            lembretes_ativos = bool(data.get("lembretes_automaticos_ativos"))
+            cursor.execute("SELECT COUNT(*) FROM dbo.configuracoes_notificacoes_automaticas")
+            existe = int((cursor.fetchone() or [0])[0] or 0)
+            if existe:
+                cursor.execute(
+                    """
+                    UPDATE dbo.configuracoes_notificacoes_automaticas
+                    SET email_automatico_ativo = ?, lembretes_automaticos_ativos = ?,
+                        atualizado_por = ?, atualizado_em = GETDATE()
+                    """,
+                    (1 if ativo else 0, 1 if lembretes_ativos else 0, normalize_text(actor)),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO dbo.configuracoes_notificacoes_automaticas
+                        (email_automatico_ativo, lembretes_automaticos_ativos, atualizado_por, atualizado_em)
+                    VALUES (?, ?, ?, GETDATE())
+                    """,
+                    (1 if ativo else 0, 1 if lembretes_ativos else 0, normalize_text(actor)),
+                )
+            conn.commit()
+            return {
+                "success": True,
+                "email_automatico_ativo": ativo,
+                "lembretes_automaticos_ativos": lembretes_ativos,
+            }
+        finally:
+            conn.close()
+
+    def disparar_notificacao_por_etapa(
+        self,
+        *,
+        candidato: dict,
+        status_anterior: str,
+        status_novo: str,
+        payload: dict,
+        usuario_responsavel: str = "",
+    ) -> None:
+        """Ponto único de automação de notificação por mudança de etapa/status
+        do candidato (roadmap: "e-mails automáticos por etapa").
+
+        Hoje dispara somente e-mail, reaproveitando o mesmo mecanismo/texto do
+        envio manual (`send_candidate_approval_email` / rota approval-email).
+        Preparado para, quando o WhatsApp automático for aprovado pelo RH,
+        também disparar a partir deste mesmo ponto (reaproveitando
+        `record_candidate_approval_whatsapp` / rota approval-whatsapp) sem
+        precisar alterar novamente o fluxo de mudança de status.
+
+        Nunca deve derrubar a mudança de status em si: qualquer falha aqui é
+        registrada em log e engolida.
+        """
+        if not transicao_elegivel_para_email_automatico(status_novo):
+            return
+
+        try:
+            settings_automacao = self.get_notification_automation_settings()
+        except Exception:
+            self.logger.warning(
+                "Não foi possível checar a configuração de automação de notificações; e-mail automático não disparado.",
+                exc_info=True,
+            )
+            return
+
+        if not settings_automacao.get("email_automatico_ativo"):
+            return
+
+        mensagem_aprovacao = normalize_text(payload.get("mensagem_aprovacao"))
+        if not mensagem_aprovacao:
+            # RH não preparou o texto de aprovação junto da mudança de status
+            # (campo obrigatório no fluxo manual) - não há o que enviar.
+            return
+
+        id_registro = candidato.get("id_registro")
+        vaga = normalize_text(candidato.get("vaga"))
+        try:
+            self.send_candidate_approval_email(
+                id_registro,
+                {
+                    "mensagem_aprovacao": mensagem_aprovacao,
+                    "anexo_aprovacao_nome": payload.get("anexo_aprovacao_nome", ""),
+                    "anexo_aprovacao_tipo": payload.get("anexo_aprovacao_tipo", ""),
+                    "anexo_aprovacao_base64": payload.get("anexo_aprovacao_base64", ""),
+                    "assunto": f"Aprovação no processo seletivo - {vaga}".strip(" -"),
+                },
+                usuario_responsavel=usuario_responsavel or "Automação Conecta",
+            )
+            self.logger.info(
+                "E-mail automático de etapa disparado (id_registro=%s, %s -> %s).",
+                id_registro,
+                status_anterior,
+                status_novo,
+            )
+            try:
+                self.record_audit_log(
+                    user={"nome": "Automação Conecta", "email": "", "perfil_nome": "Automação"},
+                    modulo="E-mails",
+                    acao="enviar_email_aprovacao_automatico",
+                    entidade="candidato_processo",
+                    entidade_id=str(id_registro or ""),
+                    valor_anterior={"status": status_anterior},
+                    valor_novo={"status": status_novo, "disparo": "automatico"},
+                    justificativa="Envio automático disparado pela mudança de status (automação de e-mail por etapa ativada pelo RH).",
+                    origem="automacao",
+                )
+            except Exception:
+                self.logger.warning(
+                    "Não foi possível registrar auditoria do e-mail automático (id_registro=%s).",
+                    id_registro,
+                    exc_info=True,
+                )
+        except HTTPException as exc:
+            self.logger.warning(
+                "Falha ao disparar e-mail automático de etapa (id_registro=%s): %s",
+                id_registro,
+                getattr(exc, "detail", exc),
+            )
+        except Exception:
+            self.logger.exception(
+                "Erro inesperado ao disparar e-mail automático de etapa (id_registro=%s).",
+                id_registro,
+            )

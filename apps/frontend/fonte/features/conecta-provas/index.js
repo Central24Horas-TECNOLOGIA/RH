@@ -14,6 +14,7 @@ import {
   salvarRespostasConectaProvas,
 } from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { formatarTempoRestante } from '../../shared/helpers-visuais.js';
+import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   EditorTextoRich,
   PerguntaExcel,
@@ -24,7 +25,7 @@ import {
 const CHAVE_TOKEN_PUBLICO = 'conecta_provas_token';
 const CHAVE_TIMER_PUBLICO = 'conecta_provas_timer';
 const ERRO_GENERICO =
-  'Não encontramos uma prova disponível com os dados informados. Verifique as informações ou tente outro mÃ©todo de acesso.';
+  'Não encontramos uma prova disponível com os dados informados. Verifique as informações ou tente outro método de acesso.';
 const ERRO_GENERICO_TELEFONE =
   'Não encontramos uma prova disponível com os dados informados. Verifique as informações ou solicite apoio ao RH.';
 const LIMITE_LINHAS_REDACAO = 20;
@@ -535,6 +536,80 @@ function calcularTimestampTermino(sessao = {}, token = '') {
   return Date.now() + totalSegundos * 1000;
 }
 
+/**
+ * Duração/tolerância por etapa: opcional, configurada pelo RH por etapa do
+ * blueprint (ex.: "word_basic", "excel_basic") e guardada em prova.etapas.
+ * Uma etapa da jornada do candidato (ex.: "word") pode agrupar mais de uma
+ * etapa do blueprint quando elas compartilham o mesmo tipo — por isso a
+ * duração configurada de cada etapa do blueprint envolvida é somada.
+ * Etapas sem duração configurada (todo o histórico até aqui) retornam 0,
+ * e o cronômetro por etapa simplesmente não aparece — sem mudança de
+ * comportamento para provas já em andamento.
+ */
+function obterConfiguracaoTempoEtapa(prova = {}, etapaJornada = null) {
+  const indices = Array.isArray(etapaJornada?.indices) ? etapaJornada.indices : [];
+  const questoes = Array.isArray(prova.questoes) ? prova.questoes : [];
+  const etapasBlueprint = Array.isArray(prova.etapas) ? prova.etapas : [];
+  if (!indices.length || !etapasBlueprint.length) {
+    return { duracaoMinutos: 0, toleranciaMinutos: 0 };
+  }
+
+  const chavesBlueprint = new Set(
+    indices
+      .map((indice) => normalizarTexto(questoes[indice]?.stageKey || ''))
+      .filter(Boolean),
+  );
+  if (!chavesBlueprint.size) {
+    return { duracaoMinutos: 0, toleranciaMinutos: 0 };
+  }
+
+  let duracaoMinutos = 0;
+  let toleranciaMinutos = 0;
+  etapasBlueprint.forEach((etapa) => {
+    if (!chavesBlueprint.has(normalizarTexto(etapa?.key || ''))) return;
+    duracaoMinutos += Number(etapa?.duracao_minutos || 0);
+    toleranciaMinutos += Number(etapa?.tolerancia_minutos || 0);
+  });
+
+  return {
+    duracaoMinutos: Math.max(0, duracaoMinutos),
+    toleranciaMinutos: Math.max(0, toleranciaMinutos),
+  };
+}
+
+function obterChaveTimerEtapa(token = '', etapaKey = '') {
+  return `${CHAVE_TIMER_PUBLICO}:etapa:${normalizarTexto(token) || 'ativo'}:${normalizarTexto(etapaKey) || 'atual'}`;
+}
+
+function lerTimestampTimerEtapa(token = '', etapaKey = '') {
+  try {
+    const valor = Number(sessionStorage.getItem(obterChaveTimerEtapa(token, etapaKey)) || 0);
+    return Number.isFinite(valor) && valor > Date.now() ? valor : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function salvarTimestampTimerEtapa(token = '', etapaKey = '', timestamp = 0) {
+  try {
+    if (timestamp > Date.now()) {
+      sessionStorage.setItem(obterChaveTimerEtapa(token, etapaKey), String(timestamp));
+    }
+  } catch (error) {
+    // Sem persistência, o cronômetro da etapa ainda funciona em memória.
+  }
+}
+
+function calcularTimestampTerminoEtapa(token, etapaKey, etapaIniciadaEm, duracaoMinutos, toleranciaMinutos) {
+  const salvo = lerTimestampTimerEtapa(token, etapaKey);
+  if (salvo) return salvo;
+
+  const totalSegundos = Math.max(60, Math.round((Number(duracaoMinutos) + Number(toleranciaMinutos)) * 60));
+  const inicio = new Date(etapaIniciadaEm || '').getTime();
+  const base = Number.isFinite(inicio) && inicio > 0 ? inicio : Date.now();
+  return base + totalSegundos * 1000;
+}
+
 function TelaAcesso({
   metodo,
   valor,
@@ -554,7 +629,7 @@ function TelaAcesso({
     metodo === 'telefone'
       ? 'Tente acessar usando o telefone cadastrado pelo RH.'
       : metodo === 'codigo'
-        ? 'Se vocÃª Não souber os dados cadastrados, solicite ao RH o código da sua prova.'
+        ? 'Se você não souber os dados cadastrados, solicite ao RH o código da sua prova.'
         : 'Informe o email cadastrado pelo RH para localizar sua avaliação.';
 
   return html`
@@ -943,6 +1018,7 @@ function TelaEtapasProva({
   onVoltar,
   onFinalizar,
 }) {
+  const { showToast, ToastHost } = useToast();
   const etapas = montarEtapasJornada(sessao?.prova || {}, respostas, cadastroConcluido);
   const etapasAvaliativas = etapas.filter((item) => item.key !== 'cadastro');
   const concluidas = etapas.filter((item) => item.status === 'concluida' || item.status === 'indisponivel').length;
@@ -952,6 +1028,7 @@ function TelaEtapasProva({
 
   return html`
     <section class="exam-steps-page">
+      <${ToastHost} />
       <header class="exam-steps-header">
         <button type="button" class="exam-steps-back" aria-label="Voltar" onClick=${onVoltar}>
           <span class="material-symbols-outlined">arrow_back</span>
@@ -1013,7 +1090,7 @@ function TelaEtapasProva({
           </section>
           <section class="exam-info-panel">
             <span class="exam-info-icon material-symbols-outlined">sentiment_satisfied</span>
-            <div><h2>Seu processo está pronto</h2><p>Conclua as etapas na ordem indicada. Cada prova poderá ser iniciada individualmente e seu progresso será salvo.</p><a href="#entenda-etapas" onClick=${(event) => { event.preventDefault(); window.alert('Inicie uma etapa por vez. Suas respostas são salvas ao concluir cada bloco e você poderá continuar as etapas pendentes antes do envio final.'); }}><span class="material-symbols-outlined">open_in_new</span>Entenda mais</a></div>
+            <div><h2>Seu processo está pronto</h2><p>Conclua as etapas na ordem indicada. Cada prova poderá ser iniciada individualmente e seu progresso será salvo.</p><a href="#entenda-etapas" onClick=${(event) => { event.preventDefault(); showToast('Inicie uma etapa por vez. Suas respostas são salvas ao concluir cada bloco e você poderá continuar as etapas pendentes antes do envio final.', 'info'); }}><span class="material-symbols-outlined">open_in_new</span>Entenda mais</a></div>
           </section>
           ${confirmacao && todasConcluidas ? html`<button type="button" class="btn btn-primary exam-final-submit" disabled=${carregando} onClick=${onFinalizar}>${carregando ? 'Finalizando...' : 'Finalizar envio'}</button>` : null}
         </aside>
@@ -1184,6 +1261,7 @@ function QuestaoProva({
   indice,
   total,
   tempoRestante,
+  tempoRestanteEtapa,
   progresso,
   nomeCandidato,
   onResposta,
@@ -1206,6 +1284,9 @@ function QuestaoProva({
         <div class="conecta-provas-status-card">
           <span>${`Questão ${indice + 1} de ${total}`}</span>
           <strong>${`Tempo restante: ${formatarTempoRestante(tempoRestante)}`}</strong>
+          ${tempoRestanteEtapa !== null && tempoRestanteEtapa !== undefined
+      ? html`<strong class="conecta-provas-status-etapa">${`Tempo desta etapa: ${formatarTempoRestante(tempoRestanteEtapa)}`}</strong>`
+      : null}
           <div class="conecta-provas-status-track">
             <div style=${{ width: `${progresso}%` }}></div>
           </div>
@@ -1409,6 +1490,58 @@ function AvisoPendenciasFinalizacao({
   `;
 }
 
+function ModalConfirmarEnvioProva({
+  aberto,
+  respondidas,
+  total,
+  etapasConcluidas,
+  totalEtapas,
+  carregando,
+  onCancelar,
+  onConfirmar,
+}) {
+  if (!aberto) return null;
+
+  return html`
+    <div class="conecta-provas-modal-backdrop" role="presentation">
+      <section
+        class="conecta-provas-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="conecta-provas-confirmar-titulo"
+      >
+        <div class="conecta-provas-modal-head">
+          <span class="material-symbols-outlined">task_alt</span>
+          <h2 id="conecta-provas-confirmar-titulo">Confirmar envio da prova</h2>
+        </div>
+        <p>
+          Você respondeu <strong>${respondidas} de ${total}</strong> questões em
+          <strong>${etapasConcluidas} de ${totalEtapas}</strong> etapa(s) concluída(s).
+        </p>
+        <p>Após confirmar o envio, não será possível alterar suas respostas.</p>
+        <div class="conecta-provas-modal-actions">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            disabled=${carregando}
+            onClick=${onCancelar}
+          >
+            Revisar antes de enviar
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            disabled=${carregando}
+            onClick=${onConfirmar}
+          >
+            ${carregando ? 'Enviando...' : 'Confirmar e enviar prova'}
+          </button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function TelaFinalizacao({ onInicio }) {
   return html`
     <section class="conecta-provas-card">
@@ -1452,7 +1585,10 @@ export function TelaConectaProvas() {
   const [etapaSelecionadaKey, setEtapaSelecionadaKey] = useState('');
   const [timestampTermino, setTimestampTermino] = useState(null);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
+  const [timestampTerminoEtapa, setTimestampTerminoEtapa] = useState(null);
+  const [segundosRestantesEtapa, setSegundosRestantesEtapa] = useState(null);
   const [pendenciasFinalizacao, setPendenciasFinalizacao] = useState([]);
+  const [confirmarFinalizacaoAberta, setConfirmarFinalizacaoAberta] = useState(false);
   const interrupcaoRegistradaRef = useRef(false);
   const telemetriaRef = useRef({
     porQuestao: {},
@@ -1612,6 +1748,12 @@ export function TelaConectaProvas() {
     () => (questoes.length ? Math.round(((indiceAtual + 1) / questoes.length) * 100) : 0),
     [indiceAtual, questoes.length],
   );
+  const posicaoEtapaJornada = etapasJornada.findIndex((item) => item.key === etapaSelecionadaKey);
+  const numeroEtapaAtual = posicaoEtapaJornada >= 0 ? posicaoEtapaJornada + 1 : null;
+  const totalEtapasJornada = etapasJornada.length;
+  const etapasConcluidasJornada = etapasJornada.filter(
+    (item) => item.status === 'concluida' || item.status === 'indisponivel',
+  ).length;
 
   contextoInterrupcaoRef.current = {
     token,
@@ -1661,6 +1803,8 @@ export function TelaConectaProvas() {
     telemetriaRef.current.indiceAtivo = null;
     telemetriaRef.current.acessoAtivoEm = 0;
     marcarEtapaIndisponivel(contexto.etapaSelecionadaKey);
+    setTimestampTerminoEtapa(null);
+    setSegundosRestantesEtapa(null);
     setEtapa('confirmacao-etapas');
     return true;
   };
@@ -1697,6 +1841,22 @@ export function TelaConectaProvas() {
       window.removeEventListener('hashchange', confirmarSaidaInterna);
     };
   }, [etapa, token, etapaSelecionadaKey]);
+
+  useEffect(() => {
+    if (!timestampTerminoEtapa || etapa !== 'prova') return undefined;
+    const atualizar = () => {
+      const restante = Math.max(0, Math.floor((timestampTerminoEtapa - Date.now()) / 1000));
+      setSegundosRestantesEtapa(restante);
+      if (restante <= 0) {
+        registrarInterrupcaoAtual().catch(() => {
+          setErro('O tempo desta etapa esgotou, mas não foi possível registrar automaticamente. Tente concluir a etapa.');
+        });
+      }
+    };
+    atualizar();
+    const intervalo = window.setInterval(atualizar, 1000);
+    return () => window.clearInterval(intervalo);
+  }, [timestampTerminoEtapa, etapa]);
 
   const selecionarToken = async (tokenSelecionado, opcoes = {}) => {
     if (!tokenSelecionado) return;
@@ -1764,14 +1924,14 @@ export function TelaConectaProvas() {
       let resposta;
       if (metodo === 'email') {
         if (!validarEmail(valorAcesso)) {
-          setErro('Informe um e-mail vÃ¡lido.');
+          setErro('Informe um e-mail válido.');
           setTentativasEmail((valor) => valor + 1);
           return;
         }
         resposta = await acessarProvaPorEmail(valorAcesso.trim().toLowerCase());
       } else if (metodo === 'telefone') {
         if (!validarTelefone(valorAcesso)) {
-          setErro('Informe um telefone vÃ¡lido.');
+          setErro('Informe um telefone válido.');
           setTentativasTelefone((valor) => valor + 1);
           return;
         }
@@ -1816,7 +1976,7 @@ export function TelaConectaProvas() {
       return;
     }
     if (!validarEmail(formularioDados.email)) {
-      setErro('Informe um e-mail vÃ¡lido.');
+      setErro('Informe um e-mail válido.');
       return;
     }
     if (normalizarTexto(formularioDados.confirmar_email).toLowerCase() !== normalizarTexto(formularioDados.email).toLowerCase()) {
@@ -1824,7 +1984,7 @@ export function TelaConectaProvas() {
       return;
     }
     if (!validarTelefone(formularioDados.telefone)) {
-      setErro('Informe um telefone vÃ¡lido.');
+      setErro('Informe um telefone válido.');
       return;
     }
     if (!validarTelefone(formularioDados.whatsapp)) {
@@ -1886,6 +2046,26 @@ export function TelaConectaProvas() {
       interrupcaoRegistradaRef.current = false;
       setEtapa('prova');
       iniciarEtapaConectaProvas(token, etapaKey, primeiroIndice, etapaIniciadaEm).catch(() => {});
+
+      const { duracaoMinutos, toleranciaMinutos } = obterConfiguracaoTempoEtapa(
+        sessaoAtualizada?.prova,
+        etapaJornada,
+      );
+      if (duracaoMinutos > 0) {
+        const timestampEtapa = calcularTimestampTerminoEtapa(
+          token,
+          etapaKey,
+          etapaIniciadaEm,
+          duracaoMinutos,
+          toleranciaMinutos,
+        );
+        salvarTimestampTimerEtapa(token, etapaKey, timestampEtapa);
+        setTimestampTerminoEtapa(timestampEtapa);
+        setSegundosRestantesEtapa(Math.max(1, Math.floor((timestampEtapa - Date.now()) / 1000)));
+      } else {
+        setTimestampTerminoEtapa(null);
+        setSegundosRestantesEtapa(null);
+      }
     } catch (error) {
       setErro(error?.message || 'Não foi possível iniciar a prova.');
     } finally {
@@ -1929,6 +2109,8 @@ export function TelaConectaProvas() {
       setSessao((anterior) =>
         atualizarEstadoEtapaSessao(anterior, etapaSelecionadaKey, { status: 'concluida' }),
       );
+      setTimestampTerminoEtapa(null);
+      setSegundosRestantesEtapa(null);
       setEtapa('confirmacao-etapas');
     } catch (error) {
       setErro(error?.message || 'Não foi possível salvar esta etapa agora.');
@@ -1993,7 +2175,7 @@ export function TelaConectaProvas() {
         setPendenciasFinalizacao(pendencias);
         return;
       }
-      await finalizar({ finalizarMesmoComPendencias: false });
+      setConfirmarFinalizacaoAberta(true);
     } catch (error) {
       setErro(error?.message || 'Não foi possível salvar suas respostas antes de finalizar.');
     } finally {
@@ -2101,7 +2283,13 @@ export function TelaConectaProvas() {
       ${etapa === 'prova' && questaoAtual
       ? html`
             <div class="conecta-provas-progress-wrap">
-              <div class="conecta-provas-progress-bar" style=${{ width: `${progresso}%` }}></div>
+              <div class="conecta-provas-progress-label">
+                <span>${numeroEtapaAtual ? `Etapa ${numeroEtapaAtual} de ${totalEtapasJornada}` : 'Prova em andamento'}</span>
+                <span>${etapasConcluidasJornada} de ${totalEtapasJornada} etapas concluídas</span>
+              </div>
+              <div class="conecta-provas-progress-track">
+                <div class="conecta-provas-progress-bar" style=${{ width: `${progresso}%` }}></div>
+              </div>
             </div>
             <${QuestaoProva}
               questao=${questaoAtual}
@@ -2109,6 +2297,7 @@ export function TelaConectaProvas() {
               indice=${indiceAtual}
               total=${questoes.length}
               tempoRestante=${timestampTermino ? segundosRestantes : obterTempoTotalSegundos(sessao)}
+              tempoRestanteEtapa=${timestampTerminoEtapa ? segundosRestantesEtapa : null}
               progresso=${progresso}
               nomeCandidato=${formularioDados.nome_candidato || sessao?.candidato?.nome_candidato}
               onResposta=${(resposta) =>
@@ -2164,6 +2353,19 @@ export function TelaConectaProvas() {
             />
           `
       : null}
+      <${ModalConfirmarEnvioProva}
+        aberto=${confirmarFinalizacaoAberta}
+        respondidas=${questoes.length - obterPendenciasObrigatorias(questoes, respostas, etapasIgnoradasPorInterrupcao).length}
+        total=${questoes.length}
+        etapasConcluidas=${etapasConcluidasJornada}
+        totalEtapas=${totalEtapasJornada}
+        carregando=${carregando}
+        onCancelar=${() => setConfirmarFinalizacaoAberta(false)}
+        onConfirmar=${async () => {
+          setConfirmarFinalizacaoAberta(false);
+          await finalizar({ finalizarMesmoComPendencias: false });
+        }}
+      />
     </main>
   `;
 }

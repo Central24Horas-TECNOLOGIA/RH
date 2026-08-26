@@ -2,8 +2,33 @@ import { html, useEffect, useState } from '../../infraestrutura-react.js';
 import { BuscaGlobalTopbar } from '../busca-global.js';
 import { obterTourDaTela } from '../../shared/tour-config.js';
 import { BotaoAjudaTour, TourGuiado } from '../tour-guiado.js';
+import { definirTema, obterTemaSalvo, proximoTema } from '../../shared/tema.js';
 
-function BarraLateral({
+const TEMA_ROTULO = { claro: 'Claro', escuro: 'Escuro' };
+const TEMA_ICONE = { claro: 'light_mode', escuro: 'dark_mode' };
+
+function SeletorTema() {
+  const [tema, setTema] = useState(() => obterTemaSalvo());
+
+  const alternar = () => {
+    const novoTema = definirTema(proximoTema(tema));
+    setTema(novoTema);
+  };
+
+  return html`
+    <button
+      type="button"
+      class="c24-icon-btn c24-theme-toggle"
+      title=${`Tema: ${TEMA_ROTULO[tema]}. Clique para alternar.`}
+      aria-label=${`Alternar tema. Tema atual: ${TEMA_ROTULO[tema]}.`}
+      onClick=${alternar}
+    >
+      <span class="material-symbols-outlined c24-icon">${TEMA_ICONE[tema]}</span>
+    </button>
+  `;
+}
+
+export function BarraLateral({
   navAtiva,
   controlador,
   subtituloMarca = 'Plataforma de Recrutamento e Seleção',
@@ -21,28 +46,6 @@ function BarraLateral({
       permissao: 'candidatos.criar',
     },
   ];
-  const itensAposProcessos = [
-    {
-      tela: 'screen-interviews',
-      icone: 'event_available',
-      label: 'Entrevistas',
-      permissao: 'entrevistas.visualizar',
-    },
-    {
-      tela: 'screen-talent-bank',
-      icone: 'group',
-      label: 'Banco de Talentos',
-      permissao: 'candidatos.visualizar',
-    },
-    // Item removido do menu lateral por decisão de interface.
-    // {
-    //   tela: 'screen-help',
-    //   icone: 'help',
-    //   label: 'Ajuda',
-    //   acao: onOpenHelp,
-    //   visivel: Boolean(mostrarAjuda && onOpenHelp),
-    // },
-  ];
   const sublinksProcessos = [
     {
       tela: 'screen-processes',
@@ -58,17 +61,63 @@ function BarraLateral({
       permissao: 'vagas.visualizar',
     },
     {
+      tela: 'screen-process-decisions',
+      icone: 'fact_check',
+      label: 'Decisões Pendentes',
+      permissao: 'vagas.visualizar',
+    },
+    {
+      tela: 'screen-interviews',
+      icone: 'event_available',
+      label: 'Entrevistas',
+      permissao: 'entrevistas.visualizar',
+    },
+    {
+      tela: 'screen-talent-bank',
+      icone: 'group',
+      label: 'Banco de Talentos',
+      permissao: 'candidatos.visualizar',
+    },
+  ];
+  const sublinksProvas = [
+    {
       tela: 'screen-generated-exams',
       icone: 'assignment',
       label: 'Provas e Resultados',
       permissao: 'provas.visualizar',
     },
+    {
+      tela: 'screen-history',
+      icone: 'history',
+      label: 'Histórico de Provas',
+      permissao: 'candidatos.consultar_historico',
+    },
   ];
-  const sublinksRelatorios = [
+  const sublinksTreinamentos = [
+    {
+      tela: 'screen-training-trilhas',
+      icone: 'school',
+      label: 'Trilhas',
+      permissao: 'onboarding.visualizar',
+    },
+    {
+      tela: 'screen-training-assignments',
+      icone: 'assignment_ind',
+      label: 'Atribuições',
+      permissao: 'onboarding.visualizar',
+    },
+  ];
+  const sublinksGestao = [
     {
       tela: 'screen-analysis-candidates',
       icone: 'bar_chart',
       label: 'Relatórios Gerais',
+      permissao: 'relatorios.visualizar',
+    },
+    {
+      tela: 'screen-dashboard-funil',
+      icone: 'monitoring',
+      label: 'Dashboard de Funil',
       permissao: 'relatorios.visualizar',
     },
     {
@@ -77,6 +126,17 @@ function BarraLateral({
       label: 'Candidatos',
       permissao: 'candidatos.visualizar',
       telasRelacionadas: ['screen-candidate-details', 'screen-candidate-pipeline'],
+    },
+    {
+      tela: 'screen-calendario',
+      icone: 'celebration',
+      label: 'Calendário',
+    },
+    {
+      tela: 'screen-onedrive-files',
+      icone: 'cloud',
+      label: 'Drive-Conecta',
+      permissao: 'onedrive.visualizar',
     },
   ];
   const sublinksConfiguracoes = [
@@ -93,10 +153,58 @@ function BarraLateral({
       permissao: 'configuracoes.visualizar',
     },
     {
+      tela: 'screen-settings-operations',
+      icone: 'apartment',
+      label: 'Operações',
+      permissao: 'configuracoes.visualizar',
+    },
+    {
+      tela: 'screen-settings-catalog',
+      icone: 'inventory_2',
+      label: 'Catálogos',
+      permissao: 'configuracoes.visualizar',
+    },
+    {
       tela: 'screen-settings-logs',
       icone: 'history_edu',
       label: 'Logs',
       permissao: 'logs.visualizar',
+    },
+    {
+      tela: 'screen-settings-policies',
+      icone: 'policy',
+      label: 'Políticas',
+      permissao: 'politicas.editar',
+    },
+    {
+      tela: 'screen-settings-onboarding',
+      icone: 'checklist',
+      label: 'Trilhas de Onboarding',
+      permissao: 'onboarding.editar',
+    },
+    {
+      tela: 'screen-settings-document-templates',
+      icone: 'description',
+      label: 'Templates de Documentos',
+      permissao: 'documentos_templates.editar',
+    },
+    {
+      tela: 'screen-settings-disc',
+      icone: 'insights',
+      label: 'Teste DISC',
+      permissao: 'provas.questoes_criar',
+    },
+    {
+      tela: 'screen-settings-fit-cultural',
+      icone: 'diversity_3',
+      label: 'Fit Cultural',
+      permissao: 'fit_cultural.editar',
+    },
+    {
+      tela: 'screen-settings-raciocinio-logico',
+      icone: 'psychology',
+      label: 'Raciocínio Lógico',
+      permissao: 'provas.questoes_criar',
     },
   ];
   const telasRelacionadasProcessos = [
@@ -105,21 +213,41 @@ function BarraLateral({
     'screen-processes-closed',
     'screen-process-decisions',
     'screen-process-details',
-    'screen-generated-exams',
     'screen-process-analytical-results',
+    'screen-interviews',
+    'screen-talent-bank',
+  ];
+  const telasRelacionadasProvas = [
+    'screen-generated-exams',
     'screen-history',
   ];
-  const telasRelacionadasRelatorios = [
+  const telasRelacionadasTreinamentos = [
+    'screen-training',
+    'screen-training-trilhas',
+    'screen-training-assignments',
+  ];
+  const telasRelacionadasGestao = [
     'screen-analysis-candidates',
+    'screen-dashboard-funil',
     'screen-candidates',
     'screen-candidate-details',
     'screen-candidate-pipeline',
+    'screen-calendario',
+    'screen-onedrive-files',
   ];
   const telasRelacionadasConfiguracoes = [
     'screen-settings',
     'screen-settings-users',
     'screen-settings-profiles',
+    'screen-settings-operations',
+    'screen-settings-catalog',
     'screen-settings-logs',
+    'screen-settings-policies',
+    'screen-settings-onboarding',
+    'screen-settings-document-templates',
+    'screen-settings-disc',
+    'screen-settings-fit-cultural',
+    'screen-settings-raciocinio-logico',
   ];
   const possuiPermissao = (permissao) =>
     !permissao || controlador?.possuiPermissao?.(permissao);
@@ -129,25 +257,44 @@ function BarraLateral({
   const subitemProcessoAtivo = sublinksProcessos.some(
     (item) => item.tela === navAtiva,
   );
+  const sublinksProcessosVisiveis = sublinksProcessos.filter((subitem) =>
+    possuiPermissao(subitem.permissao),
+  );
+  const grupoProvasAtivo = telasRelacionadasProvas.includes(navAtiva);
+  const subitemProvaAtivo = (subitem) => navAtiva === subitem.tela;
+  const sublinksProvasVisiveis = sublinksProvas.filter((subitem) =>
+    possuiPermissao(subitem.permissao),
+  );
   const sublinksConfiguracoesVisiveis = sublinksConfiguracoes.filter((subitem) =>
     possuiPermissao(subitem.permissao),
   );
-  const sublinksRelatoriosVisiveis = sublinksRelatorios.filter((subitem) =>
+  const sublinksGestaoVisiveis = sublinksGestao.filter((subitem) =>
     possuiPermissao(subitem.permissao),
   );
-  const grupoRelatoriosAtivo = telasRelacionadasRelatorios.includes(navAtiva);
-  const subitemRelatorioAtivo = (subitem) =>
+  const grupoGestaoAtivo = telasRelacionadasGestao.includes(navAtiva);
+  const subitemGestaoAtivo = (subitem) =>
     navAtiva === subitem.tela || (subitem.telasRelacionadas || []).includes(navAtiva);
   const grupoConfiguracoesAtivo = telasRelacionadasConfiguracoes.includes(navAtiva);
   const subitemConfiguracaoAtivo = (subitem) =>
     navAtiva === subitem.tela ||
     (navAtiva === 'screen-settings' && subitem.tela === 'screen-settings-users');
+  const sublinksTreinamentosVisiveis = sublinksTreinamentos.filter((subitem) =>
+    possuiPermissao(subitem.permissao),
+  );
+  const grupoTreinamentosAtivo = telasRelacionadasTreinamentos.includes(navAtiva);
+  const subitemTreinamentoAtivo = (subitem) =>
+    navAtiva === subitem.tela ||
+    (navAtiva === 'screen-training' && subitem.tela === 'screen-training-trilhas');
   const [submenuProcessosAberto, setSubmenuProcessosAberto] =
     useState(grupoProcessosAtivo);
-  const [submenuRelatoriosAberto, setSubmenuRelatoriosAberto] =
-    useState(grupoRelatoriosAtivo);
+  const [submenuProvasAberto, setSubmenuProvasAberto] =
+    useState(grupoProvasAtivo);
+  const [submenuGestaoAberto, setSubmenuGestaoAberto] =
+    useState(grupoGestaoAtivo);
   const [submenuConfiguracoesAberto, setSubmenuConfiguracoesAberto] =
     useState(grupoConfiguracoesAtivo);
+  const [submenuTreinamentosAberto, setSubmenuTreinamentosAberto] =
+    useState(grupoTreinamentosAtivo);
   const [logoComErro, setLogoComErro] = useState(false);
 
   useEffect(() => {
@@ -155,12 +302,20 @@ function BarraLateral({
   }, [navAtiva, grupoProcessosAtivo]);
 
   useEffect(() => {
-    setSubmenuRelatoriosAberto(grupoRelatoriosAtivo);
-  }, [navAtiva, grupoRelatoriosAtivo]);
+    setSubmenuProvasAberto(grupoProvasAtivo);
+  }, [navAtiva, grupoProvasAtivo]);
+
+  useEffect(() => {
+    setSubmenuGestaoAberto(grupoGestaoAtivo);
+  }, [navAtiva, grupoGestaoAtivo]);
 
   useEffect(() => {
     setSubmenuConfiguracoesAberto(grupoConfiguracoesAtivo);
   }, [navAtiva, grupoConfiguracoesAtivo]);
+
+  useEffect(() => {
+    setSubmenuTreinamentosAberto(grupoTreinamentosAtivo);
+  }, [navAtiva, grupoTreinamentosAtivo]);
 
   const renderizarItem = (item) => {
     if (item.visivel === false || !possuiPermissao(item.permissao)) return null;
@@ -206,7 +361,7 @@ function BarraLateral({
                 <img
                   alt="Conecta Central 24h"
                   class="rh-modern-logo"
-                  src="estilos/logo_conecta_branco_palavra.png"
+                  src="/estilos/logo_conecta_branco_palavra.png"
                   onError=${() => setLogoComErro(true)}
                 />
               `}
@@ -227,7 +382,7 @@ function BarraLateral({
           <span class="rh-modern-nav-label">${recolhida ? 'Expandir' : 'Recolher'}</span>
         </button>
         ${itensPrincipais.map(renderizarItem)}
-        ${possuiPermissao('vagas.visualizar') || possuiPermissao('provas.visualizar')
+        ${sublinksProcessosVisiveis.length
       ? html`
               <div
                 class=${`rh-modern-nav-group ${submenuProcessosAberto && !recolhida ? 'is-open' : ''
@@ -240,7 +395,7 @@ function BarraLateral({
           ? 'is-active'
           : ''
           }`.trim()}
-                  title="Recrutamento"
+                  title="Processos"
                   aria-expanded=${!recolhida && submenuProcessosAberto}
                   aria-controls="rh-modern-subnav-processos"
                   aria-current=${grupoProcessosAtivo && !subitemProcessoAtivo ? 'page' : null
@@ -248,9 +403,7 @@ function BarraLateral({
                   onClick=${() => {
           if (recolhida) {
             controlador.irParaTelaProtegida(
-              possuiPermissao('vagas.visualizar')
-                ? 'screen-processes'
-                : 'screen-generated-exams',
+              sublinksProcessosVisiveis[0]?.tela || 'screen-processes',
             );
             return;
           }
@@ -260,7 +413,7 @@ function BarraLateral({
                   <span class="material-symbols-outlined" aria-hidden="true">
                     business_center
                   </span>
-                  <span class="rh-modern-nav-label">Recrutamento</span>
+                  <span class="rh-modern-nav-label">Processos</span>
                   <span
                     class="material-symbols-outlined rh-modern-nav-chevron"
                     aria-hidden="true"
@@ -274,9 +427,9 @@ function BarraLateral({
                         class="rh-modern-subnav"
                         id="rh-modern-subnav-processos"
                         role="group"
-                        aria-label="Submenu de Recrutamento"
+                        aria-label="Submenu de Processos"
                       >
-                        ${sublinksProcessos.filter((subitem) => possuiPermissao(subitem.permissao)).map(
+                        ${sublinksProcessosVisiveis.map(
             (subitem) => html`
                             <button
                               key=${subitem.tela}
@@ -305,34 +458,33 @@ function BarraLateral({
               </div>
             `
       : null}
-        ${itensAposProcessos.map(renderizarItem)}
-        ${sublinksRelatoriosVisiveis.length
+        ${sublinksProvasVisiveis.length
       ? html`
               <div
-                class=${`rh-modern-nav-group ${submenuRelatoriosAberto && !recolhida ? 'is-open' : ''
-          } ${grupoRelatoriosAtivo ? 'has-active' : ''}`.trim()}
+                class=${`rh-modern-nav-group ${submenuProvasAberto && !recolhida ? 'is-open' : ''
+          } ${grupoProvasAtivo ? 'has-active' : ''}`.trim()}
               >
                 <button
                   type="button"
-                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoRelatoriosAtivo ? 'is-active' : ''
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoProvasAtivo ? 'is-active' : ''
           }`.trim()}
-                  title="Relatórios"
-                  aria-expanded=${!recolhida && submenuRelatoriosAberto}
-                  aria-controls="rh-modern-subnav-relatorios"
+                  title="Conecta Provas"
+                  aria-expanded=${!recolhida && submenuProvasAberto}
+                  aria-controls="rh-modern-subnav-provas"
                   onClick=${() => {
           if (recolhida) {
             controlador.irParaTelaProtegida(
-              sublinksRelatoriosVisiveis[0]?.tela || 'screen-analysis-candidates',
+              sublinksProvasVisiveis[0]?.tela || 'screen-generated-exams',
             );
             return;
           }
-          setSubmenuRelatoriosAberto((valor) => !valor);
+          setSubmenuProvasAberto((valor) => !valor);
         }}
                 >
                   <span class="material-symbols-outlined" aria-hidden="true">
-                    bar_chart
+                    quiz
                   </span>
-                  <span class="rh-modern-nav-label">Relatórios</span>
+                  <span class="rh-modern-nav-label">Conecta Provas</span>
                   <span
                     class="material-symbols-outlined rh-modern-nav-chevron"
                     aria-hidden="true"
@@ -340,23 +492,94 @@ function BarraLateral({
                     expand_more
                   </span>
                 </button>
-                ${submenuRelatoriosAberto && !recolhida
+                ${submenuProvasAberto && !recolhida
           ? html`
                       <div
                         class="rh-modern-subnav"
-                        id="rh-modern-subnav-relatorios"
+                        id="rh-modern-subnav-provas"
                         role="group"
-                        aria-label="Submenu de Relatórios"
+                        aria-label="Submenu de Conecta Provas"
                       >
-                        ${sublinksRelatoriosVisiveis.map(
+                        ${sublinksProvasVisiveis.map(
             (subitem) => html`
                             <button
                               key=${subitem.tela}
                               type="button"
-                              class=${`rh-modern-subnav-btn ${subitemRelatorioAtivo(subitem) ? 'is-active' : ''
+                              class=${`rh-modern-subnav-btn ${subitemProvaAtivo(subitem) ? 'is-active' : ''
                 }`.trim()}
                               title=${subitem.label}
-                              aria-current=${subitemRelatorioAtivo(subitem) ? 'page' : null
+                              aria-current=${subitemProvaAtivo(subitem) ? 'page' : null
+              }
+                              onClick=${() =>
+                controlador.irParaTelaProtegida(subitem.tela)}
+                            >
+                              <span
+                                class="material-symbols-outlined"
+                                aria-hidden="true"
+                              >
+                                ${subitem.icone}
+                              </span>
+                              <span>${subitem.label}</span>
+                            </button>
+                          `,
+          )}
+                      </div>
+                    `
+          : null}
+              </div>
+            `
+      : null}
+        ${sublinksGestaoVisiveis.length
+      ? html`
+              <div
+                class=${`rh-modern-nav-group ${submenuGestaoAberto && !recolhida ? 'is-open' : ''
+          } ${grupoGestaoAtivo ? 'has-active' : ''}`.trim()}
+              >
+                <button
+                  type="button"
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoGestaoAtivo ? 'is-active' : ''
+          }`.trim()}
+                  title="Gestão"
+                  aria-expanded=${!recolhida && submenuGestaoAberto}
+                  aria-controls="rh-modern-subnav-gestao"
+                  onClick=${() => {
+          if (recolhida) {
+            controlador.irParaTelaProtegida(
+              sublinksGestaoVisiveis[0]?.tela || 'screen-analysis-candidates',
+            );
+            return;
+          }
+          setSubmenuGestaoAberto((valor) => !valor);
+        }}
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">
+                    manage_accounts
+                  </span>
+                  <span class="rh-modern-nav-label">Gestão</span>
+                  <span
+                    class="material-symbols-outlined rh-modern-nav-chevron"
+                    aria-hidden="true"
+                  >
+                    expand_more
+                  </span>
+                </button>
+                ${submenuGestaoAberto && !recolhida
+          ? html`
+                      <div
+                        class="rh-modern-subnav"
+                        id="rh-modern-subnav-gestao"
+                        role="group"
+                        aria-label="Submenu de Gestão"
+                      >
+                        ${sublinksGestaoVisiveis.map(
+            (subitem) => html`
+                            <button
+                              key=${subitem.tela}
+                              type="button"
+                              class=${`rh-modern-subnav-btn ${subitemGestaoAtivo(subitem) ? 'is-active' : ''
+                }`.trim()}
+                              title=${subitem.label}
+                              aria-current=${subitemGestaoAtivo(subitem) ? 'page' : null
               }
                               onClick=${() =>
                 controlador.irParaTelaProtegida(subitem.tela)}
@@ -448,6 +671,77 @@ function BarraLateral({
               </div>
             `
       : null}
+        ${sublinksTreinamentosVisiveis.length
+      ? html`
+              <div
+                class=${`rh-modern-nav-group ${submenuTreinamentosAberto && !recolhida ? 'is-open' : ''
+          } ${grupoTreinamentosAtivo ? 'has-active' : ''}`.trim()}
+              >
+                <button
+                  type="button"
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoTreinamentosAtivo ? 'is-active' : ''
+          }`.trim()}
+                  title="Treinamentos"
+                  aria-expanded=${!recolhida && submenuTreinamentosAberto}
+                  aria-controls="rh-modern-subnav-treinamentos"
+                  onClick=${() => {
+          if (recolhida) {
+            controlador.irParaTelaProtegida(
+              sublinksTreinamentosVisiveis[0]?.tela || 'screen-training-trilhas',
+            );
+            return;
+          }
+          setSubmenuTreinamentosAberto((valor) => !valor);
+        }}
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">
+                    school
+                  </span>
+                  <span class="rh-modern-nav-label">Treinamentos</span>
+                  <span
+                    class="material-symbols-outlined rh-modern-nav-chevron"
+                    aria-hidden="true"
+                  >
+                    expand_more
+                  </span>
+                </button>
+                ${submenuTreinamentosAberto && !recolhida
+          ? html`
+                      <div
+                        class="rh-modern-subnav"
+                        id="rh-modern-subnav-treinamentos"
+                        role="group"
+                        aria-label="Submenu de Treinamentos"
+                      >
+                        ${sublinksTreinamentosVisiveis.map(
+            (subitem) => html`
+                            <button
+                              key=${subitem.tela}
+                              type="button"
+                              class=${`rh-modern-subnav-btn ${subitemTreinamentoAtivo(subitem) ? 'is-active' : ''
+                }`.trim()}
+                              title=${subitem.label}
+                              aria-current=${subitemTreinamentoAtivo(subitem) ? 'page' : null
+              }
+                              onClick=${() =>
+                controlador.irParaTelaProtegida(subitem.tela)}
+                            >
+                              <span
+                                class="material-symbols-outlined"
+                                aria-hidden="true"
+                              >
+                                ${subitem.icone}
+                              </span>
+                              <span>${subitem.label}</span>
+                            </button>
+                          `,
+          )}
+                      </div>
+                    `
+          : null}
+              </div>
+            `
+      : null}
       </nav>
     </aside>
   `;
@@ -509,6 +803,45 @@ export function SectionCard({
   `;
 }
 
+export function Tabs({ tabs = [], activeKey, onChange, className = '' }) {
+  return html`
+    <div class=${`rh-tabs ${className}`.trim()} role="tablist">
+      ${tabs.map(
+        (tab) => html`
+          <button
+            key=${tab.key}
+            type="button"
+            role="tab"
+            id=${`rh-tab-${tab.key}`}
+            aria-selected=${activeKey === tab.key}
+            aria-controls=${`rh-tabpanel-${tab.key}`}
+            class=${`rh-tabs-btn ${activeKey === tab.key ? 'is-active' : ''}`.trim()}
+            onClick=${() => onChange(tab.key)}
+          >
+            ${tab.label}
+          </button>
+        `,
+      )}
+    </div>
+  `;
+}
+
+export function TabPanel({ tabKey, activeKey, className = '', children }) {
+  const ativo = activeKey === tabKey;
+  return html`
+    <div
+      id=${`rh-tabpanel-${tabKey}`}
+      role="tabpanel"
+      aria-labelledby=${`rh-tab-${tabKey}`}
+      aria-hidden=${!ativo}
+      class=${`rh-tab-panel ${className}`.trim()}
+      style=${{ display: ativo ? 'block' : 'none' }}
+    >
+      ${children}
+    </div>
+  `;
+}
+
 function obterIniciaisUsuario(nome) {
   const partes = String(nome || '')
     .trim()
@@ -521,7 +854,7 @@ function obterIniciaisUsuario(nome) {
   return `${partes[0].slice(0, 1)}${partes[partes.length - 1].slice(0, 1)}`.toUpperCase();
 }
 
-function CartaoUsuarioTopo({ controlador }) {
+export function CartaoUsuarioTopo({ controlador }) {
   const [aberto, setAberto] = useState(false);
   const estado = controlador?.estado || {};
   const nome =
@@ -713,6 +1046,7 @@ export function PainelRh({
                   `
       : null}
               ${acoesTopo}
+              <${SeletorTema} />
               <${CartaoUsuarioTopo} controlador=${controlador} />
             </div>
           </header>

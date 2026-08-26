@@ -75,3 +75,14 @@ export async function baixarRelatorioCandidatos(filtros = {}) {
     { method: 'GET' },
   );
 }
+
+export async function lerFunilDashboard(filtros = {}) {
+  const chaveCache = montarChaveCacheApi('relatorios:funil-dashboard', filtros);
+  const emCache = lerCache(chaveCache);
+  if (emCache) return emCache;
+  const dados = await requisitar(`/reports/funnel-dashboard${montarParametrosRelatorio(filtros)}`, {
+    method: 'GET',
+  });
+  gravarCache(chaveCache, dados, { sensivel: true });
+  return dados;
+}

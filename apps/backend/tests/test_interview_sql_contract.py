@@ -49,3 +49,38 @@ def test_withdrawn_candidates_are_eliminated_and_hidden_from_operational_intervi
     assert "CANDIDATE_STATUS_ELIMINATED" in source
     assert "CANDIDATE_STATUS_WITHDREW" in source
     assert '"motivo_eliminacao": "Desistência do candidato"' in source
+
+
+def test_candidate_status_sync_is_scoped_to_current_process():
+    """Regression test: updating a candidate's status in one selection process must
+    never affect entrevistas_agendadas/banco_talentos rows that belong to a
+    different process for the same id_teste (a candidate can apply to multiple
+    processos_seletivos with the same id_teste)."""
+    source = (BACKEND_ROOT / "rh_api" / "repositories" / "base.py").read_text(encoding="utf-8")
+
+    interview_sync_match = re.search(
+        r"UPDATE\s+entrevistas_agendadas\s*\bSET\b.*?\bWHERE\b(?P<where_clause>.*?)\"\"\"",
+        source,
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert interview_sync_match, "Could not locate the entrevistas_agendadas sync query in base.py"
+    where_clause = interview_sync_match.group("where_clause")
+
+    # The id_teste branch must never match rows unconditionally: it must be
+    # scoped by id_processo/id_processo_ref (with a legacy fallback only when
+    # the interview row has no process information at all).
+    id_teste_branch_match = re.search(
+        r"id_teste\s*=\s*\?.*", where_clause, re.IGNORECASE | re.DOTALL
+    )
+    assert id_teste_branch_match, "Could not locate the id_teste branch of the WHERE clause"
+    id_teste_branch = id_teste_branch_match.group(0)
+    assert "id_processo" in id_teste_branch
+    assert "id_processo_ref" in id_teste_branch
+
+    delete_match = re.search(
+        r"DELETE\s+FROM\s+banco_talentos\s*\bWHERE\b(?P<where_clause>.*?)\"\"\"",
+        source,
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert delete_match, "Could not locate the banco_talentos DELETE query in base.py"
+    assert "id_processo" in delete_match.group("where_clause")

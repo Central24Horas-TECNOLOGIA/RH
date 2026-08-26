@@ -7,8 +7,10 @@ from datetime import date, datetime, time, timedelta
 
 from fastapi import HTTPException, status
 
+from ..cache import get_cache_client
 from ..services.analytics import build_analysis_from_payload
 from ..services.helpers import normalize_compare_text, normalize_text, parse_float_br, rows_to_dicts, safe_json_loads
+from ..services.pipeline import PIPELINE_STAGES, normalize_pipeline_stage
 from ..services.process_flow import (
     CANDIDATE_STATUS_APPROVED,
     CANDIDATE_STATUS_ELIMINATED,
@@ -27,6 +29,17 @@ from .bootstrap import (
 
 
 logger = logging.getLogger(__name__)
+
+# Cache de queries (roadmap de expansão, respostas.txt): o dashboard de funil
+# agrega TODOS os candidatos de `candidatos_processos` em memória a cada
+# chamada — caro e lido com frequência (tela de dashboard do RH). Diferente
+# das datas comemorativas/templates, o dado subjacente muda o tempo todo
+# (qualquer movimentação de candidato), então em vez de invalidação ativa em
+# cada escrita (o que tocaria dezenas de pontos de gravação em todo o
+# sistema) usamos um TTL curto — 60s é uma janela aceitável de defasagem para
+# um dashboard analítico, e evita recalcular o funil inteiro a cada refresh
+# de tela.
+_FUNNEL_DASHBOARD_CACHE_TTL_SECONDS = 60
 
 
 def _parse_date_filter(value: str | None, *, end: bool = False):
@@ -847,4 +860,128 @@ class AnalyticsRepositoryMixin:
             ("Data de Saída", "data_saida"),
         ]
         return _report_filename("relatorio_candidatos", start_date, end_date), _csv_bytes(rows, columns)
+
+    def get_funnel_dashboard(
+        self,
+        start_date: str = "",
+        end_date: str = "",
+        id_processo: str = "",
+    ) -> dict:
+        """Dashboard de funil e metricas (time-to-hire).
+
+        Roadmap de expansao (respostas.txt): "dashboard de funil e metricas".
+        Todas as consultas sao agregacoes SQL puras sobre `candidatos_processos`
+        (sem tabela nova). Decisoes de calculo tomadas nesta v1, sem spec
+        exata:
+
+        - time-to-hire (dias): media de (aprovado_em - data_prova) para os
+          candidatos com status final "Aprovado" no recorte filtrado.
+          `data_prova` e a data de entrada do candidato no processo e
+          `aprovado_em` e a data do status final de aprovacao (ambas ja
+          existem em `candidatos_processos`).
+        - funil por etapa: usa a mesma `etapa_pipeline` do Kanban de vagas
+          (Triagem/Prova/Entrevista/Aprovado/Reprovado). Como o sistema nao
+          mantem um historico de "por quais etapas o candidato passou" (so a
+          etapa atual), o percentual de conversao de cada etapa e calculado
+          como proporcao sobre o total de candidatos do recorte (uma foto do
+          funil atual, nao uma cascata de conversao etapa-a-etapa). Isso e
+          simples, explicavel e correto com os dados disponiveis.
+        - origem dos candidatos: agrupamento direto pelo campo `origem` de
+          `candidatos_processos` (inclui "Indicação" e demais origens ja
+          cadastradas).
+        """
+        cache = get_cache_client()
+        cache_key = f"conecta:cache:funnel_dashboard:{start_date}|{end_date}|{id_processo}"
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            return cached_result
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_pipeline_columns(cursor)
+            ensure_process_reference_columns(cursor)
+
+            cursor.execute(
+                """
+                SELECT
+                    id_registro,
+                    id_processo,
+                    id_processo_ref,
+                    status_candidato,
+                    etapa_pipeline,
+                    origem,
+                    data_prova,
+                    aprovado_em
+                FROM candidatos_processos
+                """
+            )
+            candidatos = rows_to_dicts(cursor, cursor.fetchall())
+
+            safe_process_filter = normalize_compare_text(id_processo)
+            candidatos_filtrados = []
+            for item in candidatos:
+                if not _in_date_range(item.get("data_prova"), start_date, end_date):
+                    continue
+                if safe_process_filter:
+                    process_ref = normalize_compare_text(item.get("id_processo_ref"))
+                    process_id = normalize_compare_text(item.get("id_processo"))
+                    if safe_process_filter not in process_ref and safe_process_filter not in process_id:
+                        continue
+                candidatos_filtrados.append(item)
+
+            total_candidatos = len(candidatos_filtrados)
+
+            etapas_contagem = {etapa: 0 for etapa in PIPELINE_STAGES}
+            origem_contagem: dict[str, int] = {}
+            prazos_contratacao: list[float] = []
+
+            for item in candidatos_filtrados:
+                etapa = normalize_pipeline_stage(item.get("etapa_pipeline"))
+                etapas_contagem[etapa] = etapas_contagem.get(etapa, 0) + 1
+
+                origem = normalize_text(item.get("origem")) or "Não informado"
+                origem_contagem[origem] = origem_contagem.get(origem, 0) + 1
+
+                if canonicalize_candidate_status(item.get("status_candidato")) == CANDIDATE_STATUS_APPROVED:
+                    entrada = _coerce_datetime(item.get("data_prova"))
+                    aprovacao = _coerce_datetime(item.get("aprovado_em"))
+                    if entrada and aprovacao and aprovacao >= entrada:
+                        prazos_contratacao.append((aprovacao - entrada).total_seconds() / 86400)
+
+            funil_etapas = [
+                {
+                    "etapa": etapa,
+                    "total": etapas_contagem.get(etapa, 0),
+                    "percentual_conversao": (
+                        round((etapas_contagem.get(etapa, 0) / total_candidatos) * 100, 1)
+                        if total_candidatos
+                        else 0.0
+                    ),
+                }
+                for etapa in PIPELINE_STAGES
+            ]
+
+            origem_candidatos = [
+                {"origem": origem, "total": total}
+                for origem, total in sorted(origem_contagem.items(), key=lambda item: item[1], reverse=True)
+            ]
+
+            time_to_hire_medio_dias = (
+                round(sum(prazos_contratacao) / len(prazos_contratacao), 1) if prazos_contratacao else None
+            )
+
+            resultado = {
+                "periodo": {"start_date": start_date or "", "end_date": end_date or "", "id_processo": id_processo or ""},
+                "total_candidatos": total_candidatos,
+                "total_aprovados_considerados": len(prazos_contratacao),
+                "time_to_hire_medio_dias": time_to_hire_medio_dias,
+                "funil_etapas": funil_etapas,
+                "origem_candidatos": origem_candidatos,
+            }
+        finally:
+            conn.close()
+
+        cache.set(cache_key, resultado, ttl_seconds=_FUNNEL_DASHBOARD_CACHE_TTL_SECONDS)
+        return resultado
 

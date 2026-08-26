@@ -280,6 +280,70 @@ class GeneratedExamsAndScoreTests(unittest.TestCase):
         self.assertTrue(grade["resumo_etapas"][0]["interrupted"])
         self.assertEqual(grade["resumo_etapas"][0]["status"], "Etapa interrompida - nota zerada")
 
+    def test_question_shuffle_is_deterministic_per_candidate_and_varies_between_candidates(self):
+        questions = [
+            {"type": "multiple", "title": "Q1", "options": ["A", "B", "C", "D"], "answer": 2, "points": 10},
+            {"type": "multiple", "title": "Q2", "options": ["A", "B", "C"], "answer": 0, "points": 10},
+            {"type": "word", "title": "Q3", "description": "Discursiva"},
+        ]
+        row_candidate_1 = {"id_prova": 7, "id_teste": "CP-0001"}
+        row_candidate_2 = {"id_prova": 7, "id_teste": "CP-0002"}
+
+        shuffled_first_load = GeneratedExamRepositoryMixin._apply_question_shuffle(questions, row_candidate_1)
+        shuffled_second_load = GeneratedExamRepositoryMixin._apply_question_shuffle(questions, row_candidate_1)
+        shuffled_other_candidate = GeneratedExamRepositoryMixin._apply_question_shuffle(questions, row_candidate_2)
+
+        # Mesmo candidato/prova: recarregar a página produz sempre a mesma ordem.
+        self.assertEqual(
+            [q["title"] for q in shuffled_first_load],
+            [q["title"] for q in shuffled_second_load],
+        )
+        # O snapshot original (entrada da função) nunca é mutado.
+        self.assertEqual([q["title"] for q in questions], ["Q1", "Q2", "Q3"])
+        self.assertEqual(questions[0]["answer"], 2)
+        self.assertEqual(questions[0]["options"], ["A", "B", "C", "D"])
+        # Candidato diferente pode (e nesse caso, deve) ver uma ordem diferente.
+        self.assertNotEqual(
+            [q["title"] for q in shuffled_first_load],
+            [q["title"] for q in shuffled_other_candidate],
+        )
+
+    def test_question_shuffle_keeps_correct_answer_grading_after_reorder(self):
+        row = {"id_prova": 42, "id_teste": "CP-9999"}
+        questions = [
+            {
+                "type": "multiple",
+                "title": f"Q{i}",
+                "stageKey": "geral",
+                "stage": "Geral",
+                "options": [f"opcao-{i}-{letra}" for letra in "ABCD"],
+                "answer": i % 4,
+                "points": 10,
+            }
+            for i in range(6)
+        ]
+
+        shuffled = GeneratedExamRepositoryMixin._apply_question_shuffle(questions, row)
+
+        # A alternativa correta pós-embaralhamento deve continuar sendo o texto
+        # originalmente marcado como correto, apenas em outra posição.
+        original_by_title = {q["title"]: q for q in questions}
+        for question in shuffled:
+            original = original_by_title[question["title"]]
+            original_correct_text = original["options"][original["answer"]]
+            new_correct_text = question["options"][question["answer"]]
+            self.assertEqual(original_correct_text, new_correct_text)
+            self.assertEqual(set(question["options"]), set(original["options"]))
+
+        # Simula o candidato respondendo corretamente todas as questões na ordem
+        # embaralhada (como o front-end faria) e confirma que a correção usando a
+        # lista já embaralhada pontua 100%, sem precisar remapear nada externamente.
+        repository = GeneratedExamRepositoryMixin()
+        answers = [{"selected": question["answer"]} for question in shuffled]
+        grade = repository._grade_answers(shuffled, answers, [{"key": "geral", "weight": 100}], {})
+        self.assertEqual(grade["nota_objetiva"], 100)
+        self.assertTrue(all(item["correct"] for item in grade["graded"]))
+
     def test_generated_exam_router_forwards_update_and_delete(self):
         repository = FakeGeneratedExamRepository()
         payload = GeneratedExamCreateRequest(

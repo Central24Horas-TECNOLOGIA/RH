@@ -42,6 +42,15 @@ export function formatarDataParaInput(valorData) {
   return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}`;
 }
 
+// Helper canônico para data curta numérica (dd/mm/aaaa), com fallback '-' para valor vazio.
+export function formatarDataCurta(valor, fallback = '-') {
+  const texto = String(valor || '').trim();
+  if (!texto) return fallback;
+  const data = new Date(texto);
+  if (Number.isNaN(data.getTime())) return texto;
+  return data.toLocaleDateString('pt-BR');
+}
+
 export function obterItensPaginados(itens, paginaAtual, tamanhoPagina) {
   const lista = Array.isArray(itens) ? itens : [];
   const totalPaginas = Math.max(1, Math.ceil(lista.length / tamanhoPagina));

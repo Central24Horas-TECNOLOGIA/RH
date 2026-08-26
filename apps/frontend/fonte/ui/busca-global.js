@@ -17,6 +17,25 @@ import {
 } from '../features/processos-estado.js';
 
 export const CHAVE_REQUISITO_BUSCA = 'rh_requisito_busca_atual';
+export const CHAVE_COMANDO_NOVO_PROCESSO = 'rh_comando_novo_processo';
+
+const PREFIXOS_COMANDO_NOVO_PROCESSO = ['novo processo', 'criar processo', 'abrir processo'];
+
+function interpretarComando(query) {
+  const termo = normalizarBusca(query);
+  const prefixo = PREFIXOS_COMANDO_NOVO_PROCESSO.find((item) => termo.startsWith(item));
+  if (!prefixo) return null;
+
+  const resto = String(query || '').trim().slice(prefixo.length).trim();
+  return {
+    id: 'comando-novo-processo',
+    tipo: 'comando',
+    titulo: resto ? `Criar processo para "${resto}"` : 'Criar novo processo',
+    descricao: 'Comando rápido — abre o formulário de criação já com a operação preenchida.',
+    comando: 'novo-processo',
+    argumento: resto,
+  };
+}
 
 const PAGINAS_BUSCA = [
   {
@@ -159,6 +178,8 @@ async function carregarIndiceBuscaGlobal() {
 function filtrarResultados(query, indice) {
   if (!indice) return [];
 
+  const comando = interpretarComando(query);
+
   const termo = normalizarBusca(query);
   if (!termo) {
     return indice.paginas.slice(0, 5);
@@ -171,7 +192,7 @@ function filtrarResultados(query, indice) {
     ...indice.requisitos,
   ];
 
-  return colecoes
+  const resultadosTexto = colecoes
     .map((item) => ({
       ...item,
       _busca: normalizarBusca(montarTextoBusca(item)),
@@ -179,9 +200,12 @@ function filtrarResultados(query, indice) {
     .filter((item) => item._busca.includes(termo))
     .sort((a, b) => a._busca.indexOf(termo) - b._busca.indexOf(termo))
     .slice(0, 12);
+
+  return comando ? [comando, ...resultadosTexto] : resultadosTexto;
 }
 
 function rotuloTipo(tipo) {
+  if (tipo === 'comando') return 'Comando';
   if (tipo === 'pagina') return 'Página';
   if (tipo === 'processo') return 'Processo';
   if (tipo === 'candidato') return 'Candidato';
@@ -190,6 +214,13 @@ function rotuloTipo(tipo) {
 
 function selecionarResultado(resultado, controlador, limparBusca) {
   if (!resultado) return;
+
+  if (resultado.tipo === 'comando' && resultado.comando === 'novo-processo') {
+    sessionStorage.setItem(CHAVE_COMANDO_NOVO_PROCESSO, resultado.argumento || '');
+    controlador.irParaTelaProtegida('screen-process-create');
+    limparBusca();
+    return;
+  }
 
   if (resultado.tipo === 'pagina') {
     controlador.irParaTelaProtegida(resultado.tela);
@@ -224,6 +255,7 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
   const [carregando, setCarregando] = useState(false);
   const [indice, setIndice] = useState(null);
   const caixaRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const fecharAoClicarFora = (event) => {
@@ -234,6 +266,25 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
 
     window.addEventListener('mousedown', fecharAoClicarFora);
     return () => window.removeEventListener('mousedown', fecharAoClicarFora);
+  }, []);
+
+  useEffect(() => {
+    const acionarAtalho = (event) => {
+      const teclaBusca = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k';
+      if (teclaBusca) {
+        event.preventDefault();
+        inputRef.current?.focus();
+        setAberta(true);
+        return;
+      }
+      if (event.key === 'Escape' && document.activeElement === inputRef.current) {
+        inputRef.current?.blur();
+        setAberta(false);
+      }
+    };
+
+    window.addEventListener('keydown', acionarAtalho);
+    return () => window.removeEventListener('keydown', acionarAtalho);
   }, []);
 
   const garantirIndice = async () => {
@@ -263,6 +314,7 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
         </label>
         <input
           id="rh-global-search-input"
+          ref=${inputRef}
           type="text"
           aria-label="Pesquisar candidatos, processos e informações"
           placeholder=${placeholderBusca}
@@ -277,7 +329,9 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
             await garantirIndice();
           }}
         />
-       
+        <kbd class="rh-global-search-shortcut" aria-hidden="true">
+          ${/mac/i.test(navigator.platform || navigator.userAgent || '') ? '⌘K' : 'Ctrl+K'}
+        </kbd>
       </div>
 
       ${aberta

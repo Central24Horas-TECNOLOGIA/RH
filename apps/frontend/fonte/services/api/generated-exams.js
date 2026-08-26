@@ -31,7 +31,7 @@ export async function criarProvaGerada(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
-  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'relatorios');
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -41,7 +41,7 @@ export async function atualizarProvaGerada(idProva, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
-  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'relatorios');
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -49,7 +49,7 @@ export async function deletarProvaGerada(idProva) {
   const resultado = await requisitar(`/generated-exams/${encodeURIComponent(idProva)}`, {
     method: 'DELETE',
   });
-  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios');
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -57,12 +57,21 @@ export async function lerProvaGerada(idProva) {
   return requisitar(`/generated-exams/${encodeURIComponent(idProva)}`);
 }
 
+export async function lerReplayProvaGerada(idProva) {
+  return requisitar(`/generated-exams/${encodeURIComponent(idProva)}/replay`);
+}
+
+export async function lerHeatmapQuestoes(trilha = '') {
+  const query = trilha ? `?trilha=${encodeURIComponent(trilha)}` : '';
+  return requisitar(`/generated-exams/question-heatmap${query}`);
+}
+
 export async function recalcularScoreProva(idProva) {
   const resultado = await requisitar(
     `/generated-exams/${encodeURIComponent(idProva)}/score/recalculate`,
     { method: 'POST' },
   );
-  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios');
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -75,7 +84,7 @@ export async function salvarAvaliacaoManualProva(idProva, payload) {
       body: JSON.stringify(payload || {}),
     },
   );
-  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios');
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -88,7 +97,7 @@ export async function reabrirProvaGerada(idProva, payload) {
       body: JSON.stringify(payload || {}),
     },
   );
-  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios');
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -101,7 +110,7 @@ export async function cancelarProvaGerada(idProva, payload) {
       body: JSON.stringify(payload || {}),
     },
   );
-  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios');
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'relatorios', 'historico');
   return resultado;
 }
 
@@ -114,7 +123,7 @@ export async function registrarDecisaoRhProva(idProva, payload) {
       body: JSON.stringify(payload || {}),
     },
   );
-  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'banco-talentos', 'relatorios');
+  invalidarCacheApi(CACHE_PROVAS_GERADAS, 'candidatos-processos', 'processos', 'pipeline-candidatos', 'banco-talentos', 'relatorios', 'historico');
   return resultado;
 }
 
