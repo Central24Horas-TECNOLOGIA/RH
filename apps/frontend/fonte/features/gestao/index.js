@@ -3682,6 +3682,16 @@ export function TelaBancoTalentos({ controlador }) {
                                 <strong>${linha.nome_candidato || '-'}</strong>
                                 <div class="small text-muted mt-1">
                                   ${formatarDataHora(linha.data_movimentacao)}
+                                  ${linha.expirado
+              ? html`
+                                        <span
+                                          class="rh-status-pill is-not-qualified ms-2"
+                                          title="Mais de 180 dias no banco de talentos — revise antes de reutilizar."
+                                        >
+                                          Expirado
+                                        </span>
+                                      `
+              : null}
                                 </div>
                               </td>
                               <td>${linha.cidade || '-'}</td>

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -80,6 +81,10 @@ class FakeMatchingRepository(TalentBankRepositoryMixin):
         return self._profile_map
 
 
+def _dias_atras(dias: int) -> str:
+    return (datetime.now() - timedelta(days=dias)).date().isoformat()
+
+
 FAKE_PROCESS_ROW = {
     "id_processo": "PROC1",
     "id_processo_ref": "PROC1",
@@ -112,9 +117,9 @@ class TalentBankMatchingHappyPathTests(unittest.TestCase):
     def test_matches_candidates_by_keyword_overlap_and_excludes_linked(self, _mock_get_process_row):
         cursor = FakeMatchingCursor(
             banco_talentos_rows=[
-                (1, "T1", "Ana Souza", "Assistente de Logística", "8.5", "Processo Unico", "2026-01-10"),
-                (2, "T2", "Bruno Lima", "Recepcionista", "7.0", "Processo Unico", "2026-02-01"),
-                (3, "T3", "Carla Dias", "Analista de Logística", "9.0", "Indicação", "2026-03-01"),
+                (1, "T1", "Ana Souza", "Assistente de Logística", "8.5", "Processo Unico", _dias_atras(10)),
+                (2, "T2", "Bruno Lima", "Recepcionista", "7.0", "Processo Unico", _dias_atras(20)),
+                (3, "T3", "Carla Dias", "Analista de Logística", "9.0", "Indicação", _dias_atras(30)),
             ],
             vinculados_rows=[("T3", "PROC1", "PROC1")],
             scorecards_rows=[("T1", 4.2)],
@@ -144,6 +149,31 @@ class TalentBankMatchingHappyPathTests(unittest.TestCase):
         self.assertIn("entrevista", sugestao_t1["motivo"].lower())
         self.assertGreater(len(sugestao_t1["palavras_em_comum"]), 0)
 
+    @patch("rh_api.repositories.talent_bank.get_process_row", return_value=FAKE_PROCESS_ROW)
+    def test_excludes_candidates_expired_from_talent_bank(self, _mock_get_process_row):
+        cursor = FakeMatchingCursor(
+            banco_talentos_rows=[
+                (1, "T1", "Ana Souza", "Assistente de Logística", "8.5", "Processo Unico", _dias_atras(10)),
+                (2, "T2", "Diego Alves", "Analista de Logística", "8.0", "Processo Unico", _dias_atras(181)),
+            ],
+            vinculados_rows=[],
+            scorecards_rows=[],
+            etapas_rows=[],
+        )
+        profile_map = {
+            "T1": {"habilidades": ["excel", "logística"], "tags": [], "observacao_rh": ""},
+            "T2": {"habilidades": ["excel", "logística"], "tags": [], "observacao_rh": ""},
+        }
+        repository = FakeMatchingRepository(cursor, profile_map)
+
+        result = repository.get_talent_bank_matches("PROC1")
+
+        candidatos_ids = [item["id_teste"] for item in result["candidatos"]]
+        self.assertIn("T1", candidatos_ids)
+        # T2 está no banco de talentos há mais de 180 dias -> considerado
+        # expirado e excluído da sugestão automática (respostas.txt).
+        self.assertNotIn("T2", candidatos_ids)
+
     @patch("rh_api.repositories.talent_bank.get_process_row", return_value=None)
     def test_raises_404_when_process_not_found(self, _mock_get_process_row):
         cursor = FakeMatchingCursor(banco_talentos_rows=[], vinculados_rows=[], scorecards_rows=[], etapas_rows=[])
@@ -155,7 +185,7 @@ class TalentBankMatchingHappyPathTests(unittest.TestCase):
     @patch("rh_api.repositories.talent_bank.get_process_row", return_value=FAKE_PROCESS_ROW)
     def test_router_delegates_to_repository(self, _mock_get_process_row):
         cursor = FakeMatchingCursor(
-            banco_talentos_rows=[(1, "T1", "Ana Souza", "Assistente de Logística", "8.5", "Processo Unico", "2026-01-10")],
+            banco_talentos_rows=[(1, "T1", "Ana Souza", "Assistente de Logística", "8.5", "Processo Unico", _dias_atras(10))],
             vinculados_rows=[],
             scorecards_rows=[],
             etapas_rows=[],

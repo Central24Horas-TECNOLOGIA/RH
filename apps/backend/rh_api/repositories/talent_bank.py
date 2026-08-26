@@ -43,6 +43,26 @@ _MATCHING_STOPWORDS = {
 }
 
 
+# Roadmap de expansao (respostas.txt): "por questoes de seguranca, depois de
+# 6 meses o candidato deve sair do banco de talentos". Nao apagamos nada
+# automaticamente (decisao do RH continua manual, via remover_talent_bank
+# ja existente) - so marcamos o candidato como expirado, escondendo-o do
+# matching automatico e sinalizando na tela para revisao humana.
+TALENT_BANK_EXPIRATION_DAYS = 180
+
+
+def _dias_desde(valor) -> int | None:
+    texto = normalize_text(valor)
+    if not texto:
+        return None
+    try:
+        referencia = datetime.fromisoformat(texto.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    agora = datetime.now(referencia.tzinfo) if referencia.tzinfo else datetime.now()
+    return max(0, (agora - referencia).days)
+
+
 def _extract_matching_keywords(text) -> set[str]:
     """Extrai palavras-chave normalizadas (sem acento, minusculas, >=3 letras)
     de um texto livre, descartando stopwords. Base do motor de matching
@@ -145,6 +165,9 @@ class TalentBankRepositoryMixin:
                 )
                 item["data_entrevista"] = latest_interview.get("data_entrevista")
                 item["link_entrevista"] = normalize_text(latest_interview.get("link_agendamento"))
+                dias_no_banco = _dias_desde(item.get("data_movimentacao"))
+                item["dias_no_banco"] = dias_no_banco
+                item["expirado"] = dias_no_banco is not None and dias_no_banco >= TALENT_BANK_EXPIRATION_DAYS
 
                 item_search_text = " ".join(
                     [
@@ -731,6 +754,10 @@ class TalentBankRepositoryMixin:
             for candidato in candidatos_banco:
                 id_teste = normalize_text(candidato.get("id_teste"))
                 if not id_teste or id_teste in ja_vinculados:
+                    continue
+
+                dias_no_banco = _dias_desde(candidato.get("data_movimentacao"))
+                if dias_no_banco is not None and dias_no_banco >= TALENT_BANK_EXPIRATION_DAYS:
                     continue
 
                 perfil = profile_map.get(id_teste, {})
