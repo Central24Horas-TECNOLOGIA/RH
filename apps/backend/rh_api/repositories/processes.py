@@ -1252,6 +1252,104 @@ class ProcessRepositoryMixin:
         finally:
             conn.close()
 
+    def reconsider_candidate_elimination(
+        self,
+        id_registro: int,
+        justificativa: str,
+        *,
+        actor: str = "",
+    ) -> dict:
+        """Reverte um candidato eliminado/nao qualificado/desistente de volta
+        para Triagem. Rota deliberadamente separada de update_process_candidate_
+        status: aquele metodo trava qualquer mudanca em status terminal (regra
+        de integridade valida no dia a dia); reconsiderar uma eliminacao e uma
+        excecao pontual, gated pela permissao candidatos.reverter_eliminacao,
+        que precisa contornar essa trava com justificativa obrigatoria e
+        registro proprio em candidatos_movimentacoes (respostas.txt: "permitir
+        reverter uma eliminacao, mas registrando quem reverteu, quando e por
+        que")."""
+        justificativa_normalizada = normalize_text(justificativa)
+        if len(justificativa_normalizada) < 10:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Informe uma justificativa com pelo menos 10 caracteres para reconsiderar a eliminação.",
+            )
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_pipeline_columns(cursor)
+            ensure_process_reference_columns(cursor)
+
+            cursor.execute(
+                """
+                SELECT
+                    id_registro, id_processo, id_processo_ref, id_teste,
+                    nome_candidato, vaga, status_candidato, origem
+                FROM candidatos_processos
+                WHERE id_registro = ?
+                """,
+                (id_registro,),
+            )
+            current_rows = rows_to_dicts(cursor, cursor.fetchall())
+            if not current_rows:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato do processo não encontrado.")
+            current = current_rows[0]
+
+            status_atual = canonicalize_candidate_status(current.get("status_candidato"))
+            reconsideravel = {CANDIDATE_STATUS_ELIMINATED, CANDIDATE_STATUS_NOT_QUALIFIED, CANDIDATE_STATUS_WITHDREW}
+            if status_atual not in reconsideravel:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Este candidato não está eliminado neste processo — não há o que reconsiderar.",
+                )
+
+            processo = get_process_row(
+                cursor,
+                current.get("id_processo_ref") or current.get("id_processo", ""),
+            )
+            if processo and is_process_closed(processo.get("status")):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=build_process_closed_message("reconsiderar a eliminação do candidato", processo.get("id_processo")),
+                )
+
+            novo_status = CANDIDATE_STATUS_ANALYSIS
+            cursor.execute(
+                """
+                UPDATE candidatos_processos
+                SET status_candidato = ?, etapa_pipeline = ?, data_atualizacao_pipeline = GETDATE()
+                WHERE id_registro = ?
+                """,
+                (novo_status, "Triagem", id_registro),
+            )
+
+            self._record_candidate_movement(
+                cursor,
+                id_teste=normalize_text(current.get("id_teste")),
+                id_registro=id_registro,
+                id_processo=normalize_text(current.get("id_processo")),
+                id_processo_ref=normalize_text(current.get("id_processo_ref")),
+                nome_candidato=normalize_text(current.get("nome_candidato")),
+                vaga=normalize_text(current.get("vaga")),
+                origem_inicial=normalize_text(current.get("origem")),
+                tipo_movimentacao="Eliminação reconsiderada",
+                status_anterior=status_atual,
+                status_novo=novo_status,
+                observacao=justificativa_normalizada,
+                usuario_responsavel=normalize_text(actor),
+            )
+
+            conn.commit()
+            logger.info(
+                "Eliminação do candidato %s reconsiderada por '%s'.",
+                id_registro,
+                actor,
+            )
+            return {"success": True}
+        finally:
+            conn.close()
+
     def list_process_dossier_notes(self, id_processo: str) -> list[dict]:
         conn = self._connect()
         try:

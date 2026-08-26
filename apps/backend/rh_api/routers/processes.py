@@ -8,6 +8,7 @@ from ..dependencies import audit_action, ensure_user_permission, get_current_use
 from ..repositories import DatabaseRepository
 from ..schemas.processes import (
     CandidateProfileUpdateRequest,
+    CandidateReconsiderRequest,
     CandidateSheetUpdateRequest,
     CvPreAnalysisUpdateRequest,
     ProcessDossierNoteCreateRequest,
@@ -272,6 +273,33 @@ def update_process_candidate_status(
         user,
         modulo="Candidatos",
         acao="atualizar_status_candidato",
+        entidade="candidato_processo",
+        entidade_id=str(id_registro),
+        valor_novo=payload.model_dump(),
+    )
+    return result
+
+
+@router.post(
+    "/process-candidates/{id_registro}/reconsider",
+    dependencies=[Depends(require_permissions("candidatos.reverter_eliminacao"))],
+)
+def reconsider_process_candidate(
+    id_registro: int,
+    payload: CandidateReconsiderRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.reconsider_candidate_elimination(
+        id_registro,
+        payload.justificativa,
+        actor=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Candidatos",
+        acao="reconsiderar_eliminacao",
         entidade="candidato_processo",
         entidade_id=str(id_registro),
         valor_novo=payload.model_dump(),

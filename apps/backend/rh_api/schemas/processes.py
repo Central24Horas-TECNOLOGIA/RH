@@ -375,6 +375,20 @@ class StandaloneCandidateStatusUpdateRequest(BaseSchema):
         return safe_value
 
 
+class CandidateReconsiderRequest(BaseSchema):
+    justificativa: str = ""
+
+    @field_validator("justificativa")
+    @classmethod
+    def validate_justificativa(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if len(safe_value) < 10:
+            raise ValueError("Informe uma justificativa com pelo menos 10 caracteres.")
+        if len(safe_value) > 500:
+            raise ValueError("A justificativa deve ter no máximo 500 caracteres.")
+        return safe_value
+
+
 class WhatsAppManualContactRequest(BaseSchema):
     tipo_contato: str = "contato_enviado"
     observacao: str = ""
