@@ -1,28 +1,45 @@
-{
-    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#sites('c24hs.sharepoint.com%2C9eb6fd7e-f1a1-4a0a-a990-bb8b334838cd%2Cb39d647b-f7ca-41c6-8487-52e33fbc041e')/permissions",
-    "@microsoft.graph.tips": "Use $select to choose only the properties your app needs, as this can lead to performance improvements. For example: GET sites('<key>')/permissions?$select=expirationDateTime,grantedTo",
-    "value": [
-        {
-            "id": "aTowaS50fG1zLnNwLmV4dHxiNzc3ZGYyYi0yOGMxLTRkODMtYWRlMy02ZjcyZjE4ZWM2NGJANzA1NTk4NTktZWVmMy00YjFjLTg2ZTctMTRhNmQwYzczMmJk",
-            "roles": [
-                "write"
-            ],
-            "grantedToIdentitiesV2": [
-                {
-                    "application": {
-                        "displayName": "Conecta",
-                        "id": "b777df2b-28c1-4d83-ade3-6f72f18ec64b"
-                    }
-                }
-            ],
-            "grantedToIdentities": [
-                {
-                    "application": {
-                        "displayName": "Conecta",
-                        "id": "b777df2b-28c1-4d83-ade3-6f72f18ec64b"
-                    }
-                }
-            ]
-        }
-    ]
-}
+Pode implementar: 
+* Banco de questões reutilizável por operação/trilha
+* Provas por competência, não só por operação
+* Pré-visualização da prova como o candidato vê
+* Duração e tolerância configuráveis por etapa
+* Heatmap de questões
+* Exportação de resultado individual em PDF de uma página
+* Replay da prova
+* Barra de progresso persistente
+* Estado vazio ilustrado e didático
+* Modal de "confirmar antes de encerrar prova
+* Filtro combinado por operação + trilha + intervalo de nota
+* Busca por candidato entre todas as provas já feitas
+* Motivo de eliminação estruturado com sub-causa
+* Reconsideração com trilha de auditoria
+* Sugestão automática de banco de talentos por vaga aberta
+* Comando rápido (busca universal com ações): já existe BuscaGlobalTopbar — expandir para aceitar comandos, não só busca (ex: digitar "novo processo CRF" já abre o formulário pré-preenchido).
+* Templates de processo seletivo: clonar um processo anterior com um clique, em vez de preencher tudo do zero toda vez que abre uma vaga parecida.
+* Atalhos de teclado nas telas de maior volume (processos, candidatos) 
+* Timeline única do candidato
+* Memória institucional de decisões
+* Onboarding guiado por perfil
+* Linguagem sempre em português claro, nunca termos técnicos
+* Modo "o que mudou desde a última vez que você entrou"
+* Página de boas-vindas personalizada com o nome e a foto/avatar do usuário logo após o login, antes do dashboard
+* Estados de carregamento com mensagens variadas e específicas do contexto
+* Confirmações visuais mais ricas
+* Menções em anotações
+* Comentários em processo/candidato
+* Chat 1:1 e por operação/equipe
+* Envio direto de arquivo pessoa-a-pessoa dentro do Drive-Conecta
+* Indicador de presença simples ("Fulano está online agora").
+* Criação de opção de entrevista/conversa pelo Teams: Em processo seletivo será possível agendar uma entrevista pelo Teams, com o gestor, com um modal de avaliação do candidato logo após o fim da conversa. 
+
+Pode implementar mas com ressalva:
+* Correção de Excel configurável pelo RH: É preciso que tanto a prova quanto a correção possam serem feitas de forma completa, isto é, o candidato faça tudo igual ao que ele faria no Excel: Planilhas/funções/cálculos/formatações/importações/tabelas dinâmicas/gráficos/filtros e etc.
+* Comparativo entre turmas/edições da mesma prova: acho que caberia um comparativo entre candidatos ! Seria muito mais útil. Onde o RH poderia comparar dois candidados ou mais que já fizeram a prova. Fazer um balanceamento. Filtragem. E até mesmo aprovar/eliminar por comparação. Seria uma ferramenta muito útil. 
+* Expiração e "revalidação" do banco de talentos: Por questões de segurança, depois de 6 meses o candidato deve sair do banco de talentos. 
+* Aprovação em lote: Vamos expandir esse ideia, além de aprovação em lote, vamos também de eliminação em lotes, e certas ações em lotes.
+
+
+
+Postergada (Baixia prioriada - futuro)
+* Modo de alto contraste / fonte maior
+* Painel "por que esse candidato foi eliminado
