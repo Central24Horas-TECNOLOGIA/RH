@@ -16,6 +16,12 @@ function carregarTela(importador, nomeExportado) {
   return lazy(() => importador().then((modulo) => ({ default: modulo[nomeExportado] })));
 }
 
+const MENSAGENS_CARREGAMENTO_TELA = [
+  'Aguarde: carregando informações.',
+  'Organizando os dados da tela...',
+  'Quase lá...',
+];
+
 function TelaCarregando({
   titulo = 'Carregando tela',
   descricao = 'Aguarde: Carregando informações.',
@@ -26,6 +32,7 @@ function TelaCarregando({
         <${LoadingState}
           titulo=${titulo}
           descricao=${descricao}
+          mensagens=${MENSAGENS_CARREGAMENTO_TELA}
         />
       </div>
     </section>
@@ -56,6 +63,7 @@ function TelaCarregandoComShell({ controlador, navAtiva }) {
             <${LoadingState}
               titulo="Carregando tela"
               descricao="Aguarde: carregando o conteúdo desta página."
+              mensagens=${MENSAGENS_CARREGAMENTO_TELA}
             />
           </main>
         </div>
@@ -122,6 +130,14 @@ const TelaTemplatesDocumentos = carregarTela(
 const TelaTreinamentos = carregarTela(
   () => import('../features/treinamentos/index.js'),
   'TelaTreinamentos',
+);
+const TelaProvasConfiguracao = carregarTela(
+  () => import('../features/conecta-provas-configuracao/index.js'),
+  'TelaProvasConfiguracao',
+);
+const TelaAdministracao = carregarTela(
+  () => import('../features/administracao/index.js'),
+  'TelaAdministracao',
 );
 const importarDisc = () => import('../features/disc/index.js');
 const importarFitCultural = () => import('../features/fit-cultural/index.js');
@@ -427,6 +443,14 @@ function ConteudoAplicacao({ controlador, telaAtual, telaResolvida }) {
 
   if (telaResolvida === 'screen-generated-exams') {
     return html`<${TelaProvasResultados} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-provas-configuracao') {
+    return html`<${TelaProvasConfiguracao} controlador=${controlador} />`;
+  }
+
+  if (telaResolvida === 'screen-settings-administracao') {
+    return html`<${TelaAdministracao} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-process-analytical-results') {
