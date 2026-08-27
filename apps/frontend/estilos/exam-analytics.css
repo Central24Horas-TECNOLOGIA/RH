@@ -48,6 +48,8 @@
 .exam-analytics-privacy { margin-top: 1rem; color: #4d617f; font-size: .82rem; }
 .exam-analytics-compare-table th:first-child { min-width: 190px; }
 .exam-analytics-compare-table td small { display: block; color: #77849a; }
+.exam-analytics-compare-actions { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e7ecf3; }
+.exam-analytics-compare-actions-title { margin: 0 0 8px; font-size: .82rem; color: #4d617f; text-transform: uppercase; letter-spacing: .02em; }
 .exam-analytics-config-help { margin-bottom: 1rem; }
 .exam-analytics-config-modal input[type='number'] { min-width: 110px; }
 .exam-analytics-weight-total { display: flex; justify-content: flex-end; gap: .35rem; margin: .75rem 0; }

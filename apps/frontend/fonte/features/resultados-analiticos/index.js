@@ -1,5 +1,6 @@
 import { html, useEffect, useMemo, useState } from '../../infraestrutura-react.js';
 import {
+  atualizarStatusCandidato,
   compararResultadosAnaliticos,
   lerConfiguracaoResultadosAnaliticosProcesso,
   lerDetalheResultadoAnalitico,
@@ -199,13 +200,34 @@ function ModalDetalheAnalitico({ detail, loading, onClose }) {
   `;
 }
 
-function ModalComparacao({ data, loading, onClose }) {
+function ModalComparacao({ data, loading, onClose, podeAprovar, podeEliminar, acaoEmAndamento, onAprovar, onEliminar }) {
   const items = data?.items || [];
   const categoryKeys = Array.from(new Set(items.flatMap((item) => (item.categorias || []).map((category) => category.key))));
+  const [motivoEliminacaoAberto, setMotivoEliminacaoAberto] = useState('');
+  const [motivoEliminacaoTexto, setMotivoEliminacaoTexto] = useState('');
+
+  useEffect(() => {
+    setMotivoEliminacaoAberto('');
+    setMotivoEliminacaoTexto('');
+  }, [data]);
+
+  const confirmarEliminacao = (idRegistro) => {
+    const motivo = motivoEliminacaoTexto.trim();
+    if (!motivo) return;
+    onEliminar(idRegistro, motivo);
+    setMotivoEliminacaoAberto('');
+    setMotivoEliminacaoTexto('');
+  };
+
   return html`
     <${ModalPadrao} aberto=${Boolean(loading || data)} titulo="Comparação de candidatos" subtitulo="Comparação limitada a 2 ou 3 resultados do mesmo processo." onClose=${onClose} className="exam-analytics-compare-modal">
       ${loading
-      ? html`<${LoadingState} titulo="Preparando comparação" />`
+      ? html`
+            <${LoadingState}
+              titulo="Preparando comparação"
+              mensagens=${['Buscando os resultados oficiais...', 'Alinhando categorias e pesos...', 'Montando a comparação...']}
+            />
+          `
       : html`
           ${(data?.warnings || []).map((warning) => html`<div class="alert alert-warning" key=${warning}>${warning}</div>`)}
           ${(data?.assessmentDifferences || []).length ? html`<ul class="exam-analytics-notes">${data.assessmentDifferences.map((difference) => html`<li key=${difference.candidateId}><strong>${difference.candidateName}:</strong> ${difference.reason} Gabarito ${difference.answerKeyVersion}.</li>`)}</ul>` : null}
@@ -226,6 +248,81 @@ function ModalComparacao({ data, loading, onClose }) {
             ${categoryKeys.map((key) => html`<tr key=${key}><th>${items.flatMap((item) => item.categorias || []).find((category) => category.key === key)?.name || key}</th>${items.map((item) => { const category = (item.categorias || []).find((entry) => entry.key === key); return html`<td><strong>${numero(category?.officialScore)}</strong><small>${category?.percentile === null || category?.percentile === undefined ? 'percentil indisponível' : `percentil ${numero(category.percentile)}`}</small></td>`; })}</tr>`)}
           </tbody></table></div>
           <p class="exam-analytics-caption">Empates permanecem empatados; tempo e dados pessoais não são usados para desempate.</p>
+          ${(podeAprovar || podeEliminar)
+      ? html`
+                <div class="exam-analytics-compare-actions">
+                  <h5 class="exam-analytics-compare-actions-title">Decidir por comparação</h5>
+                  <div class="row g-2">
+                    ${items.map((item) => html`
+                      <div key=${item.id_teste} class="col-md-${items.length === 2 ? '6' : '4'}">
+                        <div class="rh-section-card rh-section-card--flat" style="padding:12px;">
+                          <strong class="d-block mb-2">${item.nome_candidato}</strong>
+                          <div class="d-flex gap-2 flex-wrap">
+                            ${podeAprovar
+        ? html`
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    disabled=${acaoEmAndamento}
+                                    onClick=${() => onAprovar(item.id_registro)}
+                                  >
+                                    Aprovar
+                                  </button>
+                                `
+        : null}
+                            ${podeEliminar
+        ? html`
+                                  <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    disabled=${acaoEmAndamento}
+                                    onClick=${() => {
+              setMotivoEliminacaoAberto(item.id_teste);
+              setMotivoEliminacaoTexto('');
+            }}
+                                  >
+                                    Eliminar
+                                  </button>
+                                `
+        : null}
+                          </div>
+                          ${motivoEliminacaoAberto === item.id_teste
+        ? html`
+                                <div class="mt-2">
+                                  <textarea
+                                    class="form-control form-control-sm"
+                                    rows="2"
+                                    placeholder="Motivo da eliminação"
+                                    value=${motivoEliminacaoTexto}
+                                    onInput=${(event) => setMotivoEliminacaoTexto(event.target.value)}
+                                  ></textarea>
+                                  <div class="d-flex gap-2 mt-1">
+                                    <button
+                                      type="button"
+                                      class="btn btn-sm btn-danger"
+                                      disabled=${acaoEmAndamento || !motivoEliminacaoTexto.trim()}
+                                      onClick=${() => confirmarEliminacao(item.id_registro)}
+                                    >
+                                      Confirmar eliminação
+                                    </button>
+                                    <button
+                                      type="button"
+                                      class="btn btn-sm btn-outline-secondary"
+                                      onClick=${() => setMotivoEliminacaoAberto('')}
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                </div>
+                              `
+        : null}
+                        </div>
+                      </div>
+                    `)}
+                  </div>
+                </div>
+              `
+      : null}
         `}
     </${ModalPadrao}>
   `;
@@ -305,6 +402,7 @@ export function TelaResultadosAnaliticosProcesso({ controlador }) {
   const [configSaving, setConfigSaving] = useState(false);
   const [configError, setConfigError] = useState('');
   const [configMessage, setConfigMessage] = useState('');
+  const [acaoComparacaoEmAndamento, setAcaoComparacaoEmAndamento] = useState(false);
 
   const load = async ({ quiet = false, override = null } = {}) => {
     if (!processId) {
@@ -393,6 +491,40 @@ export function TelaResultadosAnaliticosProcesso({ controlador }) {
       setError(compareError?.message || 'Não foi possível comparar os candidatos.');
     } finally {
       setComparisonLoading(false);
+    }
+  };
+
+  const aprovarCandidatoComparado = async (idRegistro) => {
+    if (!idRegistro) return;
+    if (!window.confirm('Aprovar este candidato?')) return;
+    setAcaoComparacaoEmAndamento(true);
+    setError('');
+    try {
+      await atualizarStatusCandidato(idRegistro, { status_candidato: 'aprovado' });
+      setComparison(null);
+      await load({ quiet: true });
+    } catch (actionError) {
+      setError(actionError?.message || 'Não foi possível aprovar o candidato.');
+    } finally {
+      setAcaoComparacaoEmAndamento(false);
+    }
+  };
+
+  const eliminarCandidatoComparado = async (idRegistro, motivo) => {
+    if (!idRegistro || !motivo) return;
+    setAcaoComparacaoEmAndamento(true);
+    setError('');
+    try {
+      await atualizarStatusCandidato(idRegistro, {
+        status_candidato: 'eliminado',
+        motivo_eliminacao: motivo,
+      });
+      setComparison(null);
+      await load({ quiet: true });
+    } catch (actionError) {
+      setError(actionError?.message || 'Não foi possível eliminar o candidato.');
+    } finally {
+      setAcaoComparacaoEmAndamento(false);
     }
   };
 
@@ -559,7 +691,16 @@ export function TelaResultadosAnaliticosProcesso({ controlador }) {
         </${SectionCard}>
       </div>
       <${ModalDetalheAnalitico} detail=${detail} loading=${detailLoading} onClose=${() => { setDetail(null); setDetailLoading(false); }} />
-      <${ModalComparacao} data=${comparison} loading=${comparisonLoading} onClose=${() => { setComparison(null); setComparisonLoading(false); }} />
+      <${ModalComparacao}
+        data=${comparison}
+        loading=${comparisonLoading}
+        onClose=${() => { setComparison(null); setComparisonLoading(false); }}
+        podeAprovar=${!!controlador?.possuiPermissao?.('candidatos.aprovar_final')}
+        podeEliminar=${!!controlador?.possuiPermissao?.('candidatos.eliminar')}
+        acaoEmAndamento=${acaoComparacaoEmAndamento}
+        onAprovar=${aprovarCandidatoComparado}
+        onEliminar=${eliminarCandidatoComparado}
+      />
       <${ModalConfiguracao} open=${configOpen} configuration=${configuration} form=${configForm} mappings=${mappingForm} saving=${configSaving} error=${configError} message=${configMessage} onChange=${updateConfigForm} onMappingChange=${updateMappingForm} onClose=${() => setConfigOpen(false)} onSaveWeights=${saveWeights} onSaveProfile=${saveProfile} onSaveMappings=${saveMappings} />
     </${PainelRh}>
   `;

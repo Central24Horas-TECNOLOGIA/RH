@@ -202,6 +202,26 @@ class TalentBankRepositoryMixin:
         finally:
             conn.close()
 
+    def revalidate_talent_bank_candidate(self, id_banco: int) -> dict:
+        """Reinicia a contagem de permanencia do candidato no banco de
+        talentos (roadmap de expansao: expiracao apos 6 meses,
+        TALENT_BANK_EXPIRATION_DAYS). Usado quando o RH revisa manualmente um
+        candidato expirado e decide mante-lo disponivel para matching."""
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_talent_bank_table(cursor)
+            cursor.execute(
+                "UPDATE banco_talentos SET data_movimentacao = ? WHERE id_banco = ?",
+                (datetime.now().isoformat(), id_banco),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato não encontrado no banco de talentos.")
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()
+
     def add_candidate_to_talent_bank(self, data: dict) -> dict:
         conn = self._connect()
         try:

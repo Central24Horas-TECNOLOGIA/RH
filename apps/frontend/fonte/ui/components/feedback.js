@@ -1,4 +1,4 @@
-import { html } from '../../infraestrutura-react.js';
+import { html, useEffect, useState } from '../../infraestrutura-react.js';
 import { construirModeloPaginacao } from '../../utilitarios.js';
 
 function BotaoPaginacao({ pagina, ativa, onClick }) {
@@ -107,7 +107,21 @@ export function EmptyState({ title, text, icon = '', action = null }) {
 export function LoadingState({
   titulo = 'Carregando dados',
   descricao = 'Aguarde enquanto as informações são atualizadas.',
+  mensagens = null,
 }) {
+  const listaMensagens = Array.isArray(mensagens) ? mensagens.filter(Boolean) : [];
+  const [indiceMensagem, setIndiceMensagem] = useState(0);
+
+  useEffect(() => {
+    if (listaMensagens.length < 2) return undefined;
+    const intervalo = setInterval(() => {
+      setIndiceMensagem((atual) => (atual + 1) % listaMensagens.length);
+    }, 2200);
+    return () => clearInterval(intervalo);
+  }, [listaMensagens.length]);
+
+  const textoExibido = listaMensagens.length ? listaMensagens[indiceMensagem % listaMensagens.length] : descricao;
+
   return html`
     <div class="rh-loading-state c24-loading-panel">
       <div
@@ -117,7 +131,7 @@ export function LoadingState({
       ></div>
       <div>
         <strong>${titulo}</strong>
-        <p>${descricao}</p>
+        <p>${textoExibido}</p>
       </div>
     </div>
   `;

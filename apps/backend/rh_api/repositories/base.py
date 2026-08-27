@@ -1499,6 +1499,7 @@ class BaseRepository:
         new_status_normalized = normalize_compare_text(resolved_new_status)
         payload = approval_payload or {}
         motivo_eliminacao = normalize_text(payload.get("motivo_eliminacao"))
+        sub_causa_eliminacao = normalize_text(payload.get("sub_causa_eliminacao"))
         etapa_eliminacao = normalize_text(payload.get("etapa_eliminacao"))
 
         if is_terminal_candidate_status(old_status):
@@ -1547,6 +1548,7 @@ class BaseRepository:
                 id_processo_ref = ?,
                 eliminado_em = CASE WHEN ? = ? THEN ISNULL(eliminado_em, GETDATE()) ELSE eliminado_em END,
                 motivo_eliminacao = CASE WHEN ? = ? THEN ? ELSE motivo_eliminacao END,
+                sub_causa_eliminacao = CASE WHEN ? = ? THEN ? ELSE sub_causa_eliminacao END,
                 etapa_eliminacao = CASE WHEN ? = ? THEN ? ELSE etapa_eliminacao END,
                 banco_talentos_em = CASE WHEN ? = ? THEN ISNULL(banco_talentos_em, GETDATE()) ELSE banco_talentos_em END
             WHERE id_registro = ?
@@ -1561,6 +1563,9 @@ class BaseRepository:
                 new_status_normalized,
                 normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
                 motivo_eliminacao,
+                new_status_normalized,
+                normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
+                sub_causa_eliminacao,
                 new_status_normalized,
                 normalize_compare_text(CANDIDATE_STATUS_ELIMINATED),
                 etapa_eliminacao,

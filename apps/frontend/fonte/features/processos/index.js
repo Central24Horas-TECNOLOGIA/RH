@@ -42,6 +42,7 @@ import {
   lerFichaCandidato,
   lerPreAnalisesCv,
   lerProcessos,
+  listarMotivosEliminacao,
   lerScorecardCandidato,
   salvarScorecardCandidato,
   lerSlotsEntrevista,
@@ -6625,8 +6626,10 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [eliminacaoSelecionada, setEliminacaoSelecionada] = useState(null);
   const [aprovacaoLoteSelecionados, setAprovacaoLoteSelecionados] = useState(null);
   const [aprovandoLote, setAprovandoLote] = useState(false);
+  const [motivosEliminacaoCatalogo, setMotivosEliminacaoCatalogo] = useState([]);
   const [formularioEliminacao, setFormularioEliminacao] = useState({
     motivo_eliminacao: '',
+    sub_causa_eliminacao: '',
     etapa_eliminacao: '',
     observacao_eliminacao: '',
   });
@@ -8265,6 +8268,33 @@ export function TelaDetalhesProcesso({ controlador }) {
     }
   };
 
+  useEffect(() => {
+    let cancelado = false;
+    listarMotivosEliminacao()
+      .then((dados) => {
+        if (!cancelado) setMotivosEliminacaoCatalogo(Array.isArray(dados) ? dados : []);
+      })
+      .catch(() => {
+        // Falha silenciosa: o formulário de eliminação cai para a lista
+        // estática de motivos (MOTIVOS_ELIMINACAO) se o catálogo não puder
+        // ser carregado.
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const motivosEliminacaoDisponiveis = motivosEliminacaoCatalogo.length
+    ? motivosEliminacaoCatalogo.map((item) => item.nome)
+    : MOTIVOS_ELIMINACAO;
+
+  const subCausasEliminacaoDisponiveis = (() => {
+    const item = motivosEliminacaoCatalogo.find(
+      (entry) => entry.nome === formularioEliminacao.motivo_eliminacao,
+    );
+    return Array.isArray(item?.payload?.sub_causas) ? item.payload.sub_causas : [];
+  })();
+
   const abrirEliminacao = (candidato) => {
     const estadoAcoes = candidato?.acoes_fluxo || getCandidateActionState(candidato, processo?.status || '');
     if (estadoAcoes.processClosed || processoEncerrado) {
@@ -8280,6 +8310,7 @@ export function TelaDetalhesProcesso({ controlador }) {
     setErroEliminacao('');
     setFormularioEliminacao({
       motivo_eliminacao: '',
+      sub_causa_eliminacao: '',
       etapa_eliminacao: '',
       observacao_eliminacao: '',
     });
@@ -8301,7 +8332,7 @@ export function TelaDetalhesProcesso({ controlador }) {
       return;
     }
     setErroEliminacao('');
-    setFormularioEliminacao({ motivo_eliminacao: '', etapa_eliminacao: '', observacao_eliminacao: '' });
+    setFormularioEliminacao({ motivo_eliminacao: '', sub_causa_eliminacao: '', etapa_eliminacao: '', observacao_eliminacao: '' });
     setEliminacaoSelecionada({
       id_registro: '__lote__',
       nome_candidato: `${candidatosValidos.length} candidatos selecionados`,
@@ -8458,6 +8489,7 @@ export function TelaDetalhesProcesso({ controlador }) {
 
     const dadosEliminacao = {
       motivo_eliminacao: motivo,
+      sub_causa_eliminacao: String(formularioEliminacao.sub_causa_eliminacao || '').trim(),
       etapa_eliminacao: motivo === 'Eliminado na entrevista' ? etapa : '',
       data_eliminacao: new Date().toISOString(),
       observacao_eliminacao: String(formularioEliminacao.observacao_eliminacao || '').trim(),
@@ -11769,6 +11801,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           setFormularioEliminacao({
             ...formularioEliminacao,
             motivo_eliminacao: event.target.value,
+            sub_causa_eliminacao: '',
             etapa_eliminacao:
               event.target.value === 'Eliminado na entrevista'
                 ? formularioEliminacao.etapa_eliminacao
@@ -11776,13 +11809,36 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           })}
                     >
                       <option value="">Selecione...</option>
-                      ${MOTIVOS_ELIMINACAO.map(
+                      ${motivosEliminacaoDisponiveis.map(
             (motivo) => html`
                           <option key=${motivo} value=${motivo}>${motivo}</option>
                         `,
           )}
                     </select>
                   </div>
+                  ${subCausasEliminacaoDisponiveis.length
+        ? html`
+                        <div class="col-md-12">
+                          <label class="form-label">Sub-causa (opcional)</label>
+                          <select
+                            class="form-select"
+                            value=${formularioEliminacao.sub_causa_eliminacao}
+                            onChange=${(event) =>
+              setFormularioEliminacao({
+                ...formularioEliminacao,
+                sub_causa_eliminacao: event.target.value,
+              })}
+                          >
+                            <option value="">Selecione...</option>
+                            ${subCausasEliminacaoDisponiveis.map(
+                (subCausa) => html`
+                                  <option key=${subCausa} value=${subCausa}>${subCausa}</option>
+                                `,
+              )}
+                          </select>
+                        </div>
+                      `
+        : null}
                   ${formularioEliminacao.motivo_eliminacao === 'Eliminado na entrevista'
           ? html`
                         <div class="col-md-12">
