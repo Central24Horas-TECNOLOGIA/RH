@@ -171,7 +171,7 @@ export function TelaDiscAdmin({ controlador }) {
 
           ${form.frases.map(
         (frase, indice) => html`
-              <div class="row g-2 align-items-end" key=${indice} style="margin-top:8px;">
+              <div class="row g-2 align-items-end" key=${indice} style=${{ marginTop: '8px' }}>
                 <div class="col-md-3">
                   <div class="rh-filter-field">
                     <label>Dimensão</label>
@@ -362,7 +362,7 @@ export function TelaDiscTestePublico() {
                   `,
       )}
 
-                <div class="d-flex justify-content-between" style="margin-top:16px;">
+                <div class="d-flex justify-content-between" style=${{ marginTop: '16px' }}>
                   <button
                     type="button"
                     class="btn btn-outline-secondary"
@@ -440,7 +440,7 @@ export function PainelResultadoDisc({ idTeste }) {
           </div>
         `,
       )}
-      <div class=${`rh-aderencia-badge ${faixaClasse}`} style="margin-top:8px;">
+      <div class=${`rh-aderencia-badge ${faixaClasse}`} style=${{ marginTop: '8px' }}>
         <span class="material-symbols-outlined">support_agent</span>
         Aderência Call Center: ${aderencia.percentual_aderencia ?? '-'}% (${aderencia.faixa || 'não calculada'})
       </div>

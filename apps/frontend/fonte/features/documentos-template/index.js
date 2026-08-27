@@ -226,7 +226,7 @@ export function TelaTemplatesDocumentos({ controlador }) {
             <div class="col-md-4">
               <div class="rh-filter-field">
                 <label>Variáveis suportadas</label>
-                <ul class="list-unstyled small d-flex flex-column gap-2" style="max-height:320px;overflow-y:auto;">
+                <ul class="list-unstyled small d-flex flex-column gap-2" style=${{ maxHeight: '320px', overflowY: 'auto' }}>
                   ${variaveis.map(
       (item) => html`
                       <li key=${item.variavel}>
@@ -237,7 +237,7 @@ export function TelaTemplatesDocumentos({ controlador }) {
                           title=${item.descricao}
                         >
                           <code>{{${item.variavel}}}</code>
-                          <div class="text-muted" style="font-size:11px;">${item.descricao}</div>
+                          <div class="text-muted" style=${{ fontSize: '11px' }}>${item.descricao}</div>
                         </button>
                       </li>
                     `,

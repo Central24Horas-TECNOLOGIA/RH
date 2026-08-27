@@ -130,6 +130,15 @@ def _resolve_frontend_file(frontend_root: Path, requested_path: str) -> Path | N
     return None
 
 
+def _index_html_response(index_file: Path) -> FileResponse:
+    # index.html referencia os assets versionados (?v=...); sem revalidar a
+    # cada acesso, o navegador pode servir do cache heuristico um HTML antigo
+    # apontando para JS/CSS que ja mudaram (ou paths ja corrigidos), causando
+    # 404 e a tela em branco de "Nao foi possivel renderizar a interface
+    # principal". FileResponse nao define Cache-Control por padrao.
+    return FileResponse(index_file, headers={"Cache-Control": "no-cache"})
+
+
 def _runtime_config_response(settings) -> Response:
     runtime_config = {
         "API_BASE_URL": settings.frontend_api_base_url,
@@ -191,12 +200,12 @@ def _register_frontend_routes(app: FastAPI, settings) -> None:
     @app.get("/", include_in_schema=False)
     def root_entrypoint(request: Request):
         if _client_prefers_html(request):
-            return FileResponse(index_file)
+            return _index_html_response(index_file)
         return JSONResponse(build_system_status(settings))
 
     @app.get("/index.html", include_in_schema=False)
     def frontend_index():
-        return FileResponse(index_file)
+        return _index_html_response(index_file)
 
     @app.get("/runtime-config.js", include_in_schema=False)
     def runtime_config():
@@ -219,7 +228,7 @@ def _register_frontend_routes(app: FastAPI, settings) -> None:
             return FileResponse(static_file)
 
         if _client_prefers_html(request) and not Path(frontend_path).suffix:
-            return FileResponse(index_file)
+            return _index_html_response(index_file)
 
         raise HTTPException(status_code=404, detail="Tela não encontrada.")
 

@@ -161,7 +161,7 @@ export function TelaFitCulturalAdmin({ controlador }) {
                       <tr key=${valor.id_valor}>
                         <td>
                           <strong>${valor.nome}</strong>
-                          <div class="text-muted" style="font-size:12px;">${valor.descricao || ''}</div>
+                          <div class="text-muted" style=${{ fontSize: '12px' }}>${valor.descricao || ''}</div>
                         </td>
                         <td>${(valor.frases || []).length} frase(s)</td>
                         <td>
@@ -217,7 +217,7 @@ export function TelaFitCulturalAdmin({ controlador }) {
             <label>Frases associadas</label>
             ${form.frases.map(
         (frase, indice) => html`
-                <div class="d-flex gap-2 align-items-center" key=${indice} style="margin-bottom:8px;">
+                <div class="d-flex gap-2 align-items-center" key=${indice} style=${{ marginBottom: '8px' }}>
                   <input
                     class="form-control"
                     value=${frase.frase}
@@ -241,7 +241,7 @@ export function TelaFitCulturalAdmin({ controlador }) {
             </button>
           </div>
 
-          <label class="d-flex align-items-center gap-2" style="margin-top:16px;">
+          <label class="d-flex align-items-center gap-2" style=${{ marginTop: '16px' }}>
             <input
               type="checkbox"
               checked=${form.ativo}
@@ -357,7 +357,7 @@ export function TelaFitCulturalTestePublico() {
           ${frases.map(
         (frase) => html`
               <div class="rh-likert-frase" key=${frase.id_frase}>
-                <p style="margin-bottom:0;">${frase.frase}</p>
+                <p style=${{ marginBottom: 0 }}>${frase.frase}</p>
                 <div class="rh-likert-opcoes">
                   ${OPCOES_LIKERT.map(
           (opcao) => html`
@@ -423,7 +423,7 @@ export function PainelResultadoFitCultural({ candidatoProcessoId }) {
           </div>
         `,
       )}
-      <div class="rh-aderencia-badge is-alta" style="margin-top:8px;">
+      <div class="rh-aderencia-badge is-alta" style=${{ marginTop: '8px' }}>
         <span class="material-symbols-outlined">diversity_3</span>
         Score geral de fit cultural: ${resultado.score_geral}%
       </div>

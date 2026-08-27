@@ -273,7 +273,7 @@ export function TelaRaciocinioAdmin({ controlador }) {
             <label>Alternativas (marque o gabarito)</label>
             ${form.alternativas.map(
         (alternativa, indice) => html`
-                <div class="d-flex gap-2 align-items-center" key=${indice} style="margin-bottom:8px;">
+                <div class="d-flex gap-2 align-items-center" key=${indice} style=${{ marginBottom: '8px' }}>
                   <input
                     type="radio"
                     name="gabarito-raciocinio"
@@ -495,10 +495,10 @@ export function TelaRaciocinioTestePublico() {
               <div class="rh-teste-publico-card">
                 <p class="text-muted">Questão ${indiceAtual + 1} de ${perguntas.length}</p>
                 <h4>${perguntaAtual.enunciado}</h4>
-                <div class="rh-cell-stack" style="margin-top:16px;">
+                <div class="rh-cell-stack" style=${{ marginTop: '16px' }}>
                   ${(perguntaAtual.alternativas || []).map(
         (alternativa, indice) => html`
-                      <label class="d-flex align-items-center gap-2" key=${indice} style="margin-bottom:8px;">
+                      <label class="d-flex align-items-center gap-2" key=${indice} style=${{ marginBottom: '8px' }}>
                         <input
                           type="radio"
                           name=${`pergunta-${perguntaAtual.id_pergunta}`}
@@ -511,7 +511,7 @@ export function TelaRaciocinioTestePublico() {
       )}
                 </div>
 
-                <div class="d-flex justify-content-between" style="margin-top:16px;">
+                <div class="d-flex justify-content-between" style=${{ marginTop: '16px' }}>
                   ${modoAdaptativo
           ? html`<span></span>`
           : html`
@@ -588,7 +588,7 @@ export function PainelResultadoRaciocinio({ idTeste }) {
 
   return html`
     <div>
-      <div class="rh-aderencia-badge is-alta" style="margin-bottom:12px;">
+      <div class="rh-aderencia-badge is-alta" style=${{ marginBottom: '12px' }}>
         <span class="material-symbols-outlined">psychology</span>
         Nota final: ${dados.nota ?? '-'} (${dados.acertos ?? 0}/${dados.total_questoes ?? 0} acertos)
       </div>
