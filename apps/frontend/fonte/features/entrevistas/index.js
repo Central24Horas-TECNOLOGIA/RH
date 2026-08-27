@@ -215,6 +215,7 @@ export function TelaEntrevistas({ controlador }) {
   const [formularioSlots, setFormularioSlots] = useState({
     id_processo_ref: '',
     data: hojeIsoLocal(),
+    somente_dia: false,
     hora_inicio: '09:00',
     hora_fim: '12:00',
     duracao_minutos: 30,
@@ -371,8 +372,12 @@ export function TelaEntrevistas({ controlador }) {
     });
 
   const criarDisponibilidade = async () => {
-    if (!formularioSlots.data || !formularioSlots.hora_inicio || !formularioSlots.hora_fim) {
-      setErro('Informe data, hora inicial e hora final para gerar slots.');
+    if (!formularioSlots.data) {
+      setErro('Informe a data para gerar o horário.');
+      return;
+    }
+    if (!formularioSlots.somente_dia && (!formularioSlots.hora_inicio || !formularioSlots.hora_fim)) {
+      setErro('Informe hora inicial e final, ou marque "somente o dia".');
       return;
     }
     if (Number(formularioSlots.capacidade_total || 0) < 1) {
@@ -742,50 +747,66 @@ export function TelaEntrevistas({ controlador }) {
             />
           </div>
           <div class="rh-filter-field">
-            <label>Início</label>
-            <input
-              class="form-control"
-              type="time"
-              value=${formularioSlots.hora_inicio}
-              disabled=${salvando}
-              onInput=${(event) =>
-                setFormularioSlots({
-                  ...formularioSlots,
-                  hora_inicio: event.target.value,
-                })}
-            />
+            <label class="availability-somente-dia">
+              <input
+                type="checkbox"
+                checked=${formularioSlots.somente_dia}
+                disabled=${salvando}
+                onChange=${(event) =>
+                  setFormularioSlots({ ...formularioSlots, somente_dia: event.target.checked })}
+              />
+              Somente o dia (sem horário definido)
+            </label>
           </div>
-          <div class="rh-filter-field">
-            <label>Fim</label>
-            <input
-              class="form-control"
-              type="time"
-              value=${formularioSlots.hora_fim}
-              disabled=${salvando}
-              onInput=${(event) =>
-                setFormularioSlots({
-                  ...formularioSlots,
-                  hora_fim: event.target.value,
-                })}
-            />
-          </div>
-          <div class="rh-filter-field">
-            <label>Duração (min)</label>
-            <input
-              class="form-control"
-              type="number"
-              min="5"
-              max="240"
-              step="5"
-              value=${formularioSlots.duracao_minutos}
-              disabled=${salvando}
-              onInput=${(event) =>
-                setFormularioSlots({
-                  ...formularioSlots,
-                  duracao_minutos: Number(event.target.value || 30),
-                })}
-            />
-          </div>
+          ${!formularioSlots.somente_dia
+            ? html`
+                <div class="rh-filter-field">
+                  <label>Início</label>
+                  <input
+                    class="form-control"
+                    type="time"
+                    value=${formularioSlots.hora_inicio}
+                    disabled=${salvando}
+                    onInput=${(event) =>
+                      setFormularioSlots({
+                        ...formularioSlots,
+                        hora_inicio: event.target.value,
+                      })}
+                  />
+                </div>
+                <div class="rh-filter-field">
+                  <label>Fim</label>
+                  <input
+                    class="form-control"
+                    type="time"
+                    value=${formularioSlots.hora_fim}
+                    disabled=${salvando}
+                    onInput=${(event) =>
+                      setFormularioSlots({
+                        ...formularioSlots,
+                        hora_fim: event.target.value,
+                      })}
+                  />
+                </div>
+                <div class="rh-filter-field">
+                  <label>Duração (min)</label>
+                  <input
+                    class="form-control"
+                    type="number"
+                    min="5"
+                    max="240"
+                    step="5"
+                    value=${formularioSlots.duracao_minutos}
+                    disabled=${salvando}
+                    onInput=${(event) =>
+                      setFormularioSlots({
+                        ...formularioSlots,
+                        duracao_minutos: Number(event.target.value || 30),
+                      })}
+                  />
+                </div>
+              `
+            : null}
           <div class="rh-filter-field">
             <label>Capacidade por slot</label>
             <input

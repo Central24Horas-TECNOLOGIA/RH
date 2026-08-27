@@ -173,19 +173,28 @@ class InterviewSlotCreateRequest(BaseSchema):
     id_processo: str = ""
     id_processo_ref: str = ""
     data: str
-    hora_inicio: str
-    hora_fim: str
+    somente_dia: bool = False
+    hora_inicio: str = ""
+    hora_fim: str = ""
     duracao_minutos: int = 30
     capacidade_total: int = 1
     observacoes_rh: str = ""
 
-    @field_validator("data", "hora_inicio", "hora_fim")
+    @field_validator("data")
     @classmethod
     def validate_required_text(cls, value: str) -> str:
         safe_value = str(value or "").strip()
         if not safe_value:
-            raise ValueError("Informe data e faixa de horario para criar slots.")
+            raise ValueError("Informe a data para criar o horario.")
         return safe_value
+
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        if self.somente_dia:
+            return self
+        if not self.hora_inicio.strip() or not self.hora_fim.strip():
+            raise ValueError("Informe a faixa de horario ou marque a opcao 'somente o dia'.")
+        return self
 
     @field_validator("duracao_minutos")
     @classmethod

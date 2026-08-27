@@ -210,6 +210,7 @@ export function lerSessaoAutenticacao() {
     perfil_nome: payload.perfil_nome || '',
     nivel: payload.nivel || '',
     permissoes: Array.isArray(payload.permissoes) ? payload.permissoes : [],
+    avatar_ilustrado: payload.avatar_ilustrado || '',
   };
 }
 
@@ -230,6 +231,7 @@ export function salvarSessaoAutenticacao(token, sessaoOuUsuario) {
       perfil_nome: sessao.perfil_nome || '',
       nivel: sessao.nivel || '',
       permissoes: Array.isArray(sessao.permissoes) ? sessao.permissoes : [],
+      avatar_ilustrado: sessao.avatar_ilustrado || '',
     }),
   );
 }

@@ -25,6 +25,7 @@ class AuthenticatedUser:
     nivel: str = "Completo"
     permissions: frozenset[str] = field(default_factory=lambda: frozenset(get_role_permissions(ROLE_ADMIN)))
     status: str = "Ativo"
+    avatar_ilustrado: str = ""
 
     def has_permission(self, permission: str) -> bool:
         return permission in self.permissions
@@ -58,6 +59,7 @@ def _build_user_payload(user: AuthenticatedUser) -> dict:
         "level": user.nivel,
         "permissions": sorted(user.permissions),
         "status": user.status,
+        "avatar": user.avatar_ilustrado,
     }
 
 
@@ -75,6 +77,12 @@ def _build_token(user: AuthenticatedUser) -> str:
         ).encode("utf-8")
     )
     return f"{payload}.{_sign(payload, settings.auth_token_secret)}"
+
+
+def reissue_token(user: AuthenticatedUser) -> str:
+    # O token carrega os dados do usuário em si (sem consulta ao banco a cada
+    # requisição), então mudanças de perfil (ex.: avatar) exigem reemissão.
+    return _build_token(user)
 
 
 def _build_env_admin_user(usuario: str | None = None) -> AuthenticatedUser:
@@ -109,6 +117,7 @@ def _user_from_record(record: dict | None) -> AuthenticatedUser:
         nivel=normalize_text(safe_record.get("nivel")) or role.level,
         permissions=frozenset(permissions),
         status=normalize_text(safe_record.get("status")) or "Ativo",
+        avatar_ilustrado=normalize_text(safe_record.get("avatar_ilustrado")),
     )
 
 
@@ -210,4 +219,5 @@ def validate_access_token(token: str) -> AuthenticatedUser:
         nivel=normalize_text(data.get("level")) or role.level,
         permissions=frozenset(permissions),
         status=normalize_text(data.get("status")) or "Ativo",
+        avatar_ilustrado=normalize_text(data.get("avatar")),
     )

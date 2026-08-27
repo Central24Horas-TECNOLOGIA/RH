@@ -30,6 +30,7 @@ import {
   carregarDetalhesProva,
   construirMapaStatusAtual,
   criarProcesso,
+  criarSlotsEntrevista,
   lerAnalisesCandidatos,
   lerBancoTalentos,
   lerCandidatosProcessos,
@@ -66,6 +67,7 @@ import {
   obterItensPaginados,
 } from '../../utilitarios.js';
 import { abrirBlobEmNovaGuia } from '../../shared/browser-utils.js';
+import { resolverAvatarUrl } from '../../shared/avatares.js';
 import {
   formatarDataHora,
   obterClasseAderencia,
@@ -2008,7 +2010,7 @@ export function TelaInicio({ controlador }) {
         title=${html`
           <div class="d-flex align-items-center gap-3">
             <${AvatarUsuario}
-              avatar=${controlador?.estado?.avatarUsuario || controlador?.estado?.userAvatar || controlador?.estado?.usuarioAvatar || ''}
+              avatar=${resolverAvatarUrl(controlador?.estado?.avatarUsuario)}
               nome=${nomeUsuarioLogado}
               tamanho=${48}
             />
@@ -2144,8 +2146,37 @@ export function TelaInicio({ controlador }) {
 
       <div class="home-dashboard-grid home-dashboard-main-grid">
         <div class="home-dashboard-stack home-dashboard-stack--left">
+          <${SecaoCurriculosRecebidosEmail} modo="resumo" controlador=${controlador} />
+
           <${SectionCard}
-            title="Entrevistas agendadas"
+            title="Movimentações"
+            className="home-activity-card compact-dashboard-card"
+          >
+            ${notificacoesDia.length
+      ? html`
+                  <ul class="home-activity-list">
+                    ${notificacoesDia.map(
+        (item, indice) => html`
+                        <li class=${`home-activity-item ${item.variant || ''}`} key=${`${item.icon}-${indice}`}>
+                          ${item.text}
+                        </li>
+                      `,
+      )}
+                  </ul>
+                `
+      : html`
+                  <div class="home-empty-state">
+                    <span class="material-symbols-outlined">history</span>
+                    <h3>Nenhuma movimentação por aqui</h3>
+                    <p>Aprovações, novos processos e alertas do dia aparecerão aqui.</p>
+                  </div>
+                `}
+          </${SectionCard}>
+        </div>
+
+        <div class="home-dashboard-stack home-dashboard-stack--right">
+          <${SectionCard}
+            title="Próximas Entrevistas"
             className="processes-today-card compact-dashboard-card"
           >
             ${entrevistasHoje.length
@@ -2176,10 +2207,48 @@ export function TelaInicio({ controlador }) {
                 `}
           </${SectionCard}>
 
-          <${SecaoCurriculosRecebidosEmail} modo="resumo" controlador=${controlador} />
-        </div>
+          <${SectionCard}
+            title="Processos Abertos"
+            className="process-progress-card compact-dashboard-card"
+          >
+            ${processosAndamento.length
+      ? html`
+                  <div class="process-progress-list active-process-list">
+                    ${processosAndamento.map(
+        (item) => html`
+                        <article class="process-progress-item active-process-card" key=${item.id}>
+                          <div class="active-process-info">
+                            <strong>${item.nome}</strong>
+                            <div class="active-process-meta">
+                              <span>${item.candidatos} candidatos</span>
+                              <span>${item.percentual}% preenchido</span>
+                            </div>
+                            <div class="active-process-progress" aria-hidden="true">
+                              <span style=${{ width: `${item.percentual}%` }}></span>
+                            </div>
+                          </div>
+                          <div class="active-process-actions">
+                            <button
+                              type="button"
+                              class="btn-soft-primary"
+                              onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
+                            >
+                              Ver processos
+                            </button>
+                          </div>
+                        </article>
+                      `,
+      )}
+                  </div>
+                `
+      : html`
+                  <${EmptyState}
+                    title="Nenhum processo em andamento"
+                    text="Os processos abertos aparecerão aqui assim que forem cadastrados."
+                  />
+                `}
+          </${SectionCard}>
 
-        <div class="home-dashboard-stack home-dashboard-stack--right">
           <${SectionCard}
             title="Provas recentes"
             className="recent-records-card compact-dashboard-card"
@@ -2248,48 +2317,6 @@ export function TelaInicio({ controlador }) {
                       text="Assim que uma prova for concluída e salva, ela aparecerá aqui."
                     />
                   `}
-          </${SectionCard}>
-
-          <${SectionCard}
-            title="Processos em andamento"
-            className="process-progress-card compact-dashboard-card"
-          >
-            ${processosAndamento.length
-      ? html`
-                  <div class="process-progress-list active-process-list">
-                    ${processosAndamento.map(
-        (item) => html`
-                        <article class="process-progress-item active-process-card" key=${item.id}>
-                          <div class="active-process-info">
-                            <strong>${item.nome}</strong>
-                            <div class="active-process-meta">
-                              <span>${item.candidatos} candidatos</span>
-                              <span>${item.percentual}% preenchido</span>
-                            </div>
-                            <div class="active-process-progress" aria-hidden="true">
-                              <span style=${{ width: `${item.percentual}%` }}></span>
-                            </div>
-                          </div>
-                          <div class="active-process-actions">
-                            <button
-                              type="button"
-                              class="btn-soft-primary"
-                              onClick=${() => controlador.irParaTelaProtegida('screen-processes')}
-                            >
-                              Ver processos
-                            </button>
-                          </div>
-                        </article>
-                      `,
-      )}
-                  </div>
-                `
-      : html`
-                  <${EmptyState}
-                    title="Nenhum processo em andamento"
-                    text="Os processos abertos aparecerão aqui assim que forem cadastrados."
-                  />
-                `}
           </${SectionCard}>
         </div>
       </div>
@@ -2594,6 +2621,7 @@ export function TelaCriarProcesso({ controlador }) {
     etapasPersonalizadas: ETAPAS_PERSONALIZADAS_PROCESSO.map((item) => item.key),
     manterNivelPadraoEtapas: true,
     niveisEtapas: {},
+    disponibilidade: [],
   });
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [erro, setErro] = useState('');
@@ -2842,6 +2870,40 @@ export function TelaCriarProcesso({ controlador }) {
     setErro('');
   };
 
+  const adicionarDisponibilidade = () => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      disponibilidade: [
+        ...anterior.disponibilidade,
+        {
+          id: `disp-${Date.now()}-${anterior.disponibilidade.length}`,
+          data: '',
+          somenteDia: false,
+          horaInicio: '09:00',
+          horaFim: '12:00',
+          duracaoMinutos: 30,
+          capacidadeTotal: 1,
+        },
+      ],
+    }));
+  };
+
+  const atualizarDisponibilidade = (id, campo, valor) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      disponibilidade: anterior.disponibilidade.map((item) =>
+        item.id === id ? { ...item, [campo]: valor } : item,
+      ),
+    }));
+  };
+
+  const removerDisponibilidade = (id) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      disponibilidade: anterior.disponibilidade.filter((item) => item.id !== id),
+    }));
+  };
+
   const alternarEtapaPersonalizada = (etapaKey, marcada) => {
     setFormulario((anterior) => {
       const atuais = Array.isArray(anterior.etapasPersonalizadas) ? anterior.etapasPersonalizadas : [];
@@ -3052,13 +3114,18 @@ export function TelaCriarProcesso({ controlador }) {
   };
 
   const avancar = () => {
-    const mensagemErro = etapaAtual === 1 ? validarEtapaDadosProcesso() : validarEtapaProva();
+    const mensagemErro =
+      etapaAtual === 1
+        ? validarEtapaDadosProcesso()
+        : etapaAtual === 2
+          ? validarEtapaProva()
+          : '';
     if (mensagemErro) {
       setErro(mensagemErro);
       return;
     }
     setErro('');
-    setEtapaAtual((etapa) => Math.min(3, etapa + 1));
+    setEtapaAtual((etapa) => Math.min(4, etapa + 1));
   };
 
   const criar = async () => {
@@ -3073,8 +3140,9 @@ export function TelaCriarProcesso({ controlador }) {
 
     try {
       const configuracaoProva = montarConfiguracaoProva();
+      const idProcessoCriado = montarIdProcesso(formulario.vaga);
       await criarProcesso({
-        id_processo: montarIdProcesso(formulario.vaga),
+        id_processo: idProcessoCriado,
         vaga: formulario.vaga,
         quantidade_vagas: Number(formulario.quantidade),
         vagas_preenchidas: 0,
@@ -3092,6 +3160,25 @@ export function TelaCriarProcesso({ controlador }) {
         prova_configurada_em: configuracaoProva.configurada_em,
         urgente: Boolean(formulario.urgente),
       });
+
+      const disponibilidadesValidas = formulario.disponibilidade.filter((item) => item.data);
+      for (const item of disponibilidadesValidas) {
+        try {
+          await criarSlotsEntrevista({
+            id_processo: idProcessoCriado,
+            data: item.data,
+            somente_dia: Boolean(item.somenteDia),
+            hora_inicio: item.somenteDia ? '' : item.horaInicio,
+            hora_fim: item.somenteDia ? '' : item.horaFim,
+            duracao_minutos: Number(item.duracaoMinutos) || 30,
+            capacidade_total: Number(item.capacidadeTotal) || 1,
+          });
+        } catch (erroSlot) {
+          // O processo já foi criado com sucesso — se um horário específico falhar
+          // (ex.: conflito), o RH ainda pode ajustar a disponibilidade depois em
+          // Processos > Entrevistas, então não bloqueamos a publicação por isso.
+        }
+      }
 
       controlador.irParaTelaProtegida('screen-processes');
     } catch (error) {
@@ -3119,7 +3206,9 @@ export function TelaCriarProcesso({ controlador }) {
       ? 'Dados do Processo'
       : etapaAtual === 2
         ? 'Configuração da Prova'
-        : 'Publicação'
+        : etapaAtual === 3
+          ? 'Disponibilidade de Horários'
+          : 'Publicação'
     }`}
         description="Cadastre a vaga e configure a prova vinculada ao processo seletivo."
       />
@@ -3129,7 +3218,8 @@ export function TelaCriarProcesso({ controlador }) {
           ${[
       ['1', 'Dados do Processo'],
       ['2', 'Configuração da Prova'],
-      ['3', 'Publicação'],
+      ['3', 'Disponibilidade de Horários'],
+      ['4', 'Publicação'],
     ].map(([numero, label], indice) => {
       const etapa = indice + 1;
       return html`
@@ -3393,6 +3483,106 @@ export function TelaCriarProcesso({ controlador }) {
       ? html`
                   <section class="process-create-card">
                     <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">event_available</span>
+                      <h2>Disponibilidade de Horários</h2>
+                    </div>
+                    <p class="process-create-hint">
+                      Defina dia(s) e faixa de horário para gerar os slots de entrevista deste processo.
+                      Se ainda não souber os horários, marque "somente o dia" — o RH combina o horário
+                      depois. Esta etapa é opcional; você também pode configurar horários mais tarde em
+                      Processos > Entrevistas.
+                    </p>
+                    <div class="process-availability-list">
+                      ${formulario.disponibilidade.map(
+        (item) => html`
+                          <div class="process-availability-item" key=${item.id}>
+                            <div class="process-create-form-grid">
+                              <label class="process-create-field">
+                                <span>Dia</span>
+                                <input
+                                  type="date"
+                                  value=${item.data}
+                                  onInput=${(event) => atualizarDisponibilidade(item.id, 'data', event.target.value)}
+                                />
+                              </label>
+                              <label class="process-create-field">
+                                <span>Vagas por horário</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value=${item.capacidadeTotal}
+                                  onInput=${(event) => atualizarDisponibilidade(item.id, 'capacidadeTotal', event.target.value)}
+                                />
+                              </label>
+                            </div>
+                            <label class="process-switch-row">
+                              <input
+                                type="checkbox"
+                                checked=${item.somenteDia}
+                                onChange=${(event) => atualizarDisponibilidade(item.id, 'somenteDia', event.target.checked)}
+                              />
+                              <span class="process-switch-visual"></span>
+                              <span>
+                                <strong>Somente o dia (sem horário definido)</strong>
+                                <small>Use quando ainda não souber a faixa de horário exata.</small>
+                              </span>
+                            </label>
+                            ${!item.somenteDia
+            ? html`
+                                  <div class="process-create-form-grid">
+                                    <label class="process-create-field">
+                                      <span>Início</span>
+                                      <input
+                                        type="time"
+                                        value=${item.horaInicio}
+                                        onInput=${(event) => atualizarDisponibilidade(item.id, 'horaInicio', event.target.value)}
+                                      />
+                                    </label>
+                                    <label class="process-create-field">
+                                      <span>Fim</span>
+                                      <input
+                                        type="time"
+                                        value=${item.horaFim}
+                                        onInput=${(event) => atualizarDisponibilidade(item.id, 'horaFim', event.target.value)}
+                                      />
+                                    </label>
+                                    <label class="process-create-field">
+                                      <span>Duração de cada slot (min)</span>
+                                      <input
+                                        type="number"
+                                        min="5"
+                                        max="240"
+                                        value=${item.duracaoMinutos}
+                                        onInput=${(event) => atualizarDisponibilidade(item.id, 'duracaoMinutos', event.target.value)}
+                                      />
+                                    </label>
+                                  </div>
+                                `
+            : null}
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary btn-sm"
+                              onClick=${() => removerDisponibilidade(item.id)}
+                            >
+                              <span class="material-symbols-outlined">delete</span>
+                              Remover
+                            </button>
+                          </div>
+                        `,
+      )}
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onClick=${adicionarDisponibilidade}>
+                      <span class="material-symbols-outlined">add</span>
+                      Adicionar disponibilidade
+                    </button>
+                  </section>
+                `
+      : null}
+
+            ${etapaAtual === 4
+      ? html`
+                  <section class="process-create-card">
+                    <div class="process-create-section-title">
                       <span class="material-symbols-outlined">publish</span>
                       <h2>Publicação / Finalização</h2>
                     </div>
@@ -3471,7 +3661,7 @@ export function TelaCriarProcesso({ controlador }) {
             >
               Cancelar
             </button>
-            ${etapaAtual < 3
+            ${etapaAtual < 4
       ? html`
                   <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${avancar}>
                     Próximo passo

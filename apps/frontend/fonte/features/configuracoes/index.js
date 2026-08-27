@@ -20,6 +20,14 @@ import {
 } from '../../app/controlador-aplicacao.js';
 import { baixarBlob, obterItensPaginados } from '../../utilitarios.js';
 import { ModalPadrao, PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
+import { definirTema, obterTemaSalvo, proximoTema } from '../../shared/tema.js';
+import { definirOrientacoesAtivas, orientacoesAtivas } from '../../ui/tour-guiado.js';
+import { AVATARES_ILUSTRADOS, resolverAvatarUrl } from '../../shared/avatares.js';
+import {
+  CATEGORIAS_NOTIFICACAO,
+  lerPreferenciasNotificacao,
+  salvarPreferenciasNotificacao,
+} from '../../shared/notificacoes.js';
 
 const ABAS = [
   { id: 'usuarios', tela: 'screen-settings-users', label: 'Usuários', permissao: 'usuarios.visualizar', icon: 'person' },
@@ -28,6 +36,7 @@ const ABAS = [
   { id: 'catalogos', tela: 'screen-settings-catalog', label: 'Catálogos', permissao: 'configuracoes.visualizar', icon: 'inventory_2' },
   { id: 'notificacoes', tela: 'screen-settings-notifications', label: 'Notificações', permissao: 'notificacoes.configurar', icon: 'notifications_active' },
   { id: 'logs', tela: 'screen-settings-logs', label: 'Logs', permissao: 'logs.visualizar', icon: 'history_edu' },
+  { id: 'ambiente', tela: 'screen-settings-environment', label: 'Ambiente', permissao: '', icon: 'tune' },
 ];
 const ABA_POR_TELA = ABAS.reduce((mapa, aba) => ({ ...mapa, [aba.tela]: aba.id }), {
   'screen-settings': 'usuarios',
@@ -375,6 +384,12 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     lembretes_automaticos_ativos: false,
   });
   const [salvandoAutomacao, setSalvandoAutomacao] = useState(false);
+  const [temaAmbiente, setTemaAmbiente] = useState(() => obterTemaSalvo());
+  const [orientacoesAmbiente, setOrientacoesAmbiente] = useState(() => orientacoesAtivas());
+  const [preferenciasNotificacaoAmbiente, setPreferenciasNotificacaoAmbiente] = useState(
+    () => lerPreferenciasNotificacao(),
+  );
+  const [salvandoAvatar, setSalvandoAvatar] = useState(false);
   const [formUsuario, setFormUsuario] = useState(FORM_USUARIO_INICIAL);
   const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState('');
   const [criandoUsuario, setCriandoUsuario] = useState(false);
@@ -2380,6 +2395,134 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     </div>
   `;
 
+  const alternarTemaAmbiente = () => {
+    setTemaAmbiente(definirTema(proximoTema(temaAmbiente)));
+  };
+
+  const alternarOrientacoesAmbiente = (ativo) => {
+    setOrientacoesAmbiente(definirOrientacoesAtivas(ativo));
+  };
+
+  const escolherAvatarAmbiente = async (avatarId) => {
+    setSalvandoAvatar(true);
+    setErro('');
+    try {
+      const novoId = controlador?.estado?.avatarUsuario === avatarId ? '' : avatarId;
+      await controlador.atualizarAvatarUsuario(novoId);
+      setFeedback(novoId ? 'Avatar atualizado.' : 'Avatar removido — voltando às iniciais.');
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível atualizar o avatar.');
+    } finally {
+      setSalvandoAvatar(false);
+    }
+  };
+
+  const alternarCategoriaNotificacaoAmbiente = (categoriaId, ativo) => {
+    const proximas = { ...preferenciasNotificacaoAmbiente, [categoriaId]: ativo };
+    setPreferenciasNotificacaoAmbiente(proximas);
+    salvarPreferenciasNotificacao(proximas);
+  };
+
+  const renderAmbiente = () => html`
+    <div class="settings-admin-shell">
+      <section class="c24-card">
+        <header class="c24-card-header">
+          <h2>Aparência</h2>
+        </header>
+        <div class="process-cutoff-panel">
+          <label class="process-switch-row">
+            <input
+              type="checkbox"
+              checked=${temaAmbiente === 'escuro'}
+              onChange=${alternarTemaAmbiente}
+            />
+            <span class="process-switch-visual"></span>
+            <span>
+              <strong>Modo escuro</strong>
+              <small>Alterna o tema visual do Conecta para todas as telas.</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="c24-card">
+        <header class="c24-card-header">
+          <h2>Orientações</h2>
+        </header>
+        <div class="process-cutoff-panel">
+          <label class="process-switch-row">
+            <input
+              type="checkbox"
+              checked=${orientacoesAmbiente}
+              onChange=${(event) => alternarOrientacoesAmbiente(event.target.checked)}
+            />
+            <span class="process-switch-visual"></span>
+            <span>
+              <strong>Ativar orientações guiadas</strong>
+              <small>
+                Mostra dicas passo a passo na primeira visita a cada tela e o botão "Ver orientações"
+                no topo. Desative se preferir navegar sem os balões de ajuda.
+              </small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="c24-card">
+        <header class="c24-card-header">
+          <h2>Avatar</h2>
+        </header>
+        <p class="settings-notifications-hint">
+          Escolha um avatar ilustrado para o seu perfil. Clique novamente no avatar selecionado para
+          voltar às iniciais.
+        </p>
+        <div class="settings-avatar-grid">
+          ${AVATARES_ILUSTRADOS.map(
+            (avatar) => html`
+              <button
+                key=${avatar.id}
+                type="button"
+                class=${`settings-avatar-option ${controlador?.estado?.avatarUsuario === avatar.id ? 'is-selected' : ''}`}
+                disabled=${salvandoAvatar}
+                title=${avatar.id}
+                onClick=${() => escolherAvatarAmbiente(avatar.id)}
+              >
+                <img src=${avatar.url} alt="" loading="lazy" />
+              </button>
+            `,
+          )}
+        </div>
+      </section>
+
+      <section class="c24-card">
+        <header class="c24-card-header">
+          <h2>Notificações</h2>
+        </header>
+        <p class="settings-notifications-hint">
+          Escolha quais categorias aparecem no sino de notificações no topo do Conecta.
+        </p>
+        <div class="process-cutoff-panel-list">
+          ${CATEGORIAS_NOTIFICACAO.map(
+            (categoria) => html`
+              <label class="process-switch-row" key=${categoria.id}>
+                <input
+                  type="checkbox"
+                  checked=${preferenciasNotificacaoAmbiente[categoria.id] !== false}
+                  onChange=${(event) => alternarCategoriaNotificacaoAmbiente(categoria.id, event.target.checked)}
+                />
+                <span class="process-switch-visual"></span>
+                <span>
+                  <span class="settings-notif-dot" style=${{ backgroundColor: categoria.cor }}></span>
+                  <strong>${categoria.label}</strong>
+                </span>
+              </label>
+            `,
+          )}
+        </div>
+      </section>
+    </div>
+  `;
+
   const renderLogs = () => html`
     <div class="settings-admin-shell">
       <${StatGrid}
@@ -2638,7 +2781,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                 ? renderCatalogos()
                 : abaRenderizada === 'notificacoes'
                   ? renderNotificacoes()
-                  : renderLogs()}
+                  : abaRenderizada === 'ambiente'
+                    ? renderAmbiente()
+                    : renderLogs()}
     </${PainelRh}>
   `;
 }

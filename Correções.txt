@@ -1,0 +1,121 @@
+Correções: 
+Treinamentos/Trilhas: Erro na tela:Não foi possível renderizar a interface principal.
+Minified React error #62; visit https://reactjs.org/docs/error-decoder.html?invariant=62 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+
+Error: Minified React error #62; visit https://reactjs.org/docs/error-decoder.html?invariant=62 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at Dl (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:7:8154)
+    at rf (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:17537)
+    at la (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:39889)
+    at ra (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:39779)
+    at ff (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:39649)
+    at Ir (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:39508)
+    at di (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:35897)
+    at ea (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:34851)
+    at F (https://esm.sh/scheduler@0.23.2/es2022/scheduler.mjs:3:2068)
+    at E (https://esm.sh/scheduler@0.23.2/es2022/scheduler.mjs:3:2427)
+
+e no CMD: {"timestamp": "2026-08-26T17:21:40.140439+00:00", "level": "INFO", "service": "conecta-api", "environment": "dev", "version": "0.1.0", "logger": "conecta.http", "message": "request_completed", "request_id": "9accceb2b23d4d7fb03ff1a4e40d1b9f", "user_id": "", "action": "GET /processos/treinamentos/estilos/estilos.css", "status": 404, "duration_ms": 98.44}
+{"timestamp": "2026-08-26T17:21:40.146996+00:00", "level": "INFO", "service": "conecta-api", "environment": "dev", "version": "0.1.0", "logger": "conecta.http", "message": "request_completed", "request_id": "5cb652a5d4ff4573ac8738b7ea17064f", "user_id": "", "action": "GET /processos/treinamentos/runtime-config.js", "status": 404, "duration_ms": 90.71}
+INFO:     127.0.0.1:60789 - "GET /processos/treinamentos/estilos/estilos.css?v=20260720-conecta-provas-etapas-vagas HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:63959 - "GET /processos/treinamentos/runtime-config.js HTTP/1.1" 404 Not Found
+{"timestamp": "2026-08-26T17:21:40.192379+00:00", "level": "WARNING", "service": "conecta-api", "environment": "dev", "version": "0.1.0", "logger": "rh_api.main", "message": "Falha HTTP 404: Tela não encontrada.", "request_id": "6a285326c199498783a838f9319aedba", "user_id": "", "action": "", "status": ""}
+{"timestamp": "2026-08-26T17:21:40.198544+00:00", "level": "INFO", "service": "conecta-api", "environment": "dev", "version": "0.1.0", "logger": "conecta.http", "message": "request_completed", "request_id": "6a285326c199498783a838f9319aedba", "user_id": "", "action": "GET /processos/treinamentos/fonte/principal.js", "status": 404, "duration_ms": 18.57}
+INFO:     127.0.0.1:60789 - "GET /processos/treinamentos/fonte/principal.js?v=20260825-roadmap-respostas HTTP/1.1" 404 Not Found
+
+E também esse erro: Não foi possível renderizar a interface principal.
+Minified React error #62; visit https://reactjs.org/docs/error-decoder.html?invariant=62 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+
+Error: Minified React error #62; visit https://reactjs.org/docs/error-decoder.html?invariant=62 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at Dl (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:7:8154)
+    at rf (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:17537)
+    at la (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:39889)
+    at ra (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:39779)
+    at ff (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:39649)
+    at Ir (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:39508)
+    at di (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:35897)
+    at ea (https://esm.sh/react-dom@18.3.1/es2022/react-dom.mjs:10:34851)
+    at F (https://esm.sh/scheduler@0.23.2/es2022/scheduler.mjs:3:2068)
+    at E (https://esm.sh/scheduler@0.23.2/es2022/scheduler.mjs:3:2427)
+
+
+Ajustes: 
+A aba o link de 'Configurações' virá depois de 'Treinamentos'
+O drive-conecta será um link independente no menu. 
+As paginas: Trilhas de Onbiarding, Teste DISC, Fit Cultural, Raciocínio Lógico' devem estar dentro do sublink Configuração, dentro de Conecta Provas. Será uma pagina somente para configurar todas as diretrizes da prova. 
+
+Dentro do link "Configurações", adicione um sublink chamado "Administração", aqui será configurado, registrado tudo sobre o Conecta, nível, credenciais, cadastro de nova operação e produto, criação de usuários, regras, configuração de credencial do arquivo env. Entre muitas outras coisas. 
+
+Atente-se a regra: Todo o conecta precisa está conectado ! Ou seja, todas as alterações precisam refletir em todo o site. O Conecta precisa funcionar como um todo
+Passe um pente fino, veja furos e buracos estruturais.
+
+Para a criação de operação, na pagina de adicionar operação, crie um formulário completo, que preencha todas as lacunas necessárias onde é necessária qualquer interação/característica da operação, e que, reflita novamente EM TODO O SISTEMA, INCLUSIVE NO CONCETA PROVAS E NA CENTRAL DE TREINAMENTOS. 
+
+Centro de Treinamento 
+- Será dentro do Conecta. 
+- Supervisores e pessoas previamente cadastradas não terão acesso ao Conecta, apenas ao Centro de Treinamento. Ao realizarem o login, ele abrirá direto na tela do CT (Centro de Treinamentos)
+- Apenas os gestores e pessoas com autorização poderão setar quem dará o treinamento e quanto. Para isso, ele precisa adicionar o email da pessoa ao CT em especifico a um treinamento. 
+Por exemplo: Eu (gestor), irei adicionar o usuário Carlos, para dar o treinamento de LGPD, no dia X, as X horas. No dia e hora marcados, tanto a pessoa que dará o treinamento irá receber um aviso 5 minutos antes.
+- Os treinamentos já estarão devidamente configurados no CT em questão de conteúdo e qual treinamento vai para qual operação (Considerando que cada operação usa programas/softwares e treinamentos distintos), sendo que o Gestor poderá "personalizar" o treinamento na criação. Vai funcionar na seguinte forma: Na criação do processo seletivo lá no Conecta, terá uma aba de treinamento para caso o Gestor queira que, quem quer que seja aprovado no processo, já tenha uma trilha de treinamentos configurada para ela. Essas trilhas já estarão configuradas mas terá aopção de personalizar escolhendo qual treinamento aquela pessoa terá. Ex: Se estou criando o processo seletivo para o CRF e já quero deixar o treinamento marcado. Ao aprovar o candidato no processo seletivo, o nome dele estará listado no CT e já com o Treinamento, NO ENTANTO, o treinamento em questão estará BLOQUEADO, assim como o acesso dele (Candidato), sendo necessário o Gestor/RH "liberar" o treinamento para aquele candidato quando for a hora certa (que seria após a contratação e os tramites burocráticos da contratação). Após ativado, aí sim o usuário poderá entrar no CT e realizar os treinamentos. 
+- No Conecta, iremos adicionar um botão, ao lado dos candidatos aprovados, que abrira um modal para enviar um email ao setor de Tecnologi, solicitando a criação de acessos para o colaborador. Nesse modal já haverá um template, e uma lista de protais e acessos que eles (colaboradores) terão que ter acesso, inclusive o CT. Nesse modal, já estará preenchido o nome do usuário, cpf (caso não tenha cpf cadastado o RH terá que inserir manualmente caso não tenha preenchido essa informação anteriomente), e a operação. A listagens de sistemas (estilo checklist) só aparecerá caso o candidato em questão não tenha entrado por processo seletivo, e sim foi uma contratação unica. Caso contrário, cada operação terá suas proprias necessidades de credenciais. (Esses portais/acessos serão configurados na criação da operação na tela de criação de operação em Configuração). O template do email será algo aproximado assim: 
+"Prezados, solicito a criação das credenciais para nossa novo caborador(a): _NOME DO COLABORADOR_ que iniciará na operação: _NOME DA OPERAÇÃO_ no dia _DIA DO INICIO (será inserido manualmente no modal). 
+Para isso, solicito a criação de acesso para: 
+- SISTEMA/PORTAL que ele vai precisar 
+- CT (email)
+- Intranet (Se houver)
+
+Seguem as informações do Novo colaborador: 
+- NOME DO COLABORADOR
+- DATA DE NASCIM.
+- CPF " 
+* É importante termos a opção de inserir mais de um colaborador em um único e-mail. Ajuste para isso. Pode enviar vários colaborares em 1 solicitação apenas (mas 1 solicitação não poderá ser de 2 operações diferentes, caso tenha novos colaboradores de operações diferente, terá que ser enviado 1 solicitação pra cada operação)
+
+Ainda sobre o CT para o novo colaborador. Ele terá acesso tanto pelo aplicativo quanto pelo site (Obviamente na visão de colaborador). 
+
+Para os supervisores, ou gestores que terão acesso somente ao CT, no CT eles poderão consultar o conteúdo do treinamento que esta configurado para ele dar, assim como o horário e até mesmo a sala onde será aplicado, quem irá assistir, além disso, o CT dele precisa te ruma visão de progresso e etapas, onde será em formato apresentação (POIS O TREINAMENTO SERÁ APRESENTADO POR ELE) então, as etapas que ele terá deverão ter a opção de apresentação.
+Também será necessário que, ao terminar um treinamento ele faça uma checklist de presença (quem assistiu) e também como treinamento dado. 
+
+O Gestor, na tela do CT, terá uma grande visão de gestão dos treinamentos. Ele poderá: ver quais treinamentos são dados, quem assistiu, quem deu, quais foram os últimos treinamentos, se algum novo colaborador esta com falta em algum treinamento, ver o conteúdo do treinamento, editar/criar quais treinamentos eles vão assistir, quem vai dar o treinamento, ver relatórios de presença, todos os tipos de relatórios. 
+
+PS: É importante separar o que é função de Gestor e de um Administrador. Admistrador tem função global.
+
+
+Passe um pente fino e veja o que já foi implantado e o que ainda falta: 
+Pode implementar: 
+* Banco de questões reutilizável por operação/trilha
+* Provas por competência, não só por operação
+* Pré-visualização da prova como o candidato vê
+* Duração e tolerância configuráveis por etapa
+* Heatmap de questões
+* Exportação de resultado individual em PDF de uma página
+* Replay da prova
+* Barra de progresso persistente
+* Estado vazio ilustrado e didático
+* Modal de "confirmar antes de encerrar prova
+* Filtro combinado por operação + trilha + intervalo de nota
+* Busca por candidato entre todas as provas já feitas
+* Motivo de eliminação estruturado com sub-causa
+* Reconsideração com trilha de auditoria
+* Sugestão automática de banco de talentos por vaga aberta
+* Comando rápido (busca universal com ações): já existe BuscaGlobalTopbar — expandir para aceitar comandos, não só busca (ex: digitar "novo processo CRF" já abre o formulário pré-preenchido).
+* Templates de processo seletivo: clonar um processo anterior com um clique, em vez de preencher tudo do zero toda vez que abre uma vaga parecida.
+* Atalhos de teclado nas telas de maior volume (processos, candidatos) 
+* Timeline única do candidato
+* Memória institucional de decisões
+* Onboarding guiado por perfil
+* Linguagem sempre em português claro, nunca termos técnicos
+* Modo "o que mudou desde a última vez que você entrou"
+* Página de boas-vindas personalizada com o nome e a foto/avatar do usuário logo após o login, antes do dashboard
+* Estados de carregamento com mensagens variadas e específicas do contexto
+* Confirmações visuais mais ricas
+* Menções em anotações
+* Comentários em processo/candidato
+* Chat 1:1 e por operação/equipe
+* Envio direto de arquivo pessoa-a-pessoa dentro do Drive-Conecta
+* Indicador de presença simples ("Fulano está online agora").
+* Criação de opção de entrevista/conversa pelo Teams: Em processo seletivo será possível agendar uma entrevista pelo Teams, com o gestor, com um modal de avaliação do candidato logo após o fim da conversa. 
+* Correção de Excel configurável pelo RH: É preciso que tanto a prova quanto a correção possam serem feitas de forma completa, isto é, o candidato faça tudo igual ao que ele faria no Excel: Planilhas/funções/cálculos/formatações/importações/tabelas dinâmicas/gráficos/filtros e etc.
+* Comparativo entre turmas/edições da mesma prova: acho que caberia um comparativo entre candidatos ! Seria muito mais útil. Onde o RH poderia comparar dois candidados ou mais que já fizeram a prova. Fazer um balanceamento. Filtragem. E até mesmo aprovar/eliminar por comparação. Seria uma ferramenta muito útil. 
+* Expiração e "revalidação" do banco de talentos: Por questões de segurança, depois de 6 meses o candidato deve sair do banco de talentos. 
+* Aprovação em lote: Vamos expandir esse ideia, além de aprovação em lote, vamos também de eliminação em lotes, e certas ações em lotes.
+
+FAÇA E APLIQUE TODAS ESSAS CORREÇÕES ! IMPLEMENTE DIRETAMENTE NA PASTA DO PROJETO PARA QUE EU POSSA TESTAR. 

@@ -8,6 +8,24 @@ import {
 const CARD_WIDTH = 320;
 const CARD_HEIGHT_ESTIMATE = 220;
 const VIEWPORT_PADDING = 16;
+const CHAVE_ORIENTACOES_ATIVAS = 'c24_orientacoes_ativas';
+
+export function orientacoesAtivas() {
+  try {
+    return window.localStorage.getItem(CHAVE_ORIENTACOES_ATIVAS) !== '0';
+  } catch (error) {
+    return true;
+  }
+}
+
+export function definirOrientacoesAtivas(ativo) {
+  try {
+    window.localStorage.setItem(CHAVE_ORIENTACOES_ATIVAS, ativo ? '1' : '0');
+  } catch (error) {
+    // Preferência é best-effort; se o storage falhar, mantemos o padrão (ativado).
+  }
+  return Boolean(ativo);
+}
 
 function montarChaveTour(screenId, userId) {
   const safeScreenId = String(screenId || '').trim() || 'screen';
@@ -108,7 +126,7 @@ export function TourGuiado({
   const passoAtual = passos[indiceAtual] || null;
 
   useEffect(() => {
-    if (!passos.length) return;
+    if (!passos.length || !orientacoesAtivas()) return;
 
     try {
       if (window.localStorage.getItem(chavePersistencia) === '1') {
@@ -125,7 +143,7 @@ export function TourGuiado({
   }, [chavePersistencia, passos.length]);
 
   useEffect(() => {
-    if (!passos.length || !reopenSignal) return;
+    if (!passos.length || !reopenSignal || !orientacoesAtivas()) return;
     setIndiceAtual(0);
     setAberto(true);
   }, [passos.length, reopenSignal]);
