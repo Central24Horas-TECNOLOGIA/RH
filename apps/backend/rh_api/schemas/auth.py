@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from pydantic import Field
+import re
+
+from pydantic import Field, field_validator
 
 from .common import BaseSchema
+
+_AVATAR_ILUSTRADO_PATTERN = re.compile(r"^avatar-(0[1-9]|[12]\d|3\d|40)$")
 
 
 class LoginRequest(BaseSchema):
@@ -31,6 +35,7 @@ class LoginResponse(BaseSchema):
     perfil_nome: str = "Administrador"
     nivel: str = "Completo"
     permissoes: list[str] = []
+    avatar_ilustrado: str = ""
 
 
 class SessionResponse(BaseSchema):
@@ -42,3 +47,17 @@ class SessionResponse(BaseSchema):
     perfil_nome: str = "Administrador"
     nivel: str = "Completo"
     permissoes: list[str] = []
+    avatar_ilustrado: str = ""
+    access_token: str = ""
+
+
+class UpdateAvatarRequest(BaseSchema):
+    avatar_ilustrado: str = Field(default="")
+
+    @field_validator("avatar_ilustrado")
+    @classmethod
+    def validate_avatar(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if safe_value and not _AVATAR_ILUSTRADO_PATTERN.fullmatch(safe_value):
+            raise ValueError("Avatar inválido.")
+        return safe_value

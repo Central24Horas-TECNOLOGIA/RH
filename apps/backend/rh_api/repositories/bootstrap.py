@@ -127,6 +127,7 @@ def ensure_security_tables(cursor, settings: Settings) -> None:
         ("desativado_em", "DATETIME"),
         ("criado_em", "DATETIME"),
         ("atualizado_em", "DATETIME"),
+        ("avatar_ilustrado", "NVARCHAR(60)"),
     ):
         cursor.execute(
             f"""
@@ -2837,6 +2838,7 @@ def ensure_interview_slots_table(cursor) -> None:
                 status_slot NVARCHAR(30) NULL,
                 id_entrevista INT NULL,
                 observacoes_rh NVARCHAR(MAX) NULL,
+                somente_dia BIT NULL,
                 criado_em DATETIME NULL,
                 atualizado_em DATETIME NULL
             )
@@ -2854,6 +2856,7 @@ def ensure_interview_slots_table(cursor) -> None:
         ("status_slot", "NVARCHAR(30)"),
         ("id_entrevista", "INT"),
         ("observacoes_rh", "NVARCHAR(MAX)"),
+        ("somente_dia", "BIT"),
         ("criado_em", "DATETIME"),
         ("atualizado_em", "DATETIME"),
     ):
@@ -2880,6 +2883,14 @@ def ensure_interview_slots_table(cursor) -> None:
         UPDATE dbo.entrevista_slots
         SET status_slot = 'Disponivel'
         WHERE status_slot IS NULL OR LTRIM(RTRIM(status_slot)) = ''
+        """
+    )
+
+    cursor.execute(
+        """
+        UPDATE dbo.entrevista_slots
+        SET somente_dia = 0
+        WHERE somente_dia IS NULL
         """
     )
 

@@ -36,3 +36,22 @@ A mesma exceção acima é estendida às novas frentes descritas na rodada segui
 Ressalva de segurança explícita: o pedido de tornar credenciais do arquivo `.env` (segredos, chaves de API, senhas) editáveis pela UI **não é implementado como pedido literalmente** — segredos de infraestrutura não devem transitar em texto plano por tela alguma. Configurações de negócio (catálogos, regras, cadastros) continuam liberadas para virar UI de administração.
 
 Os dois aplicativos móveis (Conecta mobile e Central de Treinamento mobile) tiveram a produção pausada pelo próprio RH nesta rodada — não devem ser iniciados até nova instrução.
+
+### Nova convenção de arquivos de roadmap (a partir de 27/ago/2026)
+
+O arquivo `respostas.txt` foi descontinuado e seu conteúdo migrado para `Correções.txt`. A partir desta data, o roadmap é mantido em dois arquivos na raiz do projeto:
+
+- **`Prompt.txt`**: ideias e implementações novas (o conteúdo é substituído a cada nova rodada; o que já foi tratado sai daqui).
+- **`Correções.txt`**: ajustes, correções de bugs e o backlog de ideias aprovadas ("Pode aplicar" / "Pode aplicar mas com alteração") registradas no relatório `Correções Conecta`.
+
+As menções a `respostas.txt` nas seções acima são histórico das rodadas em que foram aprovadas; o conteúdo equivalente hoje vive em `Correções.txt`, sob as mesmas condições (aditivo, sem quebrar rotas/dados/fluxos existentes).
+
+### Exceção estendida: redesign da tela inicial e novas funcionalidades (Prompt.txt, rodada de 27/ago/2026)
+
+A mesma exceção segue valendo para o pedido descrito em `Prompt.txt` desta rodada: aplicar o novo design da tela inicial (`docs/Desing/`), com as seguintes frentes full-stack autorizadas:
+
+- Nova etapa de "disponibilidade de horários" na criação de processo seletivo, gerando slots (com ou sem horário definido) integrados ao agendamento de Entrevistas/Calendário já existente.
+- Sistema de avatares ilustrados como foto de perfil (aditivo — usuário sem avatar escolhido continua com o avatar de iniciais atual).
+- Aba "Ambiente" em Configurações (modo escuro, ativar tour guiado, escolher avatar, configurar notificações).
+
+Mesmas condições de sempre: aditivo, sem quebrar rotas/dados/fluxos existentes, seguindo os padrões arquiteturais já em uso e a identidade visual (grade de 8px, sem gradiente genérico, cores sóbrias).

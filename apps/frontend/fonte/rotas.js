@@ -21,6 +21,7 @@ export const ROTAS_POR_TELA = {
   'screen-settings-catalog': 'configuracoes/catalogos',
   'screen-settings-logs': 'configuracoes/logs',
   'screen-settings-notifications': 'configuracoes/notificacoes',
+  'screen-settings-environment': 'configuracoes/ambiente',
   'screen-settings-policies': 'configuracoes/politicas',
   'screen-settings-onboarding': 'configuracoes/onboarding',
   'screen-settings-document-templates': 'configuracoes/templates-documentos',

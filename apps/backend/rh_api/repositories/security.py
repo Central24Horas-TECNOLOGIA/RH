@@ -38,6 +38,7 @@ AUTH_PROVIDER_LOCAL = "local"
 AUTH_PROVIDER_MICROSOFT = "microsoft"
 _VALID_AUTH_PROVIDERS = {AUTH_PROVIDER_LOCAL, AUTH_PROVIDER_MICROSOFT}
 _EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+_AVATAR_ILUSTRADO_PATTERN = re.compile(r"^avatar-(0[1-9]|[12]\d|3\d|40)$")
 
 
 def _normalize_email(value) -> str:
@@ -236,6 +237,7 @@ class SecurityRepositoryMixin:
             "provedor_autenticacao": _normalize_auth_provider(
                 row.get("provedor_autenticacao"),
             ),
+            "avatar_ilustrado": normalize_text(row.get("avatar_ilustrado")),
             "criado_em": row.get("criado_em"),
             "ultimo_acesso": row.get("ultimo_acesso_em"),
             "ultimo_login_microsoft": row.get("ultimo_login_microsoft"),
@@ -274,6 +276,7 @@ class SecurityRepositoryMixin:
                     usuarios.senha_hash,
                     usuarios.mfa_enabled,
                     usuarios.mfa_secret_encrypted,
+                    usuarios.avatar_ilustrado,
                     usuarios.criado_em,
                     usuarios.ultimo_acesso_em,
                     usuarios.criado_por,
@@ -424,6 +427,7 @@ class SecurityRepositoryMixin:
                     usuarios.microsoft_tenant_id,
                     usuarios.provedor_autenticacao,
                     usuarios.ultimo_login_microsoft,
+                    usuarios.avatar_ilustrado,
                     usuarios.criado_em,
                     usuarios.ultimo_acesso_em,
                     usuarios.criado_por,
@@ -475,6 +479,7 @@ class SecurityRepositoryMixin:
                         usuarios.microsoft_tenant_id,
                         usuarios.provedor_autenticacao,
                         usuarios.ultimo_login_microsoft,
+                        usuarios.avatar_ilustrado,
                         usuarios.criado_em,
                         usuarios.ultimo_acesso_em,
                         usuarios.criado_por,
@@ -644,6 +649,29 @@ class SecurityRepositoryMixin:
                 )
             permissions = self._get_role_permissions_from_db(cursor, user_row.get("perfil_id"))
             return self._serialize_system_user(user_row, permissions)
+        finally:
+            conn.close()
+
+    def update_own_avatar(self, id_usuario: int, avatar_ilustrado: str) -> dict:
+        safe_avatar = normalize_text(avatar_ilustrado)
+        if safe_avatar and not _AVATAR_ILUSTRADO_PATTERN.fullmatch(safe_avatar):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Avatar inválido.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET avatar_ilustrado = ?, atualizado_em = GETDATE()
+                WHERE id_usuario = ?
+                """,
+                (safe_avatar or None, int(id_usuario)),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+            conn.commit()
+            return {"success": True, "avatar_ilustrado": safe_avatar}
         finally:
             conn.close()
 
@@ -859,6 +887,7 @@ class SecurityRepositoryMixin:
                     usuarios.status,
                     usuarios.provedor_autenticacao,
                     usuarios.ultimo_login_microsoft,
+                    usuarios.avatar_ilustrado,
                     usuarios.criado_em,
                     usuarios.ultimo_acesso_em,
                     usuarios.criado_por,
@@ -990,6 +1019,7 @@ class SecurityRepositoryMixin:
                 usuarios.status,
                 usuarios.provedor_autenticacao,
                 usuarios.ultimo_login_microsoft,
+                usuarios.avatar_ilustrado,
                 usuarios.criado_em,
                 usuarios.ultimo_acesso_em,
                 usuarios.criado_por,

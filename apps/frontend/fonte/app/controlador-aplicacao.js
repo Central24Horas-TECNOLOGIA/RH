@@ -14,6 +14,7 @@ import {
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
   atualizarAnotacaoDossieProcesso,
+  atualizarAvatarUsuarioApi,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
@@ -110,7 +111,7 @@ import {
   registrarSolicitacaoLgpd,
   retomarProcesso,
   cancelarProcesso,
-} from '../servico-api.js?v=20260826-reconsider-elim';
+} from '../servico-api.js?v=20260827-avatar-usuario';
 import { criarLogger } from '../logger.js';
 import {
   montarProvaPorBlueprint,
@@ -236,6 +237,7 @@ export function criarEstadoInicial() {
     perfilUsuarioNome: sessao.perfil_nome || '',
     nivelPerfilUsuario: sessao.nivel || '',
     permissoesUsuario: Array.isArray(sessao.permissoes) ? sessao.permissoes : [],
+    avatarUsuario: sessao.avatar_ilustrado || '',
     avisoAcessoNegado: '',
     barraLateralRecolhida: lerPreferenciaBarraLateral(false),
     candidato: {
@@ -893,6 +895,7 @@ export function useControladorAplicacao() {
           perfilUsuarioNome: '',
           nivelPerfilUsuario: '',
           permissoesUsuario: [],
+          avatarUsuario: '',
           avisoAcessoNegado: '',
         }));
         return;
@@ -919,6 +922,8 @@ export function useControladorAplicacao() {
           permissoesUsuario: Array.isArray(sessao?.permissoes)
             ? sessao.permissoes
             : lerSessaoAutenticacao().permissoes || [],
+          avatarUsuario:
+            sessao?.avatar_ilustrado || lerSessaoAutenticacao().avatar_ilustrado || '',
           avisoAcessoNegado: '',
         }));
       } catch (error) {
@@ -1080,6 +1085,15 @@ export function useControladorAplicacao() {
     navegarParaTela('screen-menu');
   };
 
+  const atualizarAvatarUsuario = async (avatarIlustrado) => {
+    const resultado = await atualizarAvatarUsuarioApi(avatarIlustrado);
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      avatarUsuario: resultado?.avatar_ilustrado || '',
+    }));
+    return resultado;
+  };
+
   const alternarBarraLateral = () => {
     atualizarEstado((anterior) => {
       const recolhida = !anterior.barraLateralRecolhida;
@@ -1105,6 +1119,7 @@ export function useControladorAplicacao() {
       permissoesUsuario: Array.isArray(sessao?.permissoes)
         ? sessao.permissoes
         : [],
+      avatarUsuario: sessao?.avatar_ilustrado || '',
       avisoAcessoNegado: '',
       ...estadoExtra,
     }));
@@ -1722,6 +1737,7 @@ export function useControladorAplicacao() {
     sair,
     exigirNovoLogin,
     alternarBarraLateral,
+    atualizarAvatarUsuario,
     possuiPermissao,
     possuiAlgumaPermissao,
     podeAcessarTela,
@@ -1751,6 +1767,7 @@ export {
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
   atualizarAnotacaoDossieProcesso,
+  atualizarAvatarUsuarioApi,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,

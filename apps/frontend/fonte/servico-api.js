@@ -34,6 +34,7 @@ export {
   salvarSessaoAutenticacao,
 } from './services/api/core.js';
 export {
+  atualizarAvatarUsuarioApi,
   concluirLoginMicrosoftApi,
   encerrarSessaoApi,
   fazerLoginApi,

@@ -1,8 +1,10 @@
 import { html, useEffect, useState } from '../../infraestrutura-react.js';
 import { BuscaGlobalTopbar } from '../busca-global.js';
 import { obterTourDaTela } from '../../shared/tour-config.js';
-import { BotaoAjudaTour, TourGuiado } from '../tour-guiado.js';
+import { BotaoAjudaTour, TourGuiado, orientacoesAtivas } from '../tour-guiado.js';
 import { definirTema, obterTemaSalvo, proximoTema } from '../../shared/tema.js';
+import { resolverAvatarUrl } from '../../shared/avatares.js';
+import { CATEGORIAS_NOTIFICACAO, useResumoNotificacoes } from '../../shared/notificacoes.js';
 
 const TEMA_ROTULO = { claro: 'Claro', escuro: 'Escuro' };
 const TEMA_ICONE = { claro: 'light_mode', escuro: 'dark_mode' };
@@ -872,11 +874,7 @@ export function CartaoUsuarioTopo({ controlador }) {
   const perfil = String(perfilBase).includes('/')
     ? perfilBase
     : `RH / ${perfilBase}`;
-  const avatar =
-    estado.avatarUsuario ||
-    estado.userAvatar ||
-    estado.usuarioAvatar ||
-    '';
+  const avatar = resolverAvatarUrl(estado.avatarUsuario);
   const podeAbrirPerfil =
     controlador?.possuiPermissao?.('configuracoes.visualizar') ||
     controlador?.podeAcessarTela?.('screen-settings');
@@ -944,10 +942,22 @@ export function CartaoUsuarioTopo({ controlador }) {
             }}
                     >
                       <span class="material-symbols-outlined">settings</span>
-                      Configurações
+                      Configurações de Perfil
                     </button>
                   `
           : null}
+              <button
+                type="button"
+                role="menuitem"
+                class="c24-user-dropdown-item"
+                onClick=${() => {
+          setAberto(false);
+          controlador.irParaTelaProtegida('screen-settings-environment');
+        }}
+              >
+                <span class="material-symbols-outlined">tune</span>
+                Configurações de Ambiente
+              </button>
               <button
                 type="button"
                 role="menuitem"
@@ -963,6 +973,81 @@ export function CartaoUsuarioTopo({ controlador }) {
             </div>
           `
       : null}
+    </div>
+  `;
+}
+
+export function SinoNotificacoes({ controlador }) {
+  const [aberto, setAberto] = useState(false);
+  const { itens, carregando } = useResumoNotificacoes(controlador);
+  const coresPorCategoria = CATEGORIAS_NOTIFICACAO.reduce(
+    (mapa, categoria) => ({ ...mapa, [categoria.id]: categoria.cor }),
+    {},
+  );
+
+  useEffect(() => {
+    if (!aberto) return undefined;
+
+    const fecharAoClicarFora = (event) => {
+      if (event.target?.closest?.('.c24-notif-wrap')) return;
+      setAberto(false);
+    };
+    const fecharNoEscape = (event) => {
+      if (event.key === 'Escape') setAberto(false);
+    };
+
+    document.addEventListener('click', fecharAoClicarFora);
+    document.addEventListener('keydown', fecharNoEscape);
+    return () => {
+      document.removeEventListener('click', fecharAoClicarFora);
+      document.removeEventListener('keydown', fecharNoEscape);
+    };
+  }, [aberto]);
+
+  return html`
+    <div class="c24-notif-wrap">
+      <button
+        type="button"
+        class="c24-icon-btn c24-notif-toggle"
+        title="Notificações"
+        aria-label=${`Notificações${itens.length ? `, ${itens.length} novas` : ''}`}
+        aria-haspopup="menu"
+        aria-expanded=${aberto}
+        onClick=${(event) => {
+          event.stopPropagation();
+          setAberto((valor) => !valor);
+        }}
+      >
+        <span class="material-symbols-outlined c24-icon">notifications</span>
+        ${itens.length ? html`<span class="c24-notif-badge">${itens.length}</span>` : null}
+      </button>
+
+      ${aberto
+        ? html`
+            <div class="c24-notif-dropdown" role="menu">
+              <header class="c24-notif-dropdown-header">Notificações</header>
+              ${carregando
+                ? html`<p class="c24-notif-empty">Carregando…</p>`
+                : itens.length
+                  ? html`
+                      <ul class="c24-notif-list">
+                        ${itens.map(
+                          (item) => html`
+                            <li key=${item.id} class="c24-notif-item">
+                              <span
+                                class="c24-notif-dot"
+                                style=${{ backgroundColor: coresPorCategoria[item.categoria] || '#0f5be8' }}
+                              ></span>
+                              <span>${item.texto}</span>
+                            </li>
+                          `,
+                        )}
+                      </ul>
+                    `
+                  : html`<p class="c24-notif-empty">Nenhuma notificação por aqui.</p>`}
+            </div>
+          `
+        : null}
     </div>
   `;
 }
@@ -1039,7 +1124,7 @@ export function PainelRh({
                     </button>
                   `
       : null}
-              ${tour?.steps?.length
+              ${tour?.steps?.length && orientacoesAtivas()
       ? html`
                     <${BotaoAjudaTour}
                       compact=${true}
@@ -1049,6 +1134,7 @@ export function PainelRh({
                   `
       : null}
               ${acoesTopo}
+              <${SinoNotificacoes} controlador=${controlador} />
               <${SeletorTema} />
               <${CartaoUsuarioTopo} controlador=${controlador} />
             </div>
@@ -1056,7 +1142,7 @@ export function PainelRh({
 
           <main class="rh-modern-page">
             ${children}
-            ${tour?.steps?.length
+            ${tour?.steps?.length && orientacoesAtivas()
       ? html`
                   <${TourGuiado}
                     screenId=${screenId}

@@ -85,7 +85,7 @@ const TELAS_SEM_SHELL_FIXO = new Set([
   'screen-result',
 ]);
 
-const importarGestao = () => import('../features/telas-gestao.js?v=20260716-microsoft-login-fallback');
+const importarGestao = () => import('../features/telas-gestao.js?v=20260827-tela-inicial-avatares-agendamento');
 const importarProcessos = () => import('../features/telas-processos.js?v=20260823-cache-busting-fix');
 const importarProva = () => import('../features/telas-prova.js?v=20260823-cache-busting-fix');
 
@@ -113,7 +113,7 @@ const TelaResultadosAnaliticosProcesso = carregarTela(
   'TelaResultadosAnaliticosProcesso',
 );
 const TelaConfiguracoesSistema = carregarTela(
-  () => import('../features/configuracoes/index.js?v=20260713-config-users-fix7'),
+  () => import('../features/configuracoes/index.js?v=20260827-aba-ambiente'),
   'TelaConfiguracoesSistema',
 );
 const TelaCalendario = carregarTela(() => import('../features/calendario/index.js'), 'TelaCalendario');
@@ -403,7 +403,8 @@ function ConteudoAplicacao({ controlador, telaAtual, telaResolvida }) {
     telaResolvida === 'screen-settings-operations' ||
     telaResolvida === 'screen-settings-catalog' ||
     telaResolvida === 'screen-settings-notifications' ||
-    telaResolvida === 'screen-settings-logs'
+    telaResolvida === 'screen-settings-logs' ||
+    telaResolvida === 'screen-settings-environment'
   ) {
     return html`
       <${TelaConfiguracoesSistema}

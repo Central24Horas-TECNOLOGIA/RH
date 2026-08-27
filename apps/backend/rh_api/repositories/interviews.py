@@ -260,6 +260,7 @@ class InterviewRepositoryMixin:
                         s.status_slot,
                         s.id_entrevista,
                         s.observacoes_rh,
+                        s.somente_dia,
                         s.criado_em,
                         s.atualizado_em,
                         ISNULL(o.ocupados, 0) AS ocupados,
@@ -369,21 +370,29 @@ class InterviewRepositoryMixin:
                             detail=build_process_closed_message("criar horários de entrevista", process_row.get("id_processo")),
                         )
 
-                start = self._parse_slot_datetime(data.get("data"), data.get("hora_inicio"))
-                end = self._parse_slot_datetime(data.get("data"), data.get("hora_fim"))
-                duration = int(data.get("duracao_minutos") or 30)
+                somente_dia = bool(data.get("somente_dia"))
                 capacity = int(data.get("capacidade_total") or 1)
-
-                if end <= start:
-                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A hora final deve ser maior que a hora inicial.")
                 if capacity < 1:
                     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A capacidade do slot deve ser maior que zero.")
 
+                if somente_dia:
+                    parsed_date = self._parse_slot_datetime(data.get("data"), "00:00").date()
+                    windows = [(datetime.combine(parsed_date, time(0, 0)), datetime.combine(parsed_date, time(23, 59, 59)))]
+                else:
+                    start = self._parse_slot_datetime(data.get("data"), data.get("hora_inicio"))
+                    end = self._parse_slot_datetime(data.get("data"), data.get("hora_fim"))
+                    duration = int(data.get("duracao_minutos") or 30)
+                    if end <= start:
+                        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A hora final deve ser maior que a hora inicial.")
+                    windows = []
+                    current = start
+                    while current + timedelta(minutes=duration) <= end:
+                        windows.append((current, current + timedelta(minutes=duration)))
+                        current = current + timedelta(minutes=duration)
+
                 created = 0
                 skipped = 0
-                current = start
-                while current + timedelta(minutes=duration) <= end:
-                    slot_end = current + timedelta(minutes=duration)
+                for current, slot_end in windows:
                     cursor.execute(
                         """
                         SELECT COUNT(1)
@@ -406,9 +415,10 @@ class InterviewRepositoryMixin:
                                 fim,
                                 capacidade_total,
                                 status_slot,
-                                observacoes_rh
+                                observacoes_rh,
+                                somente_dia
                             )
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                             """,
                             (
                                 process_row.get("id_processo", "") if process_row else "",
@@ -418,10 +428,10 @@ class InterviewRepositoryMixin:
                                 capacity,
                                 SLOT_STATUS_AVAILABLE,
                                 normalize_text(data.get("observacoes_rh")),
+                                1 if somente_dia else 0,
                             ),
                         )
                         created += 1
-                    current = slot_end
 
                 conn.commit()
                 return {"success": True, "created": created, "skipped": skipped}

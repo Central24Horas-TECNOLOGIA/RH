@@ -6,4 +6,4 @@ export {
   TelaHistorico,
   TelaInicio,
   TelaLogin,
-} from './gestao/index.js?v=20260720-conecta-provas-etapas-vagas';
+} from './gestao/index.js?v=20260827-tela-inicial-avatares-agendamento';

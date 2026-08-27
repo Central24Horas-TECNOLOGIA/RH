@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import logging
 import re
+from dataclasses import replace
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -12,8 +13,9 @@ from ..auth import (
     AuthenticatedUser,
     authenticate_session,
     create_session_for_user_record,
+    reissue_token,
 )
-from ..dependencies import get_current_user, get_repository
+from ..dependencies import audit_action, get_current_user, get_repository
 from ..repositories import DatabaseRepository
 from ..schemas.auth import (
     LoginRequest,
@@ -21,6 +23,7 @@ from ..schemas.auth import (
     MfaCodeRequest,
     MfaSetupResponse,
     SessionResponse,
+    UpdateAvatarRequest,
 )
 from ..schemas.common import SuccessResponse
 from ..config import get_settings
@@ -152,6 +155,7 @@ def _build_login_response(token: str, user: AuthenticatedUser) -> LoginResponse:
         perfil_nome=user.perfil_nome,
         nivel=user.nivel,
         permissoes=sorted(user.permissions),
+        avatar_ilustrado=user.avatar_ilustrado,
     )
 
 
@@ -476,6 +480,39 @@ def me(user: AuthenticatedUser = Depends(get_current_user)) -> SessionResponse:
         perfil_nome=user.perfil_nome,
         nivel=user.nivel,
         permissoes=sorted(user.permissions),
+        avatar_ilustrado=user.avatar_ilustrado,
+    )
+
+
+@router.put("/me/avatar", response_model=SessionResponse)
+def update_my_avatar(
+    payload: UpdateAvatarRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+) -> SessionResponse:
+    if user.id_usuario is None:
+        raise HTTPException(status_code=400, detail="Este usuário não possui cadastro para salvar preferências.")
+    repository.update_own_avatar(user.id_usuario, payload.avatar_ilustrado)
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="atualizar_avatar_ilustrado",
+        entidade="usuario",
+        entidade_id=str(user.id_usuario),
+        valor_novo={"avatar_ilustrado": payload.avatar_ilustrado},
+    )
+    usuario_atualizado = replace(user, avatar_ilustrado=payload.avatar_ilustrado)
+    return SessionResponse(
+        usuario=usuario_atualizado.username,
+        nome=usuario_atualizado.nome,
+        email=usuario_atualizado.email,
+        perfil=usuario_atualizado.perfil,
+        perfil_nome=usuario_atualizado.perfil_nome,
+        nivel=usuario_atualizado.nivel,
+        permissoes=sorted(usuario_atualizado.permissions),
+        avatar_ilustrado=usuario_atualizado.avatar_ilustrado,
+        access_token=reissue_token(usuario_atualizado),
     )
 
 
