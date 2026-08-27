@@ -1579,7 +1579,7 @@ export function TelaLogin({ controlador }) {
             <img
               alt="Central 24h"
               class="rh-login-brand-image"
-              src="estilos/logo_conecta_padrao.png"
+              src="/estilos/logo_conecta_padrao.png"
             />
           </div>
 
