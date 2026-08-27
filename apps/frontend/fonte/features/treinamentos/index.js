@@ -433,7 +433,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
         description="LGPD, Segurança da Informação, Onboarding e Produto — organizados em trilhas por operação, com vídeos, textos, slides e o acompanhamento de quem está fazendo cada treinamento."
       />
 
-      <${SectionCard} className="rh-section-card--flat" style="margin-bottom:24px;">
+      <${SectionCard} className="rh-section-card--flat mb-4">
         <div class="d-flex align-items-start gap-3">
           <span class="material-symbols-outlined" aria-hidden="true">upcoming</span>
           <div>
@@ -448,7 +448,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
         </div>
       </${SectionCard}>
 
-      <div class="c24-tabs" style="margin-bottom:16px;display:flex;gap:8px;">
+      <div class="c24-tabs" style=${{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
         <button type="button" class=${`c24-pill-tab ${abaAtiva === 'trilhas' ? 'is-active' : ''}`} onClick=${() => irParaAba('trilhas')}>
           <span class="material-symbols-outlined">school</span>
           Trilhas
@@ -554,7 +554,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
             <label>Módulos da trilha</label>
             ${formTrilha.itens.map(
       (item, index) => html`
-                <div key=${index} class="rh-section-card rh-section-card--flat" style="padding:12px;margin-bottom:8px;">
+                <div key=${index} class="rh-section-card rh-section-card--flat" style=${{ padding: '12px', marginBottom: '8px' }}>
                   <div class="row g-2 align-items-start">
                     <div class="col-md-5">
                       <input

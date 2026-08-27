@@ -1774,19 +1774,19 @@ export function TelaDetalhesCandidato({ controlador }) {
         <div class="row g-4">
           <div class="col-md-4">
             <strong>Perfil DISC</strong>
-            <div style="margin-top:8px;">
+            <div style=${{ marginTop: '8px' }}>
               <${PainelResultadoDisc} idTeste=${candidato.id_teste} />
             </div>
           </div>
           <div class="col-md-4">
             <strong>Fit Cultural</strong>
-            <div style="margin-top:8px;">
+            <div style=${{ marginTop: '8px' }}>
               <${PainelResultadoFitCultural} candidatoProcessoId=${candidato.id_registro_processo} />
             </div>
           </div>
           <div class="col-md-4">
             <strong>Raciocínio Lógico</strong>
-            <div style="margin-top:8px;">
+            <div style=${{ marginTop: '8px' }}>
               <${PainelResultadoRaciocinio} idTeste=${candidato.id_teste} />
             </div>
           </div>

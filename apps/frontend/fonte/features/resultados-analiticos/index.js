@@ -255,7 +255,7 @@ function ModalComparacao({ data, loading, onClose, podeAprovar, podeEliminar, ac
                   <div class="row g-2">
                     ${items.map((item) => html`
                       <div key=${item.id_teste} class="col-md-${items.length === 2 ? '6' : '4'}">
-                        <div class="rh-section-card rh-section-card--flat" style="padding:12px;">
+                        <div class="rh-section-card rh-section-card--flat" style=${{ padding: '12px' }}>
                           <strong class="d-block mb-2">${item.nome_candidato}</strong>
                           <div class="d-flex gap-2 flex-wrap">
                             ${podeAprovar

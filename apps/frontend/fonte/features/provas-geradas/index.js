@@ -1741,7 +1741,7 @@ function ModalDetalheProvaGerada({
                             <div class="rh-feedback-qualitativo-item" key=${`fb-${item.questao_indice}-${item.questao_id ?? ''}`}>
                               <strong>Questão ${Number(item.questao_indice ?? 0) + 1} — ${item.categoria}</strong>
                               ${item.dificuldade ? html`<span class="text-muted"> (${item.dificuldade})</span>` : null}
-                              <p style="margin:4px 0 0;">${item.feedback_qualitativo}</p>
+                              <p style=${{ margin: '4px 0 0' }}>${item.feedback_qualitativo}</p>
                             </div>
                           `,
                         )}

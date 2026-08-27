@@ -291,7 +291,7 @@ export function TelaOnboarding({ controlador }) {
             <label>Itens do checklist</label>
             ${form.itens.map(
       (item, index) => html`
-                <div key=${index} class="rh-section-card rh-section-card--flat" style="padding:12px;margin-bottom:8px;">
+                <div key=${index} class="rh-section-card rh-section-card--flat" style=${{ padding: '12px', marginBottom: '8px' }}>
                   <div class="row g-2 align-items-start">
                     <div class="col-md-5">
                       <input
@@ -501,7 +501,7 @@ export function PainelOnboardingCandidato({ idRegistro, controlador, vagaCandida
               <span class=${item.concluido ? 'text-decoration-line-through text-muted' : ''}>
                 ${item.titulo}
                 ${item.obrigatorio
-          ? html`<span class="rh-chip is-indicacao ms-2" style="font-size:11px;">Obrigatório</span>`
+          ? html`<span class="rh-chip is-indicacao ms-2" style=${{ fontSize: '11px' }}>Obrigatório</span>`
           : null}
               </span>
             </li>

@@ -59,7 +59,7 @@ export function TelaProvasConfiguracao({ controlador }) {
       ? diretrizesVisiveis.map(
         (item) => html`
                 <div key=${item.tela} class="col-md-6">
-                  <div class="rh-section-card rh-section-card--flat h-100 d-flex flex-column justify-content-between" style="padding:16px;">
+                  <div class="rh-section-card rh-section-card--flat h-100 d-flex flex-column justify-content-between" style=${{ padding: '16px' }}>
                     <div class="d-flex align-items-start gap-3">
                       <span class="material-symbols-outlined" aria-hidden="true">${item.icone}</span>
                       <div>
