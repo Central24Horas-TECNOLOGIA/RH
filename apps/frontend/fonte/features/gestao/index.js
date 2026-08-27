@@ -51,6 +51,7 @@ import {
   excluirEmailRecebido,
   lerEmailsRecebidos,
   removerBancoTalentos,
+  revalidarBancoTalentos,
   usarCandidatoDoBancoTalentos,
   vincularEmailRecebidoProcesso,
   lerRelatorioCandidatos,
@@ -102,6 +103,7 @@ import { BlocoFiltro, CampoFiltro } from './components/filtros.js';
 import { listarOperacoes } from '../../services/api/operations.js';
 import { CHAVE_COMANDO_NOVO_PROCESSO } from '../../ui/busca-global.js';
 import {
+  AvatarUsuario,
   EmptyState,
   GrupoPaginacao,
   LoadingState,
@@ -2003,7 +2005,16 @@ export function TelaInicio({ controlador }) {
     >
       <${ToastHost} />
       <${PageIntro}
-        title=${`Olá, ${nomeUsuarioLogado}!`}
+        title=${html`
+          <div class="d-flex align-items-center gap-3">
+            <${AvatarUsuario}
+              avatar=${controlador?.estado?.avatarUsuario || controlador?.estado?.userAvatar || controlador?.estado?.usuarioAvatar || ''}
+              nome=${nomeUsuarioLogado}
+              tamanho=${48}
+            />
+            <span>Olá, ${nomeUsuarioLogado}!</span>
+          </div>
+        `}
         description="Panorama geral do recrutamento hoje."
         actions=${html`
           <button
@@ -3589,6 +3600,25 @@ export function TelaBancoTalentos({ controlador }) {
     }
   };
 
+  const revalidar = async (idBanco) => {
+    if (!window.confirm('Reiniciar a contagem de permanência deste candidato no banco de talentos por mais 180 dias?')) {
+      return;
+    }
+
+    setSalvando(true);
+    setErro('');
+    try {
+      await revalidarBancoTalentos(idBanco);
+      await carregar({ forcar: true });
+    } catch (error) {
+      setErro(
+        error?.message || 'Não foi possível revalidar o candidato no banco.',
+      );
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const abrirEdicaoPerfil = (candidato) => {
     setPerfilEdicao(candidato);
     setFormularioPerfil({
@@ -3824,6 +3854,18 @@ export function TelaBancoTalentos({ controlador }) {
                                   >
                                     Perfil RH
                                   </button>
+                                  ${linha.expirado
+      ? html`
+                                        <button
+                                          type="button"
+                                          class="btn btn-sm btn-outline-primary"
+                                          disabled=${salvando}
+                                          onClick=${() => revalidar(linha.id_banco)}
+                                        >
+                                          Revalidar
+                                        </button>
+                                      `
+      : null}
                                   <button
                                     type="button"
                                     class="btn btn-sm btn-outline-danger"

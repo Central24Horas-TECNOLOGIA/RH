@@ -377,6 +377,8 @@ SCREEN_PERMISSIONS: dict[str, str] = {
     "screen-settings-document-templates": "documentos_templates.editar",
     "screen-settings-operations": "configuracoes.visualizar",
     "screen-settings-catalog": "configuracoes.visualizar",
+    "screen-settings-administracao": "configuracoes.visualizar",
+    "screen-provas-configuracao": "configuracoes.visualizar",
     "screen-generated-exams": "provas.visualizar",
     "screen-process-analytical-results": "provas.visualizar",
     "screen-config": "provas.enviar",

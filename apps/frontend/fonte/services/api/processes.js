@@ -267,6 +267,19 @@ export async function removerBancoTalentos(idBanco) {
   return resultado;
 }
 
+export async function revalidarBancoTalentos(idBanco) {
+  const resultado = await requisitar(`/talent-bank/${idBanco}/revalidate`, {
+    method: 'POST',
+  });
+
+  invalidarCacheApi('banco-talentos', 'candidatos-processos', 'processos', 'relatorios', 'historico');
+  return resultado;
+}
+
+export async function listarMotivosEliminacao() {
+  return requisitar('/motivos-eliminacao', { method: 'GET' });
+}
+
 
 export async function criarBancoTalentos(dadosCandidato) {
   const { id_banco, ...payload } = dadosCandidato || {};

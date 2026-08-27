@@ -584,6 +584,7 @@ def ensure_candidate_approval_columns(cursor) -> None:
         ("eliminado_em", "DATETIME"),
         ("motivo_eliminacao", "NVARCHAR(120)"),
         ("etapa_eliminacao", "NVARCHAR(120)"),
+        ("sub_causa_eliminacao", "NVARCHAR(180)"),
         ("banco_talentos_em", "DATETIME"),
         ("mensagem_aprovacao_enviada_whatsapp_em", "DATETIME"),
         ("mensagem_aprovacao_enviada_email_em", "DATETIME"),

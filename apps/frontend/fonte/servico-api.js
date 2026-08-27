@@ -152,6 +152,8 @@ export {
   registrarWhatsappContatoManual,
   retomarProcesso,
   removerBancoTalentos,
+  revalidarBancoTalentos,
+  listarMotivosEliminacao,
   uploadCvCandidato,
   usarCandidatoDoBancoTalentos,
   cancelarProcesso,

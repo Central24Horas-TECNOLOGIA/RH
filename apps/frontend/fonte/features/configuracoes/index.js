@@ -58,7 +58,18 @@ const FORM_ITEM_INICIAL = {
   payloadJson: '{}',
   ativo: true,
   justificativa: '',
+  cliente: '',
+  modalidadeOperacao: '',
+  slaAtendimento: '',
+  headcountPrevisto: '',
+  softwaresUtilizados: '',
+  sistemasAcesso: [],
+  duracaoMinutos: '',
+  toleranciaMinutos: '',
+  subCausas: '',
 };
+
+const SISTEMA_ACESSO_INICIAL = { nome: '', descricao: '' };
 
 const CATALOGO_ICONS = {
   geral: 'settings',
@@ -717,7 +728,42 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       payloadJson: JSON.stringify(payload || {}, null, 2),
       ativo: Boolean(item.ativo),
       justificativa: '',
+      cliente: payload.cliente || '',
+      modalidadeOperacao: payload.modalidade || '',
+      slaAtendimento: payload.sla_atendimento || '',
+      headcountPrevisto: payload.headcount_previsto ? String(payload.headcount_previsto) : '',
+      softwaresUtilizados: formatarCsv(payload.softwares_utilizados),
+      sistemasAcesso: normalizarLista(payload.sistemas_acesso).map((sistema) => ({
+        nome: sistema?.nome || '',
+        descricao: sistema?.descricao || '',
+      })),
+      duracaoMinutos: payload.duracao_minutos ? String(payload.duracao_minutos) : '',
+      toleranciaMinutos: payload.tolerancia_minutos ? String(payload.tolerancia_minutos) : '',
+      subCausas: formatarCsv(payload.sub_causas),
     });
+  };
+
+  const adicionarSistemaAcesso = () => {
+    setFormItem((atual) => ({
+      ...atual,
+      sistemasAcesso: [...normalizarLista(atual.sistemasAcesso), { ...SISTEMA_ACESSO_INICIAL }],
+    }));
+  };
+
+  const atualizarSistemaAcesso = (indice, campo, valor) => {
+    setFormItem((atual) => ({
+      ...atual,
+      sistemasAcesso: normalizarLista(atual.sistemasAcesso).map((sistema, indiceAtual) =>
+        indiceAtual === indice ? { ...sistema, [campo]: valor } : sistema,
+      ),
+    }));
+  };
+
+  const removerSistemaAcesso = (indice) => {
+    setFormItem((atual) => ({
+      ...atual,
+      sistemasAcesso: normalizarLista(atual.sistemasAcesso).filter((_, indiceAtual) => indiceAtual !== indice),
+    }));
   };
 
   const duplicarItem = (item) => {
@@ -751,6 +797,33 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         aplicavel: formItem.aplicavel,
         permissoes: dividirCsv(formItem.permissoes),
       };
+
+      if (secaoCatalogoAtiva.tipo === 'operacoes') {
+        payload = {
+          ...payload,
+          cliente: formItem.cliente,
+          modalidade: formItem.modalidadeOperacao,
+          sla_atendimento: formItem.slaAtendimento,
+          headcount_previsto: formItem.headcountPrevisto ? Number(formItem.headcountPrevisto) : null,
+          softwares_utilizados: dividirCsv(formItem.softwaresUtilizados),
+          sistemas_acesso: normalizarLista(formItem.sistemasAcesso).filter((sistema) => sistema.nome?.trim()),
+        };
+      }
+
+      if (secaoCatalogoAtiva.tipo === 'etapas') {
+        payload = {
+          ...payload,
+          duracao_minutos: formItem.duracaoMinutos ? Number(formItem.duracaoMinutos) : null,
+          tolerancia_minutos: formItem.toleranciaMinutos ? Number(formItem.toleranciaMinutos) : null,
+        };
+      }
+
+      if (secaoCatalogoAtiva.tipo === 'motivos_eliminacao') {
+        payload = {
+          ...payload,
+          sub_causas: dividirCsv(formItem.subCausas),
+        };
+      }
 
       const data = {
         chave: formItem.chave,
@@ -1850,7 +1923,11 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
             <div>
               <span class="c24-eyebrow">${secaoCatalogoAtiva?.label || 'Catálogo'}</span>
               <h3>${formItem.id_item ? 'Editar regra' : 'Nova regra'}</h3>
-              <p>Campos principais ficam no topo; o JSON avançado preserva integrações existentes.</p>
+              <p>
+                ${secaoCatalogoAtiva?.tipo === 'operacoes'
+      ? 'Preencha os dados desta operação — eles passam a valer em Processos, Provas e Treinamentos.'
+      : 'Campos principais ficam no topo; o JSON avançado preserva integrações existentes.'}
+              </p>
             </div>
             <div class="settings-card-actions">
               ${itemEmEdicao
@@ -1952,6 +2029,145 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               />
               <span>Item ativo nos fluxos operacionais</span>
             </label>
+            ${secaoCatalogoAtiva?.tipo === 'etapas'
+      ? html`
+                  <label>
+                    <span>Duração (minutos)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      class="form-control"
+                      placeholder="Ex.: 30"
+                      value=${formItem.duracaoMinutos}
+                      onInput=${(event) => setFormItem({ ...formItem, duracaoMinutos: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <span>Tolerância extra (minutos)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      class="form-control"
+                      placeholder="Ex.: 5"
+                      value=${formItem.toleranciaMinutos}
+                      onInput=${(event) => setFormItem({ ...formItem, toleranciaMinutos: event.target.value })}
+                    />
+                  </label>
+                `
+      : null}
+            ${secaoCatalogoAtiva?.tipo === 'motivos_eliminacao'
+      ? html`
+                  <label class="is-wide">
+                    <span>Sub-causas deste motivo</span>
+                    <input
+                      class="form-control"
+                      placeholder="Separadas por vírgula. Ex.: Não atendeu ligação, Cancelou por WhatsApp, Não justificou"
+                      value=${formItem.subCausas}
+                      onInput=${(event) => setFormItem({ ...formItem, subCausas: event.target.value })}
+                    />
+                    <small class="text-muted">Aparecem como detalhamento opcional ao eliminar um candidato com este motivo.</small>
+                  </label>
+                `
+      : null}
+            ${secaoCatalogoAtiva?.tipo === 'operacoes'
+      ? html`
+                  <label>
+                    <span>Cliente</span>
+                    <input
+                      class="form-control"
+                      placeholder="Nome do cliente atendido por esta operação"
+                      value=${formItem.cliente}
+                      onInput=${(event) => setFormItem({ ...formItem, cliente: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <span>Modalidade</span>
+                    <select
+                      class="form-select"
+                      value=${formItem.modalidadeOperacao}
+                      onChange=${(event) => setFormItem({ ...formItem, modalidadeOperacao: event.target.value })}
+                    >
+                      <option value="">Não informado</option>
+                      <option value="presencial">Presencial</option>
+                      <option value="hibrido">Híbrido</option>
+                      <option value="remoto">Remoto</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Previsão de colaboradores</span>
+                    <input
+                      type="number"
+                      min="0"
+                      class="form-control"
+                      value=${formItem.headcountPrevisto}
+                      onInput=${(event) => setFormItem({ ...formItem, headcountPrevisto: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <span>SLA de atendimento</span>
+                    <input
+                      class="form-control"
+                      placeholder="Ex.: 90% das chamadas em até 20s"
+                      value=${formItem.slaAtendimento}
+                      onInput=${(event) => setFormItem({ ...formItem, slaAtendimento: event.target.value })}
+                    />
+                  </label>
+                  <label class="is-wide">
+                    <span>Programas e softwares utilizados</span>
+                    <input
+                      class="form-control"
+                      placeholder="Separados por vírgula. Ex.: Excel, CRM Interno, Discador"
+                      value=${formItem.softwaresUtilizados}
+                      onInput=${(event) => setFormItem({ ...formItem, softwaresUtilizados: event.target.value })}
+                    />
+                  </label>
+                  <div class="is-wide">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <span>Sistemas e portais de acesso necessários</span>
+                      <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${adicionarSistemaAcesso}>
+                        <${Icone} name="add" /> Adicionar sistema
+                      </button>
+                    </div>
+                    <p class="text-muted small mb-2">
+                      Usado para já indicar, na solicitação de credenciais de um novo colaborador desta operação, quais acessos precisam ser criados.
+                    </p>
+                    ${normalizarLista(formItem.sistemasAcesso).length
+        ? normalizarLista(formItem.sistemasAcesso).map(
+          (sistema, indice) => html`
+                            <div key=${indice} class="row g-2 align-items-start mb-2">
+                              <div class="col-md-5">
+                                <input
+                                  class="form-control"
+                                  placeholder="Nome do sistema/portal"
+                                  value=${sistema.nome}
+                                  onInput=${(event) => atualizarSistemaAcesso(indice, 'nome', event.target.value)}
+                                />
+                              </div>
+                              <div class="col-md-6">
+                                <input
+                                  class="form-control"
+                                  placeholder="Observação (opcional)"
+                                  value=${sistema.descricao}
+                                  onInput=${(event) => atualizarSistemaAcesso(indice, 'descricao', event.target.value)}
+                                />
+                              </div>
+                              <div class="col-md-1">
+                                <button
+                                  type="button"
+                                  class="btn btn-outline-danger btn-sm"
+                                  aria-label="Remover sistema"
+                                  onClick=${() => removerSistemaAcesso(indice)}
+                                >
+                                  <${Icone} name="close" />
+                                </button>
+                              </div>
+                            </div>
+                          `,
+        )
+        : html`<p class="text-muted small mb-0">Nenhum sistema adicionado ainda.</p>`}
+                  </div>
+                `
+      : null}
             <label class="is-wide">
               <span>Justificativa</span>
               <input
@@ -1960,15 +2176,19 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                 onInput=${(event) => setFormItem({ ...formItem, justificativa: event.target.value })}
               />
             </label>
-            <details class="settings-json-details is-wide">
-              <summary>Payload JSON avançado</summary>
-              <textarea
-                class="form-control font-monospace"
-                rows="5"
-                value=${formItem.payloadJson}
-                onInput=${(event) => setFormItem({ ...formItem, payloadJson: event.target.value })}
-              ></textarea>
-            </details>
+            ${!['operacoes', 'etapas', 'motivos_eliminacao'].includes(secaoCatalogoAtiva?.tipo)
+      ? html`
+                  <details class="settings-json-details is-wide">
+                    <summary>Payload JSON avançado</summary>
+                    <textarea
+                      class="form-control font-monospace"
+                      rows="5"
+                      value=${formItem.payloadJson}
+                      onInput=${(event) => setFormItem({ ...formItem, payloadJson: event.target.value })}
+                    ></textarea>
+                  </details>
+                `
+      : null}
             <footer class="settings-form-footer is-wide">
               <button type="submit" class="btn btn-primary" disabled=${salvando || !secaoCatalogoAtiva || !controlador.possuiPermissao('configuracoes.editar')}>
                 <${Icone} name="check" /> ${salvando ? 'Salvando...' : 'Salvar'}

@@ -287,6 +287,7 @@ class ProcessCandidateStatusUpdateRequest(BaseSchema):
     anexo_aprovacao_tamanho: int = 0
     anexo_aprovacao_base64: str = ""
     motivo_eliminacao: str = ""
+    sub_causa_eliminacao: str = ""
     etapa_eliminacao: str = ""
     data_eliminacao: str | None = None
     observacao_eliminacao: str = ""
@@ -362,6 +363,7 @@ class StandaloneCandidateStatusUpdateRequest(BaseSchema):
     anexo_aprovacao_tamanho: int = 0
     anexo_aprovacao_base64: str = ""
     motivo_eliminacao: str = ""
+    sub_causa_eliminacao: str = ""
     etapa_eliminacao: str = ""
     data_eliminacao: str | None = None
     observacao_eliminacao: str = ""

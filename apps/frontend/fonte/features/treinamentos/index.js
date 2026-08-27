@@ -433,6 +433,21 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
         description="LGPD, Segurança da Informação, Onboarding e Produto — organizados em trilhas por operação, com vídeos, textos, slides e o acompanhamento de quem está fazendo cada treinamento."
       />
 
+      <${SectionCard} className="rh-section-card--flat" style="margin-bottom:24px;">
+        <div class="d-flex align-items-start gap-3">
+          <span class="material-symbols-outlined" aria-hidden="true">upcoming</span>
+          <div>
+            <h3 class="h6 mb-1">Centro de Treinamentos — em breve</h3>
+            <p class="rh-section-card-description mb-0">
+              A expansão desta área (acesso dedicado para instrutores e supervisores, atribuição de quem
+              ministra cada treinamento com aviso automático, e liberação vinculada ao processo seletivo)
+              está em desenvolvimento e chega em breve. As trilhas e atribuições abaixo continuam
+              funcionando normalmente.
+            </p>
+          </div>
+        </div>
+      </${SectionCard}>
+
       <div class="c24-tabs" style="margin-bottom:16px;display:flex;gap:8px;">
         <button type="button" class=${`c24-pill-tab ${abaAtiva === 'trilhas' ? 'is-active' : ''}`} onClick=${() => irParaAba('trilhas')}>
           <span class="material-symbols-outlined">school</span>

@@ -92,6 +92,12 @@ export function BarraLateral({
       label: 'Histórico de Provas',
       permissao: 'candidatos.consultar_historico',
     },
+    {
+      tela: 'screen-provas-configuracao',
+      icone: 'tune',
+      label: 'Configuração',
+      permissao: 'configuracoes.visualizar',
+    },
   ];
   const sublinksTreinamentos = [
     {
@@ -132,6 +138,8 @@ export function BarraLateral({
       icone: 'celebration',
       label: 'Calendário',
     },
+  ];
+  const itensDriveConecta = [
     {
       tela: 'screen-onedrive-files',
       icone: 'cloud',
@@ -177,34 +185,16 @@ export function BarraLateral({
       permissao: 'politicas.editar',
     },
     {
-      tela: 'screen-settings-onboarding',
-      icone: 'checklist',
-      label: 'Trilhas de Onboarding',
-      permissao: 'onboarding.editar',
-    },
-    {
       tela: 'screen-settings-document-templates',
       icone: 'description',
       label: 'Templates de Documentos',
       permissao: 'documentos_templates.editar',
     },
     {
-      tela: 'screen-settings-disc',
-      icone: 'insights',
-      label: 'Teste DISC',
-      permissao: 'provas.questoes_criar',
-    },
-    {
-      tela: 'screen-settings-fit-cultural',
-      icone: 'diversity_3',
-      label: 'Fit Cultural',
-      permissao: 'fit_cultural.editar',
-    },
-    {
-      tela: 'screen-settings-raciocinio-logico',
-      icone: 'psychology',
-      label: 'Raciocínio Lógico',
-      permissao: 'provas.questoes_criar',
+      tela: 'screen-settings-administracao',
+      icone: 'verified_user',
+      label: 'Administração',
+      permissao: 'configuracoes.visualizar',
     },
   ];
   const telasRelacionadasProcessos = [
@@ -220,6 +210,11 @@ export function BarraLateral({
   const telasRelacionadasProvas = [
     'screen-generated-exams',
     'screen-history',
+    'screen-provas-configuracao',
+    'screen-settings-onboarding',
+    'screen-settings-disc',
+    'screen-settings-fit-cultural',
+    'screen-settings-raciocinio-logico',
   ];
   const telasRelacionadasTreinamentos = [
     'screen-training',
@@ -233,7 +228,6 @@ export function BarraLateral({
     'screen-candidate-details',
     'screen-candidate-pipeline',
     'screen-calendario',
-    'screen-onedrive-files',
   ];
   const telasRelacionadasConfiguracoes = [
     'screen-settings',
@@ -243,11 +237,8 @@ export function BarraLateral({
     'screen-settings-catalog',
     'screen-settings-logs',
     'screen-settings-policies',
-    'screen-settings-onboarding',
     'screen-settings-document-templates',
-    'screen-settings-disc',
-    'screen-settings-fit-cultural',
-    'screen-settings-raciocinio-logico',
+    'screen-settings-administracao',
   ];
   const possuiPermissao = (permissao) =>
     !permissao || controlador?.possuiPermissao?.(permissao);
@@ -600,77 +591,7 @@ export function BarraLateral({
               </div>
             `
       : null}
-        ${sublinksConfiguracoesVisiveis.length
-      ? html`
-              <div
-                class=${`rh-modern-nav-group ${submenuConfiguracoesAberto && !recolhida ? 'is-open' : ''
-          } ${grupoConfiguracoesAtivo ? 'has-active' : ''}`.trim()}
-              >
-                <button
-                  type="button"
-                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoConfiguracoesAtivo ? 'is-active' : ''
-          }`.trim()}
-                  title="Configurações"
-                  aria-expanded=${!recolhida && submenuConfiguracoesAberto}
-                  aria-controls="rh-modern-subnav-configuracoes"
-                  onClick=${() => {
-          if (recolhida) {
-            controlador.irParaTelaProtegida(
-              sublinksConfiguracoesVisiveis[0]?.tela || 'screen-settings-users',
-            );
-            return;
-          }
-          setSubmenuConfiguracoesAberto((valor) => !valor);
-        }}
-                >
-                  <span class="material-symbols-outlined" aria-hidden="true">
-                    settings
-                  </span>
-                  <span class="rh-modern-nav-label">Configurações</span>
-                  <span
-                    class="material-symbols-outlined rh-modern-nav-chevron"
-                    aria-hidden="true"
-                  >
-                    expand_more
-                  </span>
-                </button>
-                ${submenuConfiguracoesAberto && !recolhida
-          ? html`
-                      <div
-                        class="rh-modern-subnav"
-                        id="rh-modern-subnav-configuracoes"
-                        role="group"
-                        aria-label="Submenu de Configurações"
-                      >
-                        ${sublinksConfiguracoesVisiveis.map(
-            (subitem) => html`
-                            <button
-                              key=${subitem.tela}
-                              type="button"
-                              class=${`rh-modern-subnav-btn ${subitemConfiguracaoAtivo(subitem) ? 'is-active' : ''
-                }`.trim()}
-                              title=${subitem.label}
-                              aria-current=${subitemConfiguracaoAtivo(subitem) ? 'page' : null
-              }
-                              onClick=${() =>
-                controlador.irParaTelaProtegida(subitem.tela)}
-                            >
-                              <span
-                                class="material-symbols-outlined"
-                                aria-hidden="true"
-                              >
-                                ${subitem.icone}
-                              </span>
-                              <span>${subitem.label}</span>
-                            </button>
-                          `,
-          )}
-                      </div>
-                    `
-          : null}
-              </div>
-            `
-      : null}
+        ${itensDriveConecta.map(renderizarItem)}
         ${sublinksTreinamentosVisiveis.length
       ? html`
               <div
@@ -722,6 +643,77 @@ export function BarraLateral({
                 }`.trim()}
                               title=${subitem.label}
                               aria-current=${subitemTreinamentoAtivo(subitem) ? 'page' : null
+              }
+                              onClick=${() =>
+                controlador.irParaTelaProtegida(subitem.tela)}
+                            >
+                              <span
+                                class="material-symbols-outlined"
+                                aria-hidden="true"
+                              >
+                                ${subitem.icone}
+                              </span>
+                              <span>${subitem.label}</span>
+                            </button>
+                          `,
+          )}
+                      </div>
+                    `
+          : null}
+              </div>
+            `
+      : null}
+        ${sublinksConfiguracoesVisiveis.length
+      ? html`
+              <div
+                class=${`rh-modern-nav-group ${submenuConfiguracoesAberto && !recolhida ? 'is-open' : ''
+          } ${grupoConfiguracoesAtivo ? 'has-active' : ''}`.trim()}
+              >
+                <button
+                  type="button"
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoConfiguracoesAtivo ? 'is-active' : ''
+          }`.trim()}
+                  title="Configurações"
+                  aria-expanded=${!recolhida && submenuConfiguracoesAberto}
+                  aria-controls="rh-modern-subnav-configuracoes"
+                  onClick=${() => {
+          if (recolhida) {
+            controlador.irParaTelaProtegida(
+              sublinksConfiguracoesVisiveis[0]?.tela || 'screen-settings-users',
+            );
+            return;
+          }
+          setSubmenuConfiguracoesAberto((valor) => !valor);
+        }}
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">
+                    settings
+                  </span>
+                  <span class="rh-modern-nav-label">Configurações</span>
+                  <span
+                    class="material-symbols-outlined rh-modern-nav-chevron"
+                    aria-hidden="true"
+                  >
+                    expand_more
+                  </span>
+                </button>
+                ${submenuConfiguracoesAberto && !recolhida
+          ? html`
+                      <div
+                        class="rh-modern-subnav"
+                        id="rh-modern-subnav-configuracoes"
+                        role="group"
+                        aria-label="Submenu de Configurações"
+                      >
+                        ${sublinksConfiguracoesVisiveis.map(
+            (subitem) => html`
+                            <button
+                              key=${subitem.tela}
+                              type="button"
+                              class=${`rh-modern-subnav-btn ${subitemConfiguracaoAtivo(subitem) ? 'is-active' : ''
+                }`.trim()}
+                              title=${subitem.label}
+                              aria-current=${subitemConfiguracaoAtivo(subitem) ? 'page' : null
               }
                               onClick=${() =>
                 controlador.irParaTelaProtegida(subitem.tela)}
@@ -852,6 +844,17 @@ function obterIniciaisUsuario(nome) {
   if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
 
   return `${partes[0].slice(0, 1)}${partes[partes.length - 1].slice(0, 1)}`.toUpperCase();
+}
+
+export function AvatarUsuario({ avatar = '', nome = '', tamanho = 40 }) {
+  const estilo = { width: `${tamanho}px`, height: `${tamanho}px`, fontSize: `${Math.round(tamanho * 0.4)}px` };
+  return html`
+    <span class="c24-user-avatar" style=${estilo}>
+      ${avatar
+      ? html`<img src=${avatar} alt="" />`
+      : html`<span>${obterIniciaisUsuario(nome)}</span>`}
+    </span>
+  `;
 }
 
 export function CartaoUsuarioTopo({ controlador }) {

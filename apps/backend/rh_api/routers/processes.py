@@ -391,6 +391,17 @@ def send_approval_email(
     return result
 
 
+@router.get("/motivos-eliminacao", dependencies=[Depends(require_permissions("candidatos.eliminar"))])
+def get_motivos_eliminacao(repository: DatabaseRepository = Depends(get_repository)):
+    """Lista enxuta dos motivos de eliminacao cadastrados (Configuracoes >
+    Catalogos), incluindo as sub-causas de cada motivo (payload.sub_causas).
+    Rota separada do CRUD completo de /settings/catalog/motivos_eliminacao
+    (que exige configuracoes.editar) para que qualquer usuario com permissao
+    de eliminar candidatos consiga ler a lista ao abrir o formulario de
+    eliminacao, sem precisar de acesso as telas de Configuracoes."""
+    return repository.list_catalog_items_by_type("motivos_eliminacao", apenas_ativos=True)
+
+
 @router.get("/talent-bank", dependencies=[Depends(require_permissions("candidatos.visualizar"))])
 def get_talent_bank(
     search: str = Query(default=""),
@@ -439,6 +450,24 @@ def delete_talent_bank_candidate(
         user,
         modulo="Candidatos",
         acao="excluir_banco_talentos",
+        entidade="banco_talentos",
+        entidade_id=str(id_banco),
+    )
+    return result
+
+
+@router.post("/talent-bank/{id_banco}/revalidate", dependencies=[Depends(require_permissions("candidatos.mover_etapa"))])
+def revalidate_talent_bank_candidate(
+    id_banco: int,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.revalidate_talent_bank_candidate(id_banco)
+    audit_action(
+        repository,
+        user,
+        modulo="Candidatos",
+        acao="revalidar_banco_talentos",
         entidade="banco_talentos",
         entidade_id=str(id_banco),
     )

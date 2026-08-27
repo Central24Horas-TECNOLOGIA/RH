@@ -5,6 +5,7 @@ export {
   MetricGrid,
 } from './components/feedback.js';
 export {
+  AvatarUsuario,
   PainelRh,
   PageIntro,
   SectionCard,
