@@ -13,10 +13,12 @@ import { defineConfig } from 'vite';
  * `npm run build` (bundle otimizado opcional em dist/, que hoje não é
  * consumido por nenhum fluxo de produção).
  *
- * O código-fonte em fonte/ usa apenas imports relativos (./x.js, ../x.js)
- * ou URLs absolutas de CDN (https://esm.sh/...) — nenhum "bare specifier"
- * que dependa de bundler/import map — por isso o Vite consegue processar
- * o grafo de módulos sem que nenhum import precise ser reescrito.
+ * O código-fonte em fonte/ usa apenas imports relativos (./x.js, ../x.js,
+ * incluindo React/ReactDOM/htm vendorizados em vendor/ — achado S-21) ou
+ * URLs absolutas de CDN para as demais bibliotecas (Bootstrap, SheetJS) —
+ * nenhum "bare specifier" que dependa de bundler/import map — por isso o
+ * Vite consegue processar o grafo de módulos sem que nenhum import precise
+ * ser reescrito.
  */
 
 // Porta padrão do backend Python (rh_api). Ver run.py e

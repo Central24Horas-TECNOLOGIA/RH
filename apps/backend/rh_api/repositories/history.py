@@ -280,7 +280,7 @@ class HistoryRepositoryMixin:
                 return rows_to_dicts(cursor, cursor.fetchall())
 
             page_safe = max(1, int(page or 1))
-            page_size_safe = max(1, min(int(page_size or 10), 100))
+            page_size_safe = self._clamp_limit(page_size, default=10, maximum=100)
             offset = (page_safe - 1) * page_size_safe
 
             cursor.execute(f"SELECT COUNT(*) FROM historico_provas{where_clause}", tuple(params))

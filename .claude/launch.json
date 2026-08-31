@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["run.py", "--no-reload"],
       "port": 8000
+    },
+    {
+      "name": "frontend-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "--directory", "apps/frontend", "5599"],
+      "port": 5599
     }
   ]
 }

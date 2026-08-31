@@ -230,7 +230,7 @@ class CvAnalysisRepositoryMixin:
             if not processo:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
             page_safe = max(1, int(page or 1))
-            page_size_safe = max(1, min(int(page_size or 5), 50))
+            page_size_safe = self._clamp_limit(page_size, default=5, maximum=50)
 
             cursor.execute(
                 """
@@ -1148,8 +1148,8 @@ class CvAnalysisRepositoryMixin:
         finally:
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Falha ao encerrar conexao apos analise de CV: %s", exc)
 
     def add_cv_pre_analysis_to_process(
         self,

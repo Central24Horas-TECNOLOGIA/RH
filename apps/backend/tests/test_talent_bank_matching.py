@@ -14,6 +14,7 @@ if str(API_DIR) not in sys.path:
 
 from fastapi import HTTPException
 
+from rh_api.repositories.base import BaseRepository
 from rh_api.repositories.talent_bank import TalentBankRepositoryMixin, _extract_matching_keywords
 from rh_api.routers.processes import get_process_suggested_candidates
 
@@ -69,7 +70,7 @@ class FakeMatchingConnection:
         self.closed = True
 
 
-class FakeMatchingRepository(TalentBankRepositoryMixin):
+class FakeMatchingRepository(TalentBankRepositoryMixin, BaseRepository):
     def __init__(self, cursor: FakeMatchingCursor, profile_map: dict):
         self._connection = FakeMatchingConnection(cursor)
         self._profile_map = profile_map

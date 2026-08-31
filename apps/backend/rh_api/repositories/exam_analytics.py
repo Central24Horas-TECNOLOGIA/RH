@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import socket
 from datetime import datetime, timezone
@@ -33,6 +34,9 @@ from .bootstrap import get_process_row
 from .exam_analytics_schema import ensure_exam_analytics_tables
 
 
+logger = logging.getLogger(__name__)
+
+
 def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
 
@@ -50,8 +54,8 @@ def _utc_naive(value: Any = None) -> datetime:
     if value:
         try:
             return datetime.fromisoformat(str(value).replace("Z", "+00:00")).replace(tzinfo=None)
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as exc:
+            logger.debug("Valor de data invalido em analytics, usando horario atual: %r (%s)", value, exc)
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
@@ -305,9 +309,10 @@ class ExamAnalyticsRepositoryMixin:
             if normalize_text(process_id):
                 predicate += " AND (prova.id_processo = ? OR prova.id_processo_ref = ?)"
                 params.extend([normalize_text(process_id), normalize_text(process_id)])
+            safe_batch_size = self._clamp_limit(batch_size, default=500, maximum=5000)
             cursor.execute(
                 f"""
-                SELECT TOP {max(1, min(int(batch_size), 5000))}
+                SELECT TOP {safe_batch_size}
                     prova.id_prova, prova.id_teste, prova.id_processo, prova.id_processo_ref,
                     prova.atualizado_em AS prova_atualizado_em,
                     resultado.atualizado_em AS resultado_atualizado_em
@@ -340,7 +345,7 @@ class ExamAnalyticsRepositoryMixin:
             if normalize_text(process_id):
                 predicate += " AND (id_processo=? OR id_processo_ref=?)"
                 params.extend([normalize_text(process_id), normalize_text(process_id)])
-            limit = max(1, min(int(batch_size), 1000))
+            limit = self._clamp_limit(batch_size, default=100, maximum=1000)
             cursor.execute(
                 f"""
                 ;WITH retry AS (
@@ -370,8 +375,8 @@ class ExamAnalyticsRepositoryMixin:
                         origem="worker-cli",
                         sucesso=True,
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self.logger.debug("Falha ao registrar log de auditoria de reprocessamento analitico: %s", exc)
             return count
         finally:
             conn.close()
@@ -1065,28 +1070,28 @@ class ExamAnalyticsRepositoryMixin:
                     origem="worker",
                     sucesso=True,
                 )
-            except Exception:
-                pass
+            except Exception as audit_exc:
+                self.logger.debug("Falha ao registrar log de auditoria de consolidacao analitica: %s", audit_exc)
         except Exception as exc:
             conn.rollback()
             if lock_acquired:
                 try:
                     conn.cursor().execute("EXEC sys.sp_releaseapplock @Resource=?, @LockOwner=N'Session'", (lock_resource,))
-                except Exception:
-                    pass
+                except Exception as unlock_exc:
+                    self.logger.debug("Falha ao liberar applock apos erro de consolidacao: %s", unlock_exc)
                 lock_acquired = False
             for failed_job in jobs:
                 try:
                     self.fail_exam_analytics_job(failed_job, exc)
-                except Exception:
-                    pass
+                except Exception as mark_failed_exc:
+                    self.logger.warning("Falha ao marcar job analitico como falho: %s", mark_failed_exc)
             raise
         finally:
             if lock_acquired:
                 try:
                     conn.cursor().execute("EXEC sys.sp_releaseapplock @Resource=?, @LockOwner=N'Session'", (lock_resource,))
-                except Exception:
-                    pass
+                except Exception as unlock_exc:
+                    self.logger.debug("Falha ao liberar applock no bloco finally: %s", unlock_exc)
             conn.close()
 
     def fail_exam_analytics_job(self, job: dict, error: Exception) -> None:
@@ -1124,8 +1129,8 @@ class ExamAnalyticsRepositoryMixin:
                     origem="worker",
                     sucesso=False,
                 )
-            except Exception:
-                pass
+            except Exception as audit_exc:
+                self.logger.debug("Falha ao registrar log de auditoria de falha analitica: %s", audit_exc)
         finally:
             conn.close()
 

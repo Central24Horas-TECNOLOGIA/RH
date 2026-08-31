@@ -1,5 +1,12 @@
 # Como rodar o Conecta/RH
 
+> **⚠️ Documento histórico, não é o guia vigente.** Descreve o layout anterior à reorganização do projeto (`api/`, `Front/`) — hoje é `apps/backend`/`apps/frontend`, e o deploy real de HML/PROD é containerizado (Docker Compose + Caddy). Para o guia atual, use:
+> - **Execução local e Docker**: [README da raiz](../README.md);
+> - **Release e rollback**: [docs/deploy/](deploy/);
+> - **Operação (incidentes, backup)**: [docs/operacao/](operacao/).
+>
+> A seção 4 (ativar/desativar IA) e a seção 5 (testar análise de currículo) abaixo continuam descrevendo um comportamento de produto atual, mesmo que os comandos de execução estejam desatualizados. Mantido para referência — achado DEVOPS-003 do [programa de evolução do Conecta](connecta-evolution/README.md).
+
 ## 1. Configurar o ambiente
 
 Na raiz do projeto, copie `.env.example` para `.env` e preencha somente os

@@ -8,6 +8,7 @@ from datetime import datetime
 
 from fastapi import HTTPException, status
 
+from ..auth import AuthenticatedUser
 from ..services.helpers import (
     normalize_compare_text,
     normalize_indication_type,
@@ -101,7 +102,7 @@ class ProcessRepositoryMixin:
             return items
 
         safe_page = max(1, int(page or 1))
-        safe_page_size = max(1, min(int(page_size or 20), 100))
+        safe_page_size = self._clamp_limit(page_size, default=20, maximum=100)
         total = len(items)
         total_pages = max(1, math.ceil(total / safe_page_size))
         safe_page = min(safe_page, total_pages)
@@ -557,9 +558,10 @@ class ProcessRepositoryMixin:
                     prova_configurada_em,
                     urgente,
                     urgente_marcado_em,
-                    urgente_marcado_por
+                    urgente_marcado_por,
+                    ia_analise_desabilitada
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     resolved_process_id,
@@ -579,6 +581,7 @@ class ProcessRepositoryMixin:
                     1 if urgente_novo else 0,
                     datetime.now() if urgente_novo else None,
                     normalize_text(marcado_por) if urgente_novo else None,
+                    1 if data.get("ia_analise_desabilitada") else 0,
                 ),
             )
             conn.commit()
@@ -591,7 +594,14 @@ class ProcessRepositoryMixin:
         finally:
             conn.close()
 
-    def update_process(self, id_processo: str, data: dict, *, marcado_por: str = "") -> dict:
+    def update_process(
+        self,
+        id_processo: str,
+        data: dict,
+        *,
+        marcado_por: str = "",
+        user: AuthenticatedUser | None = None,
+    ) -> dict:
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -600,6 +610,13 @@ class ProcessRepositoryMixin:
             processo = get_process_row(cursor, id_processo)
             if not processo:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado.")
+            # Achado SEC-002: escopo de operação — usuários sem operação
+            # atribuída (o caso de hoje) não são afetados por esta checagem.
+            if user is not None and not user.allows_operacao(processo.get("operacao")):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Este processo pertence a uma operação fora do seu escopo de acesso.",
+                )
             where_clause, params = build_process_where_clause(processo)
 
             status_novo = normalize_process_status(data.get("status", "Aberto"))
@@ -630,7 +647,8 @@ class ProcessRepositoryMixin:
                     prova_configurada_em = ?,
                     urgente = ?,
                     urgente_marcado_em = ?,
-                    urgente_marcado_por = ?
+                    urgente_marcado_por = ?,
+                    ia_analise_desabilitada = ?
                 WHERE {where_clause}
                 """,
                 (
@@ -663,6 +681,15 @@ class ProcessRepositoryMixin:
                     1 if urgente_novo else 0,
                     datetime.now() if marcando_urgente_agora else (processo.get("urgente_marcado_em") if urgente_novo else None),
                     normalize_text(marcado_por) if marcando_urgente_agora else (processo.get("urgente_marcado_por") if urgente_novo else None),
+                    (
+                        1
+                        if (
+                            data.get("ia_analise_desabilitada")
+                            if data.get("ia_analise_desabilitada") is not None
+                            else processo.get("ia_analise_desabilitada")
+                        )
+                        else 0
+                    ),
                     *params,
                 ),
             )

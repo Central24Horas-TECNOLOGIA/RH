@@ -13,6 +13,7 @@ from ..config import Settings
 from ..db import get_connection
 from ..task_queue import enfileirar
 from ..services.helpers import (
+    clamp_limit,
     normalize_compare_text,
     normalize_indication_type,
     normalize_string_list,
@@ -38,6 +39,7 @@ from ..services.process_flow import (
     is_terminal_candidate_status,
 )
 from .bootstrap import (
+    _select_process_row_from_rows,
     build_process_where_clause,
     describe_database_error,
     ensure_candidate_metadata_table,
@@ -48,6 +50,7 @@ from .bootstrap import (
     ensure_process_reference_columns,
     get_next_id_banco,
     get_gabaritos_payload_column,
+    get_process_rows,
     is_identity_column,
     is_deadlock_error,
     resolve_process_row_for_related_record,
@@ -67,13 +70,10 @@ class BaseRepository:
     def _clamp_limit(value, default: int, maximum: int, minimum: int = 1) -> int:
         """Normaliza um limite/tamanho de pagina recebido de fora para um inteiro seguro.
 
-        Reproduz o padrao `max(minimum, min(int(value or default), maximum))` que ja
-        aparecia duplicado em varios repositorios (history, security, talent_bank,
-        communications, email_inbox, cv_analysis, exam_analytics, processes, etc.).
-        Disponibilizado aqui para uso em código novo; os call-sites existentes não
-        foram migrados neste refactor para reduzir a superficie de risco (ver README).
+        Wrapper fino sobre `services.helpers.clamp_limit` (implementação única),
+        mantido aqui para não quebrar call-sites já migrados que usam `self._clamp_limit(...)`.
         """
-        return max(minimum, min(int(value or default), maximum))
+        return clamp_limit(value, default, maximum, minimum)
 
     def _run_with_deadlock_retry(
         self,
@@ -143,6 +143,8 @@ class BaseRepository:
             "futebol": normalize_text(safe_row.get("futebol")),
             "time": normalize_text(safe_row.get("time")),
             "rede_social": normalize_text(safe_row.get("rede_social")),
+            "lgpd_consentimento_aceito_em": safe_row.get("lgpd_consentimento_aceito_em"),
+            "lgpd_consentimento_versao": normalize_text(safe_row.get("lgpd_consentimento_versao")),
             "atualizado_em": safe_row.get("atualizado_em"),
         }
 
@@ -599,11 +601,23 @@ class BaseRepository:
         }
 
     def _attach_process_context(self, cursor, rows: list[dict], *, timestamp_fields: list[str]) -> list[dict]:
+        # Achado PERF-001/S-19: antes, 1 SELECT por linha de `rows` (N+1) —
+        # aqui, no máximo 1 SELECT por id_processo DISTINTO entre as linhas
+        # (normalmente 1 único processo numa tela de Kanban filtrada).
+        unique_process_ids = {
+            normalize_text(item.get("id_processo"))
+            for item in rows
+            if normalize_text(item.get("id_processo"))
+        }
+        process_rows_by_id = {
+            process_id: get_process_rows(cursor, process_id) for process_id in unique_process_ids
+        }
+
         for item in rows:
-            process_row = resolve_process_row_for_related_record(
-                cursor,
-                id_processo=item.get("id_processo"),
-                id_processo_ref=item.get("id_processo_ref", ""),
+            process_id = normalize_text(item.get("id_processo"))
+            process_row = _select_process_row_from_rows(
+                process_rows_by_id.get(process_id, []),
+                process_ref=item.get("id_processo_ref", ""),
                 timestamp_values=[item.get(field_name) for field_name in timestamp_fields],
             )
 
@@ -794,6 +808,9 @@ class BaseRepository:
         futebol: str | None = None,
         time: str | None = None,
         rede_social: str | None = None,
+        lgpd_consentimento_novo: bool = False,
+        lgpd_consentimento_versao: str | None = None,
+        lgpd_consentimento_ip: str | None = None,
     ) -> None:
         safe_id_teste = normalize_text(id_teste)
         if not safe_id_teste:
@@ -827,6 +844,9 @@ class BaseRepository:
                 futebol,
                 time,
                 rede_social,
+                lgpd_consentimento_aceito_em,
+                lgpd_consentimento_versao,
+                lgpd_consentimento_ip,
                 atualizado_em
             FROM candidatos_metadata
             WHERE id_teste = ?
@@ -877,6 +897,20 @@ class BaseRepository:
         merged_team = normalize_text(time) if time is not None else existing_profile.get("time", "")
         merged_social = normalize_text(rede_social) if rede_social is not None else existing_profile.get("rede_social", "")
 
+        # Consentimento LGPD (achado SEC-003): só grava um novo registro
+        # quando esta chamada representa um aceite explícito e novo (fluxo de
+        # candidatura pública). Chamadas internas de edição de perfil (RH
+        # editando ficha, por exemplo) não passam lgpd_consentimento_novo e
+        # preservam o que já estiver gravado, sem apagar consentimento real.
+        if lgpd_consentimento_novo:
+            merged_lgpd_aceito_em = datetime.now()
+            merged_lgpd_versao = normalize_text(lgpd_consentimento_versao) or "1.0"
+            merged_lgpd_ip = normalize_text(lgpd_consentimento_ip)
+        else:
+            merged_lgpd_aceito_em = existing.get("lgpd_consentimento_aceito_em") if existing else None
+            merged_lgpd_versao = normalize_text(existing.get("lgpd_consentimento_versao")) if existing else ""
+            merged_lgpd_ip = normalize_text(existing.get("lgpd_consentimento_ip")) if existing else ""
+
         if existing:
             cursor.execute(
                 """
@@ -905,6 +939,9 @@ class BaseRepository:
                     futebol = ?,
                     time = ?,
                     rede_social = ?,
+                    lgpd_consentimento_aceito_em = ?,
+                    lgpd_consentimento_versao = ?,
+                    lgpd_consentimento_ip = ?,
                     atualizado_em = GETDATE()
                 WHERE id_teste = ?
                 """,
@@ -932,6 +969,9 @@ class BaseRepository:
                     merged_soccer,
                     merged_team,
                     merged_social,
+                    merged_lgpd_aceito_em,
+                    merged_lgpd_versao,
+                    merged_lgpd_ip,
                     safe_id_teste,
                 ),
             )
@@ -963,9 +1003,12 @@ class BaseRepository:
                     prato,
                     futebol,
                     time,
-                    rede_social
+                    rede_social,
+                    lgpd_consentimento_aceito_em,
+                    lgpd_consentimento_versao,
+                    lgpd_consentimento_ip
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     safe_id_teste,
@@ -992,8 +1035,100 @@ class BaseRepository:
                     merged_soccer,
                     merged_team,
                     merged_social,
+                    merged_lgpd_aceito_em,
+                    merged_lgpd_versao,
+                    merged_lgpd_ip,
                 ),
             )
+
+    def anonymize_candidate(self, id_teste: str) -> dict:
+        """Achado SEC-003: implementa de fato a rota atrás da permissão
+        `candidatos.anonimizar`/`lgpd.anonimizar`, que já existia no RBAC sem
+        nenhuma capacidade real por trás.
+
+        Escopo desta versão: anonimiza o registro de UM `id_teste` (uma
+        candidatura/ficha), o mesmo identificador usado em todo o resto do
+        sistema para localizar um candidato (`get_candidate_sheet`,
+        `download_candidate_cv` etc.). Se a mesma pessoa tiver mais de uma
+        candidatura (outro `id_teste`, mesmo e-mail), cada uma precisa ser
+        anonimizada separadamente — consolidar isso automaticamente por e-mail
+        é um passo futuro, não implementado aqui para não arriscar apagar o
+        registro errado por coincidência de e-mail.
+
+        Preserva: id_teste, datas de auditoria e o próprio registro de
+        consentimento LGPD (data/versão/IP) — a evidência de que o
+        consentimento existiu é, ela própria, parte da conformidade.
+        Remove/anonimiza: todo dado pessoal identificável e o currículo
+        anexado (referência no banco; o arquivo físico no repositório de
+        documentos, se houver, não é removido por esta rotina).
+        """
+        safe_id_teste = normalize_text(id_teste)
+        if not safe_id_teste:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Identificador do candidato é obrigatório.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_candidate_metadata_table(cursor)
+            ensure_candidate_metadata_columns(cursor)
+            ensure_candidate_attachments_table(cursor)
+
+            cursor.execute(
+                "SELECT lgpd_anonimizado_em FROM candidatos_metadata WHERE id_teste = ?",
+                (safe_id_teste,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidato não encontrado.")
+            if row[0] is not None:
+                return {"success": True, "id_teste": safe_id_teste, "already_anonymized": True}
+
+            anonymized_name = "Candidato anonimizado"
+            cursor.execute(
+                """
+                UPDATE candidatos_metadata
+                SET
+                    nome_candidato = ?,
+                    habilidades_json = N'[]',
+                    tags_json = N'[]',
+                    observacao_rh = N'',
+                    classificacao_indicacao = N'',
+                    justificativa_indicacao = N'',
+                    email = N'',
+                    telefone = N'',
+                    whatsapp = N'',
+                    cep = N'',
+                    endereco = N'',
+                    numero = N'',
+                    cidade = N'',
+                    bairro = N'',
+                    idade = NULL,
+                    data_nascimento = NULL,
+                    escolaridade = N'',
+                    possui_experiencia = N'',
+                    musica = N'',
+                    prato = N'',
+                    futebol = N'',
+                    time = N'',
+                    rede_social = N'',
+                    lgpd_anonimizado_em = GETDATE(),
+                    atualizado_em = GETDATE()
+                WHERE id_teste = ?
+                """,
+                (anonymized_name, safe_id_teste),
+            )
+            cursor.execute(
+                "UPDATE candidatos_processos SET nome_candidato = ? WHERE id_teste = ?",
+                (anonymized_name, safe_id_teste),
+            )
+            cursor.execute(
+                "DELETE FROM candidatos_anexos WHERE id_teste = ?",
+                (safe_id_teste,),
+            )
+            conn.commit()
+            return {"success": True, "id_teste": safe_id_teste, "already_anonymized": False}
+        finally:
+            conn.close()
 
     def _sync_candidate_identity_copies(
         self,
@@ -1062,8 +1197,12 @@ class BaseRepository:
                     )
 
     def _hydrate_pipeline_fields(self, cursor, candidates: list[dict]) -> list[dict]:
-        mutated = False
+        # Achado PERF-001/S-19: antes, 1 UPDATE por candidato desalinhado
+        # (N+1 de escrita dentro de uma rota de leitura). Agora, no máximo 1
+        # UPDATE por etapa de pipeline distinta (há só 5 etapas possíveis —
+        # ver PIPELINE_STAGES), usando `WHERE id_registro IN (...)`.
         now = datetime.now()
+        ids_by_target_stage: dict[str, list[int]] = {}
 
         for candidate in candidates:
             inferred_stage = infer_pipeline_stage(
@@ -1073,21 +1212,24 @@ class BaseRepository:
             )
             current_stage = normalize_text(candidate.get("etapa_pipeline"))
             if current_stage != inferred_stage:
-                cursor.execute(
-                    """
-                    UPDATE candidatos_processos
-                    SET etapa_pipeline = ?, data_atualizacao_pipeline = ?
-                    WHERE id_registro = ?
-                    """,
-                    (inferred_stage, now, candidate.get("id_registro")),
-                )
+                ids_by_target_stage.setdefault(inferred_stage, []).append(int(candidate.get("id_registro") or 0))
                 candidate["etapa_pipeline"] = inferred_stage
                 candidate["data_atualizacao_pipeline"] = now.isoformat()
-                mutated = True
             else:
                 candidate["etapa_pipeline"] = inferred_stage
 
-        if mutated:
+        for target_stage, ids in ids_by_target_stage.items():
+            placeholders = ", ".join("?" for _ in ids)
+            cursor.execute(
+                f"""
+                UPDATE candidatos_processos
+                SET etapa_pipeline = ?, data_atualizacao_pipeline = ?
+                WHERE id_registro IN ({placeholders})
+                """,
+                (target_stage, now, *ids),
+            )
+
+        if ids_by_target_stage:
             cursor.connection.commit()
 
         return candidates

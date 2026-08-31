@@ -17,7 +17,6 @@ from email.utils import getaddresses, parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import quote
 
-import httpx
 from fastapi import HTTPException, status
 
 from ..services.cv import (
@@ -37,6 +36,7 @@ from ..services.cv import (
     score_cv_for_role,
     serialize_cv_problems,
 )
+from ..services.graph_client import GraphClient
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
 from ..services.notifications import transicao_elegivel_para_email_automatico
 from ..services.process_flow import (
@@ -170,85 +170,31 @@ class CommunicationRepositoryMixin:
             or normalize_text(getattr(self.settings, "email_inbox_address", ""))
         )
 
+    def _graph_client(self) -> GraphClient:
+        # Achado S-27: implementação HTTP única (obtenção de token + request +
+        # tratamento de erro) compartilhada com onedrive_service.py e
+        # email_send_service.py — este mixin apenas configura o cliente com
+        # as settings de e-mail (tenant/client/secret/scope/base_url já
+        # existentes) e a mensagem de permissão específica de leitura de
+        # e-mail (Mail.Read/Mail.ReadBasic.All).
+        return GraphClient(
+            tenant_id=normalize_text(getattr(self.settings, "email_graph_tenant_id", "")),
+            client_id=normalize_text(getattr(self.settings, "email_graph_client_id", "")),
+            client_secret=self._get_graph_client_secret(),
+            scope=normalize_text(getattr(self.settings, "email_graph_scope", "")),
+            base_url=normalize_text(getattr(self.settings, "email_graph_base_url", "")),
+            unconfigured_message=self._graph_unconfigured_message(),
+            forbidden_message=(
+                "Microsoft Graph recusou a autorizacao. Verifique permissoes "
+                "Mail.Read/Mail.ReadBasic.All e admin consent no Azure."
+            ),
+        )
+
     def _get_graph_token(self) -> str:
-        tenant_id = normalize_text(getattr(self.settings, "email_graph_tenant_id", ""))
-        client_id = normalize_text(getattr(self.settings, "email_graph_client_id", ""))
-        client_secret = self._get_graph_client_secret()
-        scope = normalize_text(getattr(self.settings, "email_graph_scope", "")) or "https://graph.microsoft.com/.default"
-
-        if not tenant_id or not client_id or not client_secret:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=self._graph_unconfigured_message(),
-            )
-
-        token_url = f"https://login.microsoftonline.com/{quote(tenant_id, safe='')}/oauth2/v2.0/token"
-        try:
-            with httpx.Client(timeout=20) as client:
-                response = client.post(
-                    token_url,
-                    data={
-                        "client_id": client_id,
-                        "client_secret": client_secret,
-                        "scope": scope,
-                        "grant_type": "client_credentials",
-                    },
-                )
-        except httpx.HTTPError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Não foi possível obter token do Microsoft Graph. Verifique conectividade e tenant.",
-            ) from exc
-
-        if response.status_code >= 400:
-            payload = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
-            detail = normalize_text(payload.get("error_description") or payload.get("error"))
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=detail or "Microsoft Graph recusou a autenticação da aplicação.",
-            )
-
-        token = normalize_text(response.json().get("access_token"))
-        if not token:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Microsoft Graph não retornou token de acesso.",
-            )
-        return token
+        return self._graph_client().get_token()
 
     def _graph_request(self, token: str, path: str, params: dict | None = None) -> dict:
-        base_url = normalize_text(getattr(self.settings, "email_graph_base_url", "")) or "https://graph.microsoft.com/v1.0"
-        url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
-        try:
-            with httpx.Client(timeout=30) as client:
-                response = client.get(
-                    url,
-                    params=params or {},
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-        except httpx.HTTPError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Não foi possível consultar o Microsoft Graph.",
-            ) from exc
-
-        if response.status_code in {401, 403}:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=(
-                    "Microsoft Graph recusou a autorizacao. Verifique permissoes "
-                    "Mail.Read/Mail.ReadBasic.All e admin consent no Azure."
-                ),
-            )
-
-        if response.status_code >= 400:
-            payload = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
-            error = payload.get("error") if isinstance(payload.get("error"), dict) else {}
-            message = normalize_text(error.get("message") or payload.get("error_description"))
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=message or f"Microsoft Graph retornou erro {response.status_code}.",
-            )
+        return self._graph_client().get_json(path, params=params, token=token)
 
         return response.json()
 
@@ -357,7 +303,7 @@ class CommunicationRepositoryMixin:
 
     def _list_graph_email_inbox(self, limit: int = 12) -> dict:
         token = self._get_graph_token()
-        top = max(1, min(int(limit or 12), 30))
+        top = self._clamp_limit(limit, default=12, maximum=30)
         payload = self._graph_request(
             token,
             self._graph_message_path(),
@@ -450,8 +396,8 @@ class CommunicationRepositoryMixin:
         finally:
             try:
                 mailbox.logout()
-            except Exception:
-                pass
+            except Exception as exc:
+                self.logger.debug("Falha ao encerrar sessao IMAP: %s", exc)
 
     def _message_plain_text(self, message) -> str:
         body = ""
@@ -784,7 +730,7 @@ class CommunicationRepositoryMixin:
             items.append(item)
 
         items.sort(key=lambda item: normalize_text(item.get("data_recebimento")), reverse=True)
-        safe_limit = max(1, min(int(limit or 50), 200))
+        safe_limit = self._clamp_limit(limit, default=50, maximum=200)
         return {
             "success": True,
             "enabled": True,
@@ -1137,8 +1083,8 @@ class CommunicationRepositoryMixin:
                     mime_type=mime_type,
                     path=attachment_path,
                 )
-            except HTTPException:
-                pass
+            except HTTPException as exc:
+                self.logger.debug("Anexo de e-mail nao disponivel para vincular ao teste %s: %s", id_teste, exc.detail)
             self._record_candidate_movement(
                 cursor,
                 id_teste=id_teste,
@@ -1226,8 +1172,8 @@ class CommunicationRepositoryMixin:
                 conn.commit()
             finally:
                 conn.close()
-        except HTTPException:
-            pass
+        except HTTPException as exc:
+            self.logger.debug("Anexo de e-mail nao disponivel para vincular ao banco de talentos %s: %s", id_teste, exc.detail)
         self._write_email_drop_status(
             folder,
             {
@@ -1288,7 +1234,7 @@ class CommunicationRepositoryMixin:
             if typ != "OK":
                 return self._inbox_unavailable_payload("Não foi possível pesquisar mensagens na caixa de entrada.")
             uids = (data[0] or b"").split()
-            selected = list(reversed(uids[-max(1, min(int(limit or 12), 30)):]))
+            selected = list(reversed(uids[-self._clamp_limit(limit, default=12, maximum=30):]))
             items = []
             for raw_uid in selected:
                 uid = raw_uid.decode("ascii", errors="ignore")
@@ -1316,8 +1262,8 @@ class CommunicationRepositoryMixin:
         finally:
             try:
                 mailbox.logout()
-            except Exception:
-                pass
+            except Exception as exc:
+                self.logger.debug("Falha ao encerrar sessao IMAP: %s", exc)
 
     def _find_cv_attachment(self, message, requested_name: str = "") -> tuple[str, str, bytes]:
         requested = normalize_compare_text(requested_name)

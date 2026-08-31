@@ -46,9 +46,11 @@ O arquivo `respostas.txt` foi descontinuado e seu conteúdo migrado para `Corre�
 
 As menções a `respostas.txt` nas seções acima são histórico das rodadas em que foram aprovadas; o conteúdo equivalente hoje vive em `Correções.txt`, sob as mesmas condições (aditivo, sem quebrar rotas/dados/fluxos existentes).
 
-### Exceção estendida: redesign da tela inicial e novas funcionalidades (Prompt.txt, rodada de 27/ago/2026)
+### Exceção estendida: redesign da tela inicial e novas funcionalidades (Prompt.txt, rodada de 27/ago/2026) — CONCLUÍDA
 
-A mesma exceção segue valendo para o pedido descrito em `Prompt.txt` desta rodada: aplicar o novo design da tela inicial (`docs/Desing/`), com as seguintes frentes full-stack autorizadas:
+> Rodada já implementada (ver commit `ff3c3ba`, "Aplica novo design da tela inicial, avatares ilustrados, disponibilidade de horarios..."). A pasta `docs/Desing/` continha os assets brutos de referência (imagens/paleta) usados nesta rodada e não existe mais no repositório — já foi consumida; não é uma referência quebrada a corrigir, é material de entrada já processado. Achado DOC-003 do [programa de evolução do Conecta](connecta-evolution/README.md) verificado e fechado.
+
+A mesma exceção segue valendo para o pedido descrito em `Prompt.txt` desta rodada: aplicar o novo design da tela inicial (assets de referência que estiveram em `docs/Desing/`, já consumidos), com as seguintes frentes full-stack autorizadas:
 
 - Nova etapa de "disponibilidade de horários" na criação de processo seletivo, gerando slots (com ou sem horário definido) integrados ao agendamento de Entrevistas/Calendário já existente.
 - Sistema de avatares ilustrados como foto de perfil (aditivo — usuário sem avatar escolhido continua com o avatar de iniciais atual).

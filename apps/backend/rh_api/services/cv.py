@@ -1004,7 +1004,7 @@ def _extract_doc_with_word_com(content_bytes: bytes) -> str:
                 try:
                     document.Close(False)
                 except Exception:
-                    pass
+                    logger.info("Falha ao fechar documento Word apos extracao de DOC.")
             if word is not None:
                 try:
                     word.Quit()

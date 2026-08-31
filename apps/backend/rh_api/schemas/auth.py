@@ -15,6 +15,15 @@ class LoginRequest(BaseSchema):
     mfa_code: str = Field(default="", max_length=12)
 
 
+class E2ETestLoginRequest(BaseSchema):
+    """Achado QA-001/S-23: bypass de autenticação restrito à suíte E2E, nunca
+    disponível em produção — ver routers/auth.py (`e2e_test_login`)."""
+
+    secret: str = Field(default="", max_length=200)
+    usuario: str = Field(default="e2e.teste", max_length=120)
+    perfil: str = Field(default="administrador", max_length=40)
+
+
 class MfaCodeRequest(BaseSchema):
     code: str = Field(min_length=6, max_length=12)
 

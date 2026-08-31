@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
 from ..dependencies import get_repository
 from ..repositories import DatabaseRepository
@@ -20,6 +20,7 @@ def get_public_application(
 @router.post("/public/candidatura/{slug}/enviar")
 async def submit_public_application(
     slug: str,
+    request: Request = None,
     nome_completo: str = Form(""),
     email: str = Form(""),
     telefone: str = Form(""),
@@ -31,6 +32,7 @@ async def submit_public_application(
     curriculo: UploadFile | None = File(None),
     repository: DatabaseRepository = Depends(get_repository),
 ):
+    origem = request.client.host if request and request.client else ""
     return await repository.submit_public_application(
         slug,
         nome_completo=nome_completo,
@@ -42,4 +44,5 @@ async def submit_public_application(
         bairro=bairro,
         lgpd_aceito=lgpd_aceito,
         curriculo=curriculo,
+        lgpd_consentimento_ip=origem,
     )

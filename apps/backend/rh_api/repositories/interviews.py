@@ -5,6 +5,7 @@ from datetime import date, datetime, time, timedelta
 
 from fastapi import HTTPException, status
 
+from ..auth import AuthenticatedUser
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts
 from ..services.interviews import build_interview_message, normalize_interview_status
 from ..services.pipeline import infer_pipeline_stage
@@ -445,7 +446,7 @@ class InterviewRepositoryMixin:
             final_message="Não foi possível criar os horários agora por conta de concorrência no banco. Tente novamente em instantes.",
         )
 
-    def update_interview_slot(self, id_slot: int, data: dict) -> dict:
+    def update_interview_slot(self, id_slot: int, data: dict, *, user: AuthenticatedUser | None = None) -> dict:
         def operation() -> dict:
             conn = self._connect()
             try:
@@ -454,6 +455,13 @@ class InterviewRepositoryMixin:
                 ensure_interview_slots_table(cursor)
 
                 slot = self._select_slot_for_update(cursor, id_slot)
+                if user is not None:
+                    processo = get_process_row(cursor, slot.get("id_processo") or slot.get("id_processo_ref"))
+                    if processo and not user.allows_operacao(processo.get("operacao")):
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Este horário pertence a uma operação fora do seu escopo de acesso.",
+                        )
                 occupied = self._count_slot_occupancy(cursor, id_slot)
 
                 new_capacity = (

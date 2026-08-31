@@ -118,4 +118,37 @@ Pode implementar:
 * Expiração e "revalidação" do banco de talentos: Por questões de segurança, depois de 6 meses o candidato deve sair do banco de talentos. 
 * Aprovação em lote: Vamos expandir esse ideia, além de aprovação em lote, vamos também de eliminação em lotes, e certas ações em lotes.
 
-FAÇA E APLIQUE TODAS ESSAS CORREÇÕES ! IMPLEMENTE DIRETAMENTE NA PASTA DO PROJETO PARA QUE EU POSSA TESTAR. 
+FAÇA E APLIQUE TODAS ESSAS CORREÇÕES ! IMPLEMENTE DIRETAMENTE NA PASTA DO PROJETO PARA QUE EU POSSA TESTAR.
+
+===================================================================
+PROPOSTA DA AUDITORIA GERAL DO CONECTA (28/ago/2026) — AGUARDANDO DECISÃO DO RH
+===================================================================
+O que segue NÃO é "Pode aplicar" ainda. É uma proposta gerada a partir de uma auditoria forense completa do código (42 documentos, docs/product-audit/), consolidada em docs/connecta-evolution/. Cada item abaixo precisa da sua própria decisão do RH (Pode aplicar / Pode aplicar mas com alteração / Não agora), igual às correções acima. Detalhe completo de cada item (evidência, impacto, esforço, recomendação) está em docs/connecta-evolution/02-findings/03_MASTER_FINDINGS.md e docs/connecta-evolution/02-findings/04_MASTER_SOLUTIONS.md.
+
+ATUALIZAÇÃO: o usuário já autorizou diretamente, no chat, a implementação dos itens de segurança/dados, banco/desempenho, qualidade e um lote de itens leves de arquitetura desta proposta (registrado em docs/connecta-evolution/00-governance/DECISION_LOG.md, D-06 e D-07) — já estão implementados e testados, não mais só propostos. Status item a item em docs/connecta-evolution/05-implementation/08_MASTER_CHECKLIST.md. Os itens de MELHORIAS DE PRODUTO abaixo continuam aguardando decisão do RH, exceto o indicador de tempo de preenchimento de vaga (já implementado, ver nota abaixo).
+
+CRÍTICO — segurança/dados (recomendação: aplicar o quanto antes, são correções pequenas de código, sem custo):
+- O código de acesso à prova online pode ser descoberto por tentativa e erro (só 67.600 combinações possíveis) e não tem nenhum bloqueio contra isso — quem descobrir o código vê nome, e-mail, telefone e endereço do candidato sem precisar de login.
+- Quando um candidato aceita os termos de LGPD na candidatura, esse aceite não fica gravado em lugar nenhum (sem data, sem versão do termo). E a opção de "anonimizar dados de um candidato" já existe no sistema de permissões, mas não faz nada de verdade quando usada.
+- Qualquer pessoa com permissão de um módulo consegue ver/editar dado de qualquer operação/processo, não só os que ela deveria acessar (trocando o número na URL). Não é um bug pontual, é assim que o sistema de permissões funciona hoje.
+- Sair da conta (logout) não invalida o acesso no servidor — se alguém pegar o token de um usuário, ele continua funcionando por até 8 horas mesmo depois do logout.
+- A exportação de relatórios mostra telefone e e-mail completos de todos os candidatos, sem opção de ocultar.
+
+ESTRUTURAL — banco de dados e desempenho (recomendação: aplicar, é o que mais atrasa qualquer coisa nova):
+- 5 tabelas centrais do sistema (candidatos, processos seletivos, etc.) não têm o "projeto" delas (DDL) guardado em nenhum arquivo do projeto — se o servidor atual for perdido, ninguém consegue recriar o banco do zero só com o que está no Git.
+- O Kanban de candidatos (tela mais usada no dia a dia) carrega a base inteira de uma vez sem filtro — tende a ficar mais lento conforme a quantidade de candidatos cresce.
+- O script que deveria criar índices de performance no banco está quebrado (aponta para nomes de tabela/coluna que não existem mais) e nunca rodou de verdade.
+
+QUALIDADE (recomendação: aplicar, destrava testes automáticos já escritos):
+- Existe uma suíte de testes automáticos para as telas com login (Kanban, aprovar/eliminar candidato, caixa de e-mail), mas ela nunca roda de verdade porque falta uma peça técnica (um "modo de teste" para login). Corrigir essa peça reativa toda a suíte de uma vez.
+
+VISUAL (recomendação: já autorizado no padrão de design do projeto, é limpeza):
+- O sistema usa Bootstrap (framework genérico) e gradientes em várias telas, contrariando a própria identidade visual definida para o Conecta. Já existem componentes próprios prontos para substituir, só não foram adotados em todo lugar.
+
+MELHORIAS DE PRODUTO (pedidos que já apareceram nesta conversa/backlog, agora com solução técnica desenhada):
+- Timeline única do candidato (juntar CV, prova, entrevista, histórico numa tela só).
+- Ações em lote (aprovar/eliminar/mover vários candidatos de uma vez) — depende de corrigir o item de permissões acima primeiro.
+- Expiração automática do banco de talentos após 6 meses.
+- Um indicador simples de "quanto tempo leva para preencher uma vaga" (hoje isso não é medido em lugar nenhum, apesar do dado já existir). [JÁ IMPLEMENTADO — Dashboard de Funil ganhou o indicador "Tempo de preenchimento de vaga"]
+
+NÃO INCLUÍDO AQUI: as 195 ideias do catálogo de oportunidades (banco de questões reutilizável, matching de banco de talentos por IA, heatmap de prova, etc.) — continuam registradas em docs/connecta-evolution/02-findings/04_MASTER_SOLUTIONS.md, aguardando serem trazidas para cá uma a uma quando fizer sentido priorizá-las.

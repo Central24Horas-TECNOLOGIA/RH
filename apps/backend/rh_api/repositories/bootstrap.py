@@ -442,6 +442,33 @@ def ensure_operacoes_seed(cursor) -> None:
         )
 
 
+def ensure_user_operacoes_table(cursor) -> None:
+    """Escopo de operação por usuário (achado SEC-002 do programa de evolução:
+    RBAC hoje só valida permissão de módulo, não escopo de recurso).
+
+    Tabela vazia por padrão para todo usuário existente = sem restrição (mesmo
+    comportamento de hoje, aditivo e sem regressão). Só passa a restringir o
+    acesso de um usuário quando alguém explicitamente inserir linhas aqui.
+    Sem FK para dbo.operacoes.chave porque a coluna não tem constraint
+    UNIQUE (tabela de catálogo genérico via SETTINGS_CATALOGS) — mesmo
+    padrão sem FK já usado em todo o restante do schema criado por este
+    bootstrap (achado DB-004, pendente de tratamento incremental à parte).
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.usuarios_operacoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.usuarios_operacoes (
+                id_usuario INT NOT NULL,
+                operacao NVARCHAR(60) NOT NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                CONSTRAINT PK_usuarios_operacoes PRIMARY KEY (id_usuario, operacao)
+            )
+        END
+        """
+    )
+
+
 def ensure_cv_pre_analises_table(cursor) -> None:
     cursor.execute(
         """
@@ -747,6 +774,15 @@ def ensure_process_columns(cursor) -> None:
         END
         """
     )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'ia_analise_desabilitada') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD ia_analise_desabilitada BIT NOT NULL CONSTRAINT DF_processos_ia_analise_desabilitada DEFAULT 0
+        END
+        """
+    )
 
 
 def ensure_candidate_metadata_table(cursor) -> None:
@@ -811,6 +847,15 @@ def ensure_candidate_metadata_columns(cursor) -> None:
         ("futebol", "NVARCHAR(255)"),
         ("time", "NVARCHAR(255)"),
         ("rede_social", "NVARCHAR(500)"),
+        # Achado SEC-003 do programa de evolução: consentimento LGPD era
+        # validado no fluxo público mas nunca persistido. Colunas nulas por
+        # padrão (candidato cadastrado antes desta correção, ou sem passar
+        # pelo fluxo público, simplesmente não tem consentimento registrado
+        # ainda — não é retroativo).
+        ("lgpd_consentimento_aceito_em", "DATETIME"),
+        ("lgpd_consentimento_versao", "NVARCHAR(40)"),
+        ("lgpd_consentimento_ip", "NVARCHAR(64)"),
+        ("lgpd_anonimizado_em", "DATETIME"),
         ("criado_em", "DATETIME"),
         ("atualizado_em", "DATETIME"),
     ):
@@ -3025,6 +3070,7 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_security_tables(cursor, settings)
             ensure_reusable_config_tables(cursor)
             ensure_operacoes_seed(cursor)
+            ensure_user_operacoes_table(cursor)
             ensure_process_columns(cursor)
             ensure_pipeline_columns(cursor)
             ensure_candidate_metadata_table(cursor)
@@ -3356,7 +3402,8 @@ def _select_process_query() -> str:
             prova_configurada_em,
             urgente,
             urgente_marcado_em,
-            urgente_marcado_por
+            urgente_marcado_por,
+            ia_analise_desabilitada
         FROM processos_seletivos
     """
 

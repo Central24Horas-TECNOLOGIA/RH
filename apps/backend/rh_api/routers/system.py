@@ -22,7 +22,7 @@ def build_system_status(settings: Settings | None = None) -> dict:
     }
 
 
-@router.get("/api/status")
+@router.get("/api/status", dependencies=[Depends(get_current_user)])
 def api_status():
     return build_system_status()
 
@@ -56,7 +56,7 @@ def ready():
     return {"status": "ready", "service": settings.service_name}
 
 
-@router.get("/version")
+@router.get("/version", dependencies=[Depends(get_current_user)])
 def version():
     settings = get_settings()
     return {

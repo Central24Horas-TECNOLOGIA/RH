@@ -1,3 +1,7 @@
+// Achado S-21: React/ReactDOM/htm vendorizados localmente (ver
+// ../vendor/README.md) em vez de carregados de um CDN externo (esm.sh) a
+// cada requisição — reduz uma dependência de disponibilidade de terceiros
+// no caminho crítico de carregamento da aplicação.
 import React, {
   createContext,
   lazy,
@@ -7,9 +11,9 @@ import React, {
   useMemo,
   useRef,
   useState,
-} from 'https://esm.sh/react@18.3.1';
-import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
-import htm from 'https://esm.sh/htm@3.1.1';
+} from '../vendor/react@18.3.1.mjs';
+import { createRoot } from '../vendor/react-dom-client@18.3.1.mjs';
+import htm from '../vendor/htm@3.1.1.mjs';
 
 // Centraliza a infraestrutura React para manter imports curtos e consistentes.
 const criarElementoReact = Object.assign(

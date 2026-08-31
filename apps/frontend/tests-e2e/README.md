@@ -56,65 +56,68 @@ vai funcionar sem um banco configurado.
 - `fixtures/auth.js` — fixture `authenticatedPage` usada pelos testes
   autenticados.
 
-## Limitação conhecida: login via Microsoft SSO
+## Login via Microsoft SSO e o bypass de teste (achado QA-001/S-23)
 
 O Conecta usa **exclusivamente Microsoft SSO** (OAuth "authorization code
-flow") para autenticação — não existe login local por usuário/senha até
+flow") para login real — não existe login local por usuário/senha até
 que o SSO Microsoft falhe uma vez (fallback visual, mas ainda exige
-credenciais reais de um usuário cadastrado). Isso significa que:
+credenciais reais de um usuário cadastrado). **Não é possível automatizar
+um login real** neste ambiente de desenvolvimento/CI: não há credenciais
+de um usuário de teste Microsoft disponíveis, e não seria correto
+commitar credenciais reais no repositório.
 
-- **Não é possível automatizar um login real** neste ambiente de
-  desenvolvimento/CI: não há credenciais de um usuário de teste Microsoft
-  disponíveis, e não seria correto commitar credenciais reais no
-  repositório.
-- Não existe hoje, no backend (`apps/backend/rh_api/routers/auth.py`),
-  nenhuma rota que emita uma sessão autenticada sem passar pelo fluxo
-  OAuth real — nem mesmo em modo de desenvolvimento. Os testes de backend
-  que "logam" (`apps/backend/tests/test_microsoft_auth.py`) só conseguem
-  fazer isso porque usam `TestClient` do FastAPI com um repositório fake
-  injetado via `dependency_overrides`, um mecanismo que só existe dentro
-  do processo de teste Python — não é acessível a partir de um navegador
-  real conversando por HTTP com um servidor rodando de verdade.
+Por isso, o backend expõe `POST /auth/e2e-login`
+(`apps/backend/rh_api/routers/auth.py::e2e_test_login`) — uma rota de
+bypass de autenticação **restrita à suíte de testes**, que só responde
+quando **ambas** as condições abaixo são verdadeiras:
 
-Por isso, todos os testes em `authenticated-flows.spec.js` usam a fixture
-`authenticatedPage` (`fixtures/auth.js`), que:
+1. o backend não está em produção (`settings.is_production` é falso —
+   ver `RH_APP_ENV`);
+2. a variável de ambiente `RH_E2E_TEST_LOGIN_SECRET` foi definida
+   explicitamente no backend (vazia por padrão em **todo** ambiente,
+   inclusive dev), e o segredo enviado na requisição bate com ela.
 
-1. Verifica a variável de ambiente `E2E_AUTH_BYPASS`.
-2. Se **não** estiver definida (o caso padrão sempre, hoje), o teste é
-   **pulado** (`test.skip`) com uma mensagem explicativa — ele aparece
-   como "skipped" no relatório, não como falha.
-3. Se estiver definida, a fixture tentaria usar um mecanismo real de
-   sessão de teste — que **ainda não existe** no backend. A fixture lança
-   um erro claro nesse caso em vez de fingir sucesso.
+Sem as duas condições, a rota responde `404` — não `403` — para não
+revelar nem a existência do mecanismo fora de um ambiente onde ele deve
+estar ativo. **Isso não é um bypass "de mentira": é uma rota real,
+auditável (gera log de warning e entrada normal de auditoria de login),
+gated por configuração explícita, que nunca fica acessível em produção
+mesmo que alguém tente.**
 
-**Isso é intencional.** Não foi criado nenhum bypass de autenticação real
-"de mentira" embutido no código de produção só para fazer os testes
-passarem — isso seria um risco de segurança. Os testes autenticados foram
-escritos com os seletores e rotas reais da aplicação (baseados na leitura
-do código-fonte atual) e ficam prontos para rodar assim que existir um
-jeito seguro de autenticar em CI.
+A fixture `authenticatedPage` (`fixtures/auth.js`):
 
-### Como habilitar os testes autenticados no futuro
+1. Verifica a variável de ambiente `E2E_AUTH_BYPASS` (o segredo, do lado
+   do Playwright).
+2. Se **não** estiver definida (o padrão em qualquer ambiente que não
+   configurou o bypass explicitamente), o teste é **pulado**
+   (`test.skip`) com mensagem explicativa — aparece como "skipped" no
+   relatório, não como falha.
+3. Se estiver definida, chama `POST /auth/e2e-login` com esse segredo e
+   grava a sessão retornada em `sessionStorage`, exatamente como o app
+   faz após um login real — o app não percebe diferença nenhuma.
 
-Se o time quiser rodar `authenticated-flows.spec.js` de ponta a ponta em
-CI, as opções mais razoáveis são:
+### Como habilitar os testes autenticados
 
-1. **Um usuário de teste Microsoft real** (conta de serviço dedicada em um
-   tenant de testes do Azure AD), usando a `storageState` do Playwright
-   para gravar a sessão uma vez e reutilizá-la — mais fiel ao fluxo real,
-   mas depende de infraestrutura Azure AD de teste.
-2. **Uma rota de bypass explícita, dev/CI-only, no backend** — por
-   exemplo, `POST /auth/dev-login` que só existe quando
-   `RH_APP_ENV != "prod"` **e** uma flag de configuração dedicada está
-   ativa, emitindo uma sessão para um usuário de teste fixo. Precisaria
-   ser implementada com cuidado (nunca acessível em produção, auditada,
-   documentada) — isso é uma decisão de segurança do time de backend, não
-   algo que deveria ser adicionado silenciosamente só para testes E2E
-   passarem.
+Defina, no **mesmo processo/ambiente do backend** e no ambiente onde o
+Playwright roda, o mesmo valor de segredo:
 
-Qualquer uma das duas opções deve ser implementada e revisada
-separadamente; este trabalho de infraestrutura de testes deliberadamente
-não faz isso.
+```powershell
+# backend (antes de subir o servidor)
+$env:RH_E2E_TEST_LOGIN_SECRET = "um-segredo-só-para-CI-dev"
+
+# Playwright (mesmo valor)
+$env:E2E_AUTH_BYPASS = "um-segredo-só-para-CI-dev"
+npm run test:e2e
+```
+
+Opcionalmente, `E2E_AUTH_BYPASS_USUARIO` e `E2E_AUTH_BYPASS_PERFIL`
+controlam o nome de usuário e o perfil RBAC (`administrador` por padrão;
+use `rh`, `gestor`, `dp` etc. para testar limites de permissão
+específicos).
+
+**Nunca defina `RH_E2E_TEST_LOGIN_SECRET` em produção.** A checagem
+`settings.is_production` já bloqueia a rota mesmo que a variável exista,
+mas o segredo não deveria estar configurado lá de forma alguma.
 
 ## Rodando em CI
 
@@ -132,8 +135,13 @@ Exemplo de step de CI (GitHub Actions):
   working-directory: apps/frontend
   env:
     CI: "true"
+    RH_E2E_TEST_LOGIN_SECRET: ${{ secrets.E2E_TEST_LOGIN_SECRET }}
+    E2E_AUTH_BYPASS: ${{ secrets.E2E_TEST_LOGIN_SECRET }}
 ```
 
-Como `authenticated-flows.spec.js` fica pulado sem `E2E_AUTH_BYPASS`, o
-job de CI vai reportar sucesso com vários testes "skipped" até que a
-autenticação de teste seja resolvida (ver seção acima).
+`RH_E2E_TEST_LOGIN_SECRET` precisa chegar ao **processo do backend**
+(`python run.py`, subido automaticamente pelo `playwright.config.js`) — se
+o backend for iniciado num step/processo separado do CI, defina a mesma
+variável lá também. Sem `E2E_AUTH_BYPASS`/`RH_E2E_TEST_LOGIN_SECRET`
+configurados, `authenticated-flows.spec.js` continua pulado (skipped, não
+falho) normalmente.

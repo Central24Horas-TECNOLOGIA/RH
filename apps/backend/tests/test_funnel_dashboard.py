@@ -12,9 +12,83 @@ from rh_api.repositories.analytics import AnalyticsRepositoryMixin
 from rh_api.routers.analytics import get_funnel_dashboard
 
 
+_PROCESS_COLUMNS = [
+    "id_processo",
+    "vaga",
+    "quantidade_vagas",
+    "vagas_preenchidas",
+    "data_encerramento",
+    "operacao",
+    "trilha",
+    "usa_nota_corte",
+    "nota_corte",
+    "status",
+    "data_criacao",
+    "link_agendamento",
+    "link_publico_slug",
+    "link_publico_token",
+    "link_publico_ativo",
+    "link_publico_criado_em",
+    "link_publico_desativado_em",
+    "descricao_publica",
+    "requisitos_publicos",
+    "responsabilidades_publicas",
+    "observacoes_publicas_vaga",
+    "configuracao_prova_json",
+    "prova_configurada_em",
+    "urgente",
+    "urgente_marcado_em",
+    "urgente_marcado_por",
+    "ia_analise_desabilitada",
+]
+
+
+def process_row(
+    id_processo: str,
+    *,
+    quantidade_vagas: int = 0,
+    vagas_preenchidas: int = 0,
+    status: str = "Aberto",
+    data_criacao: str = "2026-01-01T00:00:00",
+) -> tuple:
+    """Monta uma linha completa de `processos_seletivos` (26 colunas, mesma
+    ordem de `_select_process_query`), preenchendo com defaults neutros os
+    campos irrelevantes para os testes de time-to-fill."""
+    return (
+        id_processo,
+        "Vaga de teste",
+        quantidade_vagas,
+        vagas_preenchidas,
+        None,
+        "Operação teste",
+        "",
+        0,
+        None,
+        status,
+        data_criacao,
+        "",
+        "",
+        "",
+        0,
+        None,
+        None,
+        "",
+        "",
+        "",
+        "",
+        None,
+        None,
+        0,
+        None,
+        None,
+        0,
+    )
+
+
 class FakeFunnelCursor:
-    """Cursor mínimo: só reconhece o SELECT usado por get_funnel_dashboard.
-    Comandos DDL dos `ensure_*` de bootstrap são aceitos e ignorados."""
+    """Cursor mínimo: só reconhece os SELECTs usados por get_funnel_dashboard
+    (candidatos_processos e processos_seletivos). Comandos DDL dos `ensure_*`
+    de bootstrap são aceitos e ignorados."""
 
     _COLUMNS = [
         "id_registro",
@@ -27,8 +101,9 @@ class FakeFunnelCursor:
         "aprovado_em",
     ]
 
-    def __init__(self, rows: list[tuple]):
+    def __init__(self, rows: list[tuple], process_rows: list[tuple] | None = None):
         self._rows = rows
+        self._process_rows = process_rows or []
         self.description = []
         self._current_rows: list[tuple] = []
 
@@ -36,6 +111,9 @@ class FakeFunnelCursor:
         if "candidatos_processos" in query and "etapa_pipeline" in query:
             self.description = [(column,) for column in self._COLUMNS]
             self._current_rows = self._rows
+        elif "processos_seletivos" in query and "quantidade_vagas" in query and "vaga," in query:
+            self.description = [(column,) for column in _PROCESS_COLUMNS]
+            self._current_rows = self._process_rows
         else:
             self.description = []
             self._current_rows = []
@@ -141,6 +219,57 @@ class FunnelDashboardHappyPathTests(unittest.TestCase):
 
         self.assertIsNone(result["time_to_hire_medio_dias"])
         self.assertEqual(result["total_aprovados_considerados"], 0)
+
+    def test_computes_time_to_fill_for_fully_filled_process(self):
+        cursor = FakeFunnelCursor(
+            SAMPLE_ROWS,
+            process_rows=[
+                process_row(
+                    "P1",
+                    quantidade_vagas=2,
+                    vagas_preenchidas=2,
+                    status="Encerrado",
+                    data_criacao="2026-01-01T00:00:00",
+                ),
+            ],
+        )
+        repository = FakeFunnelRepository(cursor)
+
+        result = repository.get_funnel_dashboard(id_processo="P1")
+
+        # Preenchimento = aprovado_em mais recente entre os aprovados de P1
+        # (2026-01-11T09:00) - abertura (data_criacao, 2026-01-01T00:00) = 10.375 dias.
+        self.assertEqual(result["time_to_fill_medio_dias"], 10.4)
+        self.assertEqual(result["total_vagas_preenchidas_consideradas"], 1)
+
+    def test_excludes_processes_not_fully_filled_from_time_to_fill(self):
+        cursor = FakeFunnelCursor(
+            SAMPLE_ROWS,
+            process_rows=[
+                process_row(
+                    "P1",
+                    quantidade_vagas=5,
+                    vagas_preenchidas=2,
+                    status="Aberto",
+                    data_criacao="2026-01-01T00:00:00",
+                ),
+            ],
+        )
+        repository = FakeFunnelRepository(cursor)
+
+        result = repository.get_funnel_dashboard(id_processo="P1")
+
+        self.assertIsNone(result["time_to_fill_medio_dias"])
+        self.assertEqual(result["total_vagas_preenchidas_consideradas"], 0)
+
+    def test_returns_none_time_to_fill_when_no_process_row_matches(self):
+        cursor = FakeFunnelCursor(SAMPLE_ROWS, process_rows=[])
+        repository = FakeFunnelRepository(cursor)
+
+        result = repository.get_funnel_dashboard(id_processo="P1")
+
+        self.assertIsNone(result["time_to_fill_medio_dias"])
+        self.assertEqual(result["total_vagas_preenchidas_consideradas"], 0)
 
     def test_router_delegates_to_repository(self):
         cursor = FakeFunnelCursor(SAMPLE_ROWS)

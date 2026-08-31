@@ -4,14 +4,42 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 
+from conecta.infrastructure.security.token_denylist import InMemoryTokenDenylist
+
 from .config import get_settings
 from .rbac import ROLE_ADMIN, get_role_definition, get_role_permissions, sanitize_permissions
 from .services.helpers import normalize_text
+
+
+logger = logging.getLogger(__name__)
+
+_token_denylist = InMemoryTokenDenylist()
+
+
+def _token_key(token: str) -> str:
+    return hashlib.sha256(normalize_text(token).encode("utf-8")).hexdigest()
+
+
+def revoke_access_token(token: str) -> None:
+    """Revoga um token no logout — não afeta a assinatura/emissão de novos tokens,
+    só passa a rejeitar este token específico nas próximas requisições."""
+    safe_token = normalize_text(token)
+    if not safe_token or "." not in safe_token:
+        return
+    payload, _ = safe_token.split(".", 1)
+    try:
+        data = json.loads(_b64decode(payload).decode("utf-8"))
+        expires_at = int(data.get("exp") or 0)
+    except Exception:
+        return
+    ttl_seconds = expires_at - int(datetime.now(timezone.utc).timestamp())
+    _token_denylist.revoke(_token_key(safe_token), ttl_seconds)
 
 
 @dataclass(frozen=True)
@@ -26,12 +54,29 @@ class AuthenticatedUser:
     permissions: frozenset[str] = field(default_factory=lambda: frozenset(get_role_permissions(ROLE_ADMIN)))
     status: str = "Ativo"
     avatar_ilustrado: str = ""
+    # Achado SEC-002: escopo de operação, aditivo. Vazio == sem restrição
+    # (comportamento de hoje, preservado para todo usuário existente) — só
+    # passa a restringir quando alguém atribuir operações a este usuário em
+    # dbo.usuarios_operacoes.
+    operacoes: frozenset[str] = field(default_factory=frozenset)
 
     def has_permission(self, permission: str) -> bool:
         return permission in self.permissions
 
     def has_any_permission(self, *permissions: str) -> bool:
         return any(permission in self.permissions for permission in permissions)
+
+    def allows_operacao(self, operacao: str | None) -> bool:
+        """True se o usuário pode acessar um recurso desta operação.
+
+        Sem escopo atribuído (`operacoes` vazio) = sem restrição. Recurso sem
+        operação identificável (`operacao` vazio/None) = nada a restringir
+        (ex.: recurso global, não pertence a nenhuma operação específica)."""
+        if not self.operacoes:
+            return True
+        if not operacao:
+            return True
+        return operacao in self.operacoes
 
 
 def _b64encode(data: bytes) -> str:
@@ -60,6 +105,7 @@ def _build_user_payload(user: AuthenticatedUser) -> dict:
         "permissions": sorted(user.permissions),
         "status": user.status,
         "avatar": user.avatar_ilustrado,
+        "operacoes": sorted(user.operacoes),
     }
 
 
@@ -118,6 +164,9 @@ def _user_from_record(record: dict | None) -> AuthenticatedUser:
         permissions=frozenset(permissions),
         status=normalize_text(safe_record.get("status")) or "Ativo",
         avatar_ilustrado=normalize_text(safe_record.get("avatar_ilustrado")),
+        operacoes=frozenset(
+            normalize_text(item) for item in (safe_record.get("operacoes") or []) if normalize_text(item)
+        ),
     )
 
 
@@ -174,10 +223,10 @@ def authenticate_session(
                 or senha != settings.auth_password
             ):
                 raise
-        except Exception:
+        except Exception as exc:
             # Fallback intencional para manter compatibilidade quando o banco ainda
             # não possui as tabelas novas ou está indisponível durante manutenção.
-            pass
+            logger.debug("Autenticação via repositório falhou, usando fallback de credenciais de ambiente: %s", exc)
 
     token = authenticate_credentials(safe_user, senha)
     return token, _build_env_admin_user(safe_user)
@@ -193,6 +242,9 @@ def validate_access_token(token: str) -> AuthenticatedUser:
     expected_signature = _sign(payload, settings.auth_token_secret)
     if not hmac.compare_digest(signature, expected_signature):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido.")
+
+    if _token_denylist.is_revoked(_token_key(normalize_text(token))):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão encerrada. Faça login novamente.")
 
     try:
         data = json.loads(_b64decode(payload).decode("utf-8"))
@@ -220,4 +272,7 @@ def validate_access_token(token: str) -> AuthenticatedUser:
         permissions=frozenset(permissions),
         status=normalize_text(data.get("status")) or "Ativo",
         avatar_ilustrado=normalize_text(data.get("avatar")),
+        operacoes=frozenset(
+            normalize_text(item) for item in (data.get("operacoes") or []) if normalize_text(item)
+        ),
     )

@@ -64,19 +64,6 @@ export function Table({ columns = [], rows = [], rowKey = 'id', renderCell = nul
   `;
 }
 
-export function ConfirmDialog({ open, title, message, confirmLabel = 'Confirmar', onConfirm, onCancel }) {
-  if (!open) return null;
-  return html`
-    <${ModalPadrao} titulo=${title} onClose=${onCancel}>
-      <p>${message}</p>
-      <footer class="d-flex justify-content-end gap-2">
-        <${Button} label="Cancelar" variant="outline-secondary" onClick=${onCancel} />
-        <${Button} label=${confirmLabel} variant="danger" onClick=${onConfirm} />
-      </footer>
-    </${ModalPadrao}>
-  `;
-}
-
 export function ToastAlert({ message, tone = 'info', onClose = null }) {
   return html`
     <div class=${`alert alert-${tone} d-flex align-items-center justify-content-between`.trim()} role="alert">

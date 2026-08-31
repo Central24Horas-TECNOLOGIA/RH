@@ -178,21 +178,39 @@ export function TelaDashboardFunil({ controlador }) {
       ${carregando
       ? html`<${LoadingState} titulo="Carregando dashboard" descricao="Calculando funil, origem e time-to-hire do período selecionado." />`
       : html`
-          <section class="funnel-dashboard-hero">
-            <div class="funnel-dashboard-hero-label">
-              <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
-              <span>Time-to-hire médio</span>
-            </div>
-            <div class="funnel-dashboard-hero-value">
-              ${dados?.time_to_hire_medio_dias === null || dados?.time_to_hire_medio_dias === undefined
+          <div class="funnel-dashboard-hero-grid">
+            <section class="funnel-dashboard-hero funnel-dashboard-hero--principal">
+              <div class="funnel-dashboard-hero-label">
+                <span class="material-symbols-outlined" aria-hidden="true">flag</span>
+                <span>Tempo de preenchimento de vaga</span>
+              </div>
+              <div class="funnel-dashboard-hero-value">
+                ${dados?.time_to_fill_medio_dias === null || dados?.time_to_fill_medio_dias === undefined
+        ? html`<span class="funnel-dashboard-hero-empty">Sem dados suficientes</span>`
+        : html`<strong>${formatarDias(dados.time_to_fill_medio_dias)}</strong><span>dias</span>`}
+              </div>
+              <p class="funnel-dashboard-hero-helper">
+                Média entre a abertura da vaga e a aprovação do candidato que completou a cota, considerando apenas
+                processos com todas as vagas preenchidas no recorte filtrado.
+              </p>
+            </section>
+
+            <section class="funnel-dashboard-hero">
+              <div class="funnel-dashboard-hero-label">
+                <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                <span>Time-to-hire médio</span>
+              </div>
+              <div class="funnel-dashboard-hero-value">
+                ${dados?.time_to_hire_medio_dias === null || dados?.time_to_hire_medio_dias === undefined
         ? html`<span class="funnel-dashboard-hero-empty">Sem dados suficientes</span>`
         : html`<strong>${formatarDias(dados.time_to_hire_medio_dias)}</strong><span>dias</span>`}
-            </div>
-            <p class="funnel-dashboard-hero-helper">
-              Média entre a entrada do candidato no processo e a aprovação final, considerando apenas candidatos
-              aprovados no recorte filtrado.
-            </p>
-          </section>
+              </div>
+              <p class="funnel-dashboard-hero-helper">
+                Média entre a entrada do candidato no processo e a aprovação final, considerando apenas candidatos
+                aprovados no recorte filtrado.
+              </p>
+            </section>
+          </div>
 
           <${MetricGrid} items=${metricasSecundarias} />
 

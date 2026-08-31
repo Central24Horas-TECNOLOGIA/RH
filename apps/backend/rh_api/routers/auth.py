@@ -14,10 +14,13 @@ from ..auth import (
     authenticate_session,
     create_session_for_user_record,
     reissue_token,
+    revoke_access_token,
 )
 from ..dependencies import audit_action, get_current_user, get_repository
+from ..rbac import get_role_definition, get_role_permissions
 from ..repositories import DatabaseRepository
 from ..schemas.auth import (
+    E2ETestLoginRequest,
     LoginRequest,
     LoginResponse,
     MfaCodeRequest,
@@ -185,6 +188,48 @@ def login(
         mfa_code=payload.mfa_code,
     )
     login_limiter.reset(limiter_key)
+    return _build_login_response(token, user)
+
+
+@router.post("/e2e-login", response_model=LoginResponse, include_in_schema=False)
+def e2e_test_login(payload: E2ETestLoginRequest) -> LoginResponse:
+    """Achado QA-001/S-23: bypass de autenticação exclusivo para a suíte E2E
+    (Playwright, `tests-e2e/fixtures/auth.js`). Nunca disponível em produção
+    e desabilitado por padrão em qualquer ambiente — só responde se AMBAS as
+    condições forem verdadeiras:
+
+    1. `RH_APP_ENV` não é produção (`settings.is_production`);
+    2. `RH_E2E_TEST_LOGIN_SECRET` foi definido explicitamente (vazio por
+       padrão) e o `secret` enviado bate com ele.
+
+    Sem as duas condições, responde 404 — não 403 — para não revelar nem a
+    existência da rota em ambiente onde ela deve estar inerte.
+    """
+    settings = get_settings()
+    configured_secret = settings.e2e_test_login_secret
+    if settings.is_production or not configured_secret or not hmac.compare_digest(
+        payload.secret, configured_secret
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Não encontrado.")
+
+    role = get_role_definition(payload.perfil)
+    user = AuthenticatedUser(
+        username=payload.usuario or "e2e.teste",
+        nome="Usuário de teste E2E",
+        email=f"{payload.usuario or 'e2e.teste'}@e2e.invalid",
+        perfil=role.id,
+        perfil_nome=role.name,
+        nivel=role.level,
+        permissions=frozenset(get_role_permissions(role.id)),
+        status="Ativo",
+    )
+    token = reissue_token(user)
+    logger.warning(
+        "Login de teste E2E emitido (ambiente=%s, usuario=%s, perfil=%s) — só deve acontecer em dev/hml/CI.",
+        settings.app_env,
+        user.username,
+        user.perfil,
+    )
     return _build_login_response(token, user)
 
 
@@ -551,6 +596,9 @@ def logout(
         MICROSOFT_PROVIDER_SESSION_KEY,
     ):
         request.session.pop(key, None)
+    authorization_header = request.headers.get("authorization") or ""
+    if authorization_header.lower().startswith("bearer "):
+        revoke_access_token(authorization_header[7:])
     logger.info("Logout solicitado para o usuario '%s'.", user.username)
     if hasattr(repository, "record_audit_log"):
         repository.record_audit_log(

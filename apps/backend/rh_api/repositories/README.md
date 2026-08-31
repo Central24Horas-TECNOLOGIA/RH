@@ -91,9 +91,11 @@ seguros — continue usando exatamente estes padrões em código novo:
    `processos_seletivos` por id/ref.
 4. **Limite/`TOP N` numérico**: sempre precedido de `int(...)` + `max()/min()`
    para clampar a um intervalo fixo antes de interpolar (nunca um valor de
-   string livre). Use `BaseRepository._clamp_limit(value, default, maximum)`
-   (adicionado neste refactor) em vez de repetir
-   `max(1, min(int(x or default), maximum))` inline.
+   string livre). Use `self._clamp_limit(value, default, maximum)` em
+   repositórios (wrapper de `services.helpers.clamp_limit`, a implementação
+   única) — em código de `services/` que não é repositório, importe
+   `clamp_limit` direto de `rh_api.services.helpers`. Todos os call-sites
+   pré-existentes já foram migrados para esse padrão.
 5. **Nome de tabela/coluna validado por regex**: quando um nome dinâmico de
    tabela/coluna é inevitável (ex. `get_next_numeric_id`), ele passa por
    `_SQL_IDENTIFIER_PATTERN.fullmatch(...)` (definido em `bootstrap.py`) antes

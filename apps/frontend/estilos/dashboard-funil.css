@@ -12,16 +12,30 @@
   gap: var(--space-1);
 }
 
+.funnel-dashboard-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
 .funnel-dashboard-hero {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-6);
-  margin-bottom: var(--space-5);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+}
+
+.funnel-dashboard-hero--principal {
+  border-color: var(--color-primary);
+}
+
+.funnel-dashboard-hero--principal .funnel-dashboard-hero-label .material-symbols-outlined {
+  color: var(--color-primary);
 }
 
 .funnel-dashboard-hero-label {
@@ -131,6 +145,10 @@
 }
 
 @media (max-width: 640px) {
+  .funnel-dashboard-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
   .funnel-dashboard-hero {
     padding: var(--space-4);
   }

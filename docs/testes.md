@@ -26,7 +26,7 @@ Validacao focada do modulo analitico:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest apps\backend\tests\test_exam_analytics.py -q
-node apps\frontend\tests\run-exam-analytics-smoke.cjs
+node apps\frontend\tests\static-checks\run-exam-analytics-smoke.cjs
 ```
 
 O arquivo `pytest.ini` desabilita o cache do pytest para evitar warnings e conflitos de escrita em ambientes com OneDrive.
@@ -36,7 +36,7 @@ O arquivo `pytest.ini` desabilita o cache do pytest para evitar warnings e confl
 - `apps/backend/tests/test_auth_and_pipeline.py`
 - `apps/backend/tests/conftest.py`
 - `apps/backend/tests/test_exam_analytics.py`
-- `apps/frontend/tests/run-exam-analytics-smoke.cjs`
+- `apps/frontend/tests/static-checks/run-exam-analytics-smoke.cjs` (checagem estática — ver [`apps/frontend/tests/static-checks/README.md`](../apps/frontend/tests/static-checks/README.md))
 
 ## Como evoluir os testes
 

@@ -81,24 +81,24 @@ BEGIN
             INCLUDE (id_banco, nome_candidato, vaga, data_movimentacao);
 END;
 
-IF OBJECT_ID('dbo.entrevistas', 'U') IS NOT NULL
+IF OBJECT_ID('dbo.entrevistas_agendadas', 'U') IS NOT NULL
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM sys.indexes
         WHERE name = 'IX_entrevistas_processo_data'
-          AND object_id = OBJECT_ID('dbo.entrevistas')
+          AND object_id = OBJECT_ID('dbo.entrevistas_agendadas')
     )
         CREATE INDEX IX_entrevistas_processo_data
-            ON dbo.entrevistas (id_processo, id_processo_ref, data_entrevista)
+            ON dbo.entrevistas_agendadas (id_processo, id_processo_ref, data_entrevista)
             INCLUDE (id_entrevista, id_teste, status_entrevista);
 
     IF NOT EXISTS (
         SELECT 1 FROM sys.indexes
         WHERE name = 'IX_entrevistas_status_data'
-          AND object_id = OBJECT_ID('dbo.entrevistas')
+          AND object_id = OBJECT_ID('dbo.entrevistas_agendadas')
     )
         CREATE INDEX IX_entrevistas_status_data
-            ON dbo.entrevistas (status_entrevista, data_entrevista)
+            ON dbo.entrevistas_agendadas (status_entrevista, data_entrevista)
             INCLUDE (id_entrevista, id_processo, id_processo_ref, id_teste);
 END;
 
@@ -143,6 +143,6 @@ BEGIN
           AND object_id = OBJECT_ID('dbo.usuarios')
     )
         CREATE INDEX IX_usuarios_perfil_status
-            ON dbo.usuarios (perfil, status)
+            ON dbo.usuarios (perfil_id, status)
             INCLUDE (id_usuario, nome, email, login);
 END;

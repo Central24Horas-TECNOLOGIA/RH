@@ -1,16 +1,18 @@
 # 06 — API
 
+> **Nota (achado DOC-002 do [programa de evolução do Conecta](connecta-evolution/README.md))**: a tabela de routers abaixo está desatualizada — lista 9 dos 23 routers hoje existentes em `apps/backend/rh_api/routers/`. Para o inventário completo e atual, consulte o diretório de código diretamente. A correção do entrypoint abaixo é a parte deste documento confirmada e corrigida nesta rodada.
+
 ## Entrada da API
 
-A aplicação FastAPI é criada em `api/rh_api/main.py` e exposta por `api/app.py`.
+A aplicação FastAPI é criada em `apps/backend/rh_api/main.py` e exposta pelo entrypoint canônico `apps/backend/conecta/interfaces/http/main.py`.
 
 Comando típico:
 
 ```powershell
-uvicorn api.app:app --host 127.0.0.1 --port 8010 --reload
+uvicorn conecta.interfaces.http.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-## Routers registrados
+## Routers registrados (lista parcial — ver nota acima)
 
 | Router | Responsabilidade |
 | --- | --- |
@@ -23,6 +25,7 @@ uvicorn api.app:app --host 127.0.0.1 --port 8010 --reload
 | `interviews.py` | Slots e entrevistas |
 | `analytics.py` | Análises e relatórios |
 | `pipeline.py` | Pipeline de candidatos |
+| `curriculos_ia.py`, `calendar.py`, `disc.py`, `document_templates.py`, `email_send.py`, `exam_analytics.py`, `fit_cultural.py`, `generated_exams.py`, `onboarding.py`, `onedrive_files.py`, `operations.py`, `policies.py`, `raciocinio_logico.py`, `scorecards.py`, `settings.py` | Não documentados nesta tabela ainda — ver código-fonte |
 
 ## Inventário de endpoints
 
