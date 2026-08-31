@@ -1,23 +1,28 @@
+// Checagem estática (achado S-25): verifica que trechos-chave do código-fonte
+// ainda existem/não existem literalmente no arquivo (grep programático), não
+// o comportamento renderizado da tela. Serve para pegar rapidamente uma
+// remoção/renomeação acidental de regra de negócio durante um refactor —
+// não substitui um teste de comportamento real (ver `tests-e2e/` para isso).
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const rootDir = path.resolve(__dirname, '..');
+const rootDir = path.resolve(__dirname, '..', '..');
 const source = fs.readFileSync(
   path.join(rootDir, 'fonte', 'features', 'conecta-provas', 'index.js'),
   'utf8',
 );
 const apiAggregator = fs.readFileSync(
-  path.join(__dirname, '..', 'fonte', 'servico-api.js'),
+  path.join(__dirname, '..', '..', 'fonte', 'servico-api.js'),
   'utf8',
 );
 const generatedExamsApi = fs.readFileSync(
-  path.join(__dirname, '..', 'fonte', 'services', 'api', 'generated-exams.js'),
+  path.join(__dirname, '..', '..', 'fonte', 'services', 'api', 'generated-exams.js'),
   'utf8',
 );
-const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const principal = fs.readFileSync(path.join(__dirname, '..', 'fonte', 'principal.js'), 'utf8');
-const aplicacao = fs.readFileSync(path.join(__dirname, '..', 'fonte', 'aplicacao.js'), 'utf8');
+const indexHtml = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
+const principal = fs.readFileSync(path.join(__dirname, '..', '..', 'fonte', 'principal.js'), 'utf8');
+const aplicacao = fs.readFileSync(path.join(__dirname, '..', '..', 'fonte', 'aplicacao.js'), 'utf8');
 
 assert.ok(source.includes('>Começar</button>'));
 assert.ok(source.includes("const bloqueada = (!somenteCadastro && !cadastroConcluido) || indisponivel"));

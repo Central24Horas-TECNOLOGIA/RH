@@ -28,6 +28,17 @@ def rows_to_dicts(cursor, rows):
     return [dict(zip(columns, row)) for row in rows]
 
 
+def clamp_limit(value, default: int, maximum: int, minimum: int = 1) -> int:
+    """Normaliza um limite/tamanho de página recebido de fora para um inteiro seguro.
+
+    Implementação única do padrão `max(minimum, min(int(value or default), maximum))`
+    que aparecia duplicado em vários repositórios e serviços (history, security,
+    talent_bank, communications, email_inbox, cv_analysis, exam_analytics, processes,
+    email_inbox_service, etc.).
+    """
+    return max(minimum, min(int(value or default), maximum))
+
+
 def normalize_text(value) -> str:
     return str(value or "").strip()
 

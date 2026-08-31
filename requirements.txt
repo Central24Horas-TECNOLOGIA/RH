@@ -29,7 +29,6 @@ pycparser==3.0
 pydantic==2.12.5
 pydantic_core==2.41.5
 Pygments==2.20.0
-PyJWT==2.13.0
 pyodbc==5.3.0
 pypdf==5.9.0
 pytest==8.4.2

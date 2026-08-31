@@ -64,6 +64,13 @@ def _mask_email(value) -> str:
     return f"{visible}***@{domain}"
 
 
+def _mask_phone(value) -> str:
+    digits = re.sub(r"\D", "", normalize_text(value))
+    if len(digits) < 4:
+        return "telefone-nao-identificado"
+    return f"{'*' * (len(digits) - 4)}{digits[-4:]}"
+
+
 def _json_dump(value) -> str:
     if value is None or value == "":
         return ""
@@ -222,7 +229,24 @@ class SecurityRepositoryMixin:
         ]
         return permissions
 
-    def _serialize_system_user(self, row: dict, permissions: list[str] | None = None) -> dict:
+    def _get_user_operacoes(self, cursor, id_usuario) -> list[str]:
+        """Operações às quais o usuário tem acesso — lista vazia = sem
+        restrição (comportamento atual, preservado por padrão). Ver achado
+        SEC-002 do programa de evolução."""
+        if not id_usuario:
+            return []
+        cursor.execute(
+            "SELECT operacao FROM dbo.usuarios_operacoes WHERE id_usuario = ?",
+            (id_usuario,),
+        )
+        return [normalize_text(row[0]) for row in cursor.fetchall() if normalize_text(row[0])]
+
+    def _serialize_system_user(
+        self,
+        row: dict,
+        permissions: list[str] | None = None,
+        operacoes: list[str] | None = None,
+    ) -> dict:
         role = get_role_definition(row.get("perfil_id"))
         status_value = normalize_text(row.get("status")) or "Ativo"
         return {
@@ -245,6 +269,7 @@ class SecurityRepositoryMixin:
             "atualizado_por": normalize_text(row.get("atualizado_por")),
             "atualizado_em": row.get("atualizado_em"),
             "permissoes": permissions or [],
+            "operacoes": operacoes or [],
         }
 
     def authenticate_system_user(
@@ -375,7 +400,8 @@ class SecurityRepositoryMixin:
                 """,
                 (user_row.get("id_usuario"),),
             )
-            result = self._serialize_system_user(user_row, permissions)
+            operacoes = self._get_user_operacoes(cursor, user_row.get("id_usuario"))
+            result = self._serialize_system_user(user_row, permissions, operacoes)
             self._insert_audit_log(
                 cursor,
                 user=result,
@@ -590,20 +616,22 @@ class SecurityRepositoryMixin:
                         origem=origem,
                         sucesso=False,
                     )
-                except Exception:
-                    pass
+                except Exception as audit_exc:
+                    self.logger.debug("Falha ao registrar log de auditoria de conflito Microsoft: %s", audit_exc)
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Não foi possível concluir o acesso. Contate o administrador do Conecta.",
                 ) from exc
 
             permissions = self._get_role_permissions_from_db(cursor, user_row.get("perfil_id"))
+            operacoes = self._get_user_operacoes(cursor, user_row.get("id_usuario"))
             result = self._serialize_system_user(
                 {
                     **user_row,
                     "provedor_autenticacao": AUTH_PROVIDER_MICROSOFT,
                 },
                 permissions,
+                operacoes,
             )
             if first_link:
                 self._insert_audit_log(
@@ -648,7 +676,8 @@ class SecurityRepositoryMixin:
                     detail="Seu acesso ao Conecta está desativado.",
                 )
             permissions = self._get_role_permissions_from_db(cursor, user_row.get("perfil_id"))
-            return self._serialize_system_user(user_row, permissions)
+            operacoes = self._get_user_operacoes(cursor, user_row.get("id_usuario"))
+            return self._serialize_system_user(user_row, permissions, operacoes)
         finally:
             conn.close()
 

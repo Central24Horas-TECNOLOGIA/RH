@@ -79,7 +79,7 @@ class TalentBankRepositoryMixin:
             return items
 
         safe_page = max(1, int(page or 1))
-        safe_page_size = max(1, min(int(page_size or 20), 100))
+        safe_page_size = self._clamp_limit(page_size, default=20, maximum=100)
         total = len(items)
         total_pages = max(1, math.ceil(total / safe_page_size))
         safe_page = min(safe_page, total_pages)
@@ -394,8 +394,8 @@ class TalentBankRepositoryMixin:
         except pyodbc.Error as exc:
             try:
                 conn.rollback()
-            except pyodbc.Error:
-                pass
+            except pyodbc.Error as rollback_exc:
+                self.logger.debug("Falha ao reverter transacao apos erro no Banco de Talentos: %s", rollback_exc)
             self.logger.error(
                 "Falha ao enviar candidato para Banco de Talentos: %s",
                 describe_database_error(exc),
@@ -825,7 +825,7 @@ class TalentBankRepositoryMixin:
                 )
 
             resultados.sort(key=lambda item: item["pontuacao_match"], reverse=True)
-            safe_limit = max(1, min(int(limit or 15), 50))
+            safe_limit = self._clamp_limit(limit, default=15, maximum=50)
             return {
                 "id_processo": processo.get("id_processo", ""),
                 "vaga": processo.get("vaga", ""),

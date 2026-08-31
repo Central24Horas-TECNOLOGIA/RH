@@ -4030,6 +4030,7 @@ export function TelaProcessos({ controlador }) {
       status: edicao.status || 'Aberto',
       link_agendamento: edicao.link_agendamento || '',
       observacoes_publicas_vaga: edicao.observacoes_publicas_vaga || '',
+      ia_analise_desabilitada: Number(edicao.ia_analise_desabilitada || 0),
     });
 
     setEdicao(null);
@@ -4601,6 +4602,24 @@ export function TelaProcessos({ controlador }) {
           })}
                     />
                   </div>
+                  <div class="col-md-12">
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        id="edicao-ia-analise-desabilitada"
+                        type="checkbox"
+                        checked=${Number(edicao.ia_analise_desabilitada || 0) === 1}
+                        onChange=${(event) =>
+          setEdicao({
+            ...edicao,
+            ia_analise_desabilitada: event.target.checked ? 1 : 0,
+          })}
+                      />
+                      <label class="form-check-label" for="edicao-ia-analise-desabilitada">
+                        Desabilitar análise de currículo por IA neste processo
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
               <footer class="rh-modal-footer">
@@ -4809,6 +4828,7 @@ export function TelaProcessosAbertos({ controlador }) {
       status: edicao.status || 'Aberto',
       link_agendamento: edicao.link_agendamento || '',
       observacoes_publicas_vaga: edicao.observacoes_publicas_vaga || '',
+      ia_analise_desabilitada: Number(edicao.ia_analise_desabilitada || 0),
     });
 
     setEdicao(null);
@@ -5119,6 +5139,24 @@ export function TelaProcessosAbertos({ controlador }) {
                       onInput=${(event) =>
           setEdicao({ ...edicao, link_agendamento: event.target.value })}
                     />
+                  </div>
+                  <div class="col-md-12">
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        id="edicao-aberta-ia-analise-desabilitada"
+                        type="checkbox"
+                        checked=${Number(edicao.ia_analise_desabilitada || 0) === 1}
+                        onChange=${(event) =>
+          setEdicao({
+            ...edicao,
+            ia_analise_desabilitada: event.target.checked ? 1 : 0,
+          })}
+                      />
+                      <label class="form-check-label" for="edicao-aberta-ia-analise-desabilitada">
+                        Desabilitar análise de currículo por IA neste processo
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>

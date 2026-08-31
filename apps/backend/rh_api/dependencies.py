@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, Request, status
@@ -12,6 +13,8 @@ from .repositories import DatabaseRepository
 from conecta.domain.permissoes import AuthorizationPolicy
 from conecta.infrastructure.observability.context import user_id_var
 
+
+logger = logging.getLogger(__name__)
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -120,6 +123,40 @@ def ensure_user_permission(
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail=ACCESS_DENIED_MESSAGE,
+    )
+
+
+def ensure_resource_scope(
+    user: AuthenticatedUser,
+    operacao: str | None,
+    *,
+    repository: DatabaseRepository | None = None,
+    request: Request | None = None,
+) -> None:
+    """Achado SEC-002: valida que o usuário tem acesso à operação do recurso
+    pedido, não só a permissão de módulo. Aditivo — usuários sem escopo
+    atribuído (`user.operacoes` vazio, o caso de hoje) não são afetados."""
+    if user.allows_operacao(operacao):
+        return
+
+    if repository is not None:
+        try:
+            repository.record_audit_log(
+                user=user,
+                modulo="Segurança",
+                acao="acesso_negado_escopo",
+                entidade="rota",
+                entidade_id=f"{request.method} {request.url.path}" if request else "",
+                valor_novo={"operacao_recurso": operacao},
+                origem=_request_origin(request),
+                sucesso=False,
+            )
+        except Exception as exc:
+            logger.debug("Falha ao registrar log de auditoria de acesso negado por escopo: %s", exc)
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Este recurso pertence a uma operação fora do seu escopo de acesso.",
     )
 
 

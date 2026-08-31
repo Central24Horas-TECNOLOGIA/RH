@@ -26,7 +26,6 @@ export {
 export {
   Badge,
   Button,
-  ConfirmDialog,
   FormField,
   Modal,
   Pagination,

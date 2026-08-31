@@ -388,6 +388,7 @@ class PublicCandidacyRepositoryMixin:
         bairro: str,
         lgpd_aceito: str,
         curriculo,
+        lgpd_consentimento_ip: str = "",
     ) -> dict:
         safe_name = normalize_text(nome_completo)
         safe_email = normalize_text(email)
@@ -485,6 +486,9 @@ class PublicCandidacyRepositoryMixin:
                         observacao_rh=safe_summary,
                         cidade=safe_city,
                         bairro=safe_neighborhood,
+                        lgpd_consentimento_novo=True,
+                        lgpd_consentimento_versao="1.0",
+                        lgpd_consentimento_ip=lgpd_consentimento_ip,
                     )
                     self._replace_candidate_attachment(
                         cursor,
@@ -528,6 +532,9 @@ class PublicCandidacyRepositoryMixin:
                     observacao_rh=safe_summary,
                     cidade=safe_city,
                     bairro=safe_neighborhood,
+                    lgpd_consentimento_novo=True,
+                    lgpd_consentimento_versao="1.0",
+                    lgpd_consentimento_ip=lgpd_consentimento_ip,
                 )
                 self._replace_candidate_attachment(
                     cursor,

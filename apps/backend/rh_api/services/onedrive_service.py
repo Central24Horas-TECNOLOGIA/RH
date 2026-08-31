@@ -8,6 +8,7 @@ de ouro da integração M365 do Conecta — o Conecta não duplica armazenamento
 from __future__ import annotations
 
 import base64
+from pathlib import Path
 from urllib.parse import quote
 
 import httpx
@@ -15,6 +16,18 @@ from fastapi import HTTPException, status
 
 from .graph_client import GraphClient
 from .helpers import normalize_text
+
+# Drive-Conecta guarda documentos de RH de qualquer tipo (PDF, planilha, imagem,
+# contrato, etc.) — por isso a defesa aqui é uma lista de bloqueio de extensões
+# executáveis/script, não uma lista de permissão estrita como a de currículo
+# (public_candidacy.py), que quebraria uploads legítimos de documento do RH.
+BLOCKED_UPLOAD_EXTENSIONS = {
+    ".exe", ".bat", ".cmd", ".com", ".msi", ".msp", ".scr",
+    ".ps1", ".ps1xml", ".psc1", ".psm1",
+    ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh",
+    ".jar", ".app", ".apk", ".dll", ".sys", ".drv", ".cpl",
+    ".gadget", ".hta", ".reg", ".lnk", ".inf", ".sh", ".bash",
+}
 
 UNCONFIGURED_MESSAGE = (
     "Repositório de arquivos (OneDrive/SharePoint) ainda não configurado. "
@@ -129,10 +142,16 @@ class OneDriveService:
         return {"success": True, "item": self._serialize_item(item)}
 
     def upload_file(self, path: str, filename: str, content: bytes, content_type: str = "") -> dict:
-        client = self._client_or_raise()
         safe_filename = normalize_text(filename)
         if not safe_filename:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nome do arquivo é obrigatório.")
+        extension = Path(safe_filename).suffix.lower()
+        if extension in BLOCKED_UPLOAD_EXTENSIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este tipo de arquivo não pode ser enviado ao repositório de documentos.",
+            )
+        client = self._client_or_raise()
         if len(content) > MAX_UPLOAD_BYTES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -69,7 +69,7 @@ def update_interview_slot(
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    result = repository.update_interview_slot(id_slot, payload.model_dump(exclude_none=True))
+    result = repository.update_interview_slot(id_slot, payload.model_dump(exclude_none=True), user=user)
     audit_action(
         repository,
         user,

@@ -1,21 +1,24 @@
-# Security Policy
+# Política de Segurança — Conecta
 
-## Supported Versions
+## Versões suportadas
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+O Conecta é um sistema interno de implantação contínua (não uma biblioteca versionada por linhas de suporte paralelas). Correções de segurança são aplicadas sempre à versão mais recente em produção — não há suporte retroativo a versões antigas.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## Como reportar uma vulnerabilidade
 
-## Reporting a Vulnerability
+Se você encontrar uma vulnerabilidade de segurança no Conecta (exposição de dado pessoal, falha de autenticação/autorização, injeção, etc.):
 
-Use this section to tell people how to report a vulnerability.
+1. **Não abra uma issue pública** no repositório descrevendo a vulnerabilidade em detalhe.
+2. Reporte diretamente à equipe responsável pelo Conecta (Central24Horas — `Central24horas@central24horas.com.br`), descrevendo: passo a passo para reproduzir, impacto observado/esperado, e se há evidência de exploração real.
+3. A equipe confirma o recebimento e investiga; achados confirmados entram no [Master Findings Registry](docs/connecta-evolution/02-findings/03_MASTER_FINDINGS.md) do programa de evolução do produto, com prioridade conforme severidade (`SEC-*`).
+4. Vulnerabilidades críticas/altas (exposição de dado pessoal, bypass de autenticação/autorização) são tratadas como prioridade máxima — ver [runbook de incidentes](docs/operacao/incidentes.md).
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+## O que já existe hoje
+
+Este projeto já roda, a cada PR, scan automatizado de:
+- dependências Python (`pip-audit`);
+- código Python (`bandit`);
+- segredos commitados (`gitleaks`);
+- vulnerabilidades de código (`CodeQL`).
+
+Ver `.github/workflows/security.yml`.

@@ -26,17 +26,23 @@ jobs:
           node-version: "22"
       - name: Validar sintaxe JavaScript
         run: find apps/frontend/fonte -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Smoke tests do frontend
+      - name: Smoke tests do frontend (testes reais)
         run: |
           node apps/frontend/tests/run-rh-business-rules-smoke.cjs
-          node apps/frontend/tests/run-process-details-rules-smoke.cjs
           node apps/frontend/tests/run-excel-correction-smoke.cjs
-          node apps/frontend/tests/run-conecta-provas-flow-smoke.cjs
-          node apps/frontend/tests/run-refresh-performance-smoke.cjs
+      - name: Checagens estáticas do frontend
+        run: |
+          node apps/frontend/tests/static-checks/run-process-details-rules-smoke.cjs
+          node apps/frontend/tests/static-checks/run-exam-analytics-smoke.cjs
+          node apps/frontend/tests/static-checks/run-conecta-provas-flow-smoke.cjs
+          node apps/frontend/tests/static-checks/run-refresh-performance-smoke.cjs
 
   build-images:
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -46,9 +52,30 @@ jobs:
           context: .
           file: apps/backend/Dockerfile
           push: false
+          load: true
+          tags: conecta-backend:ci
       - name: Build frontend
         uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/frontend/Dockerfile
           push: false
+          load: true
+          tags: conecta-frontend:ci
+      # exit-code 0: relata vulnerabilidades sem falhar o build. A equipe deve
+      # revisar o baseline inicial e então promover para exit-code 1 (achado
+      # SEC-015/DEVOPS-004 do programa de evolução).
+      - name: Scan de vulnerabilidades da imagem backend (Trivy)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: conecta-backend:ci
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+      - name: Scan de vulnerabilidades da imagem frontend (Trivy)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: conecta-frontend:ci
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "0"

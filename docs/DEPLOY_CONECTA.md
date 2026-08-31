@@ -1,5 +1,12 @@
 # Deploy Conecta RH
 
+> **⚠️ Documento histórico, não é o guia de deploy vigente.** Descreve a execução local direta (`run.py`, pasta `Front/`, entrypoint `api.app:app`) de antes da reorganização do projeto — hoje o backend oficial é `apps/backend` e o frontend `apps/frontend`, e o deploy real de HML/PROD é containerizado (Docker Compose + Caddy), não a execução local descrita abaixo. Para o guia atual, use:
+> - **Execução local e Docker**: [README da raiz](../README.md);
+> - **Release e rollback**: [docs/deploy/](deploy/);
+> - **Operação (incidentes, backup)**: [docs/operacao/](operacao/).
+>
+> Mantido só para referência histórica — achado DEVOPS-003 do [programa de evolução do Conecta](connecta-evolution/README.md).
+
 Este guia documenta a nova inicializacao do Conecta RH com um unico ponto de entrada: o FastAPI serve a API e tambem o frontend localizado em `Front/`.
 
 ## 1. Desenvolvimento local

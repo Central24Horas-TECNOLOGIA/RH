@@ -96,6 +96,7 @@ def export_candidate_report(
     end_date: str = Query(default=""),
     status_filter: str = Query(default=""),
     id_processo: str = Query(default=""),
+    revelar_pii: bool = Query(default=False, description="Exporta telefone/e-mail completos em vez de mascarados. Fica registrado na auditoria."),
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
@@ -104,12 +105,13 @@ def export_candidate_report(
         end_date=end_date,
         status_filter=status_filter,
         id_processo=id_processo,
+        mask_pii=not revelar_pii,
     )
     audit_action(
         repository,
         user,
         modulo="Relatórios",
-        acao="exportar_relatorio_candidatos",
+        acao="exportar_relatorio_candidatos_pii_completo" if revelar_pii else "exportar_relatorio_candidatos",
         entidade="relatorio",
         entidade_id="candidatos",
         valor_novo={
@@ -117,6 +119,7 @@ def export_candidate_report(
             "end_date": end_date,
             "status_filter": status_filter,
             "id_processo": id_processo,
+            "pii_revelado": revelar_pii,
         },
     )
     return Response(

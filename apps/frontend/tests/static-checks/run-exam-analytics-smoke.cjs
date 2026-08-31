@@ -1,8 +1,13 @@
+// Checagem estática (achado S-25): verifica que trechos-chave do código-fonte
+// ainda existem/não existem literalmente no arquivo (grep programático), não
+// o comportamento renderizado da tela. Serve para pegar rapidamente uma
+// remoção/renomeação acidental de regra de negócio durante um refactor —
+// não substitui um teste de comportamento real (ver `tests-e2e/` para isso).
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const rootDir = path.resolve(__dirname, '..');
+const rootDir = path.resolve(__dirname, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(rootDir, ...parts), 'utf8');
 
 const routes = read('fonte', 'rotas.js');

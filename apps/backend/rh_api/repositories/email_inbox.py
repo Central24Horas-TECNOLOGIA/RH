@@ -456,7 +456,7 @@ class EmailInboxRepositoryMixin:
         query: str,
     ) -> list[dict]:
         ensure_email_inbox_items_table(cursor)
-        safe_limit = max(1, min(int(limit or 50), 200))
+        safe_limit = self._clamp_limit(limit, default=50, maximum=200)
         cursor.execute(
             f"""
             SELECT TOP ({safe_limit})
@@ -615,8 +615,8 @@ class EmailInboxRepositoryMixin:
                     "downloaded": 0,
                     "item": self._serialize_email_inbox_item(row),
                 }
-            except EmailInboxUnavailable:
-                pass
+            except EmailInboxUnavailable as exc:
+                self.logger.debug("Caixa de e-mail indisponivel para reuso de anexo salvo: %s", exc)
 
             uid = normalize_text(row.get("message_uid"))
             if not uid:

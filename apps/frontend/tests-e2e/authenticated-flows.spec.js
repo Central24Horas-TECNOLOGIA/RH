@@ -4,18 +4,17 @@ const { test, expect } = require('./fixtures/auth');
 /**
  * Fluxos autenticados principais do Conecta.
  *
- * IMPORTANTE: o login é feito exclusivamente via Microsoft SSO (OAuth), e
- * não há nenhum mecanismo de bypass de autenticação implementado no
- * backend hoje (nem mesmo em desenvolvimento). Por isso, todos os testes
- * abaixo usam a fixture `authenticatedPage` (tests-e2e/fixtures/auth.js),
- * que os pula automaticamente com uma mensagem clara enquanto a variável
- * de ambiente E2E_AUTH_BYPASS não apontar para um mecanismo real de sessão
- * de teste (dev/CI only). Ver tests-e2e/README.md para o plano de como
- * habilitar isso no futuro sem comprometer a segurança de produção.
+ * IMPORTANTE: o login real é feito exclusivamente via Microsoft SSO
+ * (OAuth). Todos os testes abaixo usam a fixture `authenticatedPage`
+ * (tests-e2e/fixtures/auth.js), que autentica via `POST /auth/e2e-login`
+ * — uma rota de bypass real, restrita a dev/hml/CI e gated por
+ * `RH_E2E_TEST_LOGIN_SECRET` (nunca disponível em produção). Sem a
+ * variável de ambiente E2E_AUTH_BYPASS configurada no ambiente do
+ * Playwright, os testes ficam pulados automaticamente (skip, não falha).
+ * Ver tests-e2e/README.md para como habilitar.
  *
  * Os testes foram escritos com os seletores e rotas reais do app (ver
- * fonte/rotas.js e os componentes de cada feature) para que, assim que a
- * autenticação de teste existir, baste remover o skip condicional.
+ * fonte/rotas.js e os componentes de cada feature).
  */
 
 test.describe('Navegação entre telas principais', () => {

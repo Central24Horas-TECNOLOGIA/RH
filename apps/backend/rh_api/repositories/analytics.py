@@ -21,11 +21,13 @@ from ..services.process_flow import (
     normalize_process_status,
 )
 from .bootstrap import (
+    _select_process_row_from_rows,
     ensure_pipeline_columns,
     ensure_process_reference_columns,
     get_process_row,
     get_process_rows,
 )
+from .security import _mask_email, _mask_phone
 
 
 logger = logging.getLogger(__name__)
@@ -826,6 +828,7 @@ class AnalyticsRepositoryMixin:
         end_date: str = "",
         status_filter: str = "",
         id_processo: str = "",
+        mask_pii: bool = True,
     ) -> tuple[str, bytes]:
         rows = self.list_candidate_report(
             start_date=start_date,
@@ -833,6 +836,15 @@ class AnalyticsRepositoryMixin:
             status_filter=status_filter,
             id_processo=id_processo,
         )
+        if mask_pii:
+            rows = [
+                {
+                    **row,
+                    "telefone": _mask_phone(row["telefone"]) if row.get("telefone") else row.get("telefone", ""),
+                    "e_mail": _mask_email(row["e_mail"]) if row.get("e_mail") else row.get("e_mail", ""),
+                }
+                for row in rows
+            ]
         columns = [
             ("ID do Candidato", "id_candidato"),
             ("Nome", "nome"),
@@ -879,6 +891,17 @@ class AnalyticsRepositoryMixin:
           `data_prova` e a data de entrada do candidato no processo e
           `aprovado_em` e a data do status final de aprovacao (ambas ja
           existem em `candidatos_processos`).
+        - time-to-fill / North Star (dias) (achado BUS-001, S-40): diferente
+          do time-to-hire acima, que mede o tempo *dentro* do processo (da
+          entrada do candidato ate a aprovacao), este mede da ABERTURA da
+          vaga (`processos_seletivos.data_criacao`) ate o PREENCHIMENTO
+          efetivo — a data de aprovacao do candidato que completou a cota de
+          vagas (`vagas_preenchidas >= quantidade_vagas`, o mesmo criterio
+          que `process_auto_close_if_full` ja usa para encerrar o processo
+          automaticamente). So entram no calculo processos genuinamente
+          preenchidos (nao processos pausados/cancelados/encerrados
+          manualmente sem preencher a cota). Reaproveita dado ja existente,
+          sem coluna ou tabela nova.
         - funil por etapa: usa a mesma `etapa_pipeline` do Kanban de vagas
           (Triagem/Prova/Entrevista/Aprovado/Reprovado). Como o sistema nao
           mantem um historico de "por quais etapas o candidato passou" (so a
@@ -971,11 +994,67 @@ class AnalyticsRepositoryMixin:
                 round(sum(prazos_contratacao) / len(prazos_contratacao), 1) if prazos_contratacao else None
             )
 
+            # Achado BUS-001 (S-40): North Star = tempo de preenchimento de vaga.
+            # Filtra por data de PREENCHIMENTO (aprovado_em), nao por data de
+            # entrada do candidato (data_prova) — o recorte representa "vagas
+            # preenchidas neste periodo", nao "candidatos que entraram neste
+            # periodo".
+            data_preenchimento_por_processo: dict[str, datetime] = {}
+            for item in candidatos:
+                if canonicalize_candidate_status(item.get("status_candidato")) != CANDIDATE_STATUS_APPROVED:
+                    continue
+                if not _in_date_range(item.get("aprovado_em"), start_date, end_date):
+                    continue
+                if safe_process_filter:
+                    process_ref = normalize_compare_text(item.get("id_processo_ref"))
+                    process_id = normalize_compare_text(item.get("id_processo"))
+                    if safe_process_filter not in process_ref and safe_process_filter not in process_id:
+                        continue
+                aprovacao = _coerce_datetime(item.get("aprovado_em"))
+                if not aprovacao:
+                    continue
+                chave_processo = normalize_text(item.get("id_processo"))
+                if not chave_processo:
+                    continue
+                atual = data_preenchimento_por_processo.get(chave_processo)
+                if atual is None or aprovacao > atual:
+                    data_preenchimento_por_processo[chave_processo] = aprovacao
+
+            prazos_preenchimento: list[float] = []
+            if data_preenchimento_por_processo:
+                # Um único SELECT para todos os processos envolvidos (não um por
+                # processo — mesma correção de N+1 já aplicada em S-19).
+                processos_por_id: dict[str, list[dict]] = {}
+                for processo_row in get_process_rows(cursor):
+                    processos_por_id.setdefault(normalize_text(processo_row.get("id_processo")), []).append(
+                        processo_row
+                    )
+            else:
+                processos_por_id = {}
+            for chave_processo, data_preenchimento in data_preenchimento_por_processo.items():
+                processo_row = _select_process_row_from_rows(processos_por_id.get(chave_processo, []))
+                if not processo_row:
+                    continue
+                quantidade_vagas = int(processo_row.get("quantidade_vagas") or 0)
+                vagas_preenchidas = int(processo_row.get("vagas_preenchidas") or 0)
+                if quantidade_vagas <= 0 or vagas_preenchidas < quantidade_vagas:
+                    continue
+                abertura = _coerce_datetime(processo_row.get("data_criacao"))
+                if not abertura or data_preenchimento < abertura:
+                    continue
+                prazos_preenchimento.append((data_preenchimento - abertura).total_seconds() / 86400)
+
+            time_to_fill_medio_dias = (
+                round(sum(prazos_preenchimento) / len(prazos_preenchimento), 1) if prazos_preenchimento else None
+            )
+
             resultado = {
                 "periodo": {"start_date": start_date or "", "end_date": end_date or "", "id_processo": id_processo or ""},
                 "total_candidatos": total_candidatos,
                 "total_aprovados_considerados": len(prazos_contratacao),
                 "time_to_hire_medio_dias": time_to_hire_medio_dias,
+                "time_to_fill_medio_dias": time_to_fill_medio_dias,
+                "total_vagas_preenchidas_consideradas": len(prazos_preenchimento),
                 "funil_etapas": funil_etapas,
                 "origem_candidatos": origem_candidatos,
             }

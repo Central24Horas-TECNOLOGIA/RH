@@ -347,7 +347,7 @@ class AnalisesCurriculoIaRepositoryMixin:
         try:
             cursor = conn.cursor()
             ensure_curriculo_ia_table(cursor)
-            safe_limit = max(1, min(int(limit or 50), 100))
+            safe_limit = self._clamp_limit(limit, default=50, maximum=100)
             cursor.execute(
                 f"""
                 SELECT TOP {safe_limit}

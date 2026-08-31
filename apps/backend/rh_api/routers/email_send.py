@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from conecta.infrastructure.security.rate_limit import InMemoryRateLimiter
+
 from ..auth import AuthenticatedUser
 from ..config import get_settings
 from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
@@ -11,6 +13,7 @@ from ..services.email_send_service import EmailSendService, render_template
 from ..services.onedrive_service import OneDriveService
 
 router = APIRouter(prefix="/emails", tags=["email-send"], dependencies=[Depends(get_current_user)])
+email_send_limiter = InMemoryRateLimiter()
 
 
 def get_email_send_service() -> EmailSendService:
@@ -73,6 +76,18 @@ def send_email(
         from ..dependencies import ensure_user_permission
 
         ensure_user_permission(user, required_permission, repository=repository)
+
+    settings = get_settings()
+    limiter_key = user.username or str(user.id_usuario or "")
+    if not email_send_limiter.allow(
+        limiter_key,
+        limit=settings.email_send_rate_limit,
+        window_seconds=settings.email_send_rate_window_seconds,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitos envios de e-mail em pouco tempo. Aguarde e tente novamente.",
+        )
 
     assunto = payload.assunto
     corpo_html = payload.corpo_html

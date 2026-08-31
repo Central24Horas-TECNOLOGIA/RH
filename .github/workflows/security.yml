@@ -38,3 +38,19 @@ jobs:
         with:
           languages: python,javascript-typescript
       - uses: github/codeql-action/analyze@v3
+
+  javascript-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Escaneia apps/frontend/package-lock.json (dependências de dev/teste:
+      # Playwright, Vite). O frontend em produção não tem bundler (CDN pinada
+      # em apps/frontend/index.html) — ver achado SEC-015/QA-006 no programa
+      # de evolução: acompanhamento de CVE das libs de runtime carregadas via
+      # CDN (React, Bootstrap, SheetJS, JSZip) fica registrado como gap
+      # conhecido, não coberto por este step.
+      - name: SCA de dependências JavaScript (osv-scanner)
+        uses: google/osv-scanner-action/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            --lockfile=apps/frontend/package-lock.json

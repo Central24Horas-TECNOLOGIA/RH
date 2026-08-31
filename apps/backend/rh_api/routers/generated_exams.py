@@ -1,8 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Request
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
+from conecta.infrastructure.security.rate_limit import InMemoryRateLimiter
 
 from ..auth import AuthenticatedUser
+from ..config import get_settings
 from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
 from ..repositories import DatabaseRepository
 from ..services.feedback_qualitativo import build_qualitative_feedback
@@ -20,8 +25,11 @@ from ..schemas.generated_exams import (
 )
 
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["generated-exams"])
 public_router = APIRouter(prefix="/conecta-provas-api", tags=["conecta-provas-public"])
+exam_access_limiter = InMemoryRateLimiter()
 
 
 def _user_label(user: AuthenticatedUser) -> str:
@@ -93,8 +101,8 @@ def get_generated_exam(id_prova: int, repository: DatabaseRepository = Depends(g
         if respostas:
             questoes = result.get("questoes") if isinstance(result, dict) else None
             result["feedback_qualitativo"] = build_qualitative_feedback(respostas, questoes)
-    except Exception:  # pragma: no cover - camada de apoio, nunca deve quebrar a tela de resultado
-        pass
+    except Exception as exc:  # pragma: no cover - camada de apoio, nunca deve quebrar a tela de resultado
+        logger.warning("Falha ao gerar feedback qualitativo para a prova %s: %s", id_prova, exc)
     return result
 
 
@@ -275,9 +283,25 @@ def public_access_phone(
 @public_router.post("/acesso/codigo")
 def public_access_code(
     payload: PublicExamAccessRequest,
+    request: Request = None,
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    return repository.public_access_by_code(payload.codigo)
+    origem = request.client.host if request and request.client else ""
+    settings = get_settings()
+    limiter_key = origem or "desconhecido"
+    if not exam_access_limiter.allow(
+        limiter_key,
+        limit=settings.exam_access_rate_limit,
+        window_seconds=settings.exam_access_rate_window_seconds,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas de acesso. Aguarde e tente novamente.",
+        )
+    result = repository.public_access_by_code(payload.codigo)
+    if result.get("success"):
+        exam_access_limiter.reset(limiter_key)
+    return result
 
 
 @public_router.post("/sessao")

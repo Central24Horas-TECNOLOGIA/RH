@@ -74,6 +74,13 @@ def analyze_curriculo_with_ai(
         )
 
     context = repository.get_curriculo_ia_context(id_candidato, id_processo)
+    if bool(context["processo"].get("ia_analise_desabilitada")):
+        # Achado S-10 (SEC-011): opt-out por processo enquanto o DPA do
+        # provedor de IA não é formalmente confirmado com o RH/jurídico.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A análise de currículo com IA está desabilitada para este processo seletivo.",
+        )
     analysis_id = repository.create_curriculo_ia_analysis(
         id_candidato=context["id_candidato"],
         id_processo=context["id_processo"],

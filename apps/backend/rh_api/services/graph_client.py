@@ -1,9 +1,10 @@
 """Cliente HTTP genérico para o Microsoft Graph (client credentials).
 
-Independente do cliente já usado em ``repositories/communications.py`` para a
-leitura de e-mail (que fica intocado). Este módulo é reutilizado pelos novos
-serviços de arquivos (SharePoint/OneDrive) e de envio de e-mail, evitando
-duplicar a lógica de obtenção de token entre eles.
+Implementação única (achado S-27): usado pelos serviços de arquivos
+(SharePoint/OneDrive), de envio de e-mail, e por `repositories/communications.py`
+(leitura de e-mail via Graph) — os três consumidores compartilham a mesma
+lógica de obtenção de token e tratamento de erro, evitando divergência entre
+implementações paralelas.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ class GraphClient:
         scope: str = "https://graph.microsoft.com/.default",
         base_url: str = "https://graph.microsoft.com/v1.0",
         unconfigured_message: str = "Integração com o Microsoft Graph ainda não configurada.",
+        forbidden_message: str | None = None,
     ) -> None:
         self.tenant_id = normalize_text(tenant_id)
         self.client_id = normalize_text(client_id)
@@ -37,6 +39,9 @@ class GraphClient:
         self.scope = normalize_text(scope) or "https://graph.microsoft.com/.default"
         self.base_url = (normalize_text(base_url) or "https://graph.microsoft.com/v1.0").rstrip("/")
         self.unconfigured_message = unconfigured_message
+        self.forbidden_message = forbidden_message or (
+            "Microsoft Graph recusou a autorização. Verifique as permissões concedidas e o admin consent no Azure."
+        )
 
     @property
     def configured(self) -> bool:
@@ -48,6 +53,13 @@ class GraphClient:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=self.unconfigured_message,
             )
+
+    def get_token(self) -> str:
+        """Ponto de entrada público para obter um token isoladamente — usado
+        por chamadores que precisam reaproveitar o mesmo token em várias
+        chamadas subsequentes (ex.: listar um e-mail e depois seus anexos)
+        sem pagar uma requisição nova ao Azure AD a cada chamada."""
+        return self._get_token()
 
     def _get_token(self) -> str:
         self._require_configured()
@@ -89,7 +101,7 @@ class GraphClient:
         if response.status_code in {401, 403}:
             raise GraphClientError(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Microsoft Graph recusou a autorização. Verifique as permissões concedidas e o admin consent no Azure.",
+                detail=self.forbidden_message,
             )
         if response.status_code >= 400:
             payload = {}
@@ -116,8 +128,9 @@ class GraphClient:
         content_type: str | None = None,
         extra_headers: dict | None = None,
         timeout: float = 30,
+        token: str | None = None,
     ) -> httpx.Response:
-        token = self._get_token()
+        token = token or self._get_token()
         url = path if path.startswith("http") else f"{self.base_url}/{path.lstrip('/')}"
         headers = {"Authorization": f"Bearer {token}"}
         if content_type:
@@ -144,8 +157,8 @@ class GraphClient:
         self._handle_error_response(response)
         return response
 
-    def get_json(self, path: str, *, params: dict | None = None) -> dict:
-        response = self.request("GET", path, params=params)
+    def get_json(self, path: str, *, params: dict | None = None, token: str | None = None) -> dict:
+        response = self.request("GET", path, params=params, token=token)
         return response.json() if response.content else {}
 
     def post_json(self, path: str, *, json_body: dict | None = None, params: dict | None = None) -> dict:

@@ -119,14 +119,20 @@ Da raiz:
 python -m pytest
 ```
 
-Smoke tests do frontend, quando o Node.js estiver disponível:
+Testes reais do frontend (carregam e executam o módulo de origem contra dados de fixture), quando o Node.js estiver disponível:
 
 ```powershell
 node apps/frontend/tests/run-rh-business-rules-smoke.cjs
-node apps/frontend/tests/run-process-details-rules-smoke.cjs
 node apps/frontend/tests/run-excel-correction-smoke.cjs
-node apps/frontend/tests/run-conecta-provas-flow-smoke.cjs
-node apps/frontend/tests/run-refresh-performance-smoke.cjs
+```
+
+Checagens estáticas do frontend (grep programático de trechos-chave do código-fonte — ver [`apps/frontend/tests/static-checks/README.md`](apps/frontend/tests/static-checks/README.md)):
+
+```powershell
+node apps/frontend/tests/static-checks/run-process-details-rules-smoke.cjs
+node apps/frontend/tests/static-checks/run-exam-analytics-smoke.cjs
+node apps/frontend/tests/static-checks/run-conecta-provas-flow-smoke.cjs
+node apps/frontend/tests/static-checks/run-refresh-performance-smoke.cjs
 ```
 
 ## Onde alterar

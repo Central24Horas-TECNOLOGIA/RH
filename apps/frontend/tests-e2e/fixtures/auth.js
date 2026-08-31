@@ -5,68 +5,93 @@ const base = require('@playwright/test');
  * Fixture de autenticação para testes E2E.
  *
  * O Conecta usa exclusivamente Microsoft SSO (OAuth "authorization code
- * flow") para login — ver apps/backend/rh_api/routers/auth.py e
- * apps/frontend/fonte/features/gestao/index.js (TelaLogin). Não existe hoje
- * nenhuma rota de backend que emita uma sessão autenticada sem passar pelo
- * fluxo real da Microsoft, nem mesmo em ambiente de desenvolvimento — os
- * testes de backend (apps/backend/tests/test_microsoft_auth.py) só
- * conseguem "logar" porque usam TestClient do FastAPI com um repositório
- * fake injetado via dependency override, o que só é possível dentro do
- * próprio processo de teste Python, não contra um servidor HTTP real.
+ * flow") para login real — ver apps/backend/rh_api/routers/auth.py e
+ * apps/frontend/fonte/features/gestao/index.js (TelaLogin). Automatizar o
+ * fluxo Microsoft de ponta a ponta não é viável neste ambiente de teste.
  *
- * Por isso, os testes E2E que dependem de sessão autenticada usam esta
- * fixture `authenticatedPage`. Ela:
+ * Por isso, os testes E2E que dependem de sessão autenticada usam a rota
+ * `POST /auth/e2e-login` (apps/backend/rh_api/routers/auth.py), que só
+ * responde quando AMBAS as condições são verdadeiras:
  *
- *   1. Lê a variável de ambiente E2E_AUTH_BYPASS.
- *   2. Se não estiver definida (o caso padrão hoje, sempre), pula o teste
- *      com `test.skip()` e uma mensagem explicando o motivo — o teste NÃO
- *      falha, apenas fica marcado como "skipped" no relatório.
- *   3. Se estiver definida, espera-se que aponte para um mecanismo real de
- *      injeção de sessão de teste exposto pelo backend SOMENTE em ambiente
- *      de desenvolvimento/CI (nunca em produção) — por exemplo, uma rota
- *      protegida por uma flag de configuração que emite um cookie de sessão
- *      válido para um usuário de teste. Esse mecanismo ainda não existe no
- *      backend atual e NÃO deve ser criado como bypass "de mentira": se for
- *      implementado no futuro, deve ser uma rota real, auditável, restrita
- *      a RH_APP_ENV != "prod" e documentada em
- *      apps/backend/rh_api/routers/auth.py.
+ *   1. o backend não está em produção (`settings.is_production` é falso);
+ *   2. a variável de ambiente RH_E2E_TEST_LOGIN_SECRET foi definida
+ *      explicitamente no backend, e o valor de E2E_AUTH_BYPASS aqui bate
+ *      com ela.
  *
- * Isso garante que nenhum bypass de autenticação de produção seja simulado
- * ou inventado apenas para fazer os testes "passarem".
+ * Sem essas duas condições, a rota responde 404 (não 403, para não revelar
+ * nem a existência do mecanismo em produção) — daí este fixture, ao ver
+ * E2E_AUTH_BYPASS ausente, continuar pulando o teste com uma mensagem clara
+ * em vez de tentar autenticar e falhar de forma confusa.
+ *
+ * Achado QA-001/S-23 do programa de evolução do Conecta
+ * (docs/connecta-evolution/) — ver também routers/auth.py::e2e_test_login.
  */
 
 const AUTH_BYPASS_ENV_VAR = 'E2E_AUTH_BYPASS';
+const AUTH_BYPASS_USER_ENV_VAR = 'E2E_AUTH_BYPASS_USUARIO';
+const AUTH_BYPASS_ROLE_ENV_VAR = 'E2E_AUTH_BYPASS_PERFIL';
 
 function authBypassConfigured() {
   return Boolean(process.env[AUTH_BYPASS_ENV_VAR]);
 }
 
 /**
- * Aplica uma sessão de teste autenticada na página, usando o mecanismo
- * apontado por E2E_AUTH_BYPASS. Lança erro se chamado sem a variável
- * configurada — sempre verifique `authBypassConfigured()` (ou use a
- * fixture `authenticatedPage`) antes de chamar isto diretamente.
+ * Autentica a página chamando a rota real de bypass de teste do backend
+ * (POST /auth/e2e-login) e gravando a sessão retornada em sessionStorage,
+ * exatamente como fonte/services/api/core.js (salvarSessaoAutenticacao)
+ * faz após um login real — para que o app não perceba diferença nenhuma.
  */
-async function applyAuthBypass(_page, _context) {
+async function applyAuthBypass(page, _context) {
   if (!authBypassConfigured()) {
     throw new Error(
       `${AUTH_BYPASS_ENV_VAR} não configurado — não há como autenticar neste ambiente.`,
     );
   }
-  // Ponto de extensão: quando o backend expuser um mecanismo real de sessão
-  // de teste (dev/CI apenas), a lógica de injeção de cookie/sessão deve
-  // entrar aqui. Hoje isso não existe, então este ramo nunca é alcançado
-  // pelos testes (authBypassConfigured() é sempre false por padrão).
-  throw new Error(
-    `${AUTH_BYPASS_ENV_VAR} está definido, mas nenhum mecanismo de bypass de autenticação ` +
-      'está implementado neste projeto ainda. Veja tests-e2e/fixtures/auth.js.',
-  );
+
+  const resposta = await page.request.post('/auth/e2e-login', {
+    data: {
+      secret: process.env[AUTH_BYPASS_ENV_VAR],
+      usuario: process.env[AUTH_BYPASS_USER_ENV_VAR] || 'e2e.teste',
+      perfil: process.env[AUTH_BYPASS_ROLE_ENV_VAR] || 'administrador',
+    },
+  });
+
+  if (!resposta.ok()) {
+    throw new Error(
+      `Falha ao autenticar via /auth/e2e-login (status ${resposta.status()}). ` +
+        'Confirme que RH_E2E_TEST_LOGIN_SECRET no backend bate com E2E_AUTH_BYPASS aqui, ' +
+        'e que o backend não está rodando com RH_APP_ENV=production.',
+    );
+  }
+
+  const sessao = await resposta.json();
+
+  // Precisa navegar antes de poder gravar sessionStorage na origem certa.
+  await page.goto('/');
+  await page.evaluate((dadosSessao) => {
+    sessionStorage.setItem('rh_api_access_token', dadosSessao.access_token || '');
+    sessionStorage.setItem('rh_api_authenticated_user', dadosSessao.usuario || '');
+    sessionStorage.setItem(
+      'rh_api_session_payload',
+      JSON.stringify({
+        usuario: dadosSessao.usuario || '',
+        nome: dadosSessao.nome || '',
+        email: dadosSessao.email || '',
+        perfil: dadosSessao.perfil || '',
+        perfil_nome: dadosSessao.perfil_nome || '',
+        nivel: dadosSessao.nivel || '',
+        permissoes: Array.isArray(dadosSessao.permissoes) ? dadosSessao.permissoes : [],
+        avatar_ilustrado: dadosSessao.avatar_ilustrado || '',
+      }),
+    );
+  }, sessao);
 }
 
 /**
  * Extende o `test` do Playwright com uma fixture `authenticatedPage` que
  * pula automaticamente (com mensagem clara) quando não há como autenticar
- * neste ambiente.
+ * neste ambiente, e aplica o bypass real quando E2E_AUTH_BYPASS está
+ * configurado.
  */
 const test = base.test.extend({
   authenticatedPage: async ({ page, context }, use, testInfo) => {
@@ -74,8 +99,8 @@ const test = base.test.extend({
       testInfo.skip(
         true,
         'Login real depende de Microsoft SSO, que não pode ser automatizado neste ambiente. ' +
-          `Defina ${AUTH_BYPASS_ENV_VAR} (com um mecanismo de sessão de teste dev/CI-only, ` +
-          'ainda não implementado no backend) para habilitar este teste. Veja tests-e2e/README.md.',
+          `Defina ${AUTH_BYPASS_ENV_VAR} com o mesmo valor de RH_E2E_TEST_LOGIN_SECRET do ` +
+          'backend (dev/hml/CI apenas) para habilitar este teste. Veja tests-e2e/README.md.',
       );
       return;
     }
@@ -84,4 +109,11 @@ const test = base.test.extend({
   },
 });
 
-module.exports = { test, expect: base.expect, authBypassConfigured, AUTH_BYPASS_ENV_VAR };
+module.exports = {
+  test,
+  expect: base.expect,
+  authBypassConfigured,
+  AUTH_BYPASS_ENV_VAR,
+  AUTH_BYPASS_USER_ENV_VAR,
+  AUTH_BYPASS_ROLE_ENV_VAR,
+};

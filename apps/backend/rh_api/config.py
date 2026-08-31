@@ -159,6 +159,11 @@ class Settings:
     auth_token_ttl_minutes: int
     auth_login_rate_limit: int
     auth_login_rate_window_seconds: int
+    exam_access_rate_limit: int
+    exam_access_rate_window_seconds: int
+    email_send_rate_limit: int
+    email_send_rate_window_seconds: int
+    e2e_test_login_secret: str
     session_secret_key: str
     microsoft_client_id: str
     microsoft_tenant_id: str
@@ -235,6 +240,10 @@ class Settings:
     @property
     def is_development(self) -> bool:
         return _normalize_environment(self.app_env) == "dev"
+
+    @property
+    def is_production(self) -> bool:
+        return _normalize_environment(self.app_env) == "prod"
 
     @property
     def ai_available(self) -> bool:
@@ -322,6 +331,22 @@ def get_settings() -> Settings:
         auth_login_rate_window_seconds=_read_int_env(
             "RH_AUTH_LOGIN_RATE_WINDOW_SECONDS", default=60, minimum=10, maximum=3600
         ),
+        exam_access_rate_limit=_read_int_env(
+            "RH_EXAM_ACCESS_RATE_LIMIT", default=5, minimum=1, maximum=100
+        ),
+        exam_access_rate_window_seconds=_read_int_env(
+            "RH_EXAM_ACCESS_RATE_WINDOW_SECONDS", default=60, minimum=10, maximum=3600
+        ),
+        email_send_rate_limit=_read_int_env(
+            "RH_EMAIL_SEND_RATE_LIMIT", default=20, minimum=1, maximum=1000
+        ),
+        email_send_rate_window_seconds=_read_int_env(
+            "RH_EMAIL_SEND_RATE_WINDOW_SECONDS", default=60, minimum=10, maximum=3600
+        ),
+        # Achado SEC-002/QA-001: bypass de login só para a suíte E2E, nunca
+        # em produção. Vazio por padrão = desabilitado (nenhum ambiente tem
+        # isso ligado a menos que alguém defina explicitamente em dev/CI).
+        e2e_test_login_secret=_env("RH_E2E_TEST_LOGIN_SECRET", default=""),
         session_secret_key=_env("FLASK_SECRET_KEY", "RH_SESSION_SECRET_KEY"),
         microsoft_client_id=_env("MICROSOFT_CLIENT_ID"),
         microsoft_tenant_id=microsoft_tenant_id,

@@ -10,6 +10,8 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from conecta.infrastructure.security.html_sanitizer import sanitize_rich_text_html
+
 from ..services.cv import is_valid_email, is_valid_phone
 from ..services.helpers import normalize_compare_text, normalize_text, rows_to_dicts, safe_json_loads
 from ..services.pipeline import infer_pipeline_stage
@@ -1787,6 +1789,8 @@ class GeneratedExamRepositoryMixin:
         graded = graded or []
         for index, question in enumerate(questions):
             answer = answers[index] if index < len(answers) else None
+            if isinstance(answer, str):
+                answer = sanitize_rich_text_html(answer)
             grade = graded[index] if index < len(graded) else {}
             correct_answer = question.get("answer", question.get("correctIndex"))
             cursor.execute(

@@ -73,7 +73,7 @@ def update_process(
     user: AuthenticatedUser = Depends(get_current_user),
     repository: DatabaseRepository = Depends(get_repository),
 ):
-    result = repository.update_process(id_processo, payload.model_dump(), marcado_por=user.username)
+    result = repository.update_process(id_processo, payload.model_dump(), marcado_por=user.username, user=user)
     audit_action(
         repository,
         user,
@@ -749,6 +749,28 @@ def deactivate_public_application_link(
         acao="desativar_link_candidatura",
         entidade="processo",
         entidade_id=id_processo,
+    )
+    return result
+
+
+@router.post(
+    "/candidate-profiles/{id_teste}/anonimizar",
+    dependencies=[Depends(require_permissions("candidatos.anonimizar", "lgpd.anonimizar"))],
+)
+def anonymize_candidate_profile(
+    id_teste: str,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.anonymize_candidate(id_teste)
+    audit_action(
+        repository,
+        user,
+        modulo="LGPD",
+        acao="anonimizar_candidato",
+        entidade="candidato",
+        entidade_id=id_teste,
+        valor_novo={"already_anonymized": result.get("already_anonymized", False)},
     )
     return result
 

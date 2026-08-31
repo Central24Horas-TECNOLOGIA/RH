@@ -17,7 +17,7 @@ from pathlib import Path
 
 from ..config import Settings
 from .cv import extract_candidate_name, extract_email, extract_phone, extract_whatsapp
-from .helpers import normalize_compare_text, normalize_text
+from .helpers import clamp_limit, normalize_compare_text, normalize_text
 
 
 logger = logging.getLogger(__name__)
@@ -453,15 +453,15 @@ class EmailInboxService:
             plain_part = message.get_body(preferencelist=("plain",))
             if plain_part:
                 return normalize_text(plain_part.get_content())
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Falha ao extrair corpo em texto simples do e-mail: %s", exc)
 
         try:
             html_part = message.get_body(preferencelist=("html",))
             if html_part:
                 return _html_to_text(html_part.get_content())
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Falha ao extrair corpo em HTML do e-mail: %s", exc)
 
         parts = []
         for part in message.walk():
@@ -652,8 +652,8 @@ class EmailInboxService:
         finally:
             try:
                 mailbox.logout()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Falha ao encerrar sessao IMAP: %s", exc)
 
     def delete_message(self, uid: str) -> None:
         safe_uid = normalize_text(uid)
@@ -670,8 +670,8 @@ class EmailInboxService:
         finally:
             try:
                 mailbox.logout()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Falha ao encerrar sessao IMAP: %s", exc)
 
     def fetch_messages(
         self,
@@ -681,7 +681,9 @@ class EmailInboxService:
         with_attachments_only: bool = True,
         query: str = "",
     ) -> list[dict]:
-        safe_limit = max(1, min(int(limit or 50), int(getattr(self.settings, "email_inbox_max_messages", 50) or 50)))
+        safe_limit = clamp_limit(
+            limit, default=50, maximum=int(getattr(self.settings, "email_inbox_max_messages", 50) or 50)
+        )
         mailbox = self._open_mailbox(readonly=True)
         try:
             search_flag = "UNSEEN" if unread_only else "ALL"
@@ -730,8 +732,8 @@ class EmailInboxService:
         finally:
             try:
                 mailbox.logout()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Falha ao encerrar sessao IMAP: %s", exc)
 
     def download_cv_attachments(self, *, uid: str, item_id: str) -> dict:
         message = self.fetch_message(uid)

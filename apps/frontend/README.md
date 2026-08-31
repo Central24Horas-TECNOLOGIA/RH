@@ -59,10 +59,11 @@ npm run build
 
 Notas:
 
-- O código em `fonte/` usa apenas imports relativos (`./x.js`, `../x.js`) ou
-  URLs absolutas de CDN (`https://esm.sh/...`); não há "bare specifiers", por
-  isso o Vite processa o grafo de módulos sem que nenhum import precisasse
-  ser reescrito.
+- O código em `fonte/` usa apenas imports relativos (`./x.js`, `../x.js`,
+  incluindo React/ReactDOM/htm vendorizados em `vendor/` — ver
+  `vendor/README.md`) ou URLs absolutas de CDN para as demais bibliotecas
+  (Bootstrap, SheetJS); não há "bare specifiers", por isso o Vite processa o
+  grafo de módulos sem que nenhum import precisasse ser reescrito.
 - `vite.config.js` define `build.target: 'esnext'` porque o código-fonte usa
   top-level `await` (ex.: `fonte/banco-questoes.js`) — o mesmo recurso que já
   exige um navegador moderno no modo sem-build via `<script type="module">`.

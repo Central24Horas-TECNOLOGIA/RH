@@ -10,19 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <link href="/estilos/estilos.css?v=20260826-menu-roadmap-respostas" rel="stylesheet" />
-  <script>
-    (function () {
-      try {
-        var tema = window.localStorage.getItem('c24_tema_preferido');
-        var raiz = document.documentElement;
-        var escuroEfetivo = tema === 'escuro';
-        raiz.setAttribute('data-theme', escuroEfetivo ? 'dark' : 'light');
-        raiz.setAttribute('data-bs-theme', escuroEfetivo ? 'dark' : 'light');
-      } catch (erro) {
-        /* localStorage/matchMedia indisponível: segue o padrão claro */
-      }
-    })();
-  </script>
+  <script src="/fonte/tema-inicial.js"></script>
 </head>
 
 <body data-screen="screen-login">
