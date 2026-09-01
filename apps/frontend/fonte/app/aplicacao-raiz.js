@@ -6,7 +6,7 @@ import {
   useControladorAplicacao,
 } from './controlador-aplicacao.js';
 import { LoadingState, ModalPadrao } from '../ui/componentes-compartilhados.js';
-import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js';
+import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js?v=20260901-nav-topo-home';
 import {
   buscarPoliticaPendente,
   confirmarLeituraPolitica,

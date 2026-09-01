@@ -11,7 +11,7 @@ export {
   SectionCard,
   Tabs,
   TabPanel,
-} from './components/layout.js';
+} from './components/layout.js?v=20260901-nav-topo-home';
 export {
   ModalConfirmacaoAcao,
   ModalDetalhesProva,
