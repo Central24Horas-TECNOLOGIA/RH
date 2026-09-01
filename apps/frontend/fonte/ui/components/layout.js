@@ -1,7 +1,7 @@
 import { html, useEffect, useRef, useState } from '../../infraestrutura-react.js';
 import { BuscaGlobalTopbar } from '../busca-global.js';
 import { obterTourDaTela } from '../../shared/tour-config.js';
-import { BotaoAjudaTour, TourGuiado, orientacoesAtivas } from '../tour-guiado.js';
+import { TourGuiado, orientacoesAtivas } from '../tour-guiado.js';
 import { definirTema, obterTemaSalvo, proximoTema } from '../../shared/tema.js';
 import { resolverAvatarUrl } from '../../shared/avatares.js';
 import { CATEGORIAS_NOTIFICACAO, useResumoNotificacoes } from '../../shared/notificacoes.js';
@@ -18,15 +18,19 @@ function SeletorTema() {
   };
 
   return html`
-    <button
-      type="button"
-      class="c24-icon-btn c24-theme-toggle"
-      title=${`Tema: ${TEMA_ROTULO[tema]}. Clique para alternar.`}
-      aria-label=${`Alternar tema. Tema atual: ${TEMA_ROTULO[tema]}.`}
-      onClick=${alternar}
-    >
-      <span class="material-symbols-outlined c24-icon">${TEMA_ICONE[tema]}</span>
-    </button>
+    <div class="c24-theme-toggle-wrap">
+      <button
+        type="button"
+        role="menuitem"
+        class="c24-theme-toggle"
+        title=${`Tema: ${TEMA_ROTULO[tema]}. Clique para alternar.`}
+        aria-label=${`Alternar tema. Tema atual: ${TEMA_ROTULO[tema]}.`}
+        onClick=${alternar}
+      >
+        <span class="material-symbols-outlined c24-icon">${TEMA_ICONE[tema]}</span>
+        Tema: ${TEMA_ROTULO[tema]}
+      </button>
+    </div>
   `;
 }
 
@@ -693,6 +697,11 @@ export function BarraLateral({
               </div>
             `
       : null}
+        <${CartaoUsuarioTopo}
+          controlador=${controlador}
+          mostrarAjuda=${mostrarAjuda}
+          onAbrirTour=${onOpenHelp}
+        />
       </nav>
     </header>
   `;
@@ -816,7 +825,7 @@ export function AvatarUsuario({ avatar = '', nome = '', tamanho = 40 }) {
   `;
 }
 
-export function CartaoUsuarioTopo({ controlador }) {
+export function CartaoUsuarioTopo({ controlador, mostrarAjuda = false, onAbrirTour = null }) {
   const [aberto, setAberto] = useState(false);
   const estado = controlador?.estado || {};
   const nome =
@@ -887,6 +896,25 @@ export function CartaoUsuarioTopo({ controlador }) {
       ${aberto
       ? html`
             <div class="c24-user-dropdown" role="menu">
+              ${mostrarAjuda
+          ? html`
+                    <button
+                      type="button"
+                      role="menuitem"
+                      class="c24-user-dropdown-item"
+                      onClick=${() => {
+              setAberto(false);
+              onAbrirTour?.();
+            }}
+                    >
+                      <span class="material-symbols-outlined">help</span>
+                      Ver orientações
+                    </button>
+                  `
+          : null}
+              <${SinoNotificacoes} controlador=${controlador} />
+              <${SeletorTema} />
+              <div class="c24-user-dropdown-divider"></div>
               ${podeAbrirPerfil
           ? html`
                     <button
@@ -965,7 +993,8 @@ export function SinoNotificacoes({ controlador }) {
     <div class="c24-notif-wrap">
       <button
         type="button"
-        class="c24-icon-btn c24-notif-toggle"
+        role="menuitem"
+        class="c24-notif-toggle"
         title="Notificações"
         aria-label=${`Notificações${itens.length ? `, ${itens.length} novas` : ''}`}
         aria-haspopup="menu"
@@ -976,6 +1005,7 @@ export function SinoNotificacoes({ controlador }) {
         }}
       >
         <span class="material-symbols-outlined c24-icon">notifications</span>
+        Notificações
         ${itens.length ? html`<span class="c24-notif-badge">${itens.length}</span>` : null}
       </button>
 
@@ -1049,7 +1079,7 @@ export function PainelRh({
           controlador=${controlador}
           mostrarAtalhos=${mostrarAtalhos}
           onOpenHelp=${abrirTour}
-          mostrarAjuda=${Boolean(tour?.steps?.length)}
+          mostrarAjuda=${Boolean(tour?.steps?.length) && orientacoesAtivas()}
         />
 
         <div class="rh-modern-main">
@@ -1077,19 +1107,7 @@ export function PainelRh({
                     </button>
                   `
       : null}
-              ${tour?.steps?.length && orientacoesAtivas()
-      ? html`
-                    <${BotaoAjudaTour}
-                      compact=${true}
-                      label="Ver orientações"
-                      onClick=${abrirTour}
-                    />
-                  `
-      : null}
               ${acoesTopo}
-              <${SinoNotificacoes} controlador=${controlador} />
-              <${SeletorTema} />
-              <${CartaoUsuarioTopo} controlador=${controlador} />
             </div>
           </header>
 

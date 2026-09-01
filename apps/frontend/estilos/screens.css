@@ -12187,7 +12187,6 @@
 .rh-modern-nav-btn.is-active {
   border-color: rgba(69, 135, 255, 0.5);
   background: linear-gradient(135deg, #0f5be8 0%, #0750d8 100%);
-  box-shadow: 0 12px 24px rgba(3, 24, 65, 0.22);
 }
 
 .rh-modern-sidebar-actions {
@@ -12404,98 +12403,6 @@
   line-height: 1.14;
 }
 
-#screen-menu .home-hero {
-  display: flex;
-  align-items: center;
-  gap: 1.1rem;
-  padding: 1.05rem 1.3rem;
-  background: linear-gradient(135deg, var(--color-primary-soft) 0%, var(--color-accent-soft) 100%);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-}
-
-#screen-menu .home-hero-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.15rem;
-  flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--color-surface);
-  color: var(--color-success);
-}
-
-#screen-menu .home-hero-badge strong {
-  font-size: 1.1rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-#screen-menu .home-hero-badge .material-symbols-outlined {
-  font-size: 1.15rem;
-}
-
-#screen-menu .home-hero-badge.is-alert {
-  color: var(--color-danger);
-}
-
-#screen-menu .home-hero-body {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-#screen-menu .home-hero-kicker {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-accent-strong);
-  margin-bottom: 0.2rem;
-}
-
-#screen-menu .home-hero-body h2 {
-  margin: 0 0 0.15rem;
-  font-size: 1.08rem;
-  font-weight: 800;
-  color: var(--color-text);
-}
-
-#screen-menu .home-hero-body p {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--color-text-soft);
-}
-
-#screen-menu .home-hero-meta {
-  flex: 0 0 auto;
-  text-align: center;
-  padding: 0.6rem 1rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-}
-
-#screen-menu .home-hero-meta strong {
-  display: block;
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: var(--color-text);
-  line-height: 1;
-}
-
-#screen-menu .home-hero-meta span {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
 #screen-menu .home-pillar-row {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -12566,10 +12473,6 @@
 }
 
 @media (max-width: 640px) {
-  #screen-menu .home-hero {
-    flex-wrap: wrap;
-  }
-
   #screen-menu .home-pillar-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
