@@ -6,7 +6,7 @@ import {
   useControladorAplicacao,
 } from './controlador-aplicacao.js';
 import { LoadingState, ModalPadrao } from '../ui/componentes-compartilhados.js';
-import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js';
+import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js?v=20260901-nav-topo-home';
 import {
   buscarPoliticaPendente,
   confirmarLeituraPolitica,
@@ -43,14 +43,12 @@ function TelaCarregando({
 // autenticada ainda está sendo carregado (evita a sensação de que a
 // plataforma inteira "sumiu" durante a navegação entre telas).
 function TelaCarregandoComShell({ controlador, navAtiva }) {
-  const sidebarRecolhida = !!controlador?.estado?.barraLateralRecolhida;
   return html`
     <section class="active screen" id="screen-loading">
-      <div class=${`rh-modern-shell ${sidebarRecolhida ? 'is-sidebar-collapsed' : ''}`.trim()}>
+      <div class="rh-modern-shell">
         <${BarraLateral}
           navAtiva=${navAtiva}
           controlador=${controlador}
-          recolhida=${sidebarRecolhida}
         />
         <div class="rh-modern-main">
           <header class="rh-modern-topbar">

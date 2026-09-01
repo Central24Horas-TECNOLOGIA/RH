@@ -1,4 +1,4 @@
-import { html, useEffect, useState } from '../../infraestrutura-react.js';
+import { html, useEffect, useRef, useState } from '../../infraestrutura-react.js';
 import { BuscaGlobalTopbar } from '../busca-global.js';
 import { obterTourDaTela } from '../../shared/tour-config.js';
 import { BotaoAjudaTour, TourGuiado, orientacoesAtivas } from '../tour-guiado.js';
@@ -278,37 +278,29 @@ export function BarraLateral({
   const subitemTreinamentoAtivo = (subitem) =>
     navAtiva === subitem.tela ||
     (navAtiva === 'screen-training' && subitem.tela === 'screen-training-trilhas');
-  const [submenuProcessosAberto, setSubmenuProcessosAberto] =
-    useState(grupoProcessosAtivo);
-  const [submenuProvasAberto, setSubmenuProvasAberto] =
-    useState(grupoProvasAtivo);
-  const [submenuGestaoAberto, setSubmenuGestaoAberto] =
-    useState(grupoGestaoAtivo);
-  const [submenuConfiguracoesAberto, setSubmenuConfiguracoesAberto] =
-    useState(grupoConfiguracoesAtivo);
-  const [submenuTreinamentosAberto, setSubmenuTreinamentosAberto] =
-    useState(grupoTreinamentosAtivo);
+  // Navegação horizontal: só um grupo (dropdown) fica aberto por vez —
+  // substitui os 5 booleans independentes que faziam sentido como acordeão
+  // vertical na barra lateral, mas não numa barra de menus horizontal.
+  const [grupoAberto, setGrupoAberto] = useState(null);
   const [logoComErro, setLogoComErro] = useState(false);
+  const referenciaNav = useRef(null);
 
   useEffect(() => {
-    setSubmenuProcessosAberto(grupoProcessosAtivo);
-  }, [navAtiva, grupoProcessosAtivo]);
+    setGrupoAberto(null);
+  }, [navAtiva]);
 
   useEffect(() => {
-    setSubmenuProvasAberto(grupoProvasAtivo);
-  }, [navAtiva, grupoProvasAtivo]);
+    function fecharAoClicarFora(evento) {
+      if (referenciaNav.current && !referenciaNav.current.contains(evento.target)) {
+        setGrupoAberto(null);
+      }
+    }
+    document.addEventListener('mousedown', fecharAoClicarFora);
+    return () => document.removeEventListener('mousedown', fecharAoClicarFora);
+  }, []);
 
-  useEffect(() => {
-    setSubmenuGestaoAberto(grupoGestaoAtivo);
-  }, [navAtiva, grupoGestaoAtivo]);
-
-  useEffect(() => {
-    setSubmenuConfiguracoesAberto(grupoConfiguracoesAtivo);
-  }, [navAtiva, grupoConfiguracoesAtivo]);
-
-  useEffect(() => {
-    setSubmenuTreinamentosAberto(grupoTreinamentosAtivo);
-  }, [navAtiva, grupoTreinamentosAtivo]);
+  const alternarGrupo = (grupo) =>
+    setGrupoAberto((atual) => (atual === grupo ? null : grupo));
 
   const renderizarItem = (item) => {
     if (item.visivel === false || !possuiPermissao(item.permissao)) return null;
@@ -331,11 +323,12 @@ export function BarraLateral({
   };
 
   return html`
-    <aside
-      class=${`rh-modern-sidebar ${recolhida ? 'is-collapsed' : ''}`.trim()}
+    <header
+      class="rh-modern-topnav"
       data-tour-id="layout-sidebar"
+      ref=${referenciaNav}
     >
-      <div class="rh-modern-sidebar-brand">
+      <div class="rh-modern-topnav-brand">
         <button
           type="button"
           class="rh-modern-logo-btn"
@@ -347,14 +340,13 @@ export function BarraLateral({
       ? html`
                 <span class="rh-modern-logo-fallback">
                   <strong>Conecta</strong>
-                  <span>Central 24h</span>
                 </span>
               `
       : html`
                 <img
                   alt="Conecta Central 24h"
                   class="rh-modern-logo"
-                  src="/estilos/logo_conecta_branco_palavra.png"
+                  src="/estilos/logo_conecta_horizontal.png"
                   onError=${() => setLogoComErro(true)}
                 />
               `}
@@ -362,46 +354,24 @@ export function BarraLateral({
       </div>
 
       <nav class="rh-modern-nav">
-        <button
-          type="button"
-          class="rh-modern-nav-btn rh-modern-sidebar-toggle"
-          aria-label=${recolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-          title=${recolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-          onClick=${() => controlador.alternarBarraLateral()}
-        >
-          <span class="material-symbols-outlined">
-            ${recolhida ? 'chevron_right' : 'chevron_left'}
-          </span>
-          <span class="rh-modern-nav-label">${recolhida ? 'Expandir' : 'Recolher'}</span>
-        </button>
         ${itensPrincipais.map(renderizarItem)}
         ${sublinksProcessosVisiveis.length
       ? html`
               <div
-                class=${`rh-modern-nav-group ${submenuProcessosAberto && !recolhida ? 'is-open' : ''
+                class=${`rh-modern-nav-group ${grupoAberto === 'processos' ? 'is-open' : ''
           } ${grupoProcessosAtivo ? 'has-active' : ''}`.trim()}
               >
                 <button
                   type="button"
-                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${(recolhida && grupoProcessosAtivo) ||
-          (grupoProcessosAtivo && !subitemProcessoAtivo)
-          ? 'is-active'
-          : ''
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${grupoProcessosAtivo && !subitemProcessoAtivo ? 'is-active' : ''
           }`.trim()}
                   title="Processos"
-                  aria-expanded=${!recolhida && submenuProcessosAberto}
+                  aria-expanded=${grupoAberto === 'processos'}
+                  aria-haspopup="true"
                   aria-controls="rh-modern-subnav-processos"
                   aria-current=${grupoProcessosAtivo && !subitemProcessoAtivo ? 'page' : null
         }
-                  onClick=${() => {
-          if (recolhida) {
-            controlador.irParaTelaProtegida(
-              sublinksProcessosVisiveis[0]?.tela || 'screen-processes',
-            );
-            return;
-          }
-          setSubmenuProcessosAberto((valor) => !valor);
-        }}
+                  onClick=${() => alternarGrupo('processos')}
                 >
                   <span class="material-symbols-outlined" aria-hidden="true">
                     business_center
@@ -414,12 +384,12 @@ export function BarraLateral({
                     expand_more
                   </span>
                 </button>
-                ${submenuProcessosAberto && !recolhida
+                ${grupoAberto === 'processos'
           ? html`
                       <div
                         class="rh-modern-subnav"
                         id="rh-modern-subnav-processos"
-                        role="group"
+                        role="menu"
                         aria-label="Submenu de Processos"
                       >
                         ${sublinksProcessosVisiveis.map(
@@ -430,10 +400,13 @@ export function BarraLateral({
                               class=${`rh-modern-subnav-btn ${navAtiva === subitem.tela ? 'is-active' : ''
                 } ${subitem.status || ''}`.trim()}
                               title=${subitem.label}
+                              role="menuitem"
                               aria-current=${navAtiva === subitem.tela ? 'page' : null
               }
-                              onClick=${() =>
-                controlador.irParaTelaProtegida(subitem.tela)}
+                              onClick=${() => {
+                setGrupoAberto(null);
+                controlador.irParaTelaProtegida(subitem.tela);
+              }}
                             >
                               <span
                                 class="material-symbols-outlined"
@@ -454,25 +427,18 @@ export function BarraLateral({
         ${sublinksProvasVisiveis.length
       ? html`
               <div
-                class=${`rh-modern-nav-group ${submenuProvasAberto && !recolhida ? 'is-open' : ''
+                class=${`rh-modern-nav-group ${grupoAberto === 'provas' ? 'is-open' : ''
           } ${grupoProvasAtivo ? 'has-active' : ''}`.trim()}
               >
                 <button
                   type="button"
-                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoProvasAtivo ? 'is-active' : ''
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${grupoProvasAtivo && !sublinksProvasVisiveis.some(subitemProvaAtivo) ? 'is-active' : ''
           }`.trim()}
                   title="Conecta Provas"
-                  aria-expanded=${!recolhida && submenuProvasAberto}
+                  aria-expanded=${grupoAberto === 'provas'}
+                  aria-haspopup="true"
                   aria-controls="rh-modern-subnav-provas"
-                  onClick=${() => {
-          if (recolhida) {
-            controlador.irParaTelaProtegida(
-              sublinksProvasVisiveis[0]?.tela || 'screen-generated-exams',
-            );
-            return;
-          }
-          setSubmenuProvasAberto((valor) => !valor);
-        }}
+                  onClick=${() => alternarGrupo('provas')}
                 >
                   <span class="material-symbols-outlined" aria-hidden="true">
                     quiz
@@ -485,12 +451,12 @@ export function BarraLateral({
                     expand_more
                   </span>
                 </button>
-                ${submenuProvasAberto && !recolhida
+                ${grupoAberto === 'provas'
           ? html`
                       <div
                         class="rh-modern-subnav"
                         id="rh-modern-subnav-provas"
-                        role="group"
+                        role="menu"
                         aria-label="Submenu de Conecta Provas"
                       >
                         ${sublinksProvasVisiveis.map(
@@ -501,10 +467,13 @@ export function BarraLateral({
                               class=${`rh-modern-subnav-btn ${subitemProvaAtivo(subitem) ? 'is-active' : ''
                 }`.trim()}
                               title=${subitem.label}
+                              role="menuitem"
                               aria-current=${subitemProvaAtivo(subitem) ? 'page' : null
               }
-                              onClick=${() =>
-                controlador.irParaTelaProtegida(subitem.tela)}
+                              onClick=${() => {
+                setGrupoAberto(null);
+                controlador.irParaTelaProtegida(subitem.tela);
+              }}
                             >
                               <span
                                 class="material-symbols-outlined"
@@ -525,25 +494,18 @@ export function BarraLateral({
         ${sublinksGestaoVisiveis.length
       ? html`
               <div
-                class=${`rh-modern-nav-group ${submenuGestaoAberto && !recolhida ? 'is-open' : ''
+                class=${`rh-modern-nav-group ${grupoAberto === 'gestao' ? 'is-open' : ''
           } ${grupoGestaoAtivo ? 'has-active' : ''}`.trim()}
               >
                 <button
                   type="button"
-                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoGestaoAtivo ? 'is-active' : ''
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${grupoGestaoAtivo && !sublinksGestaoVisiveis.some(subitemGestaoAtivo) ? 'is-active' : ''
           }`.trim()}
                   title="Gestão"
-                  aria-expanded=${!recolhida && submenuGestaoAberto}
+                  aria-expanded=${grupoAberto === 'gestao'}
+                  aria-haspopup="true"
                   aria-controls="rh-modern-subnav-gestao"
-                  onClick=${() => {
-          if (recolhida) {
-            controlador.irParaTelaProtegida(
-              sublinksGestaoVisiveis[0]?.tela || 'screen-analysis-candidates',
-            );
-            return;
-          }
-          setSubmenuGestaoAberto((valor) => !valor);
-        }}
+                  onClick=${() => alternarGrupo('gestao')}
                 >
                   <span class="material-symbols-outlined" aria-hidden="true">
                     manage_accounts
@@ -556,12 +518,12 @@ export function BarraLateral({
                     expand_more
                   </span>
                 </button>
-                ${submenuGestaoAberto && !recolhida
+                ${grupoAberto === 'gestao'
           ? html`
                       <div
                         class="rh-modern-subnav"
                         id="rh-modern-subnav-gestao"
-                        role="group"
+                        role="menu"
                         aria-label="Submenu de Gestão"
                       >
                         ${sublinksGestaoVisiveis.map(
@@ -572,10 +534,13 @@ export function BarraLateral({
                               class=${`rh-modern-subnav-btn ${subitemGestaoAtivo(subitem) ? 'is-active' : ''
                 }`.trim()}
                               title=${subitem.label}
+                              role="menuitem"
                               aria-current=${subitemGestaoAtivo(subitem) ? 'page' : null
               }
-                              onClick=${() =>
-                controlador.irParaTelaProtegida(subitem.tela)}
+                              onClick=${() => {
+                setGrupoAberto(null);
+                controlador.irParaTelaProtegida(subitem.tela);
+              }}
                             >
                               <span
                                 class="material-symbols-outlined"
@@ -597,25 +562,18 @@ export function BarraLateral({
         ${sublinksTreinamentosVisiveis.length
       ? html`
               <div
-                class=${`rh-modern-nav-group ${submenuTreinamentosAberto && !recolhida ? 'is-open' : ''
+                class=${`rh-modern-nav-group ${grupoAberto === 'treinamentos' ? 'is-open' : ''
           } ${grupoTreinamentosAtivo ? 'has-active' : ''}`.trim()}
               >
                 <button
                   type="button"
-                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoTreinamentosAtivo ? 'is-active' : ''
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${grupoTreinamentosAtivo && !sublinksTreinamentosVisiveis.some(subitemTreinamentoAtivo) ? 'is-active' : ''
           }`.trim()}
                   title="Treinamentos"
-                  aria-expanded=${!recolhida && submenuTreinamentosAberto}
+                  aria-expanded=${grupoAberto === 'treinamentos'}
+                  aria-haspopup="true"
                   aria-controls="rh-modern-subnav-treinamentos"
-                  onClick=${() => {
-          if (recolhida) {
-            controlador.irParaTelaProtegida(
-              sublinksTreinamentosVisiveis[0]?.tela || 'screen-training-trilhas',
-            );
-            return;
-          }
-          setSubmenuTreinamentosAberto((valor) => !valor);
-        }}
+                  onClick=${() => alternarGrupo('treinamentos')}
                 >
                   <span class="material-symbols-outlined" aria-hidden="true">
                     school
@@ -628,12 +586,12 @@ export function BarraLateral({
                     expand_more
                   </span>
                 </button>
-                ${submenuTreinamentosAberto && !recolhida
+                ${grupoAberto === 'treinamentos'
           ? html`
                       <div
                         class="rh-modern-subnav"
                         id="rh-modern-subnav-treinamentos"
-                        role="group"
+                        role="menu"
                         aria-label="Submenu de Treinamentos"
                       >
                         ${sublinksTreinamentosVisiveis.map(
@@ -644,10 +602,13 @@ export function BarraLateral({
                               class=${`rh-modern-subnav-btn ${subitemTreinamentoAtivo(subitem) ? 'is-active' : ''
                 }`.trim()}
                               title=${subitem.label}
+                              role="menuitem"
                               aria-current=${subitemTreinamentoAtivo(subitem) ? 'page' : null
               }
-                              onClick=${() =>
-                controlador.irParaTelaProtegida(subitem.tela)}
+                              onClick=${() => {
+                setGrupoAberto(null);
+                controlador.irParaTelaProtegida(subitem.tela);
+              }}
                             >
                               <span
                                 class="material-symbols-outlined"
@@ -668,25 +629,18 @@ export function BarraLateral({
         ${sublinksConfiguracoesVisiveis.length
       ? html`
               <div
-                class=${`rh-modern-nav-group ${submenuConfiguracoesAberto && !recolhida ? 'is-open' : ''
+                class=${`rh-modern-nav-group ${grupoAberto === 'configuracoes' ? 'is-open' : ''
           } ${grupoConfiguracoesAtivo ? 'has-active' : ''}`.trim()}
               >
                 <button
                   type="button"
-                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${recolhida && grupoConfiguracoesAtivo ? 'is-active' : ''
+                  class=${`rh-modern-nav-btn rh-modern-nav-parent-btn ${grupoConfiguracoesAtivo && !sublinksConfiguracoesVisiveis.some(subitemConfiguracaoAtivo) ? 'is-active' : ''
           }`.trim()}
                   title="Configurações"
-                  aria-expanded=${!recolhida && submenuConfiguracoesAberto}
+                  aria-expanded=${grupoAberto === 'configuracoes'}
+                  aria-haspopup="true"
                   aria-controls="rh-modern-subnav-configuracoes"
-                  onClick=${() => {
-          if (recolhida) {
-            controlador.irParaTelaProtegida(
-              sublinksConfiguracoesVisiveis[0]?.tela || 'screen-settings-users',
-            );
-            return;
-          }
-          setSubmenuConfiguracoesAberto((valor) => !valor);
-        }}
+                  onClick=${() => alternarGrupo('configuracoes')}
                 >
                   <span class="material-symbols-outlined" aria-hidden="true">
                     settings
@@ -699,12 +653,12 @@ export function BarraLateral({
                     expand_more
                   </span>
                 </button>
-                ${submenuConfiguracoesAberto && !recolhida
+                ${grupoAberto === 'configuracoes'
           ? html`
                       <div
                         class="rh-modern-subnav"
                         id="rh-modern-subnav-configuracoes"
-                        role="group"
+                        role="menu"
                         aria-label="Submenu de Configurações"
                       >
                         ${sublinksConfiguracoesVisiveis.map(
@@ -715,10 +669,13 @@ export function BarraLateral({
                               class=${`rh-modern-subnav-btn ${subitemConfiguracaoAtivo(subitem) ? 'is-active' : ''
                 }`.trim()}
                               title=${subitem.label}
+                              role="menuitem"
                               aria-current=${subitemConfiguracaoAtivo(subitem) ? 'page' : null
               }
-                              onClick=${() =>
-                controlador.irParaTelaProtegida(subitem.tela)}
+                              onClick=${() => {
+                setGrupoAberto(null);
+                controlador.irParaTelaProtegida(subitem.tela);
+              }}
                             >
                               <span
                                 class="material-symbols-outlined"
@@ -737,7 +694,7 @@ export function BarraLateral({
             `
       : null}
       </nav>
-    </aside>
+    </header>
   `;
 }
 
@@ -1063,7 +1020,6 @@ export function PainelRh({
   mostrarAtalhos = true,
   children,
 }) {
-  const sidebarRecolhida = !!controlador?.estado?.barraLateralRecolhida;
   const tour = obterTourDaTela(screenId, {
     hasPrimaryAction: Boolean(acaoPrimaria),
   });
@@ -1086,15 +1042,12 @@ export function PainelRh({
 
   return html`
     <section class="active screen" id=${screenId}>
-      <div
-        class=${`rh-modern-shell ${sidebarRecolhida ? 'is-sidebar-collapsed' : ''}`.trim()}
-      >
+      <div class="rh-modern-shell">
         <${BarraLateral}
           navAtiva=${navAtiva}
           subtituloMarca=${subtituloMarca}
           controlador=${controlador}
           mostrarAtalhos=${mostrarAtalhos}
-          recolhida=${sidebarRecolhida}
           onOpenHelp=${abrirTour}
           mostrarAjuda=${Boolean(tour?.steps?.length)}
         />
