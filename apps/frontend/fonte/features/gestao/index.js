@@ -2030,12 +2030,16 @@ export function TelaInicio({ controlador }) {
         `}
       />
 
-      ${desdeUltimaVisita
+      <div class="home-hero">
+        <div class=${`home-hero-badge ${pendenciasResumo ? 'is-alert' : 'is-ok'}`}>
+          <span class="material-symbols-outlined">${pendenciasResumo ? 'warning' : 'check_circle'}</span>
+          <strong>${pendenciasResumo}</strong>
+        </div>
+        <div class="home-hero-body">
+          <span class="home-hero-kicker">Panorama de hoje</span>
+          ${desdeUltimaVisita
       ? html`
-            <div class="home-since-visit-banner">
-              <span class="material-symbols-outlined">update</span>
-              <div>
-                <strong>Desde sua última visita, em ${formatarDataHora(new Date(desdeUltimaVisita.marco).toISOString())}</strong>
+                <h2>Desde sua última visita, em ${formatarDataHora(new Date(desdeUltimaVisita.marco).toISOString())}</h2>
                 <p>
                   ${[
           desdeUltimaVisita.novosProcessos
@@ -2046,10 +2050,17 @@ export function TelaInicio({ controlador }) {
             : '',
         ].filter(Boolean).join(' · ')}
                 </p>
-              </div>
-            </div>
-          `
-      : null}
+              `
+      : html`
+                <h2>Tudo pronto para o seu dia</h2>
+                <p>Acompanhe candidatos, entrevistas e pendências logo abaixo.</p>
+              `}
+        </div>
+        <div class="home-hero-meta">
+          <strong>${entrevistasHoje.length}</strong>
+          <span>${entrevistasHoje.length === 1 ? 'entrevista hoje' : 'entrevistas hoje'}</span>
+        </div>
+      </div>
 
       <${SectionCard}
         title="Acessos rápidos"
@@ -2115,13 +2126,8 @@ export function TelaInicio({ controlador }) {
         </div>
       </${SectionCard}>
 
-      <${SectionCard}
-        title="Resumo do dia"
-        className="day-summary-card compact-dashboard-card"
-      >
-        <div class="day-summary-layout">
-          <div class="day-summary-stats">
-            ${[
+      <div class="home-pillar-row">
+        ${[
       ...indicadoresPainel,
       {
         icon: 'notifications',
@@ -2131,18 +2137,16 @@ export function TelaInicio({ controlador }) {
       },
     ].map(
       (item) => html`
-                <article class=${`day-stat-card ${item.variant || ''}`} key=${item.label}>
-                  <span class="material-symbols-outlined">${item.icon}</span>
-                  <div>
-                    <strong>${item.value}</strong>
-                    <span>${item.label}</span>
-                  </div>
-                </article>
-              `,
+              <article class=${`home-pillar-card ${item.variant || ''}`} key=${item.label}>
+                <span class="home-pillar-icon material-symbols-outlined">${item.icon}</span>
+                <div>
+                  <strong>${item.value}</strong>
+                  <span>${item.label}</span>
+                </div>
+              </article>
+            `,
     )}
-          </div>
-        </div>
-      </${SectionCard}>
+      </div>
 
       <div class="home-dashboard-grid home-dashboard-main-grid">
         <div class="home-dashboard-stack home-dashboard-stack--left">
