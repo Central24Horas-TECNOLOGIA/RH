@@ -6,7 +6,7 @@ import {
   useControladorAplicacao,
 } from './controlador-aplicacao.js';
 import { LoadingState, ModalPadrao } from '../ui/componentes-compartilhados.js';
-import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js?v=20260901-nav-topo-home';
+import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js?v=20260901-user-menu-consolidado';
 import {
   buscarPoliticaPendente,
   confirmarLeituraPolitica,
@@ -83,7 +83,7 @@ const TELAS_SEM_SHELL_FIXO = new Set([
   'screen-result',
 ]);
 
-const importarGestao = () => import('../features/telas-gestao.js?v=20260827-tela-inicial-avatares-agendamento');
+const importarGestao = () => import('../features/telas-gestao.js?v=20260901-user-menu-consolidado');
 const importarProcessos = () => import('../features/telas-processos.js?v=20260823-cache-busting-fix');
 const importarProva = () => import('../features/telas-prova.js?v=20260823-cache-busting-fix');
 

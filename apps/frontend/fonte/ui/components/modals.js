@@ -2,7 +2,7 @@ import { html, useEffect, useState } from '../../infraestrutura-react.js';
 import { formatarPontuacaoDetalhada } from '../../utilitarios.js';
 import { obterClasseSituacaoAtual } from '../../app/controlador-aplicacao.js';
 import { EmptyState } from './feedback.js';
-import { SectionCard } from './layout.js?v=20260901-nav-topo-home';
+import { SectionCard } from './layout.js?v=20260901-user-menu-consolidado';
 
 export function ModalPadrao({
   aberto,

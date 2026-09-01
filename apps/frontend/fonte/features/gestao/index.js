@@ -1706,25 +1706,11 @@ export function TelaInicio({ controlador }) {
   const [entrevistas, setEntrevistas] = useState([]);
   const [paginaRecentes, setPaginaRecentes] = useState(1);
   const [detalheAberto, setDetalheAberto] = useState(null);
-  const [ultimaVisita, setUltimaVisita] = useState('');
   const nomeUsuarioLogado = normalizarTextoPainel(
     controlador?.estado?.nomeUsuarioAutenticado ||
     controlador?.estado?.usuarioAutenticado ||
     'usuário',
   );
-
-  useEffect(() => {
-    const usuario = controlador?.estado?.usuarioAutenticado || 'anonimo';
-    const chave = `rh_home_ultima_visita_${usuario}`;
-    try {
-      const anterior = localStorage.getItem(chave) || '';
-      setUltimaVisita(anterior);
-      localStorage.setItem(chave, new Date().toISOString());
-    } catch (error) {
-      // Sem localStorage disponível (bloqueado pelo navegador), o resumo
-      // "desde a última visita" simplesmente não é exibido.
-    }
-  }, []);
 
   const carregar = async ({ forcar = false } = {}) => {
     setCarregando(true);
@@ -1877,24 +1863,6 @@ export function TelaInicio({ controlador }) {
   );
   const pendenciasResumo =
     candidatosEmAnalise.length + alertasOperacionais.length;
-  const desdeUltimaVisita = useMemo(() => {
-    if (!ultimaVisita) return null;
-    const marco = new Date(ultimaVisita).getTime();
-    if (!Number.isFinite(marco)) return null;
-
-    const novosProcessos = processosAtivos.filter((processo) => {
-      const data = new Date(processo.data_criacao || '').getTime();
-      return Number.isFinite(data) && data > marco;
-    }).length;
-
-    const novasContratacoes = contratacoesResumo.filter((candidato) => {
-      const data = new Date(candidato.aprovado_em || candidato.data_atualizacao_pipeline || '').getTime();
-      return Number.isFinite(data) && data > marco;
-    }).length;
-
-    if (!novosProcessos && !novasContratacoes) return null;
-    return { novosProcessos, novasContratacoes, marco };
-  }, [processosAtivos, contratacoesResumo, ultimaVisita]);
   const indicadoresPainel = useMemo(
     () => [
       {
@@ -2029,38 +1997,6 @@ export function TelaInicio({ controlador }) {
           </button>
         `}
       />
-
-      <div class="home-hero">
-        <div class=${`home-hero-badge ${pendenciasResumo ? 'is-alert' : 'is-ok'}`}>
-          <span class="material-symbols-outlined">${pendenciasResumo ? 'warning' : 'check_circle'}</span>
-          <strong>${pendenciasResumo}</strong>
-        </div>
-        <div class="home-hero-body">
-          <span class="home-hero-kicker">Panorama de hoje</span>
-          ${desdeUltimaVisita
-      ? html`
-                <h2>Desde sua última visita, em ${formatarDataHora(new Date(desdeUltimaVisita.marco).toISOString())}</h2>
-                <p>
-                  ${[
-          desdeUltimaVisita.novosProcessos
-            ? `${desdeUltimaVisita.novosProcessos} processo${desdeUltimaVisita.novosProcessos > 1 ? 's' : ''} novo${desdeUltimaVisita.novosProcessos > 1 ? 's' : ''} aberto${desdeUltimaVisita.novosProcessos > 1 ? 's' : ''}`
-            : '',
-          desdeUltimaVisita.novasContratacoes
-            ? `${desdeUltimaVisita.novasContratacoes} candidato${desdeUltimaVisita.novasContratacoes > 1 ? 's' : ''} aprovado${desdeUltimaVisita.novasContratacoes > 1 ? 's' : ''}`
-            : '',
-        ].filter(Boolean).join(' · ')}
-                </p>
-              `
-      : html`
-                <h2>Tudo pronto para o seu dia</h2>
-                <p>Acompanhe candidatos, entrevistas e pendências logo abaixo.</p>
-              `}
-        </div>
-        <div class="home-hero-meta">
-          <strong>${entrevistasHoje.length}</strong>
-          <span>${entrevistasHoje.length === 1 ? 'entrevista hoje' : 'entrevistas hoje'}</span>
-        </div>
-      </div>
 
       <${SectionCard}
         title="Acessos rápidos"
