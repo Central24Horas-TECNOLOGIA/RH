@@ -727,6 +727,40 @@ class SecurityRepositoryMixin:
         finally:
             conn.close()
 
+    def update_own_password(self, id_usuario: int, senha_atual: str, nova_senha: str) -> dict:
+        safe_current = normalize_text(senha_atual)
+        safe_new = normalize_text(nova_senha)
+        if not safe_new or len(safe_new) < 8:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A nova senha deve ter pelo menos 8 caracteres.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT senha_hash, provedor_autenticacao FROM usuarios WHERE id_usuario = ?",
+                (int(id_usuario),),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+            senha_hash, provedor = row[0], row[1]
+            if normalize_text(provedor) != AUTH_PROVIDER_LOCAL:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Este usuário autentica pela Microsoft; a senha é gerenciada por lá.",
+                )
+            if not verify_password(safe_current, senha_hash):
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Senha atual incorreta.")
+
+            cursor.execute(
+                "UPDATE usuarios SET senha_hash = ?, atualizado_em = GETDATE() WHERE id_usuario = ?",
+                (hash_password(safe_new), int(id_usuario)),
+            )
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()
+
     def begin_mfa_enrollment(self, id_usuario: int, *, actor=None) -> dict:
         secret = generate_secret()
         try:

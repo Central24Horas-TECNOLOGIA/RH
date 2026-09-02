@@ -380,6 +380,14 @@ export function TelaOneDriveArquivos({ controlador }) {
     return acoes;
   };
 
+  const posicionarMenuAcoes = (x, y) => {
+    const largura = 196;
+    return {
+      top: `${Math.min(window.innerHeight - 52, y)}px`,
+      left: `${Math.max(8, Math.min(window.innerWidth - largura - 8, x))}px`,
+    };
+  };
+
   const alternarMenuAcoes = (event, idItem) => {
     event.stopPropagation();
     if (String(menuAcoesAbertoId) === String(idItem)) {
@@ -388,12 +396,16 @@ export function TelaOneDriveArquivos({ controlador }) {
       return;
     }
     const rect = event.currentTarget.getBoundingClientRect();
-    const largura = 196;
-    setMenuAcoesPosicao({
-      top: `${Math.min(window.innerHeight - 52, rect.bottom + 6)}px`,
-      left: `${Math.max(8, Math.min(window.innerWidth - largura - 8, rect.right - largura))}px`,
-    });
+    setMenuAcoesPosicao(posicionarMenuAcoes(rect.right - 196, rect.bottom + 6));
     setMenuAcoesAbertoId(idItem);
+  };
+
+  const abrirMenuAcoesNoClienteDireito = (event, item) => {
+    if (!acoesDoItem(item).length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setMenuAcoesPosicao(posicionarMenuAcoes(event.clientX, event.clientY));
+    setMenuAcoesAbertoId(item.id);
   };
 
   const renderMenuAcoes = (item) => {
@@ -535,34 +547,61 @@ export function TelaOneDriveArquivos({ controlador }) {
       ${erro ? html`<${ToastAlert} message=${erro} tone="danger" onClose=${() => setErro('')} />` : null}
 
       <${SectionCard}>
-        <nav class="rh-breadcrumb mb-3">
-          <button type="button" class="btn btn-link p-0 text-decoration-none" onClick=${() => {
-            limparFiltros();
-            setCaminho('');
-          }}>
-            <${Icone} name="home" /> Drive-Conecta
-          </button>
-          ${segmentosBreadcrumb.map(
-            (segmento, indice) => html`
-              <span key=${indice}> / </span>
-              <button type="button" class="btn btn-link p-0 text-decoration-none" onClick=${() => irParaSegmento(indice)}>
-                ${segmento}
-              </button>
-            `,
-          )}
-        </nav>
+        ${segmentosBreadcrumb.length
+          ? html`
+              <nav class="rh-breadcrumb mb-3">
+                ${segmentosBreadcrumb.map(
+                  (segmento, indice) => html`
+                    ${indice > 0 ? html`<span key=${`sep-${indice}`}> / </span>` : null}
+                    <button key=${indice} type="button" class="btn btn-link p-0 text-decoration-none" onClick=${() => irParaSegmento(indice)}>
+                      ${segmento}
+                    </button>
+                  `,
+                )}
+              </nav>
+            `
+          : null}
 
         <div class="rh-onedrive-toolbar">
-          <label class="form-field rh-onedrive-search">
-            <span class="form-label">Pesquisar</span>
-            <input
-              class="form-control"
-              type="search"
-              placeholder="Pesquisar por nome de arquivo ou pasta"
-              value=${busca}
-              onInput=${(event) => setBusca(event.target.value)}
-            />
-          </label>
+          <div class="rh-onedrive-toolbar-row">
+            <label class="form-field rh-onedrive-search">
+              <span class="form-label">Pesquisar</span>
+              <input
+                class="form-control"
+                type="search"
+                placeholder="Pesquisar por nome de arquivo ou pasta"
+                value=${busca}
+                onInput=${(event) => setBusca(event.target.value)}
+              />
+            </label>
+
+            <div class="rh-onedrive-view-toggle" role="group" aria-label="Modo de visualização">
+              <button
+                type="button"
+                class=${modoVisualizacao === 'grade-grande' ? 'is-active' : ''}
+                title="Grade grande"
+                onClick=${() => setModoVisualizacao('grade-grande')}
+              >
+                <${Icone} name="grid_view" />
+              </button>
+              <button
+                type="button"
+                class=${modoVisualizacao === 'grade-pequena' ? 'is-active' : ''}
+                title="Grade pequena"
+                onClick=${() => setModoVisualizacao('grade-pequena')}
+              >
+                <${Icone} name="apps" />
+              </button>
+              <button
+                type="button"
+                class=${modoVisualizacao === 'lista' ? 'is-active' : ''}
+                title="Lista (em pilha)"
+                onClick=${() => setModoVisualizacao('lista')}
+              >
+                <${Icone} name="view_list" />
+              </button>
+            </div>
+          </div>
 
           <div class="rh-onedrive-filters">
             <label class="form-field">
@@ -616,38 +655,11 @@ export function TelaOneDriveArquivos({ controlador }) {
             </label>
             ${filtrosAtivos
               ? html`
-                  <button type="button" class="btn btn-outline-secondary align-self-end" onClick=${limparFiltros}>
-                    Limpar filtros
+                  <button type="button" class="btn btn-outline-secondary btn-sm rh-onedrive-clear-filters" onClick=${limparFiltros}>
+                    <${Icone} name="filter_alt_off" /> Limpar filtros
                   </button>
                 `
               : null}
-          </div>
-
-          <div class="rh-onedrive-view-toggle" role="group" aria-label="Modo de visualização">
-            <button
-              type="button"
-              class=${modoVisualizacao === 'grade-grande' ? 'is-active' : ''}
-              title="Grade grande"
-              onClick=${() => setModoVisualizacao('grade-grande')}
-            >
-              <${Icone} name="grid_view" />
-            </button>
-            <button
-              type="button"
-              class=${modoVisualizacao === 'grade-pequena' ? 'is-active' : ''}
-              title="Grade pequena"
-              onClick=${() => setModoVisualizacao('grade-pequena')}
-            >
-              <${Icone} name="apps" />
-            </button>
-            <button
-              type="button"
-              class=${modoVisualizacao === 'lista' ? 'is-active' : ''}
-              title="Lista (em pilha)"
-              onClick=${() => setModoVisualizacao('lista')}
-            >
-              <${Icone} name="view_list" />
-            </button>
           </div>
         </div>
 
@@ -659,18 +671,22 @@ export function TelaOneDriveArquivos({ controlador }) {
               : html`
                   <div class=${`rh-onedrive-grid ${modoVisualizacao === 'grade-pequena' ? 'rh-onedrive-grid--pequena' : ''}`}>
                     ${itensFiltrados.map(
-                      (item) => html`
+                      (item) => {
+                        const clicavel = item.tipo === 'pasta' || itemEhVisualizavel(item);
+                        return html`
                         <div
-                          class=${`rh-onedrive-card ${item.tipo === 'pasta' ? 'is-clickable' : ''}`}
+                          class=${`rh-onedrive-card ${clicavel ? 'is-clickable' : ''} ${String(menuAcoesAbertoId) === String(item.id) ? 'has-menu-open' : ''}`}
                           key=${item.id}
-                          onClick=${item.tipo === 'pasta' ? () => abrirItem(item) : undefined}
+                          onClick=${clicavel ? () => abrirItem(item) : undefined}
+                          onContextMenu=${(event) => abrirMenuAcoesNoClienteDireito(event, item)}
                         >
+                          <div class="rh-onedrive-card-actions">${renderMenuAcoes(item)}</div>
                           <span class="rh-onedrive-card-icon"><${Icone} name=${iconeDoItem(item)} /></span>
                           <button
                             type="button"
                             class="rh-onedrive-card-nome"
                             onClick=${(event) => {
-                              if (item.tipo === 'pasta') event.stopPropagation();
+                              if (clicavel) event.stopPropagation();
                               abrirItem(item);
                             }}
                           >
@@ -680,9 +696,9 @@ export function TelaOneDriveArquivos({ controlador }) {
                             ${item.tipo === 'pasta' ? `${item.itens_na_pasta ?? 0} itens` : formatarTamanho(item.tamanho_bytes)}
                             · ${formatarDataCurta(item.modificado_em)}
                           </span>
-                          <div class="rh-onedrive-card-actions">${renderMenuAcoes(item)}</div>
                         </div>
-                      `,
+                      `;
+                      },
                     )}
                   </div>
                 `

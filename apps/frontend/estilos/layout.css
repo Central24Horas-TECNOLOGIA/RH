@@ -48,7 +48,7 @@
 }
 
 .rh-modern-topnav .rh-modern-logo {
-  height: 30px;
+  height: 18px;
   width: auto;
   max-width: 170px;
   object-fit: contain;
@@ -75,6 +75,13 @@
   min-height: 0;
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.rh-modern-topnav-user {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .rh-modern-topnav .rh-modern-nav-btn,
@@ -763,10 +770,16 @@
 
 .rh-onedrive-toolbar {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.rh-onedrive-toolbar-row {
+  display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 8px;
 }
 
 .rh-onedrive-search {
@@ -777,13 +790,28 @@
 .rh-onedrive-filters {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
   gap: 8px;
-  flex: 2 1 420px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.rh-onedrive-filters .form-field {
+  flex: 1 1 136px;
+  min-width: 136px;
 }
 
 .rh-onedrive-filters select,
 .rh-onedrive-filters input {
-  min-width: 150px;
+  min-width: 0;
+  width: 100%;
+}
+
+.rh-onedrive-clear-filters {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .rh-onedrive-view-toggle {
@@ -826,19 +854,27 @@
 }
 
 .rh-onedrive-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   padding: 8px;
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm, 6px);
-  background: var(--color-surface);
+  background: transparent;
   text-align: center;
+  transition: background-color var(--transition-xs), border-color var(--transition-xs);
 }
 
 .rh-onedrive-card.is-clickable {
   cursor: pointer;
+}
+
+.rh-onedrive-card:hover,
+.rh-onedrive-card:focus-within {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border);
 }
 
 .rh-onedrive-grid--pequena .rh-onedrive-card {
@@ -874,10 +910,27 @@
 }
 
 .rh-onedrive-card-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
   display: flex;
   gap: 4px;
-  flex-wrap: wrap;
-  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-xs);
+}
+
+.rh-onedrive-card:hover .rh-onedrive-card-actions,
+.rh-onedrive-card:focus-within .rh-onedrive-card-actions,
+.rh-onedrive-card.has-menu-open .rh-onedrive-card-actions {
+  opacity: 1;
+}
+
+.rh-onedrive-card-actions .process-row-action-trigger {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
 }
 
 .rh-onedrive-preview-frame {
