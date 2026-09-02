@@ -17,6 +17,7 @@ import {
   atualizarAnotacaoDossieProcesso,
   atualizarAvatarUsuarioApi,
   atualizarNomeUsuarioApi,
+  atualizarSenhaUsuarioApi,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
@@ -114,7 +115,7 @@ import {
   registrarSolicitacaoLgpd,
   retomarProcesso,
   cancelarProcesso,
-} from '../servico-api.js?v=20260902-correcoes-rh';
+} from '../servico-api.js?v=20260902-perfil-drive-nav';
 import { criarLogger } from '../logger.js';
 import {
   montarProvaPorBlueprint,
@@ -1106,6 +1107,9 @@ export function useControladorAplicacao() {
     return resultado;
   };
 
+  const atualizarSenhaUsuario = async (senhaAtual, novaSenha) =>
+    atualizarSenhaUsuarioApi(senhaAtual, novaSenha);
+
   const alternarBarraLateral = () => {
     atualizarEstado((anterior) => {
       const recolhida = !anterior.barraLateralRecolhida;
@@ -1751,6 +1755,7 @@ export function useControladorAplicacao() {
     alternarBarraLateral,
     atualizarAvatarUsuario,
     atualizarNomeUsuario,
+    atualizarSenhaUsuario,
     possuiPermissao,
     possuiAlgumaPermissao,
     podeAcessarTela,
@@ -1783,6 +1788,7 @@ export {
   atualizarAnotacaoDossieProcesso,
   atualizarAvatarUsuarioApi,
   atualizarNomeUsuarioApi,
+  atualizarSenhaUsuarioApi,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,

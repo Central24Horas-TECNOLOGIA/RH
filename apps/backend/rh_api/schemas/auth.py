@@ -82,3 +82,16 @@ class UpdateNameRequest(BaseSchema):
         if not (2 <= len(safe_value) <= 120):
             raise ValueError("Informe um nome entre 2 e 120 caracteres.")
         return safe_value
+
+
+class UpdateOwnPasswordRequest(BaseSchema):
+    senha_atual: str = Field(default="")
+    nova_senha: str = Field(default="")
+
+    @field_validator("nova_senha")
+    @classmethod
+    def validate_nova_senha(cls, value: str) -> str:
+        safe_value = str(value or "")
+        if len(safe_value) < 8:
+            raise ValueError("A nova senha deve ter pelo menos 8 caracteres.")
+        return safe_value

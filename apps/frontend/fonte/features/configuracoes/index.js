@@ -25,7 +25,9 @@ import { definirOrientacoesAtivas, orientacoesAtivas } from '../../ui/tour-guiad
 import { AVATARES_ILUSTRADOS, resolverAvatarUrl } from '../../shared/avatares.js';
 import {
   CATEGORIAS_NOTIFICACAO,
+  lerCoresNotificacao,
   lerPreferenciasNotificacao,
+  salvarCorNotificacao,
   salvarPreferenciasNotificacao,
 } from '../../shared/notificacoes.js';
 
@@ -392,6 +394,11 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const [salvandoAvatar, setSalvandoAvatar] = useState(false);
   const [nomeDraft, setNomeDraft] = useState(() => controlador?.estado?.nomeUsuarioAutenticado || '');
   const [salvandoNome, setSalvandoNome] = useState(false);
+  const [abaAmbiente, setAbaAmbiente] = useState('perfil');
+  const [coresNotificacaoAmbiente, setCoresNotificacaoAmbiente] = useState(() => lerCoresNotificacao());
+  const [formSenhaAmbiente, setFormSenhaAmbiente] = useState({ senhaAtual: '', novaSenha: '', confirmarNovaSenha: '' });
+  const [salvandoSenhaAmbiente, setSalvandoSenhaAmbiente] = useState(false);
+  const [erroSenhaAmbiente, setErroSenhaAmbiente] = useState('');
   const [formUsuario, setFormUsuario] = useState(FORM_USUARIO_INICIAL);
   const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState('');
   const [criandoUsuario, setCriandoUsuario] = useState(false);
@@ -2439,6 +2446,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     salvarPreferenciasNotificacao(proximas);
   };
 
+  const alterarCorNotificacaoAmbiente = (categoriaId, cor) => {
+    setCoresNotificacaoAmbiente(salvarCorNotificacao(categoriaId, cor));
+  };
+
   const salvarNomeAmbiente = async () => {
     const nomeLimpo = nomeDraft.trim();
     if (!nomeLimpo) return;
@@ -2455,130 +2466,237 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     }
   };
 
+  const salvarSenhaAmbiente = async () => {
+    setErroSenhaAmbiente('');
+    if (!formSenhaAmbiente.senhaAtual) {
+      setErroSenhaAmbiente('Informe sua senha atual.');
+      return;
+    }
+    if (formSenhaAmbiente.novaSenha.length < 8) {
+      setErroSenhaAmbiente('A nova senha deve ter pelo menos 8 caracteres.');
+      return;
+    }
+    if (formSenhaAmbiente.novaSenha !== formSenhaAmbiente.confirmarNovaSenha) {
+      setErroSenhaAmbiente('A confirmação não corresponde à nova senha.');
+      return;
+    }
+    setSalvandoSenhaAmbiente(true);
+    try {
+      await controlador.atualizarSenhaUsuario(formSenhaAmbiente.senhaAtual, formSenhaAmbiente.novaSenha);
+      setFormSenhaAmbiente({ senhaAtual: '', novaSenha: '', confirmarNovaSenha: '' });
+      setFeedback('Senha atualizada.');
+    } catch (error) {
+      setErroSenhaAmbiente(error?.message || 'Não foi possível atualizar a senha.');
+    } finally {
+      setSalvandoSenhaAmbiente(false);
+    }
+  };
+
+  const ABAS_AMBIENTE = [
+    { id: 'perfil', label: 'Perfil', icon: 'person' },
+    { id: 'seguranca', label: 'Segurança', icon: 'lock' },
+    { id: 'aparencia', label: 'Aparência', icon: 'tune' },
+    { id: 'notificacoes', label: 'Notificações', icon: 'notifications_active' },
+  ];
+
   const renderAmbiente = () => html`
-    <div class="settings-admin-shell">
-      <section class="c24-card">
-        <header class="c24-card-header">
-          <h2>Seus dados</h2>
-        </header>
-        <div class="process-cutoff-panel">
-          <label class="settings-name-field">
-            <span>Nome</span>
-            <div class="settings-name-row">
-              <input
-                class="form-control"
-                value=${nomeDraft}
-                maxlength="120"
-                disabled=${salvandoNome}
-                onInput=${(event) => setNomeDraft(event.target.value)}
-              />
-              <button
-                type="button"
-                class="btn btn-primary btn-sm"
-                disabled=${salvandoNome || !nomeDraft.trim() || nomeDraft.trim() === (controlador?.estado?.nomeUsuarioAutenticado || '').trim()}
-                onClick=${salvarNomeAmbiente}
-              >
-                ${salvandoNome ? 'Salvando...' : 'Salvar'}
-              </button>
-            </div>
-          </label>
-        </div>
-      </section>
+    <div class="settings-ambiente-shell">
+      <div class="settings-ambiente-tabs">
+        ${ABAS_AMBIENTE.map(
+          (aba) => html`
+            <${BotaoAba} key=${aba.id} aba=${aba} ativa=${abaAmbiente === aba.id} onClick=${() => setAbaAmbiente(aba.id)} />
+          `,
+        )}
+      </div>
 
-      <section class="c24-card">
-        <header class="c24-card-header">
-          <h2>Aparência</h2>
-        </header>
-        <div class="process-cutoff-panel">
-          <label class="process-switch-row">
-            <input
-              type="checkbox"
-              checked=${temaAmbiente === 'escuro'}
-              onChange=${alternarTemaAmbiente}
-            />
-            <span class="process-switch-visual"></span>
-            <span>
-              <strong>Modo escuro</strong>
-              <small>Alterna o tema visual do Conecta para todas as telas.</small>
-            </span>
-          </label>
-        </div>
-      </section>
+      <section class="c24-card settings-ambiente-panel">
+        ${abaAmbiente === 'perfil'
+          ? html`
+              <div class="settings-ambiente-section">
+                <h3>Nome</h3>
+                <p class="settings-notifications-hint">Como o seu nome aparece para o restante do time.</p>
+                <label class="settings-name-field">
+                  <div class="settings-name-row">
+                    <input
+                      class="form-control"
+                      value=${nomeDraft}
+                      maxlength="120"
+                      disabled=${salvandoNome}
+                      onInput=${(event) => setNomeDraft(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm"
+                      disabled=${salvandoNome || !nomeDraft.trim() || nomeDraft.trim() === (controlador?.estado?.nomeUsuarioAutenticado || '').trim()}
+                      onClick=${salvarNomeAmbiente}
+                    >
+                      ${salvandoNome ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </div>
+                </label>
+              </div>
 
-      <section class="c24-card">
-        <header class="c24-card-header">
-          <h2>Orientações</h2>
-        </header>
-        <div class="process-cutoff-panel">
-          <label class="process-switch-row">
-            <input
-              type="checkbox"
-              checked=${orientacoesAmbiente}
-              onChange=${(event) => alternarOrientacoesAmbiente(event.target.checked)}
-            />
-            <span class="process-switch-visual"></span>
-            <span>
-              <strong>Ativar orientações guiadas</strong>
-              <small>
-                Mostra dicas passo a passo na primeira visita a cada tela e o botão "Ver orientações"
-                no topo. Desative se preferir navegar sem os balões de ajuda.
-              </small>
-            </span>
-          </label>
-        </div>
-      </section>
+              <div class="settings-ambiente-section">
+                <h3>Avatar</h3>
+                <p class="settings-notifications-hint">
+                  Escolha um avatar ilustrado para o seu perfil. Clique novamente no avatar selecionado para
+                  voltar às iniciais.
+                </p>
+                <div class="settings-avatar-grid">
+                  ${AVATARES_ILUSTRADOS.map(
+                    (avatar) => html`
+                      <button
+                        key=${avatar.id}
+                        type="button"
+                        class=${`settings-avatar-option ${controlador?.estado?.avatarUsuario === avatar.id ? 'is-selected' : ''}`}
+                        disabled=${salvandoAvatar}
+                        title=${avatar.id}
+                        onClick=${() => escolherAvatarAmbiente(avatar.id)}
+                      >
+                        <img src=${avatar.url} alt="" loading="lazy" />
+                      </button>
+                    `,
+                  )}
+                </div>
+              </div>
+            `
+          : null}
 
-      <section class="c24-card">
-        <header class="c24-card-header">
-          <h2>Avatar</h2>
-        </header>
-        <p class="settings-notifications-hint">
-          Escolha um avatar ilustrado para o seu perfil. Clique novamente no avatar selecionado para
-          voltar às iniciais.
-        </p>
-        <div class="settings-avatar-grid">
-          ${AVATARES_ILUSTRADOS.map(
-            (avatar) => html`
-              <button
-                key=${avatar.id}
-                type="button"
-                class=${`settings-avatar-option ${controlador?.estado?.avatarUsuario === avatar.id ? 'is-selected' : ''}`}
-                disabled=${salvandoAvatar}
-                title=${avatar.id}
-                onClick=${() => escolherAvatarAmbiente(avatar.id)}
-              >
-                <img src=${avatar.url} alt="" loading="lazy" />
-              </button>
-            `,
-          )}
-        </div>
-      </section>
+        ${abaAmbiente === 'seguranca'
+          ? html`
+              <div class="settings-ambiente-section">
+                <h3>Alterar senha</h3>
+                <p class="settings-notifications-hint">
+                  Válido apenas para usuários com acesso local. Quem entra pela Microsoft gerencia a senha por lá.
+                </p>
+                ${erroSenhaAmbiente ? html`<div class="alert alert-warning">${erroSenhaAmbiente}</div>` : null}
+                <div class="settings-password-grid">
+                  <label class="settings-name-field">
+                    <span>Senha atual</span>
+                    <input
+                      class="form-control"
+                      type="password"
+                      autocomplete="current-password"
+                      value=${formSenhaAmbiente.senhaAtual}
+                      disabled=${salvandoSenhaAmbiente}
+                      onInput=${(event) => setFormSenhaAmbiente({ ...formSenhaAmbiente, senhaAtual: event.target.value })}
+                    />
+                  </label>
+                  <label class="settings-name-field">
+                    <span>Nova senha</span>
+                    <input
+                      class="form-control"
+                      type="password"
+                      autocomplete="new-password"
+                      value=${formSenhaAmbiente.novaSenha}
+                      disabled=${salvandoSenhaAmbiente}
+                      onInput=${(event) => setFormSenhaAmbiente({ ...formSenhaAmbiente, novaSenha: event.target.value })}
+                    />
+                  </label>
+                  <label class="settings-name-field">
+                    <span>Confirmar nova senha</span>
+                    <input
+                      class="form-control"
+                      type="password"
+                      autocomplete="new-password"
+                      value=${formSenhaAmbiente.confirmarNovaSenha}
+                      disabled=${salvandoSenhaAmbiente}
+                      onInput=${(event) => setFormSenhaAmbiente({ ...formSenhaAmbiente, confirmarNovaSenha: event.target.value })}
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  disabled=${salvandoSenhaAmbiente || !formSenhaAmbiente.senhaAtual || !formSenhaAmbiente.novaSenha}
+                  onClick=${salvarSenhaAmbiente}
+                >
+                  ${salvandoSenhaAmbiente ? 'Salvando...' : 'Alterar senha'}
+                </button>
+              </div>
+            `
+          : null}
 
-      <section class="c24-card">
-        <header class="c24-card-header">
-          <h2>Notificações</h2>
-        </header>
-        <p class="settings-notifications-hint">
-          Escolha quais categorias aparecem no sino de notificações no topo do Conecta.
-        </p>
-        <div class="process-cutoff-panel-list">
-          ${CATEGORIAS_NOTIFICACAO.map(
-            (categoria) => html`
-              <label class="process-switch-row" key=${categoria.id}>
-                <input
-                  type="checkbox"
-                  checked=${preferenciasNotificacaoAmbiente[categoria.id] !== false}
-                  onChange=${(event) => alternarCategoriaNotificacaoAmbiente(categoria.id, event.target.checked)}
-                />
-                <span class="process-switch-visual"></span>
-                <span>
-                  <span class="settings-notif-dot" style=${{ backgroundColor: categoria.cor }}></span>
-                  <strong>${categoria.label}</strong>
-                </span>
-              </label>
-            `,
-          )}
-        </div>
+        ${abaAmbiente === 'aparencia'
+          ? html`
+              <div class="settings-ambiente-section">
+                <h3>Aparência</h3>
+                <div class="process-cutoff-panel">
+                  <label class="process-switch-row">
+                    <input
+                      type="checkbox"
+                      checked=${temaAmbiente === 'escuro'}
+                      onChange=${alternarTemaAmbiente}
+                    />
+                    <span class="process-switch-visual"></span>
+                    <span>
+                      <strong>Modo escuro</strong>
+                      <small>Alterna o tema visual do Conecta para todas as telas.</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-ambiente-section">
+                <h3>Orientações</h3>
+                <div class="process-cutoff-panel">
+                  <label class="process-switch-row">
+                    <input
+                      type="checkbox"
+                      checked=${orientacoesAmbiente}
+                      onChange=${(event) => alternarOrientacoesAmbiente(event.target.checked)}
+                    />
+                    <span class="process-switch-visual"></span>
+                    <span>
+                      <strong>Ativar orientações guiadas</strong>
+                      <small>
+                        Mostra dicas passo a passo na primeira visita a cada tela e o item "Ver orientações"
+                        no menu do seu perfil. Desative se preferir navegar sem os balões de ajuda.
+                      </small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            `
+          : null}
+
+        ${abaAmbiente === 'notificacoes'
+          ? html`
+              <div class="settings-ambiente-section">
+                <h3>Notificações</h3>
+                <p class="settings-notifications-hint">
+                  Escolha quais categorias aparecem no sino de notificações no topo do Conecta, e personalize a cor de cada uma.
+                </p>
+                <div class="settings-notif-list">
+                  ${CATEGORIAS_NOTIFICACAO.map(
+                    (categoria) => html`
+                      <div class="settings-notif-row" key=${categoria.id}>
+                        <label class="process-switch-row settings-notif-toggle">
+                          <input
+                            type="checkbox"
+                            checked=${preferenciasNotificacaoAmbiente[categoria.id] !== false}
+                            onChange=${(event) => alternarCategoriaNotificacaoAmbiente(categoria.id, event.target.checked)}
+                          />
+                          <span class="process-switch-visual"></span>
+                          <span>
+                            <strong>${categoria.label}</strong>
+                            <small>${categoria.descricao}</small>
+                          </span>
+                        </label>
+                        <label class="settings-notif-color" title="Escolher cor desta categoria">
+                          <input
+                            type="color"
+                            value=${coresNotificacaoAmbiente[categoria.id] || categoria.cor}
+                            onInput=${(event) => alterarCorNotificacaoAmbiente(categoria.id, event.target.value)}
+                          />
+                        </label>
+                      </div>
+                    `,
+                  )}
+                </div>
+              </div>
+            `
+          : null}
       </section>
     </div>
   `;

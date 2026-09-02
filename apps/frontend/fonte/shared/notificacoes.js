@@ -2,14 +2,65 @@ import { useEffect, useState } from '../infraestrutura-react.js';
 import { lerProcessos, lerEntrevistas, lerCandidatosProcessos } from '../app/controlador-aplicacao.js';
 
 export const CATEGORIAS_NOTIFICACAO = [
-  { id: 'entrevistas', label: 'Entrevistas e Banco de Talentos', cor: '#f89501' },
-  { id: 'processos', label: 'Processos Seletivos', cor: '#053c6c' },
-  { id: 'provas', label: 'Provas', cor: '#3f9a23' },
-  { id: 'problemas', label: 'Problemas', cor: '#f80101' },
-  { id: 'administracao', label: 'Administração', cor: '#65176c' },
+  {
+    id: 'entrevistas',
+    label: 'Entrevistas e Banco de Talentos',
+    cor: '#f89501',
+    descricao: 'Avisos de entrevistas agendadas para os próximos dias e movimentações no banco de talentos.',
+  },
+  {
+    id: 'processos',
+    label: 'Processos Seletivos',
+    cor: '#053c6c',
+    descricao: 'Abertura, atualização e encerramento de vagas e processos seletivos.',
+  },
+  {
+    id: 'provas',
+    label: 'Provas',
+    cor: '#3f9a23',
+    descricao: 'Provas geradas, respondidas ou aguardando correção.',
+  },
+  {
+    id: 'problemas',
+    label: 'Problemas',
+    cor: '#f80101',
+    descricao: 'Pendências e alertas que precisam da sua atenção, como candidatos travados numa etapa.',
+  },
+  {
+    id: 'administracao',
+    label: 'Administração',
+    cor: '#65176c',
+    descricao: 'Avisos administrativos do sistema, como alterações de configuração e auditoria.',
+  },
 ];
 
 const CHAVE_PREFERENCIAS = 'c24_notificacoes_categorias';
+const CHAVE_CORES_PERSONALIZADAS = 'c24_notificacoes_cores';
+
+export function lerCoresNotificacao() {
+  let salvo = {};
+  try {
+    salvo = JSON.parse(localStorage.getItem(CHAVE_CORES_PERSONALIZADAS) || '{}');
+  } catch (error) {
+    salvo = {};
+  }
+
+  return CATEGORIAS_NOTIFICACAO.reduce((acumulado, categoria) => {
+    acumulado[categoria.id] = salvo[categoria.id] || categoria.cor;
+    return acumulado;
+  }, {});
+}
+
+export function salvarCorNotificacao(categoriaId, cor) {
+  const cores = lerCoresNotificacao();
+  cores[categoriaId] = cor;
+  try {
+    localStorage.setItem(CHAVE_CORES_PERSONALIZADAS, JSON.stringify(cores));
+  } catch (error) {
+    // Preferência é best-effort; se o storage falhar, a cor padrão continua valendo.
+  }
+  return cores;
+}
 const JANELA_ENTREVISTAS_PROXIMAS_MS = 1000 * 60 * 60 * 48;
 const LIMITE_ITENS_POR_CATEGORIA = 5;
 

@@ -1,10 +1,10 @@
 import { html, useEffect, useRef, useState } from '../../infraestrutura-react.js';
 import { BuscaGlobalTopbar } from '../busca-global.js';
 import { obterTourDaTela } from '../../shared/tour-config.js';
-import { BotaoAjudaTour, TourGuiado, orientacoesAtivas } from '../tour-guiado.js';
+import { TourGuiado, orientacoesAtivas } from '../tour-guiado.js';
 import { definirTema, obterTemaSalvo, proximoTema } from '../../shared/tema.js';
 import { resolverAvatarUrl } from '../../shared/avatares.js';
-import { CATEGORIAS_NOTIFICACAO, useResumoNotificacoes } from '../../shared/notificacoes.js';
+import { lerCoresNotificacao, useResumoNotificacoes } from '../../shared/notificacoes.js';
 
 const TEMA_ROTULO = { claro: 'Claro', escuro: 'Escuro' };
 const TEMA_ICONE = { claro: 'light_mode', escuro: 'dark_mode' };
@@ -694,6 +694,10 @@ export function BarraLateral({
             `
       : null}
       </nav>
+
+      <div class="rh-modern-topnav-user">
+        <${CartaoUsuarioTopo} controlador=${controlador} onOpenHelp=${onOpenHelp} mostrarAjuda=${mostrarAjuda} />
+      </div>
     </header>
   `;
 }
@@ -816,8 +820,9 @@ export function AvatarUsuario({ avatar = '', nome = '', tamanho = 40 }) {
   `;
 }
 
-export function CartaoUsuarioTopo({ controlador }) {
+export function CartaoUsuarioTopo({ controlador, onOpenHelp = null, mostrarAjuda = false }) {
   const [aberto, setAberto] = useState(false);
+  const [tema, setTema] = useState(() => obterTemaSalvo());
   const estado = controlador?.estado || {};
   const nome =
     estado.nomeUsuarioAutenticado ||
@@ -832,6 +837,11 @@ export function CartaoUsuarioTopo({ controlador }) {
     ? perfilBase
     : `RH / ${perfilBase}`;
   const avatar = resolverAvatarUrl(estado.avatarUsuario);
+
+  const alternarTema = () => {
+    const novoTema = definirTema(proximoTema(tema));
+    setTema(novoTema);
+  };
 
   useEffect(() => {
     if (!aberto) return undefined;
@@ -884,6 +894,34 @@ export function CartaoUsuarioTopo({ controlador }) {
       ${aberto
       ? html`
             <div class="c24-user-dropdown" role="menu">
+              ${mostrarAjuda && onOpenHelp
+          ? html`
+                    <button
+                      type="button"
+                      role="menuitem"
+                      class="c24-user-dropdown-item"
+                      onClick=${() => {
+              setAberto(false);
+              onOpenHelp();
+            }}
+                    >
+                      <span class="material-symbols-outlined">help</span>
+                      Ver orientações
+                    </button>
+                  `
+          : null}
+              <button
+                type="button"
+                role="menuitem"
+                class="c24-user-dropdown-item"
+                onClick=${(event) => {
+          event.stopPropagation();
+          alternarTema();
+        }}
+              >
+                <span class="material-symbols-outlined">${TEMA_ICONE[tema]}</span>
+                Alternar modo claro e escuro
+              </button>
               <button
                 type="button"
                 role="menuitem"
@@ -918,10 +956,7 @@ export function CartaoUsuarioTopo({ controlador }) {
 export function SinoNotificacoes({ controlador }) {
   const [aberto, setAberto] = useState(false);
   const { itens, carregando } = useResumoNotificacoes(controlador);
-  const coresPorCategoria = CATEGORIAS_NOTIFICACAO.reduce(
-    (mapa, categoria) => ({ ...mapa, [categoria.id]: categoria.cor }),
-    {},
-  );
+  const coresPorCategoria = lerCoresNotificacao();
 
   useEffect(() => {
     if (!aberto) return undefined;
@@ -1030,7 +1065,7 @@ export function PainelRh({
           controlador=${controlador}
           mostrarAtalhos=${mostrarAtalhos}
           onOpenHelp=${abrirTour}
-          mostrarAjuda=${Boolean(tour?.steps?.length)}
+          mostrarAjuda=${Boolean(tour?.steps?.length) && orientacoesAtivas()}
         />
 
         <div class="rh-modern-main">
@@ -1058,19 +1093,8 @@ export function PainelRh({
                     </button>
                   `
       : null}
-              ${tour?.steps?.length && orientacoesAtivas()
-      ? html`
-                    <${BotaoAjudaTour}
-                      compact=${true}
-                      label="Ver orientações"
-                      onClick=${abrirTour}
-                    />
-                  `
-      : null}
               ${acoesTopo}
               <${SinoNotificacoes} controlador=${controlador} />
-              <${SeletorTema} />
-              <${CartaoUsuarioTopo} controlador=${controlador} />
             </div>
           </header>
 

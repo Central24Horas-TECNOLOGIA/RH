@@ -63,6 +63,14 @@ export async function atualizarNomeUsuarioApi(nome) {
   return resultado;
 }
 
+export async function atualizarSenhaUsuarioApi(senhaAtual, novaSenha) {
+  return requisitar('/auth/me/senha', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ senha_atual: senhaAtual || '', nova_senha: novaSenha || '' }),
+  });
+}
+
 export async function encerrarSessaoApi() {
   try {
     if (!possuiSessaoAutenticada()) {

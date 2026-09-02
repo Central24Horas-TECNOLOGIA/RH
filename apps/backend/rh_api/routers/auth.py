@@ -28,6 +28,7 @@ from ..schemas.auth import (
     SessionResponse,
     UpdateAvatarRequest,
     UpdateNameRequest,
+    UpdateOwnPasswordRequest,
 )
 from ..schemas.common import SuccessResponse
 from ..config import get_settings
@@ -592,6 +593,26 @@ def update_my_name(
         avatar_ilustrado=usuario_atualizado.avatar_ilustrado,
         access_token=reissue_token(usuario_atualizado),
     )
+
+
+@router.put("/me/senha", response_model=SuccessResponse)
+def update_my_password(
+    payload: UpdateOwnPasswordRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+) -> SuccessResponse:
+    if user.id_usuario is None:
+        raise HTTPException(status_code=400, detail="Este usuário não possui cadastro para alterar a senha.")
+    repository.update_own_password(user.id_usuario, payload.senha_atual, payload.nova_senha)
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="alterar_propria_senha",
+        entidade="usuario",
+        entidade_id=str(user.id_usuario),
+    )
+    return SuccessResponse(message="Senha atualizada.")
 
 
 @router.post("/mfa/setup", response_model=MfaSetupResponse)

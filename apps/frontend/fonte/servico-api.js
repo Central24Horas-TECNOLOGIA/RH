@@ -36,6 +36,7 @@ export {
 export {
   atualizarAvatarUsuarioApi,
   atualizarNomeUsuarioApi,
+  atualizarSenhaUsuarioApi,
   concluirLoginMicrosoftApi,
   encerrarSessaoApi,
   fazerLoginApi,
