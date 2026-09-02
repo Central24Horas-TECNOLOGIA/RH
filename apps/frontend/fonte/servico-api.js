@@ -35,6 +35,7 @@ export {
 } from './services/api/core.js';
 export {
   atualizarAvatarUsuarioApi,
+  atualizarNomeUsuarioApi,
   concluirLoginMicrosoftApi,
   encerrarSessaoApi,
   fazerLoginApi,
@@ -64,6 +65,7 @@ export {
   lerHeatmapQuestoes,
   lerProvaGerada,
   lerReplayProvaGerada,
+  lerSessaoPreviaProvaGerada,
   lerSessaoConectaProvas,
   listarProvasGeradas,
   marcarRevisaoConectaProvas,
@@ -72,7 +74,7 @@ export {
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
   salvarRespostasConectaProvas,
-} from './services/api/generated-exams.js?v=20260826-replay-heatmap';
+} from './services/api/generated-exams.js?v=20260902-correcoes-rh';
 export {
   criarAplicacaoDisc,
   criarBlocoDisc,
@@ -103,6 +105,7 @@ export {
   listarPerguntasRaciocinio,
 } from './services/api/raciocinio-logico.js';
 export {
+  adicionarCvManualCaixaEmail,
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
   analisarCurriculoIa,
@@ -148,6 +151,7 @@ export {
   limparListaPreAnalisesCv,
   pausarProcesso,
   marcarAnaliseCurriculoIaRevisada,
+  marcarEmailRecebidoComoLido,
   reconsiderarEliminacaoCandidato,
   registrarWhatsappAprovacao,
   registrarWhatsappContatoManual,
@@ -160,7 +164,7 @@ export {
   cancelarProcesso,
   excluirEmailRecebido,
   vincularEmailRecebidoProcesso,
-} from './services/api/processes.js?v=20260826-reconsider-elim';
+} from './services/api/processes.js?v=20260902-correcoes-rh';
 export {
   enviarCandidaturaPublica,
   lerPaginaPublicaCandidatura,
@@ -230,7 +234,7 @@ export {
   listarUsuarios,
   redefinirSenhaUsuario,
   registrarSolicitacaoLgpd,
-} from './services/api/settings.js?v=20260825-notificacoes-automaticas';
+} from './services/api/settings.js?v=20260902-correcoes-rh';
 export {
   atualizarPolitica,
   buscarPoliticaPendente,
@@ -242,6 +246,7 @@ export {
   atualizarDataComemorativa,
   criarDataComemorativa,
   listarDatasComemorativas,
+  listarEventosCalendario,
   removerDataComemorativa,
 } from './services/api/calendar.js';
 export {

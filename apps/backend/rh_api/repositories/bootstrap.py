@@ -1219,7 +1219,8 @@ def ensure_email_inbox_items_table(cursor) -> None:
                 id_banco INT NULL,
                 criado_em DATETIME NULL,
                 atualizado_em DATETIME NULL,
-                ignorado BIT NULL
+                ignorado BIT NULL,
+                lido BIT NULL
             )
         END
         """
@@ -1260,6 +1261,7 @@ def ensure_email_inbox_items_table(cursor) -> None:
         ("criado_em", "DATETIME"),
         ("atualizado_em", "DATETIME"),
         ("ignorado", "BIT"),
+        ("lido", "BIT"),
     ):
         cursor.execute(
             f"""
@@ -2481,6 +2483,7 @@ def ensure_conecta_exams_tables(cursor) -> None:
                 quantidade_questoes INT NULL,
                 etapas_json NVARCHAR(MAX) NULL,
                 categorias_json NVARCHAR(MAX) NULL,
+                competencias_json NVARCHAR(MAX) NULL,
                 configuracao_json NVARCHAR(MAX) NULL,
                 questoes_json NVARCHAR(MAX) NULL,
                 instrucoes_operacao NVARCHAR(MAX) NULL,
@@ -2527,6 +2530,7 @@ def ensure_conecta_exams_tables(cursor) -> None:
         ("quantidade_questoes", "INT"),
         ("etapas_json", "NVARCHAR(MAX)"),
         ("categorias_json", "NVARCHAR(MAX)"),
+        ("competencias_json", "NVARCHAR(MAX)"),
         ("configuracao_json", "NVARCHAR(MAX)"),
         ("questoes_json", "NVARCHAR(MAX)"),
         ("instrucoes_operacao", "NVARCHAR(MAX)"),

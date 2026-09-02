@@ -1555,8 +1555,8 @@ function TelaFinalizacao({ onInicio }) {
   `;
 }
 
-export function TelaConectaProvas() {
-  const [etapa, setEtapa] = useState('acesso');
+export function TelaConectaProvas({ modoPreview = false, sessaoInicial = null, onFecharPreview = null } = {}) {
+  const [etapa, setEtapa] = useState(modoPreview ? 'etapas' : 'acesso');
   const [metodo, setMetodo] = useState('email');
   const [valorAcesso, setValorAcesso] = useState('');
   const [erro, setErro] = useState('');
@@ -1564,21 +1564,21 @@ export function TelaConectaProvas() {
   const [tentativasEmail, setTentativasEmail] = useState(0);
   const [tentativasTelefone, setTentativasTelefone] = useState(0);
   const [provasEncontradas, setProvasEncontradas] = useState([]);
-  const [token, setToken] = useState('');
-  const [sessao, setSessao] = useState(null);
+  const [token, setToken] = useState(modoPreview ? 'preview' : '');
+  const [sessao, setSessao] = useState(modoPreview ? sessaoInicial : null);
   const [formularioDados, setFormularioDados] = useState({
-    nome_candidato: '',
-    email: '',
-    confirmar_email: '',
-    telefone: '',
-    whatsapp: '',
-    cep: '',
-    endereco: '',
-    numero: '',
-    bairro: '',
-    cidade: '',
-    idade: '',
-    escolaridade: '',
+    nome_candidato: sessaoInicial?.candidato?.nome_candidato || '',
+    email: sessaoInicial?.candidato?.email || '',
+    confirmar_email: sessaoInicial?.candidato?.email || '',
+    telefone: sessaoInicial?.candidato?.telefone || '',
+    whatsapp: sessaoInicial?.candidato?.whatsapp || '',
+    cep: sessaoInicial?.candidato?.cep || '',
+    endereco: sessaoInicial?.candidato?.endereco || '',
+    numero: sessaoInicial?.candidato?.numero || '',
+    bairro: sessaoInicial?.candidato?.bairro || '',
+    cidade: sessaoInicial?.candidato?.cidade || '',
+    idade: sessaoInicial?.candidato?.idade || '',
+    escolaridade: sessaoInicial?.candidato?.escolaridade || '',
   });
   const [respostas, setRespostas] = useState([]);
   const [indiceAtual, setIndiceAtual] = useState(0);
@@ -1606,6 +1606,7 @@ export function TelaConectaProvas() {
   });
 
   useEffect(() => {
+    if (modoPreview) return;
     const salvo = sessionStorage.getItem(CHAVE_TOKEN_PUBLICO) || localStorage.getItem(CHAVE_TOKEN_PUBLICO) || '';
     if (!salvo) return;
     selecionarToken(salvo, { silencioso: true });
@@ -1810,7 +1811,7 @@ export function TelaConectaProvas() {
   };
 
   useEffect(() => {
-    if (etapa !== 'prova' || !token || !etapaSelecionadaKey) return undefined;
+    if (modoPreview || etapa !== 'prova' || !token || !etapaSelecionadaKey) return undefined;
     const confirmarSaidaInterna = () => {
       if (!window.confirm(AVISO_SAIDA_ETAPA)) {
         window.history.pushState({ conectaProvasEtapa: true }, '', window.location.href);
@@ -1843,7 +1844,7 @@ export function TelaConectaProvas() {
   }, [etapa, token, etapaSelecionadaKey]);
 
   useEffect(() => {
-    if (!timestampTerminoEtapa || etapa !== 'prova') return undefined;
+    if (modoPreview || !timestampTerminoEtapa || etapa !== 'prova') return undefined;
     const atualizar = () => {
       const restante = Math.max(0, Math.floor((timestampTerminoEtapa - Date.now()) / 1000));
       setSegundosRestantesEtapa(restante);
@@ -1999,7 +2000,9 @@ export function TelaConectaProvas() {
     setCarregando(true);
     setErro('');
     try {
-      await confirmarDadosConectaProvas({ token, ...formularioDados, idade: Number(formularioDados.idade) });
+      if (!modoPreview) {
+        await confirmarDadosConectaProvas({ token, ...formularioDados, idade: Number(formularioDados.idade) });
+      }
       setSessao((anterior) => ({
         ...anterior,
         candidato: { ...formularioDados, idade: Number(formularioDados.idade), dados_confirmados: true },
@@ -2021,7 +2024,7 @@ export function TelaConectaProvas() {
     setErro('');
     try {
       const provaJaIniciada = Boolean(sessao?.prova?.iniciada_em);
-      const inicio = provaJaIniciada ? {} : await iniciarConectaProvas(token);
+      const inicio = provaJaIniciada || modoPreview ? {} : await iniciarConectaProvas(token);
       const sessaoAtualizada = {
         ...sessao,
         prova: {
@@ -2045,7 +2048,9 @@ export function TelaConectaProvas() {
       setIndiceAtual(primeiroIndice);
       interrupcaoRegistradaRef.current = false;
       setEtapa('prova');
-      iniciarEtapaConectaProvas(token, etapaKey, primeiroIndice, etapaIniciadaEm).catch(() => {});
+      if (!modoPreview) {
+        iniciarEtapaConectaProvas(token, etapaKey, primeiroIndice, etapaIniciadaEm).catch(() => {});
+      }
 
       const { duracaoMinutos, toleranciaMinutos } = obterConfiguracaoTempoEtapa(
         sessaoAtualizada?.prova,
@@ -2083,7 +2088,9 @@ export function TelaConectaProvas() {
       return;
     }
 
-    await salvarRespostasConectaProvas(token, respostas, montarPayloadTelemetria());
+    if (!modoPreview) {
+      await salvarRespostasConectaProvas(token, respostas, montarPayloadTelemetria());
+    }
     setIndiceAtual(Math.max(0, Math.min(questoes.length - 1, proximIndice)));
     setErro('');
   };
@@ -2096,13 +2103,15 @@ export function TelaConectaProvas() {
     setCarregando(true);
     setErro('');
     try {
-      await concluirEtapaConectaProvas(
-        token,
-        respostas,
-        etapaSelecionadaKey,
-        indiceAtual,
-        montarPayloadTelemetria({ finalizarEtapa: true }),
-      );
+      if (!modoPreview) {
+        await concluirEtapaConectaProvas(
+          token,
+          respostas,
+          etapaSelecionadaKey,
+          indiceAtual,
+          montarPayloadTelemetria({ finalizarEtapa: true }),
+        );
+      }
       telemetriaRef.current.indiceAtivo = null;
       telemetriaRef.current.acessoAtivoEm = 0;
       interrupcaoRegistradaRef.current = true;
@@ -2130,7 +2139,9 @@ export function TelaConectaProvas() {
         setCarregando(false);
         return;
       }
-      await marcarRevisaoConectaProvas(token, respostas, montarPayloadTelemetria());
+      if (!modoPreview) {
+        await marcarRevisaoConectaProvas(token, respostas, montarPayloadTelemetria());
+      }
       setEtapa('revisao');
     } catch (error) {
       setErro(error?.message || 'Não foi possível preparar a revisão.');
@@ -2149,13 +2160,15 @@ export function TelaConectaProvas() {
         setCarregando(false);
         return;
       }
-      await finalizarConectaProvas(token, respostas, {
-        finalizarMesmoAssim: finalizarMesmoComPendencias,
-        telemetria: montarPayloadTelemetria({ finalizarEtapa: true }),
-      });
-      sessionStorage.removeItem(CHAVE_TOKEN_PUBLICO);
-      localStorage.removeItem(CHAVE_TOKEN_PUBLICO);
-      limparTimestampTimer(token);
+      if (!modoPreview) {
+        await finalizarConectaProvas(token, respostas, {
+          finalizarMesmoAssim: finalizarMesmoComPendencias,
+          telemetria: montarPayloadTelemetria({ finalizarEtapa: true }),
+        });
+        sessionStorage.removeItem(CHAVE_TOKEN_PUBLICO);
+        localStorage.removeItem(CHAVE_TOKEN_PUBLICO);
+        limparTimestampTimer(token);
+      }
       setPendenciasFinalizacao([]);
       setEtapa('finalizacao');
     } catch (error) {
@@ -2169,7 +2182,9 @@ export function TelaConectaProvas() {
     setCarregando(true);
     setErro('');
     try {
-      await salvarRespostasConectaProvas(token, respostas, montarPayloadTelemetria());
+      if (!modoPreview) {
+        await salvarRespostasConectaProvas(token, respostas, montarPayloadTelemetria());
+      }
       const pendencias = obterPendenciasObrigatorias(questoes, respostas, etapasIgnoradasPorInterrupcao);
       if (pendencias.length) {
         setPendenciasFinalizacao(pendencias);
@@ -2220,6 +2235,21 @@ export function TelaConectaProvas() {
 
   return html`
     <main class=${`conecta-provas-shell ${etapa === 'acesso' ? 'is-access-view' : ''} ${etapa === 'etapas' || etapa === 'confirmacao-etapas' ? 'is-steps-view' : ''}`.trim()}>
+      ${modoPreview
+      ? html`
+            <div class="conecta-provas-preview-banner">
+              <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+              <span>Modo pré-visualização (RH) — nenhuma resposta é salva.</span>
+              ${onFecharPreview
+          ? html`
+                  <button type="button" class="btn btn-sm btn-outline-light" onClick=${onFecharPreview}>
+                    Fechar pré-visualização
+                  </button>
+                `
+          : null}
+            </div>
+          `
+      : null}
       ${etapa === 'acesso'
       ? html`
             <${TelaAcesso}

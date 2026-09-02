@@ -8,6 +8,7 @@ import {
 import {
   EVENTO_AUTENTICACAO_EXPIRADA,
   agendarEntrevista,
+  adicionarCvManualCaixaEmail,
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
   analisarCvEmailRecebido,
@@ -15,6 +16,7 @@ import {
   atualizarEntrevista,
   atualizarAnotacaoDossieProcesso,
   atualizarAvatarUsuarioApi,
+  atualizarNomeUsuarioApi,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
@@ -24,6 +26,7 @@ import {
   atualizarStatusCandidatoAvulso,
   analisarCvProcesso,
   baixarAnexoEmailRecebido,
+  marcarEmailRecebidoComoLido,
   baixarCvCandidato,
   criarBancoTalentos,
   criarCandidatoNoProcesso,
@@ -111,7 +114,7 @@ import {
   registrarSolicitacaoLgpd,
   retomarProcesso,
   cancelarProcesso,
-} from '../servico-api.js?v=20260827-avatar-usuario';
+} from '../servico-api.js?v=20260902-correcoes-rh';
 import { criarLogger } from '../logger.js';
 import {
   montarProvaPorBlueprint,
@@ -1094,6 +1097,15 @@ export function useControladorAplicacao() {
     return resultado;
   };
 
+  const atualizarNomeUsuario = async (nome) => {
+    const resultado = await atualizarNomeUsuarioApi(nome);
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      nomeUsuarioAutenticado: resultado?.nome || anterior.nomeUsuarioAutenticado,
+    }));
+    return resultado;
+  };
+
   const alternarBarraLateral = () => {
     atualizarEstado((anterior) => {
       const recolhida = !anterior.barraLateralRecolhida;
@@ -1738,6 +1750,7 @@ export function useControladorAplicacao() {
     exigirNovoLogin,
     alternarBarraLateral,
     atualizarAvatarUsuario,
+    atualizarNomeUsuario,
     possuiPermissao,
     possuiAlgumaPermissao,
     podeAcessarTela,
@@ -1761,6 +1774,7 @@ export function useControladorAplicacao() {
 
 export {
   agendarEntrevista,
+  adicionarCvManualCaixaEmail,
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
   analisarCvEmailRecebido,
@@ -1768,6 +1782,7 @@ export {
   atualizarEntrevista,
   atualizarAnotacaoDossieProcesso,
   atualizarAvatarUsuarioApi,
+  atualizarNomeUsuarioApi,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
@@ -1777,6 +1792,7 @@ export {
   atualizarStatusCandidatoAvulso,
   analisarCvProcesso,
   baixarAnexoEmailRecebido,
+  marcarEmailRecebidoComoLido,
   baixarCvCandidato,
   baixarRelatorioCandidatos,
   baixarRelatorioProcessos,

@@ -622,6 +622,7 @@ function adaptarQuestaoReformuladaParaSistema(questao, contexto) {
       cliente: questao.cliente || null,
       area: questao.area || null,
     },
+    competencias: normalizarLista(questao.competencias),
   };
 
   if (
@@ -1051,6 +1052,7 @@ function adaptarMultiplaEscolha(questao, contexto) {
     questionBankId: questao.id,
     gabarito: questao.gabarito,
     personalizacao: questao.personalizacao,
+    competencias: normalizarLista(questao.competencias),
   };
 }
 
@@ -1101,6 +1103,7 @@ function adaptarRedacao(questao, contexto) {
     questionBankId: questao.id,
     gabarito: questao.gabarito,
     personalizacao: questao.personalizacao,
+    competencias: normalizarLista(questao.competencias),
   };
 }
 
@@ -1141,6 +1144,7 @@ function adaptarTexto(questao, contexto) {
     questionBankId: questao.id,
     gabarito: questao.gabarito,
     personalizacao: questao.personalizacao,
+    competencias: normalizarLista(questao.competencias),
   };
 }
 

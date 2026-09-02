@@ -668,6 +668,28 @@ export async function baixarAnexoEmailRecebido(idEmail, idAnexo = '') {
   );
 }
 
+export async function adicionarCvManualCaixaEmail(arquivo) {
+  const formData = new FormData();
+  formData.append('arquivo', arquivo);
+  const resultado = await requisitar('/email-inbox/messages/manual', {
+    method: 'POST',
+    body: formData,
+  });
+
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos', 'email-inbox', 'relatorios');
+  return resultado;
+}
+
+export async function marcarEmailRecebidoComoLido(idEmail) {
+  const resultado = await requisitar(
+    `/email-inbox/messages/${encodeURIComponent(idEmail)}/mark-read`,
+    { method: 'POST' },
+  );
+
+  invalidarCacheApi('email-inbox');
+  return resultado;
+}
+
 export async function analisarCvEmailRecebidoGeral(idEmail) {
   const resultado = await requisitar(
     `/email-inbox/messages/${encodeURIComponent(idEmail)}/analyze-cv`,

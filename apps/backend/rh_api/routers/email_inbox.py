@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from ..auth import AuthenticatedUser
@@ -36,12 +36,44 @@ def list_email_inbox_messages(
     )
 
 
+@router.post("/email-inbox/messages/manual", dependencies=[Depends(require_permissions("candidatos.criar"))])
+async def create_manual_email_inbox_item(
+    arquivo: UploadFile = File(...),
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    conteudo = await arquivo.read()
+    result = repository.create_manual_email_inbox_item(
+        filename=arquivo.filename or "curriculo.pdf",
+        content=conteudo,
+        content_type=arquivo.content_type or "",
+        actor=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Candidatos",
+        acao="adicionar_cv_manual_caixa_email",
+        entidade="email_inbox",
+        entidade_id=str((result.get("item") or {}).get("id") or ""),
+    )
+    return result
+
+
 @router.get("/email-inbox/messages/{item_id}", dependencies=[Depends(require_permissions("candidatos.visualizar"))])
 def get_email_inbox_message(
     item_id: str,
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.get_configured_email_inbox_item(item_id)
+
+
+@router.post("/email-inbox/messages/{item_id}/mark-read", dependencies=[Depends(require_permissions("candidatos.visualizar"))])
+def mark_email_inbox_item_read(
+    item_id: str,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.mark_email_inbox_item_read(item_id)
 
 
 @router.post("/email-inbox/messages/{item_id}/download-attachments", dependencies=[Depends(require_permissions("candidatos.baixar_curriculo"))])

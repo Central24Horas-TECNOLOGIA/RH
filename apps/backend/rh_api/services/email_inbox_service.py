@@ -23,6 +23,7 @@ from .helpers import clamp_limit, normalize_compare_text, normalize_text
 logger = logging.getLogger(__name__)
 
 EMAIL_INBOX_ORIGIN = "Recebimento de e-mail"
+MANUAL_UPLOAD_ORIGIN = "Upload manual"
 EMAIL_INBOX_NOT_CONFIGURED_MESSAGE = (
     "Caixa de e-mail corporativa ainda não configurada. Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor."
 )
@@ -810,6 +811,75 @@ class EmailInboxService:
             "attachments": saved_attachments,
             "metadata_path": str(metadata_path),
         }
+
+    def save_manual_attachment(self, *, item_id: str, filename: str, content: bytes, content_type: str = "") -> dict:
+        if not content:
+            raise EmailInboxUnavailable("Arquivo vazio.", configured=True)
+        extension = _attachment_extension(filename)
+        if extension in BLOCKED_ATTACHMENT_EXTENSIONS or extension not in ALLOWED_CV_EXTENSIONS:
+            raise EmailInboxUnavailable("Tipo de arquivo não suportado. Envie PDF, DOC ou DOCX.", configured=True)
+        if len(content) > self.max_attachment_bytes:
+            raise EmailInboxUnavailable("Arquivo maior que o limite permitido.", configured=True)
+
+        received_at = datetime.now()
+        date_folder = received_at.strftime("%Y-%m-%d")
+        message_hash = hashlib.sha256(item_id.encode("utf-8")).hexdigest()[:18]
+        target_folder = self.attachments_root / date_folder / message_hash
+        target_folder.mkdir(parents=True, exist_ok=True)
+
+        original_name = normalize_text(filename) or "curriculo.pdf"
+        safe_name = _clean_filename(original_name)
+        target_path = target_folder / safe_name
+        if target_path.exists():
+            stem = target_path.stem
+            suffix_ext = target_path.suffix
+            suffix = 2
+            while target_path.exists():
+                target_path = target_folder / f"{stem}-{suffix}{suffix_ext}"
+                suffix += 1
+        target_path.write_bytes(content)
+
+        safe_content_type = normalize_text(content_type) or mimetypes.guess_type(original_name)[0] or "application/octet-stream"
+        attachment = {
+            "id": self._attachment_id(item_id, 0, original_name, len(content)),
+            "filename": original_name,
+            "content_type": safe_content_type,
+            "size": len(content),
+            "is_cv_candidate": True,
+            "nome": original_name,
+            "mime_type": safe_content_type,
+            "tamanho_bytes": len(content),
+            "cv_compativel": True,
+            "stored_filename": target_path.name,
+            "path": str(target_path),
+            "relative_path": str(target_path.relative_to(self.attachments_root)),
+        }
+
+        metadata_path = target_folder / "metadata.json"
+        metadata_payload = {
+            "id": item_id,
+            "message_uid": "",
+            "message_id": "",
+            "remetente": "",
+            "assunto": "Currículo adicionado manualmente",
+            "data": _iso_datetime(received_at),
+            "data_recebimento": _iso_datetime(received_at),
+            "resumo": "",
+            "corpo": "",
+            "anexos": [{key: value for key, value in attachment.items() if key != "path"}],
+            "status": "Recebido",
+            "trabalhe_conosco": False,
+            "campos_formulario": {},
+            "curriculo_anexado_informado": "",
+            "inconsistencias": [],
+            "origem": MANUAL_UPLOAD_ORIGIN,
+        }
+        metadata_path.write_text(
+            json.dumps(metadata_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        return {"attachment": attachment, "received_at": received_at}
 
     def resolve_saved_attachment(self, attachments: list[dict], attachment_id: str = "") -> dict:
         requested_id = normalize_text(attachment_id)

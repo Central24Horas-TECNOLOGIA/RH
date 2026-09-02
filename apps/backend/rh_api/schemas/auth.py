@@ -70,3 +70,15 @@ class UpdateAvatarRequest(BaseSchema):
         if safe_value and not _AVATAR_ILUSTRADO_PATTERN.fullmatch(safe_value):
             raise ValueError("Avatar inválido.")
         return safe_value
+
+
+class UpdateNameRequest(BaseSchema):
+    nome: str = Field(default="")
+
+    @field_validator("nome")
+    @classmethod
+    def validate_nome(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not (2 <= len(safe_value) <= 120):
+            raise ValueError("Informe um nome entre 2 e 120 caracteres.")
+        return safe_value

@@ -9,11 +9,20 @@ from ..schemas.calendar import CelebratoryDateCreateRequest, CelebratoryDateUpda
 
 
 router = APIRouter(prefix="/celebratory-dates", tags=["calendar"], dependencies=[Depends(get_current_user)])
+events_router = APIRouter(prefix="/calendar", tags=["calendar"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("")
 def list_celebratory_dates(repository: DatabaseRepository = Depends(get_repository)):
     return repository.list_celebratory_dates()
+
+
+@events_router.get("/events")
+def list_calendar_events(
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.list_calendar_events(include_interviews=user.has_permission("entrevistas.visualizar"))
 
 
 @router.post("", dependencies=[Depends(require_permissions("calendario.editar"))])

@@ -816,12 +816,12 @@
 
 .rh-onedrive-grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
 }
 
 .rh-onedrive-grid--pequena {
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 8px;
 }
 
@@ -830,11 +830,15 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 16px 8px;
+  padding: 8px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm, 6px);
   background: var(--color-surface);
   text-align: center;
+}
+
+.rh-onedrive-card.is-clickable {
+  cursor: pointer;
 }
 
 .rh-onedrive-grid--pequena .rh-onedrive-card {
@@ -843,12 +847,12 @@
 }
 
 .rh-onedrive-card-icon {
-  font-size: 2.5rem;
+  font-size: 2rem;
   color: var(--color-text-soft);
 }
 
 .rh-onedrive-grid--pequena .rh-onedrive-card-icon {
-  font-size: 1.6rem;
+  font-size: 1.4rem;
 }
 
 .rh-onedrive-card-nome {
@@ -856,7 +860,7 @@
   background: transparent;
   border: none;
   padding: 0;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--color-text);
   cursor: pointer;
@@ -865,7 +869,7 @@
 }
 
 .rh-onedrive-card-meta {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--color-text-soft);
 }
 

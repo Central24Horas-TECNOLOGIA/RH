@@ -807,7 +807,7 @@ export function TelaEntrevistas({ controlador }) {
                 </div>
               `
             : null}
-          <div class="rh-filter-field">
+          <div class="rh-filter-field availability-field-capacidade">
             <label>Capacidade por slot</label>
             <input
               class="form-control"
@@ -924,7 +924,7 @@ export function TelaEntrevistas({ controlador }) {
         </div>
       </${SectionCard}>
 
-      <div class="interview-bottom">
+      <div class="interview-bottom-grid">
         <${SectionCard}
           title="Slots do dia"
           description="Visão por horário com disponibilidade, candidato e status."

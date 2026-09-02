@@ -44,7 +44,7 @@ export function BarraLateral({
     {
       tela: 'screen-email-inbox',
       icone: 'mail',
-      label: 'E-mails',
+      label: 'Cx de Currículos',
       permissao: 'candidatos.criar',
     },
   ];
@@ -832,9 +832,6 @@ export function CartaoUsuarioTopo({ controlador }) {
     ? perfilBase
     : `RH / ${perfilBase}`;
   const avatar = resolverAvatarUrl(estado.avatarUsuario);
-  const podeAbrirPerfil =
-    controlador?.possuiPermissao?.('configuracoes.visualizar') ||
-    controlador?.podeAcessarTela?.('screen-settings');
 
   useEffect(() => {
     if (!aberto) return undefined;
@@ -887,22 +884,6 @@ export function CartaoUsuarioTopo({ controlador }) {
       ${aberto
       ? html`
             <div class="c24-user-dropdown" role="menu">
-              ${podeAbrirPerfil
-          ? html`
-                    <button
-                      type="button"
-                      role="menuitem"
-                      class="c24-user-dropdown-item"
-                      onClick=${() => {
-              setAberto(false);
-              controlador.irParaTelaProtegida('screen-settings');
-            }}
-                    >
-                      <span class="material-symbols-outlined">settings</span>
-                      Configurações de Perfil
-                    </button>
-                  `
-          : null}
               <button
                 type="button"
                 role="menuitem"
@@ -912,8 +893,8 @@ export function CartaoUsuarioTopo({ controlador }) {
           controlador.irParaTelaProtegida('screen-settings-environment');
         }}
               >
-                <span class="material-symbols-outlined">tune</span>
-                Configurações de Ambiente
+                <span class="material-symbols-outlined">settings</span>
+                Configurações de Perfil
               </button>
               <button
                 type="button"

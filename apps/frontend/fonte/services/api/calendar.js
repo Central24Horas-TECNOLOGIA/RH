@@ -31,3 +31,7 @@ export async function removerDataComemorativa(idData) {
   invalidarCacheApi('celebratory-dates');
   return resultado;
 }
+
+export async function listarEventosCalendario() {
+  return requisitar('/calendar/events', { method: 'GET' });
+}

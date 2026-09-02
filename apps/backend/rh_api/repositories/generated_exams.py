@@ -105,6 +105,7 @@ EXAM_ROW_COLUMNS = """
     quantidade_questoes,
     etapas_json,
     categorias_json,
+    competencias_json,
     configuracao_json,
     questoes_json,
     instrucoes_operacao,
@@ -666,6 +667,7 @@ class GeneratedExamRepositoryMixin:
                 "quantidade_questoes": int(row.get("quantidade_questoes") or 0),
                 "etapas": safe_json_loads(row.get("etapas_json"), []),
                 "categorias": safe_json_loads(row.get("categorias_json"), []),
+                "competencias": safe_json_loads(row.get("competencias_json"), []),
                 "questoes": _public_questions_payload(
                     GeneratedExamRepositoryMixin._apply_question_shuffle(
                         safe_json_loads(row.get("questoes_json"), []), row
@@ -687,6 +689,7 @@ class GeneratedExamRepositoryMixin:
         detail = dict(row)
         detail["etapas"] = safe_json_loads(row.get("etapas_json"), [])
         detail["categorias"] = safe_json_loads(row.get("categorias_json"), [])
+        detail["competencias"] = safe_json_loads(row.get("competencias_json"), [])
         detail["configuracao"] = safe_json_loads(row.get("configuracao_json"), {})
         detail["questoes"] = safe_json_loads(row.get("questoes_json"), [])
         detail["score"] = safe_json_loads(row.get("score_payload_json"), {})
@@ -694,6 +697,7 @@ class GeneratedExamRepositoryMixin:
         detail["decisao_rh"] = safe_json_loads(row.get("decisao_rh_payload_json"), {})
         detail.pop("etapas_json", None)
         detail.pop("categorias_json", None)
+        detail.pop("competencias_json", None)
         detail.pop("configuracao_json", None)
         detail.pop("questoes_json", None)
         detail.pop("score_payload_json", None)
@@ -1000,6 +1004,7 @@ class GeneratedExamRepositoryMixin:
             access_code = self._generate_access_code(cursor)
             etapas = data.get("etapas") or []
             categorias = data.get("categorias") or []
+            competencias = data.get("competencias") or []
             configuracao = data.get("configuracao") or {}
             personalizacao = data.get("personalizacao") or {}
             if isinstance(configuracao, dict):
@@ -1059,6 +1064,7 @@ class GeneratedExamRepositoryMixin:
                     quantidade_questoes,
                     etapas_json,
                     categorias_json,
+                    competencias_json,
                     configuracao_json,
                     questoes_json,
                     instrucoes_operacao,
@@ -1071,7 +1077,7 @@ class GeneratedExamRepositoryMixin:
                     atualizado_em
                 )
                 OUTPUT INSERTED.id_prova
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, GETDATE())
                 """,
                 (
                     id_teste,
@@ -1091,6 +1097,7 @@ class GeneratedExamRepositoryMixin:
                     int(data.get("quantidade_questoes") or len(questions)),
                     _json_dumps(etapas),
                     _json_dumps(categorias),
+                    _json_dumps(competencias),
                     _json_dumps(configuracao),
                     _json_dumps(questions),
                     normalize_text(data.get("instrucoes_operacao")),
@@ -1187,6 +1194,7 @@ class GeneratedExamRepositoryMixin:
             rows = rows_to_dicts(cursor, cursor.fetchall())
             for row in rows:
                 row["alertas_criticos"] = safe_json_loads(row.get("alertas_criticos_json"), [])
+                row["competencias"] = safe_json_loads(row.get("competencias_json"), [])
                 row.pop("token_sessao_publica", None)
                 row.pop("token_expira_em", None)
             return rows
@@ -1242,7 +1250,7 @@ class GeneratedExamRepositoryMixin:
                 UPDATE dbo.provas_geradas
                 SET nome_candidato = ?, email_acesso = ?, telefone_acesso = ?, cpf = ?,
                     vaga = ?, operacao = ?, trilha = ?, nivel = ?, tempo_total = ?,
-                    quantidade_questoes = ?, etapas_json = ?, categorias_json = ?,
+                    quantidade_questoes = ?, etapas_json = ?, categorias_json = ?, competencias_json = ?,
                     configuracao_json = ?, questoes_json = ?, instrucoes_operacao = ?,
                     expira_em = ?, login_method = ?, atualizado_em = GETDATE()
                 WHERE id_prova = ?
@@ -1260,6 +1268,7 @@ class GeneratedExamRepositoryMixin:
                     int(data.get("quantidade_questoes") or len(questions)),
                     _json_dumps(data.get("etapas") or []),
                     _json_dumps(data.get("categorias") or []),
+                    _json_dumps(data.get("competencias") or []),
                     _json_dumps({**configuracao, "personalizacao": personalizacao}),
                     _json_dumps(questions),
                     normalize_text(data.get("instrucoes_operacao")),
@@ -1307,6 +1316,28 @@ class GeneratedExamRepositoryMixin:
             detail = self._exam_detail_payload(row)
             detail["respostas"] = self._get_exam_answers(cursor, id_prova)
             return detail
+        finally:
+            conn.close()
+
+    def preview_generated_exam_session(self, id_prova: int) -> dict:
+        """Sessao somente-leitura para o RH pre-visualizar a prova exatamente como o
+        candidato ve (mesmo payload sanitizado de public_get_exam_session), sem
+        persistir nada — nao escreve em respostas_provas nem em provas_geradas."""
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_conecta_exams_tables(cursor)
+            row = self._get_exam_row_with_result(cursor, id_prova)
+            payload = self._exam_public_payload(row)
+            payload["candidato"].update(
+                {
+                    "nome_candidato": "Pré-visualização (RH)",
+                    "dados_confirmados": True,
+                }
+            )
+            payload["respostas"] = []
+            payload["preview"] = True
+            return payload
         finally:
             conn.close()
 

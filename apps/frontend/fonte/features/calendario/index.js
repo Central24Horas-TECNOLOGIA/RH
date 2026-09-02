@@ -3,6 +3,7 @@ import {
   atualizarDataComemorativa,
   criarDataComemorativa,
   listarDatasComemorativas,
+  listarEventosCalendario,
   removerDataComemorativa,
 } from '../../servico-api.js';
 import {
@@ -37,8 +38,22 @@ function formatarProximidade(item) {
   return `Em ${dias} dias`;
 }
 
+function formatarDataHoraEntrevista(valor) {
+  if (!valor) return '-';
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return String(valor);
+  return data.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function TelaCalendario({ controlador }) {
   const [datas, setDatas] = useState([]);
+  const [eventosEntrevista, setEventosEntrevista] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [modalAberto, setModalAberto] = useState(false);
@@ -52,10 +67,19 @@ export function TelaCalendario({ controlador }) {
     setCarregando(true);
     setErro('');
     try {
-      const dados = await listarDatasComemorativas();
-      setDatas(Array.isArray(dados) ? dados : []);
-    } catch (error) {
-      setErro(error?.message || 'Não foi possível carregar as datas comemorativas.');
+      const [datasResp, eventosResp] = await Promise.allSettled([
+        listarDatasComemorativas(),
+        listarEventosCalendario(),
+      ]);
+      if (datasResp.status === 'fulfilled') {
+        setDatas(Array.isArray(datasResp.value) ? datasResp.value : []);
+      } else {
+        setErro(datasResp.reason?.message || 'Não foi possível carregar as datas comemorativas.');
+      }
+      if (eventosResp.status === 'fulfilled') {
+        const eventos = Array.isArray(eventosResp.value) ? eventosResp.value : [];
+        setEventosEntrevista(eventos.filter((evento) => evento?.tipo === 'entrevista'));
+      }
     } finally {
       setCarregando(false);
     }
@@ -212,6 +236,43 @@ export function TelaCalendario({ controlador }) {
                         colunas=${totalColunas}
                         texto="Nenhuma data comemorativa cadastrada."
                         icone="celebration"
+                      />
+                    `}
+            </tbody>
+          </table>
+        </div>
+      </${SectionCard}>
+
+      <${SectionCard} title="Entrevistas agendadas" className="rh-section-card--flat">
+        <div class="table-responsive">
+          <table class="table align-middle rh-modern-history-table">
+            <thead>
+              <tr>
+                <th>Candidato</th>
+                <th>Vaga</th>
+                <th>Data e hora</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${carregando
+      ? html`<${SkeletonTableRows} colunas=${4} linhas=${3} />`
+      : eventosEntrevista.length
+        ? eventosEntrevista.map(
+          (evento) => html`
+                      <tr key=${evento.id}>
+                        <td><strong>${evento.titulo}</strong></td>
+                        <td>${evento.vaga || '-'}</td>
+                        <td>${formatarDataHoraEntrevista(evento.data)}</td>
+                        <td>${evento.status || '-'}</td>
+                      </tr>
+                    `,
+        )
+        : html`
+                      <${TabelaVazia}
+                        colunas=${4}
+                        texto="Nenhuma entrevista agendada no momento."
+                        icone="event_available"
                       />
                     `}
             </tbody>
