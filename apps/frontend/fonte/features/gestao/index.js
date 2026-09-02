@@ -1096,7 +1096,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
       <${ToastHost} />
       <${SectionCard}
         className=${`mailbox-card ${compacto ? 'mailbox-card-compact' : 'mailbox-card-full'}`}
-        title=${compacto ? 'Caixa de E-mail' : ''}
+        title=${compacto ? 'Cx de Currículos' : ''}
         actions=${html`
           <div class=${`mailbox-toolbar rh-email-panel-actions ${compacto ? 'mailbox-toolbar-compact' : 'mailbox-toolbar-full'}`}>
             ${!compacto
