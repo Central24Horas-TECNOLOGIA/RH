@@ -704,6 +704,29 @@ class SecurityRepositoryMixin:
         finally:
             conn.close()
 
+    def update_own_name(self, id_usuario: int, nome: str) -> dict:
+        safe_name = normalize_text(nome)
+        if not safe_name:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Informe um nome válido.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET nome = ?, atualizado_em = GETDATE()
+                WHERE id_usuario = ?
+                """,
+                (safe_name, int(id_usuario)),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+            conn.commit()
+            return {"success": True, "nome": safe_name}
+        finally:
+            conn.close()
+
     def begin_mfa_enrollment(self, id_usuario: int, *, actor=None) -> dict:
         secret = generate_secret()
         try:

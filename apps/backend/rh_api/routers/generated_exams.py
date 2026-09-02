@@ -114,6 +114,14 @@ def get_generated_exam_replay(id_prova: int, repository: DatabaseRepository = De
     return repository.get_exam_replay(id_prova)
 
 
+@router.get(
+    "/generated-exams/{id_prova}/preview-session",
+    dependencies=[Depends(get_current_user), Depends(require_permissions("provas.visualizar"))],
+)
+def get_generated_exam_preview_session(id_prova: int, repository: DatabaseRepository = Depends(get_repository)):
+    return repository.preview_generated_exam_session(id_prova)
+
+
 @router.put(
     "/generated-exams/{id_prova}",
     dependencies=[Depends(get_current_user), Depends(require_permissions("provas.editar"))],

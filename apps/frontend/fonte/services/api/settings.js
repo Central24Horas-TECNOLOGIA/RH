@@ -45,7 +45,12 @@ export async function atualizarPermissoesPerfil(idPerfil, payload) {
 }
 
 export async function listarUsuarios(filtros = {}) {
-  return requisitar(`/settings/users${montarQuery(filtros)}`, { method: 'GET' });
+  const chave = `settings:users:${JSON.stringify(filtros || {})}`;
+  const emCache = lerCache(chave, { ttlMs: 300000, persistente: true });
+  if (emCache) return emCache;
+  const dados = await requisitar(`/settings/users${montarQuery(filtros)}`, { method: 'GET' });
+  gravarCache(chave, dados, { ttlMs: 300000, persistente: true });
+  return dados;
 }
 
 export async function criarUsuario(payload) {
@@ -54,7 +59,7 @@ export async function criarUsuario(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
-  invalidarCacheApi('settings:roles');
+  invalidarCacheApi('settings:roles', 'settings:users');
   return resultado;
 }
 
@@ -64,7 +69,7 @@ export async function atualizarUsuario(idUsuario, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
-  invalidarCacheApi('settings:roles');
+  invalidarCacheApi('settings:roles', 'settings:users');
   return resultado;
 }
 
@@ -82,7 +87,7 @@ export async function alterarStatusUsuario(idUsuario, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload || {}),
   });
-  invalidarCacheApi('settings:roles');
+  invalidarCacheApi('settings:roles', 'settings:users');
   return resultado;
 }
 
@@ -91,7 +96,7 @@ export async function excluirUsuario(idUsuario, justificativa = '') {
     `/settings/users/${encodeURIComponent(idUsuario)}${montarQuery({ justificativa })}`,
     { method: 'DELETE' },
   );
-  invalidarCacheApi('settings:roles');
+  invalidarCacheApi('settings:roles', 'settings:users');
   return resultado;
 }
 

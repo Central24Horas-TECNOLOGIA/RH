@@ -52,6 +52,17 @@ export async function atualizarAvatarUsuarioApi(avatarIlustrado) {
   return resultado;
 }
 
+export async function atualizarNomeUsuarioApi(nome) {
+  const resultado = await requisitar('/auth/me/nome', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome: nome || '' }),
+  });
+
+  salvarSessaoAutenticacao(resultado.access_token || lerSessaoAutenticacao().token, resultado);
+  return resultado;
+}
+
 export async function encerrarSessaoApi() {
   try {
     if (!possuiSessaoAutenticada()) {

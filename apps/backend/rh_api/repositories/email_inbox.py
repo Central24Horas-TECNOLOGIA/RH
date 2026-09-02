@@ -4,6 +4,7 @@ import base64
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import HTTPException, status
 
@@ -29,6 +30,7 @@ from ..services.email_inbox_service import (
     EMAIL_INBOX_CONNECTION_ERROR_MESSAGE,
     EMAIL_INBOX_NOT_CONFIGURED_MESSAGE,
     EMAIL_INBOX_ORIGIN,
+    MANUAL_UPLOAD_ORIGIN,
     EmailInboxService,
     EmailInboxUnavailable,
 )
@@ -173,6 +175,7 @@ class EmailInboxRepositoryMixin:
             "origem": normalize_text(row.get("origem")) or EMAIL_INBOX_ORIGIN,
             "oculto": bool(row.get("ignorado")),
             "ignorado": bool(row.get("ignorado")),
+            "lido": bool(row.get("lido")),
             "processo_vinculado": normalize_text(row.get("processo_id")),
             "candidato_id": normalize_text(row.get("candidato_id")),
             "id_pre_analise": row.get("id_pre_analise"),
@@ -221,7 +224,8 @@ class EmailInboxRepositoryMixin:
                 id_banco,
                 criado_em,
                 atualizado_em,
-                ignorado
+                ignorado,
+                lido
             FROM email_inbox_items
             WHERE id = ?
             """,
@@ -368,7 +372,7 @@ class EmailInboxRepositoryMixin:
             normalize_text(item.get("curriculo_anexado_informado")),
             json.dumps(item.get("inconsistencias") or [], ensure_ascii=False),
             effective_status,
-            EMAIL_INBOX_ORIGIN,
+            normalize_text(item.get("origem")) or EMAIL_INBOX_ORIGIN,
             normalize_text(item.get("nome_anexo")),
             normalize_text(first_attachment.get("content_type") or first_attachment.get("mime_type")),
             int(first_attachment.get("size") or first_attachment.get("tamanho_bytes") or 0),
@@ -493,7 +497,8 @@ class EmailInboxRepositoryMixin:
                 id_banco,
                 criado_em,
                 atualizado_em,
-                ignorado
+                ignorado,
+                lido
             FROM email_inbox_items
             WHERE (? = 1 OR ISNULL(ignorado, 0) = 0)
             ORDER BY data_recebimento DESC, criado_em DESC
@@ -597,6 +602,68 @@ class EmailInboxRepositoryMixin:
         conn = self._connect()
         try:
             cursor = conn.cursor()
+            row = self._select_email_inbox_item(cursor, item_id)
+            if not row.get("lido"):
+                cursor.execute(
+                    "UPDATE email_inbox_items SET lido = 1 WHERE id = ?",
+                    (normalize_text(item_id),),
+                )
+                conn.commit()
+                row["lido"] = True
+            return {"success": True, "item": self._serialize_email_inbox_item(row, include_body=True)}
+        finally:
+            conn.close()
+
+    def mark_email_inbox_item_read(self, item_id: str) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_email_inbox_items_table(cursor)
+            cursor.execute(
+                "UPDATE email_inbox_items SET lido = 1 WHERE id = ?",
+                (normalize_text(item_id),),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="E-mail recebido não encontrado.")
+            conn.commit()
+            row = self._select_email_inbox_item(cursor, item_id)
+            return {"success": True, "item": self._serialize_email_inbox_item(row)}
+        finally:
+            conn.close()
+
+    def create_manual_email_inbox_item(
+        self,
+        *,
+        filename: str,
+        content: bytes,
+        content_type: str = "",
+        actor: str = "",
+    ) -> dict:
+        item_id = f"manual-{uuid4().hex[:20]}"
+        saved = self._email_inbox_service().save_manual_attachment(
+            item_id=item_id,
+            filename=filename,
+            content=content,
+            content_type=content_type,
+        )
+        attachment = saved["attachment"]
+        item = {
+            "id": item_id,
+            "remetente_nome": f"Upload manual — {normalize_text(actor) or 'RH'}",
+            "assunto": "Currículo adicionado manualmente",
+            "data_recebimento": saved["received_at"],
+            "status": "Recebido",
+            "nome_anexo": attachment.get("filename"),
+            "anexos": [attachment],
+            "origem": MANUAL_UPLOAD_ORIGIN,
+        }
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_email_inbox_items_table(cursor)
+            self._upsert_email_inbox_summary(cursor, item)
+            conn.commit()
             row = self._select_email_inbox_item(cursor, item_id)
             return {"success": True, "item": self._serialize_email_inbox_item(row, include_body=True)}
         finally:

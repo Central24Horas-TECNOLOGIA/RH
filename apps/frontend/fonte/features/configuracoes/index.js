@@ -390,6 +390,8 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     () => lerPreferenciasNotificacao(),
   );
   const [salvandoAvatar, setSalvandoAvatar] = useState(false);
+  const [nomeDraft, setNomeDraft] = useState(() => controlador?.estado?.nomeUsuarioAutenticado || '');
+  const [salvandoNome, setSalvandoNome] = useState(false);
   const [formUsuario, setFormUsuario] = useState(FORM_USUARIO_INICIAL);
   const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState('');
   const [criandoUsuario, setCriandoUsuario] = useState(false);
@@ -429,6 +431,20 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const [confirmandoExclusaoUsuario, setConfirmandoExclusaoUsuario] = useState(false);
 
   const permissoesPorModulo = useMemo(() => agruparPermissoes(permissoes), [permissoes]);
+  const permissoesFiltradasPorModulo = useMemo(() => {
+    const termo = normalizarBusca(buscaPermissao);
+    return Object.entries(permissoesPorModulo)
+      .map(([modulo, itens]) => [
+        modulo,
+        itens.filter((permissao) => {
+          const ativa = permissoesPerfilDraft.includes(permissao.chave);
+          if (mostrarSomenteAtivas && !ativa) return false;
+          if (!termo) return true;
+          return textoCampos(modulo, permissao.chave, permissao.descricao).includes(termo);
+        }),
+      ])
+      .filter(([, itens]) => itens.length > 0);
+  }, [permissoesPorModulo, buscaPermissao, mostrarSomenteAtivas, permissoesPerfilDraft]);
   const secaoCatalogoAtiva = useMemo(
     () => catalogo.find((secao) => secao.tipo === tipoCatalogo) || catalogo[0] || null,
     [catalogo, tipoCatalogo],
@@ -518,47 +534,47 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     });
   }, [usuarioSelecionadoId, criandoUsuario, usuarios]);
 
-  const carregarTudo = async () => {
+  const carregarAba = async (aba) => {
     setCarregando(true);
     setErro('');
     try {
-      const [usuariosResp, perfisResp, permissoesResp, catalogoResp, logsResp, automacaoResp] =
-        await Promise.allSettled([
-          controlador.possuiPermissao('usuarios.visualizar') ? listarUsuarios() : [],
-          controlador.possuiPermissao('configuracoes.visualizar') ? listarPerfis() : [],
-          controlador.possuiPermissao('configuracoes.visualizar') ? listarPermissoes() : [],
-          controlador.possuiPermissao('configuracoes.visualizar')
-            ? listarCatalogoConfiguracoes()
-            : { sections: [] },
-          controlador.possuiPermissao('logs.visualizar') ? listarLogsAuditoria({ limit: 160 }) : [],
-          controlador.possuiPermissao('notificacoes.configurar')
-            ? lerAutomacaoNotificacoes()
-            : { email_automatico_ativo: false, lembretes_automaticos_ativos: false },
-        ]);
-
-      if (usuariosResp.status === 'fulfilled') setUsuarios(normalizarLista(usuariosResp.value));
-      if (perfisResp.status === 'fulfilled') setPerfis(normalizarLista(perfisResp.value));
-      if (permissoesResp.status === 'fulfilled') setPermissoes(normalizarLista(permissoesResp.value));
-      if (catalogoResp.status === 'fulfilled') {
-        const secoes = normalizarLista(catalogoResp.value?.sections);
-        setCatalogo(secoes);
-        setTipoCatalogo((atual) =>
-          secoes.some((secao) => secao.tipo === atual) ? atual : secoes[0]?.tipo || '',
+      const tarefas = [];
+      if (aba === 'usuarios' && controlador.possuiPermissao('usuarios.visualizar')) {
+        tarefas.push(listarUsuarios().then((valor) => setUsuarios(normalizarLista(valor))));
+      }
+      if (aba === 'perfis' && controlador.possuiPermissao('configuracoes.visualizar')) {
+        tarefas.push(listarPerfis().then((valor) => setPerfis(normalizarLista(valor))));
+        tarefas.push(listarPermissoes().then((valor) => setPermissoes(normalizarLista(valor))));
+      }
+      if ((aba === 'operacoes' || aba === 'catalogos') && controlador.possuiPermissao('configuracoes.visualizar')) {
+        tarefas.push(
+          listarCatalogoConfiguracoes().then((valor) => {
+            const secoes = normalizarLista(valor?.sections);
+            setCatalogo(secoes);
+            setTipoCatalogo((atual) =>
+              secoes.some((secao) => secao.tipo === atual) ? atual : secoes[0]?.tipo || '',
+            );
+          }),
         );
       }
-      if (logsResp.status === 'fulfilled') setLogs(normalizarLista(logsResp.value));
-      if (automacaoResp.status === 'fulfilled') {
-        setAutomacaoNotificacoes({
-          email_automatico_ativo: Boolean(automacaoResp.value?.email_automatico_ativo),
-          lembretes_automaticos_ativos: Boolean(automacaoResp.value?.lembretes_automaticos_ativos),
-        });
+      if (aba === 'notificacoes' && controlador.possuiPermissao('notificacoes.configurar')) {
+        tarefas.push(
+          lerAutomacaoNotificacoes().then((valor) => {
+            setAutomacaoNotificacoes({
+              email_automatico_ativo: Boolean(valor?.email_automatico_ativo),
+              lembretes_automaticos_ativos: Boolean(valor?.lembretes_automaticos_ativos),
+            });
+          }),
+        );
+      }
+      if (aba === 'logs' && controlador.possuiPermissao('logs.visualizar')) {
+        tarefas.push(listarLogsAuditoria({ limit: 160 }).then((valor) => setLogs(normalizarLista(valor))));
       }
 
-      const falha = [usuariosResp, perfisResp, permissoesResp, catalogoResp, logsResp].find(
-        (item) => item.status === 'rejected',
-      );
+      const resultados = await Promise.allSettled(tarefas);
+      const falha = resultados.find((item) => item.status === 'rejected');
       if (falha) {
-        setErro(falha.reason?.message || 'Não foi possível carregar parte das configurações.');
+        setErro(falha.reason?.message || 'Não foi possível carregar as configurações desta aba.');
       }
       setUltimaAtualizacao(new Date());
     } finally {
@@ -567,8 +583,8 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   };
 
   useEffect(() => {
-    carregarTudo();
-  }, []);
+    if (abaRenderizada) carregarAba(abaRenderizada);
+  }, [abaRenderizada]);
 
   useEffect(() => {
     if (!drawerUsuarioAberto) return undefined;
@@ -666,7 +682,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         setFeedback('Usuário criado com sucesso.');
       }
       setCriandoUsuario(false);
-      await carregarTudo();
+      await carregarAba(abaRenderizada);
     } catch (error) {
       setErro(error?.message || 'Não foi possível salvar o usuário.');
     } finally {
@@ -683,7 +699,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         justificativa: `Status alterado por Configurações: ${acao}.`,
       });
       setFeedback('Status do usuário atualizado.');
-      await carregarTudo();
+      await carregarAba(abaRenderizada);
     } catch (error) {
       setErro(error?.message || 'Não foi possível alterar o status do usuário.');
     }
@@ -696,7 +712,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     try {
       await excluirUsuario(usuario.id_usuario, 'Desativação lógica por Configurações.');
       setFeedback('Usuário desativado.');
-      await carregarTudo();
+      await carregarAba(abaRenderizada);
     } catch (error) {
       setErro(error?.message || 'Não foi possível desativar o usuário.');
     }
@@ -714,7 +730,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       setCriandoUsuario(false);
       setUsuarioSelecionadoId('');
       setFormUsuario(FORM_USUARIO_INICIAL);
-      await carregarTudo();
+      await carregarAba(abaRenderizada);
     } catch (error) {
       setErro(error?.message || 'Não foi possível excluir o usuário.');
     } finally {
@@ -858,7 +874,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         setFeedback('Configuração criada.');
       }
       setFormItem(FORM_ITEM_INICIAL);
-      await carregarTudo();
+      await carregarAba(abaRenderizada);
     } catch (error) {
       setErro(error?.message || 'Não foi possível salvar a configuração.');
     } finally {
@@ -878,7 +894,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         'Arquivamento lógico por Configurações.',
       );
       setFeedback('Configuração arquivada.');
-      await carregarTudo();
+      await carregarAba(abaRenderizada);
     } catch (error) {
       setErro(error?.message || 'Não foi possível arquivar a configuração.');
     }
@@ -895,7 +911,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         justificativa: justificativaPerfil,
       });
       setFeedback('Permissões do perfil atualizadas.');
-      await carregarTudo();
+      await carregarAba(abaRenderizada);
     } catch (error) {
       setErro(error?.message || 'Não foi possível salvar as permissões do perfil.');
     } finally {
@@ -1269,7 +1285,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                 title="Atualizar usuários"
                 aria-label="Atualizar usuários"
                 disabled=${carregando}
-                onClick=${carregarTudo}
+                onClick=${() => carregarAba(abaRenderizada)}
               >
                 <${Icone} name="refresh" />
               </button>
@@ -2423,8 +2439,52 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     salvarPreferenciasNotificacao(proximas);
   };
 
+  const salvarNomeAmbiente = async () => {
+    const nomeLimpo = nomeDraft.trim();
+    if (!nomeLimpo) return;
+    setSalvandoNome(true);
+    setErro('');
+    try {
+      await controlador.atualizarNomeUsuario(nomeLimpo);
+      setNomeDraft(nomeLimpo);
+      setFeedback('Nome atualizado.');
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível atualizar o nome.');
+    } finally {
+      setSalvandoNome(false);
+    }
+  };
+
   const renderAmbiente = () => html`
     <div class="settings-admin-shell">
+      <section class="c24-card">
+        <header class="c24-card-header">
+          <h2>Seus dados</h2>
+        </header>
+        <div class="process-cutoff-panel">
+          <label class="settings-name-field">
+            <span>Nome</span>
+            <div class="settings-name-row">
+              <input
+                class="form-control"
+                value=${nomeDraft}
+                maxlength="120"
+                disabled=${salvandoNome}
+                onInput=${(event) => setNomeDraft(event.target.value)}
+              />
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                disabled=${salvandoNome || !nomeDraft.trim() || nomeDraft.trim() === (controlador?.estado?.nomeUsuarioAutenticado || '').trim()}
+                onClick=${salvarNomeAmbiente}
+              >
+                ${salvandoNome ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </label>
+        </div>
+      </section>
+
       <section class="c24-card">
         <header class="c24-card-header">
           <h2>Aparência</h2>
@@ -2569,7 +2629,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
             <p>${logsFiltrados.length} evento(s) encontrados nos filtros atuais.</p>
           </div>
           <div class="settings-card-actions">
-            <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${carregarTudo}>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => carregarAba(abaRenderizada)}>
               <${Icone} name="refresh" /> Atualizar
             </button>
             <button type="button" class="btn btn-primary btn-sm" disabled=${!controlador.possuiPermissao('logs.exportar')} onClick=${exportarLogs}>

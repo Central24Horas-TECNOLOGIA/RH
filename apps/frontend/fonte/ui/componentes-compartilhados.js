@@ -1,6 +1,7 @@
 export {
   EmptyState,
   GrupoPaginacao,
+  IlustracaoEstadoVazio,
   LoadingState,
   MetricGrid,
 } from './components/feedback.js';
@@ -11,7 +12,7 @@ export {
   SectionCard,
   Tabs,
   TabPanel,
-} from './components/layout.js?v=20260901-nav-topo-home';
+} from './components/layout.js?v=20260902-correcoes-rh';
 export {
   ModalConfirmacaoAcao,
   ModalDetalhesProva,

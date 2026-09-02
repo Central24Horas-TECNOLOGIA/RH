@@ -74,16 +74,38 @@ export function MetricGrid({ items = [] }) {
   `;
 }
 
-export function EmptyState({ title, text, icon = '', action = null }) {
+export function IlustracaoEstadoVazio() {
+  return html`
+    <svg
+      class="rh-empty-state-illustration"
+      width="96"
+      height="96"
+      viewBox="0 0 96 96"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect x="20" y="14" width="44" height="56" rx="6" stroke="currentColor" stroke-width="2.5" />
+      <line x1="30" y1="30" x2="54" y2="30" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+      <line x1="30" y1="40" x2="54" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+      <line x1="30" y1="50" x2="46" y2="50" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+      <circle cx="66" cy="64" r="12" stroke="currentColor" stroke-width="2.5" />
+      <line x1="75" y1="73" x2="84" y2="82" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+    </svg>
+  `;
+}
+
+export function EmptyState({ title, text, icon = '', ilustracao = null, action = null }) {
   return html`
     <div class="rh-empty-state">
-      ${icon
-        ? html`
+      ${ilustracao
+        ? ilustracao
+        : icon
+          ? html`
             <span class="rh-empty-state-icon material-symbols-outlined" aria-hidden="true">
               ${icon}
             </span>
           `
-        : null}
+          : null}
       <h3>${title}</h3>
       <p>${text}</p>
       ${action

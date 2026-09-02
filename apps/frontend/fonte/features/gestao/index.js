@@ -44,11 +44,13 @@ import {
   obterRegrasFormularioProcesso,
   obterRotuloSituacaoAtual,
   atualizarPerfilCandidato,
+  adicionarCvManualCaixaEmail,
   baixarAnexoEmailRecebido,
   analisarCvEmailRecebidoGeral,
   enviarEmailRecebidoBancoTalentos,
   ignorarEmailRecebido,
   lerDetalheEmailRecebido,
+  marcarEmailRecebidoComoLido,
   excluirEmailRecebido,
   lerEmailsRecebidos,
   removerBancoTalentos,
@@ -1059,9 +1061,25 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
     try {
       const resposta = await lerDetalheEmailRecebido(item.id);
       setDetalheEmail(resposta?.item || item);
+      setEmails((atuais) =>
+        atuais.map((atual) => (String(atual.id) === String(item.id) ? { ...atual, lido: true } : atual)),
+      );
     } catch (error) {
       setDetalheEmail(item);
       registrarErroAcao(error, 'Não foi possível carregar os detalhes do e-mail.');
+    }
+  };
+
+  const marcarComoLidoSemAbrir = async (item, event) => {
+    event?.stopPropagation?.();
+    if (item.lido) return;
+    try {
+      await marcarEmailRecebidoComoLido(item.id);
+      setEmails((atuais) =>
+        atuais.map((atual) => (String(atual.id) === String(item.id) ? { ...atual, lido: true } : atual)),
+      );
+    } catch (error) {
+      registrarErroAcao(error, 'Não foi possível marcar o e-mail como lido.');
     }
   };
 
@@ -1221,7 +1239,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
             const dataHora = formatarPartesDataHoraEmail(item.data_recebimento);
             const selecionado = idsSelecionados.includes(String(item.id));
             return html`
-                            <tr key=${item.id} class=${`email-row ${selecionado ? 'is-selected' : ''}`}>
+                            <tr key=${item.id} class=${`email-row ${selecionado ? 'is-selected' : ''} ${item.lido ? '' : 'is-unread'}`}>
                               ${compacto
                 ? null
                 : html`
@@ -1240,7 +1258,23 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                                 <small>${dataHora.hora}</small>
                               </td>
                               <td class="email-subject-cell" data-label="Assunto">
-                                <div>${item.assunto || 'Sem assunto'}</div>
+                                <div>
+                                  ${!item.lido
+                    ? html`
+                                        <button
+                                          type="button"
+                                          class="email-unread-dot"
+                                          title="Marcar como lido"
+                                          aria-label="Marcar como lido"
+                                          onClick=${(event) => marcarComoLidoSemAbrir(item, event)}
+                                        ></button>
+                                      `
+                    : null}
+                                  ${item.assunto || 'Sem assunto'}
+                                  ${item.origem === 'Upload manual'
+                    ? html`<span class="rh-chip email-origin-chip">Manual</span>`
+                    : null}
+                                </div>
                               </td>
                               ${compacto
                 ? null
@@ -2091,7 +2125,7 @@ export function TelaInicio({ controlador }) {
         onClick: () => controlador.irParaTelaProtegida('screen-interviews'),
       },
       {
-        label: 'Caixa de Email',
+        label: 'Cx de Currículos',
         icon: 'send',
         permissao: 'candidatos.criar',
         onClick: () => controlador.irParaTelaProtegida('screen-email-inbox'),
@@ -2347,32 +2381,74 @@ export function TelaInicio({ controlador }) {
 
 export function TelaCaixaEmail({ controlador }) {
   const [modalComporAberto, setModalComporAberto] = useState(false);
+  const [modalCvManualAberto, setModalCvManualAberto] = useState(false);
+  const [arquivoCvManual, setArquivoCvManual] = useState(null);
+  const [enviandoCvManual, setEnviandoCvManual] = useState(false);
+  const [erroCvManual, setErroCvManual] = useState('');
+  const [chaveRecarregarEmails, setChaveRecarregarEmails] = useState(0);
   const podeComporEmail =
     controlador?.possuiPermissao?.('emails.enviar_modelo') ||
     controlador?.possuiPermissao?.('emails.enviar_livre');
+  const podeAdicionarCvManual = controlador?.possuiPermissao?.('candidatos.criar');
+
+  const fecharModalCvManual = () => {
+    if (enviandoCvManual) return;
+    setModalCvManualAberto(false);
+    setArquivoCvManual(null);
+    setErroCvManual('');
+  };
+
+  const enviarCvManual = async () => {
+    if (!arquivoCvManual) return;
+    setEnviandoCvManual(true);
+    setErroCvManual('');
+    try {
+      await adicionarCvManualCaixaEmail(arquivoCvManual);
+      cacheSecoesEmail.clear();
+      setChaveRecarregarEmails((valor) => valor + 1);
+      setModalCvManualAberto(false);
+      setArquivoCvManual(null);
+    } catch (error) {
+      setErroCvManual(error?.message || 'Não foi possível adicionar o currículo.');
+    } finally {
+      setEnviandoCvManual(false);
+    }
+  };
 
   return html`
     <${PainelRh}
       screenId="screen-email-inbox"
       navAtiva="screen-email-inbox"
       subtituloMarca="Central 24h"
-      placeholderBusca="Caixa de e-mail"
+      placeholderBusca="Cx de Currículos"
       controlador=${controlador}
     >
       <${PageIntro}
         kicker="Currículos recebidos"
-        title="Caixa de E-mail"
+        title="Cx de Currículos"
         description=""
-        actions=${podeComporEmail
-          ? html`
-              <button type="button" class="btn btn-primary" onClick=${() => setModalComporAberto(true)}>
-                <span class="material-symbols-outlined" aria-hidden="true">edit_note</span> Compor e-mail
-              </button>
-            `
-          : null}
+        actions=${html`
+          <div class="d-flex gap-2">
+            ${podeAdicionarCvManual
+              ? html`
+                  <button type="button" class="btn btn-outline-primary" onClick=${() => setModalCvManualAberto(true)}>
+                    <span class="material-symbols-outlined" aria-hidden="true">upload_file</span> Adicionar currículo manualmente
+                  </button>
+                `
+              : null}
+            ${podeComporEmail
+              ? html`
+                  <button type="button" class="btn btn-primary" onClick=${() => setModalComporAberto(true)}>
+                    <span class="material-symbols-outlined" aria-hidden="true">edit_note</span> Compor e-mail
+                  </button>
+                `
+              : null}
+          </div>
+        `}
       />
 
       <${SecaoCurriculosRecebidosEmail}
+        key=${chaveRecarregarEmails}
         modo="completo"
         controlador=${controlador}
       />
@@ -2384,6 +2460,53 @@ export function TelaCaixaEmail({ controlador }) {
               controlador=${controlador}
               onClose=${() => setModalComporAberto(false)}
             />
+          `
+        : null}
+
+      ${podeAdicionarCvManual
+        ? html`
+            <${ModalPadrao}
+              aberto=${modalCvManualAberto}
+              titulo="Adicionar currículo manualmente"
+              subtitulo="O arquivo entra na lista abaixo como um item avulso, pronto para analisar e vincular a um processo."
+              onClose=${fecharModalCvManual}
+            >
+              <div class="rh-details-body">
+                ${erroCvManual ? html`<div class="alert alert-warning">${erroCvManual}</div>` : null}
+                <label class="process-cv-picker">
+                  <input
+                    key=${arquivoCvManual?.name || 'cv-manual-vazio'}
+                    type="file"
+                    class="process-cv-native-input"
+                    accept=".pdf,.doc,.docx"
+                    disabled=${enviandoCvManual}
+                    onChange=${(event) => setArquivoCvManual(event.target.files?.[0] || null)}
+                  />
+                  <span class="material-symbols-outlined">upload_file</span>
+                  <span class="process-cv-picker-copy">
+                    <strong>Selecionar arquivo</strong>
+                    <small title=${arquivoCvManual?.name || ''}>
+                      ${arquivoCvManual?.name || 'PDF, DOC ou DOCX'}
+                    </small>
+                  </span>
+                </label>
+              </div>
+              <footer class="rh-modal-footer">
+                <div class="rh-modal-footer-actions">
+                  <button type="button" class="btn btn-outline-secondary" disabled=${enviandoCvManual} onClick=${fecharModalCvManual}>
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    disabled=${!arquivoCvManual || enviandoCvManual}
+                    onClick=${enviarCvManual}
+                  >
+                    ${enviandoCvManual ? 'Adicionando...' : 'Adicionar'}
+                  </button>
+                </div>
+              </footer>
+            </${ModalPadrao}>
           `
         : null}
     </${PainelRh}>

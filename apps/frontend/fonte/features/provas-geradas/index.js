@@ -25,19 +25,22 @@ import {
   lerHeatmapQuestoes,
   lerProvaGerada,
   lerReplayProvaGerada,
+  lerSessaoPreviaProvaGerada,
   listarProvasGeradas,
   reabrirProvaGerada,
   recalcularScoreProva,
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
-} from '../../servico-api.js?v=20260826-replay-heatmap';
+} from '../../servico-api.js?v=20260902-correcoes-rh';
 import { escaparHtml, obterItensPaginados } from '../../utilitarios.js';
 import { listarOperacoes } from '../../services/api/operations.js';
 import { abrirFichaCandidatoDaProva } from '../../app/controlador-aplicacao.js';
+import { TelaConectaProvas } from '../conecta-provas/index.js';
 import { copiarTexto } from '../../shared/browser-utils.js';
 import { formatarNotaVisual, formatarTempoRestante } from '../../shared/helpers-visuais.js';
 import {
   EmptyState,
+  IlustracaoEstadoVazio,
   LoadingState,
   MetricGrid,
   ModalConfirmacaoAcao,
@@ -407,6 +410,12 @@ function obterCategoriasDasQuestoes(questoes = []) {
   );
 }
 
+function obterCompetenciasDasQuestoes(questoes = []) {
+  return Array.from(
+    new Set(questoes.flatMap((questao) => (Array.isArray(questao.competencias) ? questao.competencias : []))),
+  );
+}
+
 function statusPermiteGerarProva(candidato = {}) {
   const status = normalizarTexto(
     candidato.status_fluxo ||
@@ -764,6 +773,7 @@ export function ModalGerarProva({
   );
   const etapas = useMemo(() => montarEtapasBlueprint(blueprint), [blueprint]);
   const categorias = useMemo(() => obterCategoriasDasQuestoes(questoes), [questoes]);
+  const competencias = useMemo(() => obterCompetenciasDasQuestoes(questoes), [questoes]);
   const opcoesAreasFormulario = useMemo(
     () => montarOpcoesComValor(OPCOES_AREAS_PROVA, formulario.area_prova),
     [formulario.area_prova],
@@ -959,6 +969,7 @@ export function ModalGerarProva({
       quantidade_questoes: questoesPersonalizadas.length,
       etapas: etapasComDuracao,
       categorias,
+      competencias,
       questoes_snapshot: questoesPersonalizadas,
       personalizacao,
       observacoes_internas_rh: formulario.observacoes_internas_rh,
@@ -1577,6 +1588,10 @@ function ModalDetalheProvaGerada({
   const [replay, setReplay] = useState(null);
   const [carregandoReplay, setCarregandoReplay] = useState(false);
   const [erroReplay, setErroReplay] = useState('');
+  const [previewAberto, setPreviewAberto] = useState(false);
+  const [sessaoPrevia, setSessaoPrevia] = useState(null);
+  const [carregandoPreview, setCarregandoPreview] = useState(false);
+  const [erroPreview, setErroPreview] = useState('');
   if (!detalhe) return null;
 
   const abrirReplay = async () => {
@@ -1591,6 +1606,20 @@ function ModalDetalheProvaGerada({
       setErroReplay(error?.message || 'Não foi possível carregar o replay desta prova.');
     } finally {
       setCarregandoReplay(false);
+    }
+  };
+
+  const abrirPreview = async () => {
+    setPreviewAberto(true);
+    setErroPreview('');
+    setCarregandoPreview(true);
+    try {
+      const dados = await lerSessaoPreviaProvaGerada(detalhe.id_prova);
+      setSessaoPrevia(dados);
+    } catch (error) {
+      setErroPreview(error?.message || 'Não foi possível carregar a pré-visualização desta prova.');
+    } finally {
+      setCarregandoPreview(false);
     }
   };
   const score = detalhe.score || {};
@@ -1940,6 +1969,13 @@ function ModalDetalheProvaGerada({
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
+                    abrirPreview();
+                  }}>
+                    <span class="material-symbols-outlined">visibility</span>
+                    Pré-visualizar
+                  </button>
+                  <button type="button" role="menuitem" onClick=${() => {
+                    setMenuAcoesAberto(false);
                     onAvaliacaoManual?.();
                   }}>
                     <span class="material-symbols-outlined">menu_book</span>
@@ -2036,6 +2072,33 @@ function ModalDetalheProvaGerada({
               : html`<p class="text-muted">Sem telemetria registrada para esta prova ainda.</p>`}
               </div>
             </${ModalPadrao}>
+          `
+      : null}
+
+    ${previewAberto
+      ? html`
+            <div class="generated-preview-overlay">
+              ${carregandoPreview
+          ? html`<${LoadingState} titulo="Carregando pré-visualização" descricao="Montando a prova como o candidato vê." />`
+          : erroPreview
+            ? html`
+                  <div class="generated-preview-overlay-erro">
+                    <div class="alert alert-warning">${erroPreview}</div>
+                    <button type="button" class="btn btn-outline-secondary" onClick=${() => setPreviewAberto(false)}>
+                      Fechar
+                    </button>
+                  </div>
+                `
+            : sessaoPrevia
+              ? html`
+                    <${TelaConectaProvas}
+                      modoPreview=${true}
+                      sessaoInicial=${sessaoPrevia}
+                      onFecharPreview=${() => setPreviewAberto(false)}
+                    />
+                  `
+              : null}
+            </div>
           `
       : null}
   `;
@@ -2244,9 +2307,11 @@ export function TelaProvasResultados({ controlador }) {
     vaga: '',
     operacao: '',
     trilha: '',
+    competencia: '',
     status: '',
     resultado: '',
     notaMinima: '',
+    notaMaxima: '',
     dataGeracao: '',
   });
   const [modalGerarAberto, setModalGerarAberto] = useState(false);
@@ -2314,9 +2379,11 @@ export function TelaProvasResultados({ controlador }) {
     const vaga = normalizarBusca(filtros.vaga);
     const operacao = normalizarBusca(filtros.operacao);
     const trilha = normalizarBusca(filtros.trilha);
+    const competencia = normalizarBusca(filtros.competencia);
     const status = normalizarBusca(filtros.status);
     const resultado = normalizarBusca(filtros.resultado);
     const notaMinima = filtros.notaMinima === '' ? null : Number(filtros.notaMinima);
+    const notaMaxima = filtros.notaMaxima === '' ? null : Number(filtros.notaMaxima);
     return provas.filter((item) => {
       const textoCandidato = normalizarBusca([
         item.nome_candidato,
@@ -2330,6 +2397,7 @@ export function TelaProvasResultados({ controlador }) {
       const textoVaga = normalizarBusca(item.vaga);
       const textoOperacao = normalizarBusca(item.operacao);
       const textoTrilha = normalizarBusca(item.trilha);
+      const competenciasItem = (Array.isArray(item.competencias) ? item.competencias : []).map(normalizarBusca);
       const textoStatus = normalizarBusca(item.status);
       const dataBase = String(item.gerada_em || '').slice(0, 10);
       const notaFinal = obterNotaFinal(item);
@@ -2338,17 +2406,20 @@ export function TelaProvasResultados({ controlador }) {
       if (vaga && !textoVaga.includes(vaga)) return false;
       if (operacao && textoOperacao !== operacao) return false;
       if (trilha && textoTrilha !== trilha) return false;
+      if (competencia && !competenciasItem.includes(competencia)) return false;
       if (status && textoStatus !== status) return false;
       if (resultado === 'com_nota' && (notaFinal === null || notaFinal === undefined || notaFinal === '')) return false;
       if (resultado === 'sem_nota' && !(notaFinal === null || notaFinal === undefined || notaFinal === '')) return false;
       if (resultado === 'com_alertas' && !alertas.length) return false;
       if (resultado === 'sem_alertas' && alertas.length) return false;
       if (resultado === 'pendente_avaliacao' && !item.pendente_avaliacao_manual && !textoStatus.includes('pendente')) return false;
-      if (notaMinima !== null) {
+      if (notaMinima !== null || notaMaxima !== null) {
         const notaFinalNumerica = notaFinal === null || notaFinal === undefined || notaFinal === ''
           ? null
           : Number(String(notaFinal).replace(',', '.'));
-        if (notaFinalNumerica === null || !Number.isFinite(notaFinalNumerica) || notaFinalNumerica < notaMinima) return false;
+        if (notaFinalNumerica === null || !Number.isFinite(notaFinalNumerica)) return false;
+        if (notaMinima !== null && notaFinalNumerica < notaMinima) return false;
+        if (notaMaxima !== null && notaFinalNumerica > notaMaxima) return false;
       }
       if (filtros.dataGeracao && dataBase !== filtros.dataGeracao) return false;
       return true;
@@ -2481,6 +2552,9 @@ export function TelaProvasResultados({ controlador }) {
   const vagasDisponiveis = Array.from(new Set(provas.map((item) => item.vaga).filter(Boolean)));
   const operacoesDisponiveis = Array.from(new Set(provas.map((item) => item.operacao).filter(Boolean)));
   const trilhasDisponiveis = Array.from(new Set(provas.map((item) => item.trilha).filter(Boolean)));
+  const competenciasDisponiveis = Array.from(
+    new Set(provas.flatMap((item) => (Array.isArray(item.competencias) ? item.competencias : [])).filter(Boolean)),
+  );
   const atualizarFiltro = (campo, valor) =>
     setFiltros((anteriores) => ({
       ...anteriores,
@@ -2492,9 +2566,11 @@ export function TelaProvasResultados({ controlador }) {
       vaga: '',
       operacao: '',
       trilha: '',
+      competencia: '',
       status: '',
       resultado: '',
       notaMinima: '',
+      notaMaxima: '',
       dataGeracao: '',
     });
 
@@ -2575,6 +2651,18 @@ export function TelaProvasResultados({ controlador }) {
             <option value="">Todas as trilhas</option>
             ${trilhasDisponiveis.map((trilha) => html`<option key=${trilha} value=${trilha}>${trilha}</option>`)}
           </select>
+          ${competenciasDisponiveis.length
+      ? html`
+              <select
+                class="form-select"
+                value=${filtros.competencia}
+                onChange=${(event) => atualizarFiltro('competencia', event.target.value)}
+              >
+                <option value="">Todas as competências</option>
+                ${competenciasDisponiveis.map((competencia) => html`<option key=${competencia} value=${competencia}>${competencia}</option>`)}
+              </select>
+            `
+      : null}
           <select
             class="form-select"
             value=${filtros.status}
@@ -2606,6 +2694,19 @@ export function TelaProvasResultados({ controlador }) {
               placeholder="Nota mínima"
               value=${filtros.notaMinima}
               onInput=${(event) => atualizarFiltro('notaMinima', event.target.value)}
+            />
+          </label>
+          <label class="generated-filter-field generated-filter-score">
+            <span class="material-symbols-outlined">trending_down</span>
+            <input
+              class="form-control"
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              placeholder="Nota máxima"
+              value=${filtros.notaMaxima}
+              onInput=${(event) => atualizarFiltro('notaMaxima', event.target.value)}
             />
           </label>
           <label class="generated-filter-field generated-filter-date">
@@ -2748,7 +2849,7 @@ export function TelaProvasResultados({ controlador }) {
                 `
               : html`
                   <${EmptyState}
-                    icon="assignment_add"
+                    ilustracao=${html`<${IlustracaoEstadoVazio} />`}
                     title="Nenhuma prova gerada ainda"
                     text="Quando uma prova for gerada para um candidato, ela aparecerá aqui com status, nota e alertas de correção."
                     action=${{

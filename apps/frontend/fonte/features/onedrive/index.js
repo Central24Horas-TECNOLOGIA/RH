@@ -660,9 +660,20 @@ export function TelaOneDriveArquivos({ controlador }) {
                   <div class=${`rh-onedrive-grid ${modoVisualizacao === 'grade-pequena' ? 'rh-onedrive-grid--pequena' : ''}`}>
                     ${itensFiltrados.map(
                       (item) => html`
-                        <div class="rh-onedrive-card" key=${item.id}>
+                        <div
+                          class=${`rh-onedrive-card ${item.tipo === 'pasta' ? 'is-clickable' : ''}`}
+                          key=${item.id}
+                          onClick=${item.tipo === 'pasta' ? () => abrirItem(item) : undefined}
+                        >
                           <span class="rh-onedrive-card-icon"><${Icone} name=${iconeDoItem(item)} /></span>
-                          <button type="button" class="rh-onedrive-card-nome" onClick=${() => abrirItem(item)}>
+                          <button
+                            type="button"
+                            class="rh-onedrive-card-nome"
+                            onClick=${(event) => {
+                              if (item.tipo === 'pasta') event.stopPropagation();
+                              abrirItem(item);
+                            }}
+                          >
                             ${item.nome}
                           </button>
                           <span class="rh-onedrive-card-meta">

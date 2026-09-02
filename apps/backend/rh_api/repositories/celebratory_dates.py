@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from ..cache import get_cache_client
 from ..services.helpers import normalize_text, rows_to_dicts
 from .bootstrap import ensure_celebratory_dates_table
+from .interviews import OCCUPYING_INTERVIEW_STATUSES
 
 # Cache de queries (roadmap de expansão, respostas.txt): listagem de datas
 # comemorativas muda raramente (o RH cadastra poucas vezes por ano) e é lida
@@ -78,6 +79,41 @@ class CelebratoryDateRepositoryMixin:
         rows.sort(key=lambda item: item.get("dias_para_proxima_ocorrencia", 9999))
         cache.set(_CELEBRATORY_DATES_CACHE_KEY, rows, ttl_seconds=_CELEBRATORY_DATES_CACHE_TTL_SECONDS)
         return rows
+
+    def list_calendar_events(self, *, include_interviews: bool = False) -> list[dict]:
+        """Combina datas comemorativas com entrevistas agendadas ativas, lendo ao vivo das
+        duas fontes já existentes (sem duplicar dados em uma tabela própria de eventos)."""
+        events: list[dict] = [
+            {
+                "id": f"data-{item.get('id_data')}",
+                "tipo": "data_comemorativa",
+                "titulo": item.get("titulo"),
+                "dia": item.get("dia"),
+                "mes": item.get("mes"),
+                "descricao": item.get("descricao"),
+                "dias_para_proxima_ocorrencia": item.get("dias_para_proxima_ocorrencia"),
+            }
+            for item in self.list_celebratory_dates()
+        ]
+
+        if include_interviews:
+            for item in self.list_interviews():
+                if not item.get("data_entrevista"):
+                    continue
+                if item.get("status_entrevista") not in OCCUPYING_INTERVIEW_STATUSES:
+                    continue
+                events.append(
+                    {
+                        "id": f"entrevista-{item.get('id_entrevista')}",
+                        "tipo": "entrevista",
+                        "titulo": f"Entrevista — {item.get('nome_candidato') or 'Candidato'}",
+                        "data": item.get("data_entrevista"),
+                        "vaga": item.get("vaga"),
+                        "status": item.get("status_entrevista"),
+                    }
+                )
+
+        return events
 
     def get_celebratory_date(self, id_data: int) -> dict:
         conn = self._connect()

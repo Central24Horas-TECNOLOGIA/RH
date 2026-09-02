@@ -33,6 +33,7 @@ class GeneratedExamCreateRequest(BaseSchema):
     quantidade_questoes: int = Field(default=0, ge=0)
     etapas: list[dict[str, Any]] = Field(default_factory=list)
     categorias: list[str] = Field(default_factory=list)
+    competencias: list[str] = Field(default_factory=list)
     questoes_snapshot: list[dict[str, Any]] = Field(default_factory=list)
     configuracao: dict[str, Any] = Field(default_factory=dict)
     personalizacao: dict[str, Any] = Field(default_factory=dict)

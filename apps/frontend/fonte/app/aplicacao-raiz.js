@@ -6,7 +6,7 @@ import {
   useControladorAplicacao,
 } from './controlador-aplicacao.js';
 import { LoadingState, ModalPadrao } from '../ui/componentes-compartilhados.js';
-import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js?v=20260901-nav-topo-home';
+import { BarraLateral, CartaoUsuarioTopo } from '../ui/components/layout.js?v=20260902-correcoes-rh';
 import {
   buscarPoliticaPendente,
   confirmarLeituraPolitica,
@@ -102,16 +102,16 @@ const TelaCandidatos = carregarTela(() => import('../features/candidatos/index.j
 const TelaDetalhesCandidato = carregarTela(() => import('../features/candidatos/index.js'), 'TelaDetalhesCandidato');
 const TelaPipelineCandidatos = carregarTela(() => import('../features/tela-pipeline.js'), 'TelaPipelineCandidatos');
 const TelaEntrevistas = carregarTela(() => import('../features/tela-entrevistas.js'), 'TelaEntrevistas');
-const TelaOneDriveArquivos = carregarTela(() => import('../features/onedrive/index.js?v=20260823-drive-conecta-filters'), 'TelaOneDriveArquivos');
+const TelaOneDriveArquivos = carregarTela(() => import('../features/onedrive/index.js?v=20260902-correcoes-rh'), 'TelaOneDriveArquivos');
 const TelaCandidaturaPublica = carregarTela(() => import('../features/public-candidacy/index.js'), 'TelaCandidaturaPublica');
-const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js?v=20260721-exam-analytics-2'), 'TelaConectaProvas');
+const TelaConectaProvas = carregarTela(() => import('../features/conecta-provas/index.js?v=20260902-correcoes-rh'), 'TelaConectaProvas');
 const TelaProvasResultados = carregarTela(() => import('../features/provas-geradas/index.js'), 'TelaProvasResultados');
 const TelaResultadosAnaliticosProcesso = carregarTela(
   () => import('../features/resultados-analiticos/index.js?v=20260721-exam-analytics-2'),
   'TelaResultadosAnaliticosProcesso',
 );
 const TelaConfiguracoesSistema = carregarTela(
-  () => import('../features/configuracoes/index.js?v=20260827-aba-ambiente'),
+  () => import('../features/configuracoes/index.js?v=20260902-correcoes-rh'),
   'TelaConfiguracoesSistema',
 );
 const TelaCalendario = carregarTela(() => import('../features/calendario/index.js'), 'TelaCalendario');

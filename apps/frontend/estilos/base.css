@@ -269,6 +269,11 @@ margin-bottom: 0.28rem;
   font-size: 26px;
 }
 
+.rh-empty-state-illustration {
+  margin-bottom: var(--space-3);
+  color: var(--color-text-soft);
+}
+
 .rh-empty-state h3 {
   margin: 0 0 var(--space-2);
   font-size: var(--font-lg);

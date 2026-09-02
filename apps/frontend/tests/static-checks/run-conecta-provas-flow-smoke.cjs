@@ -29,11 +29,11 @@ assert.ok(source.includes("const bloqueada = (!somenteCadastro && !cadastroConcl
 assert.ok(source.includes('concluirEtapaConectaProvas('));
 assert.ok(source.includes('montarPayloadTelemetria({ finalizarEtapa: true })'));
 assert.ok(source.includes('interromperEtapaConectaProvas('));
-assert.ok(apiAggregator.includes("generated-exams.js?v=20260721-exam-analytics-2"));
+assert.ok(apiAggregator.includes("generated-exams.js?v=20260902-correcoes-rh"));
 assert.ok(generatedExamsApi.includes('export async function concluirEtapaConectaProvas'));
-assert.ok(indexHtml.includes('principal.js?v=20260721-exam-analytics-2'));
+assert.ok(indexHtml.includes('principal.js?v=20260901-nav-topo-home'));
 assert.ok(principal.includes('aplicacao.js?v=20260721-exam-analytics-2'));
-assert.ok(aplicacao.includes('aplicacao-raiz.js?v=20260721-exam-analytics-2'));
+assert.ok(aplicacao.includes('aplicacao-raiz.js?v=20260901-nav-topo-home'));
 assert.ok(!source.includes('Ver etapas'));
 assert.ok(source.includes("setEtapa('etapas')"));
 assert.ok(source.includes('localStorage.setItem(CHAVE_TOKEN_PUBLICO'));

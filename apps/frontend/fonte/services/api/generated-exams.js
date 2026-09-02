@@ -61,6 +61,10 @@ export async function lerReplayProvaGerada(idProva) {
   return requisitar(`/generated-exams/${encodeURIComponent(idProva)}/replay`);
 }
 
+export async function lerSessaoPreviaProvaGerada(idProva) {
+  return requisitar(`/generated-exams/${encodeURIComponent(idProva)}/preview-session`);
+}
+
 export async function lerHeatmapQuestoes(trilha = '') {
   const query = trilha ? `?trilha=${encodeURIComponent(trilha)}` : '';
   return requisitar(`/generated-exams/question-heatmap${query}`);
