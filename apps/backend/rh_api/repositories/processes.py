@@ -559,9 +559,10 @@ class ProcessRepositoryMixin:
                     urgente,
                     urgente_marcado_em,
                     urgente_marcado_por,
-                    ia_analise_desabilitada
+                    ia_analise_desabilitada,
+                    detalhes_vaga_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     resolved_process_id,
@@ -582,6 +583,7 @@ class ProcessRepositoryMixin:
                     datetime.now() if urgente_novo else None,
                     normalize_text(marcado_por) if urgente_novo else None,
                     1 if data.get("ia_analise_desabilitada") else 0,
+                    data.get("detalhes_vaga_json"),
                 ),
             )
             conn.commit()
@@ -648,7 +650,8 @@ class ProcessRepositoryMixin:
                     urgente = ?,
                     urgente_marcado_em = ?,
                     urgente_marcado_por = ?,
-                    ia_analise_desabilitada = ?
+                    ia_analise_desabilitada = ?,
+                    detalhes_vaga_json = ?
                 WHERE {where_clause}
                 """,
                 (
@@ -690,6 +693,9 @@ class ProcessRepositoryMixin:
                         )
                         else 0
                     ),
+                    data.get("detalhes_vaga_json")
+                    if data.get("detalhes_vaga_json") is not None
+                    else processo.get("detalhes_vaga_json"),
                     *params,
                 ),
             )

@@ -826,6 +826,15 @@ def ensure_process_columns(cursor) -> None:
         END
         """
     )
+    cursor.execute(
+        """
+        IF COL_LENGTH('dbo.processos_seletivos', 'detalhes_vaga_json') IS NULL
+        BEGIN
+            ALTER TABLE dbo.processos_seletivos
+            ADD detalhes_vaga_json NVARCHAR(MAX) NULL
+        END
+        """
+    )
 
 
 def ensure_candidate_metadata_table(cursor) -> None:
@@ -3451,7 +3460,8 @@ def _select_process_query() -> str:
             urgente,
             urgente_marcado_em,
             urgente_marcado_por,
-            ia_analise_desabilitada
+            ia_analise_desabilitada,
+            detalhes_vaga_json
         FROM processos_seletivos
     """
 
