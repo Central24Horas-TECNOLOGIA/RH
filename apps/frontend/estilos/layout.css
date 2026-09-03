@@ -8,6 +8,51 @@
 }
 
 /*
+ * Botão flutuante e discreto para voltar à tela anterior (histórico do
+ * navegador), presente em todas as telas via PainelRh. Tamanho e posição
+ * são ajustáveis pelas variáveis abaixo.
+ */
+.rh-global-back-btn {
+  --rh-back-btn-size: 34px;
+  --rh-back-btn-offset-x: 12px;
+  --rh-back-btn-offset-y: 12px;
+  position: fixed;
+  left: var(--rh-back-btn-offset-x);
+  bottom: var(--rh-back-btn-offset-y);
+  z-index: 900;
+  width: var(--rh-back-btn-size);
+  height: var(--rh-back-btn-size);
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-soft);
+  box-shadow: var(--shadow-sm);
+  opacity: 0.72;
+  transition: opacity var(--transition-sm), color var(--transition-sm), box-shadow var(--transition-sm);
+}
+
+.rh-global-back-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.rh-global-back-btn:hover,
+.rh-global-back-btn:focus-visible {
+  opacity: 1;
+  color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 767.98px) {
+  .rh-global-back-btn {
+    --rh-back-btn-size: 30px;
+    --rh-back-btn-offset-x: 8px;
+    --rh-back-btn-offset-y: 8px;
+  }
+}
+
+/*
  * Navegação em topo (substitui a barra lateral escura da versão anterior):
  * a marca e os itens de navegação ficam numa faixa horizontal branca, com
  * dropdowns por clique para os grupos (Processos, Provas, Gestão,
@@ -133,9 +178,9 @@
 }
 
 .rh-modern-topnav .rh-modern-nav-btn.is-active {
-  border-color: transparent;
-  background: var(--color-primary-soft);
-  color: var(--color-primary-strong);
+  /* border-color: transparent; */
+  background: #97c2ff;
+  color: #0b3fab;
 }
 
 .rh-modern-topnav .rh-modern-nav-group {
@@ -247,6 +292,15 @@
   padding: 0;
   overflow-x: visible;
   background: linear-gradient(180deg, #f8fbff 0%, var(--color-bg) 100%);
+}
+
+/*
+ * O gradiente acima usa um tom claro fixo (#f8fbff) proposital no tema
+ * claro, mas destoa totalmente no escuro (fundo claro atrás de telas
+ * escuras). No modo escuro o fundo fica só a cor sólida do tema.
+ */
+:root[data-theme='dark'] .rh-modern-main {
+  background: var(--color-bg);
 }
 
 .rh-modern-topbar {

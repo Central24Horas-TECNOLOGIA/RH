@@ -2407,6 +2407,15 @@
   padding: 0 0.25rem;
 }
 
+/* Mesmo problema do #screen-menu: align-items:center só faz sentido
+   com .rh-page-intro em linha; em coluna (telas menores) teria que ser
+   stretch, senão título e ações ficam centralizados horizontalmente. */
+@media (max-width: 991.98px) {
+  #screen-email-inbox .rh-page-intro {
+    align-items: stretch;
+  }
+}
+
 #screen-email-inbox .rh-modern-kicker {
   margin-bottom: 0.28rem;
   color: #0f5be8;
@@ -5512,6 +5521,8 @@
   flex-direction: column;
   gap: 16px;
   max-width: 760px;
+  width: 100%;
+  align-self: center;
 }
 
 .settings-ambiente-tabs {
@@ -5551,6 +5562,10 @@
   flex-direction: column;
   gap: 16px;
   margin-top: 16px;
+}
+
+.settings-card-actions--stack {
+  margin-top: 8px;
 }
 
 .settings-notif-row {
@@ -7948,22 +7963,28 @@
   color: var(--color-primary);
 }
 
+/*
+ * Flexbox em vez de CSS grid com índices de coluna fixos (7/8, 8/9, ...):
+ * o número de campos visíveis varia (somente_dia esconde Início/Fim/
+ * Duração), e índices fixos quebravam o alinhamento sempre que a
+ * contagem de colunas mudava por breakpoint. Com flex-wrap, cada campo
+ * simplesmente quebra para a próxima linha quando não cabe, e o campo
+ * "somente o dia" força sua própria linha com flex-basis: 100%.
+ */
 .availability-form-grid {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.25fr) repeat(
-      4,
-      minmax(130px, 0.7fr)
-    ) minmax(150px, 0.75fr) minmax(260px, 1.4fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.85rem;
   align-items: end;
 }
 
-.availability-form-grid .availability-field-capacidade {
-  grid-column: 7 / 8;
+.availability-form-grid .rh-filter-field {
+  flex: 1 1 130px;
+  min-width: 130px;
 }
 
-.availability-form-grid .availability-submit {
-  grid-column: 8 / 9;
+.availability-form-grid .availability-field-capacidade {
+  flex: 1 1 160px;
 }
 
 .availability-notes-field textarea {
@@ -7975,14 +7996,19 @@
   justify-content: flex-end;
 }
 
+.availability-form-grid .availability-somente-dia-field {
+  flex-basis: 100%;
+  min-width: 100%;
+}
+
 .availability-form-grid .availability-somente-dia {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  min-height: 38px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--color-text);
+  min-height: 28px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-soft);
   white-space: nowrap;
 }
 
@@ -11321,7 +11347,7 @@
 
 #screen-menu {
   min-height: 88px;
-  padding: 0.9rem 0.95rem;
+  /* padding: 0.9rem 0.95rem; */
   border-radius: var(--radius-md);
 }
 
@@ -11780,6 +11806,12 @@
 .rh-modal-content,
 .rh-details-body {
   padding: 1rem;
+}
+
+.rh-details-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .rh-modal-header,
@@ -12368,7 +12400,7 @@
 .rh-modern-nav-btn.is-active {
   border-color: rgba(69, 135, 255, 0.5);
   background: linear-gradient(135deg, #0f5be8 0%, #0750d8 100%);
-  box-shadow: 0 12px 24px rgba(3, 24, 65, 0.22);
+  /* box-shadow: 0 12px 24px rgba(3, 24, 65, 0.22); */
 }
 
 .rh-modern-sidebar-actions {
@@ -12494,6 +12526,19 @@
   padding-inline: 0.95rem;
 }
 
+/*
+ * O align-items: center acima é para o layout em linha (telas largas). Em
+ * telas entre ~560px e 991px o .rh-page-intro global já vira coluna (ver
+ * layout.css), mas por ter só classe (sem #screen-menu) fica com
+ * especificidade menor e não vence a regra acima — sobrava o "Atualizar"
+ * centralizado em vez de alinhado à esquerda/largura total.
+ */
+@media (max-width: 991.98px) {
+  #screen-menu .rh-page-intro {
+    align-items: stretch;
+  }
+}
+
 #screen-menu .rh-section-card {
   border-color: rgba(210, 222, 239, 0.96);
   border-radius: 8px;
@@ -12507,6 +12552,17 @@
   margin-bottom: 0.58rem;
   padding-bottom: 0;
   border-bottom: 0;
+}
+
+/* Mesmo ajuste do .rh-page-intro logo abaixo: align-items:center só faz
+   sentido com o cabeçalho em linha. Em coluna (telas menores, ver regra
+   global de .rh-section-card-header em layout.css), título e ações
+   (ex.: "Provas recentes" + "Ver todos") ficavam centralizados em vez de
+   empilhados à esquerda. */
+@media (max-width: 991.98px) {
+  #screen-menu .rh-section-card-header {
+    align-items: stretch;
+  }
 }
 
 #screen-menu .rh-section-card-header h3 {
@@ -12816,6 +12872,12 @@
   border-color: rgba(210, 222, 239, 0.9);
   border-radius: 8px;
   background: #f8fbff;
+}
+
+/* O fundo acima é um tom claro fixo — destoa no modo escuro. */
+:root[data-theme='dark'] #screen-menu .mailbox-toolbar {
+  border-color: var(--color-border);
+  background: var(--color-surface);
 }
 
 #screen-menu .mailbox-toolbar .btn,
@@ -15144,6 +15206,9 @@
 /* Interview calendar compact controls */
 #screen-interviews .availability-card {
   position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 #screen-interviews .availability-form-grid {
@@ -15151,12 +15216,17 @@
   align-items: end;
 }
 
+/*
+ * O botão fica fora do grid de campos (ver availability-card acima, que é
+ * flex-column) para ficar sempre colado ao final do card e alinhado à
+ * direita, independente de quantos campos estão visíveis (somente_dia) ou
+ * da altura do card vizinho (Resumo do dia).
+ */
 #screen-interviews .availability-submit {
   display: flex;
-  grid-column: 1 / -1;
   justify-content: flex-end;
-  justify-self: end;
-  align-self: end;
+  margin-top: auto;
+  padding-top: 0.85rem;
 }
 
 #screen-interviews .availability-submit .btn {
@@ -15318,7 +15388,15 @@
   font-size: inherit;
 }
 
-.rh-breadcrumb .btn-link:last-child {
+.rh-breadcrumb .btn-link .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.rh-breadcrumb-sep {
+  color: var(--color-text-muted);
+}
+
+.rh-breadcrumb-current {
   color: var(--color-text, inherit);
   font-weight: 600;
 }

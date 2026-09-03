@@ -15,9 +15,18 @@ import {
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
   atualizarAnotacaoDossieProcesso,
+  aprovarSolicitacaoAlteracaoEmailApi,
+  ativarLoginLocalApi,
   atualizarAvatarUsuarioApi,
+  atualizarCargoUsuarioApi,
   atualizarNomeUsuarioApi,
+  atualizarProvedorAutenticacaoApi,
   atualizarSenhaUsuarioApi,
+  atualizarSobrenomeUsuarioApi,
+  criarCurriculoManualCaixaEmail,
+  listarSolicitacoesAlteracaoEmailApi,
+  rejeitarSolicitacaoAlteracaoEmailApi,
+  solicitarAlteracaoEmailApi,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,
@@ -236,12 +245,15 @@ export function criarEstadoInicial() {
     validandoSessao: autenticado,
     usuarioAutenticado: sessao.usuario || '',
     nomeUsuarioAutenticado: sessao.nome || sessao.usuario || '',
+    sobrenomeUsuarioAutenticado: sessao.sobrenome || '',
+    cargoUsuarioAutenticado: sessao.cargo || '',
     emailUsuarioAutenticado: sessao.email || '',
     perfilUsuario: sessao.perfil || '',
     perfilUsuarioNome: sessao.perfil_nome || '',
     nivelPerfilUsuario: sessao.nivel || '',
     permissoesUsuario: Array.isArray(sessao.permissoes) ? sessao.permissoes : [],
     avatarUsuario: sessao.avatar_ilustrado || '',
+    provedorAutenticacaoUsuario: sessao.provedor_autenticacao || '',
     avisoAcessoNegado: '',
     barraLateralRecolhida: lerPreferenciaBarraLateral(false),
     candidato: {
@@ -336,12 +348,15 @@ export function persistirEstado(estado) {
       validandoSessao: _validandoSessao,
       usuarioAutenticado: _usuarioAutenticado,
       nomeUsuarioAutenticado: _nomeUsuarioAutenticado,
+      sobrenomeUsuarioAutenticado: _sobrenomeUsuarioAutenticado,
+      cargoUsuarioAutenticado: _cargoUsuarioAutenticado,
       emailUsuarioAutenticado: _emailUsuarioAutenticado,
       perfilUsuario: _perfilUsuario,
       perfilUsuarioNome: _perfilUsuarioNome,
       nivelPerfilUsuario: _nivelPerfilUsuario,
       permissoesUsuario: _permissoesUsuario,
       avisoAcessoNegado: _avisoAcessoNegado,
+      provedorAutenticacaoUsuario: _provedorAutenticacaoUsuario,
       ...estadoPersistivel
     } = estado;
 
@@ -894,12 +909,15 @@ export function useControladorAplicacao() {
           validandoSessao: false,
           usuarioAutenticado: '',
           nomeUsuarioAutenticado: '',
+          sobrenomeUsuarioAutenticado: '',
+          cargoUsuarioAutenticado: '',
           emailUsuarioAutenticado: '',
           perfilUsuario: '',
           perfilUsuarioNome: '',
           nivelPerfilUsuario: '',
           permissoesUsuario: [],
           avatarUsuario: '',
+          provedorAutenticacaoUsuario: '',
           avisoAcessoNegado: '',
         }));
         return;
@@ -917,6 +935,10 @@ export function useControladorAplicacao() {
             sessao?.usuario || lerSessaoAutenticacao().usuario,
           nomeUsuarioAutenticado:
             sessao?.nome || lerSessaoAutenticacao().nome || sessao?.usuario || '',
+          sobrenomeUsuarioAutenticado:
+            sessao?.sobrenome || lerSessaoAutenticacao().sobrenome || '',
+          cargoUsuarioAutenticado:
+            sessao?.cargo || lerSessaoAutenticacao().cargo || '',
           emailUsuarioAutenticado:
             sessao?.email || lerSessaoAutenticacao().email || '',
           perfilUsuario: sessao?.perfil || lerSessaoAutenticacao().perfil || '',
@@ -928,6 +950,8 @@ export function useControladorAplicacao() {
             : lerSessaoAutenticacao().permissoes || [],
           avatarUsuario:
             sessao?.avatar_ilustrado || lerSessaoAutenticacao().avatar_ilustrado || '',
+          provedorAutenticacaoUsuario:
+            sessao?.provedor_autenticacao || lerSessaoAutenticacao().provedor_autenticacao || '',
           avisoAcessoNegado: '',
         }));
       } catch (error) {
@@ -1110,6 +1134,44 @@ export function useControladorAplicacao() {
   const atualizarSenhaUsuario = async (senhaAtual, novaSenha) =>
     atualizarSenhaUsuarioApi(senhaAtual, novaSenha);
 
+  const atualizarSobrenomeUsuario = async (sobrenome) => {
+    const resultado = await atualizarSobrenomeUsuarioApi(sobrenome);
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      sobrenomeUsuarioAutenticado: resultado?.sobrenome || '',
+    }));
+    return resultado;
+  };
+
+  const atualizarCargoUsuario = async (cargo) => {
+    const resultado = await atualizarCargoUsuarioApi(cargo);
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      cargoUsuarioAutenticado: resultado?.cargo || '',
+    }));
+    return resultado;
+  };
+
+  const solicitarAlteracaoEmail = async (emailNovo) => solicitarAlteracaoEmailApi(emailNovo);
+
+  const ativarLoginLocal = async (novaSenha, confirmarSenha) => {
+    const resultado = await ativarLoginLocalApi(novaSenha, confirmarSenha);
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      provedorAutenticacaoUsuario: resultado?.provedor_autenticacao || 'local',
+    }));
+    return resultado;
+  };
+
+  const atualizarProvedorAutenticacao = async (provedor) => {
+    const resultado = await atualizarProvedorAutenticacaoApi(provedor);
+    atualizarEstado((anterior) => ({
+      ...anterior,
+      provedorAutenticacaoUsuario: resultado?.provedor_autenticacao || provedor,
+    }));
+    return resultado;
+  };
+
   const alternarBarraLateral = () => {
     atualizarEstado((anterior) => {
       const recolhida = !anterior.barraLateralRecolhida;
@@ -1128,6 +1190,8 @@ export function useControladorAplicacao() {
       validandoSessao: false,
       usuarioAutenticado: sessao?.usuario || usuarioFallback,
       nomeUsuarioAutenticado: sessao?.nome || sessao?.usuario || usuarioFallback,
+      sobrenomeUsuarioAutenticado: sessao?.sobrenome || '',
+      cargoUsuarioAutenticado: sessao?.cargo || '',
       emailUsuarioAutenticado: sessao?.email || '',
       perfilUsuario: sessao?.perfil || '',
       perfilUsuarioNome: sessao?.perfil_nome || '',
@@ -1136,6 +1200,7 @@ export function useControladorAplicacao() {
         ? sessao.permissoes
         : [],
       avatarUsuario: sessao?.avatar_ilustrado || '',
+      provedorAutenticacaoUsuario: sessao?.provedor_autenticacao || '',
       avisoAcessoNegado: '',
       ...estadoExtra,
     }));
@@ -1756,6 +1821,11 @@ export function useControladorAplicacao() {
     atualizarAvatarUsuario,
     atualizarNomeUsuario,
     atualizarSenhaUsuario,
+    atualizarSobrenomeUsuario,
+    atualizarCargoUsuario,
+    solicitarAlteracaoEmail,
+    ativarLoginLocal,
+    atualizarProvedorAutenticacao,
     possuiPermissao,
     possuiAlgumaPermissao,
     podeAcessarTela,
@@ -1786,9 +1856,18 @@ export {
   analisarCvEmailRecebidoGeral,
   atualizarEntrevista,
   atualizarAnotacaoDossieProcesso,
+  aprovarSolicitacaoAlteracaoEmailApi,
+  ativarLoginLocalApi,
   atualizarAvatarUsuarioApi,
+  atualizarCargoUsuarioApi,
   atualizarNomeUsuarioApi,
+  atualizarProvedorAutenticacaoApi,
   atualizarSenhaUsuarioApi,
+  atualizarSobrenomeUsuarioApi,
+  criarCurriculoManualCaixaEmail,
+  listarSolicitacoesAlteracaoEmailApi,
+  rejeitarSolicitacaoAlteracaoEmailApi,
+  solicitarAlteracaoEmailApi,
   atualizarFichaCandidato,
   atualizarSlotEntrevista,
   atualizarPerfilCandidato,

@@ -83,7 +83,7 @@ const TELAS_SEM_SHELL_FIXO = new Set([
   'screen-result',
 ]);
 
-const importarGestao = () => import('../features/telas-gestao.js?v=20260827-tela-inicial-avatares-agendamento');
+const importarGestao = () => import('../features/telas-gestao.js?v=20260902-correcoes-txt');
 const importarProcessos = () => import('../features/telas-processos.js?v=20260823-cache-busting-fix');
 const importarProva = () => import('../features/telas-prova.js?v=20260823-cache-busting-fix');
 
@@ -111,7 +111,7 @@ const TelaResultadosAnaliticosProcesso = carregarTela(
   'TelaResultadosAnaliticosProcesso',
 );
 const TelaConfiguracoesSistema = carregarTela(
-  () => import('../features/configuracoes/index.js?v=20260902-perfil-drive-nav'),
+  () => import('../features/configuracoes/index.js?v=20260902-correcoes-txt'),
   'TelaConfiguracoesSistema',
 );
 const TelaCalendario = carregarTela(() => import('../features/calendario/index.js'), 'TelaCalendario');

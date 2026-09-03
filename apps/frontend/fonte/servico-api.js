@@ -34,12 +34,20 @@ export {
   salvarSessaoAutenticacao,
 } from './services/api/core.js';
 export {
+  aprovarSolicitacaoAlteracaoEmailApi,
+  ativarLoginLocalApi,
   atualizarAvatarUsuarioApi,
+  atualizarCargoUsuarioApi,
   atualizarNomeUsuarioApi,
+  atualizarProvedorAutenticacaoApi,
   atualizarSenhaUsuarioApi,
+  atualizarSobrenomeUsuarioApi,
   concluirLoginMicrosoftApi,
   encerrarSessaoApi,
   fazerLoginApi,
+  listarSolicitacoesAlteracaoEmailApi,
+  rejeitarSolicitacaoAlteracaoEmailApi,
+  solicitarAlteracaoEmailApi,
   verificarSessaoApi,
 } from './services/api/auth.js';
 export {
@@ -110,6 +118,7 @@ export {
   adicionarPreAnaliseAoProcesso,
   analisarCvCandidatoInscrito,
   analisarCurriculoIa,
+  criarCurriculoManualCaixaEmail,
   analisarCvEmailRecebido,
   analisarCvEmailRecebidoGeral,
   analisarCvProcesso,
@@ -165,7 +174,7 @@ export {
   cancelarProcesso,
   excluirEmailRecebido,
   vincularEmailRecebidoProcesso,
-} from './services/api/processes.js?v=20260902-correcoes-rh';
+} from './services/api/processes.js?v=20260902-correcoes-txt';
 export {
   enviarCandidaturaPublica,
   lerPaginaPublicaCandidatura,

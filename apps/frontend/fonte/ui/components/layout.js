@@ -9,6 +9,20 @@ import { lerCoresNotificacao, useResumoNotificacoes } from '../../shared/notific
 const TEMA_ROTULO = { claro: 'Claro', escuro: 'Escuro' };
 const TEMA_ICONE = { claro: 'light_mode', escuro: 'dark_mode' };
 
+function BotaoVoltarGlobal() {
+  return html`
+    <button
+      type="button"
+      class="rh-global-back-btn"
+      title="Voltar para a tela anterior"
+      aria-label="Voltar para a tela anterior"
+      onClick=${() => window.history.back()}
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+    </button>
+  `;
+}
+
 function SeletorTema() {
   const [tema, setTema] = useState(() => obterTemaSalvo());
 
@@ -1058,6 +1072,7 @@ export function PainelRh({
 
   return html`
     <section class="active screen" id=${screenId}>
+      <${BotaoVoltarGlobal} />
       <div class="rh-modern-shell">
         <${BarraLateral}
           navAtiva=${navAtiva}

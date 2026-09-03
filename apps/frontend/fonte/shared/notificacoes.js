@@ -1,5 +1,10 @@
 import { useEffect, useState } from '../infraestrutura-react.js';
-import { lerProcessos, lerEntrevistas, lerCandidatosProcessos } from '../app/controlador-aplicacao.js';
+import {
+  lerProcessos,
+  lerEntrevistas,
+  lerCandidatosProcessos,
+  listarSolicitacoesAlteracaoEmailApi,
+} from '../app/controlador-aplicacao.js';
 
 export const CATEGORIAS_NOTIFICACAO = [
   {
@@ -125,6 +130,16 @@ function montarItensProblemas(candidatosProcessos) {
     }));
 }
 
+function montarItensAdministracao(solicitacoesEmail) {
+  return (Array.isArray(solicitacoesEmail) ? solicitacoesEmail : [])
+    .slice(0, LIMITE_ITENS_POR_CATEGORIA)
+    .map((item) => ({
+      id: `solicitacao-email-${item.id}`,
+      categoria: 'administracao',
+      texto: `${item.nome_usuario || item.login_usuario || 'Usuário'} pediu alteração de e-mail para ${item.email_novo}`,
+    }));
+}
+
 export function useResumoNotificacoes(controlador) {
   const [itens, setItens] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -140,12 +155,16 @@ export function useResumoNotificacoes(controlador) {
     }
 
     setCarregando(true);
+    const podeVerSolicitacoesEmail = Boolean(controlador?.possuiPermissao?.('usuarios.alterar_email'));
 
     const carregar = async () => {
-      const [processos, entrevistas, candidatosProcessos] = await Promise.all([
+      const [processos, entrevistas, candidatosProcessos, solicitacoesEmail] = await Promise.all([
         lerProcessos().catch(() => []),
         lerEntrevistas().catch(() => []),
         lerCandidatosProcessos().catch(() => []),
+        podeVerSolicitacoesEmail
+          ? listarSolicitacoesAlteracaoEmailApi().then((valor) => valor?.solicitacoes || []).catch(() => [])
+          : Promise.resolve([]),
       ]);
       if (!ativo) return;
 
@@ -154,6 +173,7 @@ export function useResumoNotificacoes(controlador) {
         ...montarItensEntrevistas(entrevistas),
         ...montarItensProcessos(processos),
         ...montarItensProblemas(candidatosProcessos),
+        ...montarItensAdministracao(solicitacoesEmail),
       ].filter((item) => preferencias[item.categoria] !== false);
 
       setItens(resultado);

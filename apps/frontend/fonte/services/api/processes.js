@@ -680,6 +680,17 @@ export async function adicionarCvManualCaixaEmail(arquivo) {
   return resultado;
 }
 
+export async function criarCurriculoManualCaixaEmail(dados) {
+  const resultado = await requisitar('/email-inbox/messages/manual-estruturado', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados || {}),
+  });
+
+  invalidarCacheApi('processos', 'candidatos-processos', 'banco-talentos', 'email-inbox', 'relatorios');
+  return resultado;
+}
+
 export async function marcarEmailRecebidoComoLido(idEmail) {
   const resultado = await requisitar(
     `/email-inbox/messages/${encodeURIComponent(idEmail)}/mark-read`,

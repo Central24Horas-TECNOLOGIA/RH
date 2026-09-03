@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 
 from ..auth import AuthenticatedUser
 from ..passwords import hash_password, verify_password
+from .bootstrap import ensure_email_change_requests_table
 from conecta.infrastructure.security.encryption import (
     SecretEncryptionError,
     decrypt_secret,
@@ -253,6 +254,8 @@ class SecurityRepositoryMixin:
             "id_usuario": row.get("id_usuario"),
             "login": normalize_text(row.get("login")),
             "nome": normalize_text(row.get("nome")),
+            "sobrenome": normalize_text(row.get("sobrenome")),
+            "cargo": normalize_text(row.get("cargo")),
             "email": normalize_text(row.get("email")),
             "perfil": role.id,
             "perfil_nome": normalize_text(row.get("perfil_nome")) or role.name,
@@ -293,6 +296,8 @@ class SecurityRepositoryMixin:
                     usuarios.id_usuario,
                     usuarios.login,
                     usuarios.nome,
+                    usuarios.sobrenome,
+                    usuarios.cargo,
                     usuarios.email,
                     usuarios.perfil_id,
                     perfis.nome AS perfil_nome,
@@ -302,6 +307,7 @@ class SecurityRepositoryMixin:
                     usuarios.mfa_enabled,
                     usuarios.mfa_secret_encrypted,
                     usuarios.avatar_ilustrado,
+                    usuarios.provedor_autenticacao,
                     usuarios.criado_em,
                     usuarios.ultimo_acesso_em,
                     usuarios.criado_por,
@@ -761,6 +767,231 @@ class SecurityRepositoryMixin:
         finally:
             conn.close()
 
+    def update_own_surname(self, id_usuario: int, sobrenome: str) -> dict:
+        safe_surname = normalize_text(sobrenome)
+        if len(safe_surname) > 180:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Sobrenome muito longo.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET sobrenome = ?, atualizado_em = GETDATE()
+                WHERE id_usuario = ?
+                """,
+                (safe_surname or None, int(id_usuario)),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+            conn.commit()
+            return {"success": True, "sobrenome": safe_surname}
+        finally:
+            conn.close()
+
+    def update_own_cargo(self, id_usuario: int, cargo: str) -> dict:
+        safe_cargo = normalize_text(cargo)
+        if len(safe_cargo) > 180:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cargo muito longo.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET cargo = ?, atualizado_em = GETDATE()
+                WHERE id_usuario = ?
+                """,
+                (safe_cargo or None, int(id_usuario)),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+            conn.commit()
+            return {"success": True, "cargo": safe_cargo}
+        finally:
+            conn.close()
+
+    def activate_local_login(self, id_usuario: int, nova_senha: str) -> dict:
+        safe_new = normalize_text(nova_senha)
+        if len(safe_new) < 8:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="A nova senha deve ter pelo menos 8 caracteres.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT email FROM usuarios WHERE id_usuario = ?", (int(id_usuario),))
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+            if not normalize_text(row[0]):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Você não possui e-mail cadastrado. Peça ao administrador para cadastrar um e-mail antes de continuar.",
+                )
+
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET senha_hash = ?, provedor_autenticacao = ?, atualizado_em = GETDATE()
+                WHERE id_usuario = ?
+                """,
+                (hash_password(safe_new), AUTH_PROVIDER_LOCAL, int(id_usuario)),
+            )
+            conn.commit()
+            return {"success": True, "provedor_autenticacao": AUTH_PROVIDER_LOCAL}
+        finally:
+            conn.close()
+
+    def update_own_auth_provider(self, id_usuario: int, provedor: str) -> dict:
+        safe_provider = _normalize_auth_provider(provedor)
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            if safe_provider == AUTH_PROVIDER_LOCAL:
+                cursor.execute("SELECT senha_hash FROM usuarios WHERE id_usuario = ?", (int(id_usuario),))
+                row = cursor.fetchone()
+                if not row:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+                if not normalize_text(row[0]):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Crie uma senha de acesso local antes de desativar o login pela Microsoft.",
+                    )
+
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET provedor_autenticacao = ?, atualizado_em = GETDATE()
+                WHERE id_usuario = ?
+                """,
+                (safe_provider, int(id_usuario)),
+            )
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+            conn.commit()
+            return {"success": True, "provedor_autenticacao": safe_provider}
+        finally:
+            conn.close()
+
+    def create_email_change_request(self, id_usuario: int, email_atual: str, email_novo: str) -> dict:
+        safe_new_email = _normalize_email(email_novo)
+        if not _EMAIL_PATTERN.fullmatch(safe_new_email):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Informe um e-mail válido.")
+        if safe_new_email == _normalize_email(email_atual):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este já é o seu e-mail atual.")
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_email_change_requests_table(cursor)
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM solicitacoes_alteracao_email
+                WHERE id_usuario = ? AND status = 'pendente'
+                """,
+                (int(id_usuario),),
+            )
+            if int(cursor.fetchone()[0] or 0) > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Você já tem uma solicitação de alteração de e-mail aguardando aprovação.",
+                )
+
+            cursor.execute(
+                """
+                INSERT INTO solicitacoes_alteracao_email (id_usuario, email_atual, email_novo, status)
+                VALUES (?, ?, ?, 'pendente')
+                """,
+                (int(id_usuario), normalize_text(email_atual), safe_new_email),
+            )
+            conn.commit()
+            return {"success": True, "email_novo": safe_new_email}
+        finally:
+            conn.close()
+
+    def list_pending_email_change_requests(self) -> list[dict]:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_email_change_requests_table(cursor)
+            cursor.execute(
+                """
+                SELECT
+                    solicitacoes_alteracao_email.id,
+                    solicitacoes_alteracao_email.id_usuario,
+                    solicitacoes_alteracao_email.email_atual,
+                    solicitacoes_alteracao_email.email_novo,
+                    solicitacoes_alteracao_email.status,
+                    solicitacoes_alteracao_email.solicitado_em,
+                    usuarios.nome AS nome_usuario,
+                    usuarios.login AS login_usuario
+                FROM solicitacoes_alteracao_email
+                LEFT JOIN usuarios ON usuarios.id_usuario = solicitacoes_alteracao_email.id_usuario
+                WHERE solicitacoes_alteracao_email.status = 'pendente'
+                ORDER BY solicitacoes_alteracao_email.solicitado_em ASC
+                """
+            )
+            return rows_to_dicts(cursor, cursor.fetchall())
+        finally:
+            conn.close()
+
+    def _decide_email_change_request(
+        self,
+        id_solicitacao: int,
+        *,
+        aprovar: bool,
+        decidido_por: str,
+        motivo_rejeicao: str = "",
+    ) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_email_change_requests_table(cursor)
+            cursor.execute(
+                """
+                SELECT id_usuario, email_novo, status
+                FROM solicitacoes_alteracao_email
+                WHERE id = ?
+                """,
+                (int(id_solicitacao),),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada.")
+            id_usuario, email_novo, status_atual = row[0], row[1], normalize_text(row[2])
+            if status_atual != "pendente":
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Esta solicitação já foi decidida.")
+
+            novo_status = "aprovado" if aprovar else "rejeitado"
+            if aprovar:
+                cursor.execute(
+                    "UPDATE usuarios SET email = ?, atualizado_em = GETDATE() WHERE id_usuario = ?",
+                    (normalize_text(email_novo), int(id_usuario)),
+                )
+
+            cursor.execute(
+                """
+                UPDATE solicitacoes_alteracao_email
+                SET status = ?, decidido_em = GETDATE(), decidido_por = ?, motivo_rejeicao = ?
+                WHERE id = ?
+                """,
+                (novo_status, normalize_text(decidido_por), normalize_text(motivo_rejeicao) or None, int(id_solicitacao)),
+            )
+            conn.commit()
+            return {"success": True, "status": novo_status}
+        finally:
+            conn.close()
+
+    def approve_email_change_request(self, id_solicitacao: int, *, decidido_por: str) -> dict:
+        return self._decide_email_change_request(id_solicitacao, aprovar=True, decidido_por=decidido_por)
+
+    def reject_email_change_request(self, id_solicitacao: int, *, decidido_por: str, motivo: str = "") -> dict:
+        return self._decide_email_change_request(
+            id_solicitacao, aprovar=False, decidido_por=decidido_por, motivo_rejeicao=motivo
+        )
+
     def begin_mfa_enrollment(self, id_usuario: int, *, actor=None) -> dict:
         secret = generate_secret()
         try:
@@ -1098,6 +1329,8 @@ class SecurityRepositoryMixin:
                 usuarios.id_usuario,
                 usuarios.login,
                 usuarios.nome,
+                usuarios.sobrenome,
+                usuarios.cargo,
                 usuarios.email,
                 usuarios.perfil_id,
                 perfis.nome AS perfil_nome,

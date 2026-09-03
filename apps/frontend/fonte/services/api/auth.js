@@ -71,6 +71,76 @@ export async function atualizarSenhaUsuarioApi(senhaAtual, novaSenha) {
   });
 }
 
+export async function atualizarSobrenomeUsuarioApi(sobrenome) {
+  const resultado = await requisitar('/auth/me/sobrenome', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sobrenome: sobrenome || '' }),
+  });
+
+  salvarSessaoAutenticacao(resultado.access_token || lerSessaoAutenticacao().token, resultado);
+  return resultado;
+}
+
+export async function atualizarCargoUsuarioApi(cargo) {
+  const resultado = await requisitar('/auth/me/cargo', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cargo: cargo || '' }),
+  });
+
+  salvarSessaoAutenticacao(resultado.access_token || lerSessaoAutenticacao().token, resultado);
+  return resultado;
+}
+
+export async function solicitarAlteracaoEmailApi(emailNovo) {
+  return requisitar('/auth/me/email', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email_novo: emailNovo || '' }),
+  });
+}
+
+export async function ativarLoginLocalApi(novaSenha, confirmarSenha) {
+  const resultado = await requisitar('/auth/me/ativar-login-local', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nova_senha: novaSenha || '', confirmar_senha: confirmarSenha || '' }),
+  });
+
+  salvarSessaoAutenticacao(resultado.access_token || lerSessaoAutenticacao().token, resultado);
+  return resultado;
+}
+
+export async function atualizarProvedorAutenticacaoApi(provedor) {
+  const resultado = await requisitar('/auth/me/provedor-autenticacao', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provedor: provedor || '' }),
+  });
+
+  salvarSessaoAutenticacao(resultado.access_token || lerSessaoAutenticacao().token, resultado);
+  return resultado;
+}
+
+export async function listarSolicitacoesAlteracaoEmailApi() {
+  return requisitar('/settings/users/email-change-requests', { method: 'GET' });
+}
+
+export async function aprovarSolicitacaoAlteracaoEmailApi(idSolicitacao) {
+  return requisitar(`/settings/users/email-change-requests/${idSolicitacao}/approve`, {
+    method: 'POST',
+  });
+}
+
+export async function rejeitarSolicitacaoAlteracaoEmailApi(idSolicitacao, motivo = '') {
+  return requisitar(`/settings/users/email-change-requests/${idSolicitacao}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ motivo: motivo || '' }),
+  });
+}
+
 export async function encerrarSessaoApi() {
   try {
     if (!possuiSessaoAutenticada()) {

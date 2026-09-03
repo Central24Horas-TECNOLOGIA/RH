@@ -45,6 +45,7 @@ import {
   obterRotuloSituacaoAtual,
   atualizarPerfilCandidato,
   adicionarCvManualCaixaEmail,
+  criarCurriculoManualCaixaEmail,
   baixarAnexoEmailRecebido,
   analisarCvEmailRecebidoGeral,
   enviarEmailRecebidoBancoTalentos,
@@ -1497,6 +1498,41 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                   </div>
                 `
       : null}
+            ${Array.isArray(detalheEmail?.campos_formulario?.experiencias) && detalheEmail.campos_formulario.experiencias.length
+      ? html`
+                  <div class="col-12">
+                    <label class="form-label">Experiência profissional</label>
+                    <div class="rh-details-card-stack">
+                      ${detalheEmail.campos_formulario.experiencias.map(
+                        (experiencia, indice) => html`
+                          <div class="c24-card" key=${indice}>
+                            <strong>${[experiencia.cargo, experiencia.empresa].filter(Boolean).join(' — ') || 'Experiência'}</strong>
+                            ${experiencia.periodo ? html`<div><small>${experiencia.periodo}</small></div>` : null}
+                            ${experiencia.descricao ? html`<div>${experiencia.descricao}</div>` : null}
+                          </div>
+                        `,
+                      )}
+                    </div>
+                  </div>
+                `
+      : null}
+            ${Array.isArray(detalheEmail?.campos_formulario?.formacao) && detalheEmail.campos_formulario.formacao.length
+      ? html`
+                  <div class="col-12">
+                    <label class="form-label">Formação acadêmica</label>
+                    <div class="rh-details-card-stack">
+                      ${detalheEmail.campos_formulario.formacao.map(
+                        (formacao, indice) => html`
+                          <div class="c24-card" key=${indice}>
+                            <strong>${[formacao.curso, formacao.instituicao].filter(Boolean).join(' — ') || 'Formação'}</strong>
+                            <div><small>${[formacao.nivel, formacao.periodo, formacao.status].filter(Boolean).join(' · ')}</small></div>
+                          </div>
+                        `,
+                      )}
+                    </div>
+                  </div>
+                `
+      : null}
             <div class="col-12">
               <label class="form-label">Corpo do e-mail</label>
               <pre class="rh-email-body-preview">${detalheEmail?.corpo || detalheEmail?.resumo_corpo || ''}</pre>
@@ -2315,12 +2351,31 @@ export function TelaInicio({ controlador }) {
   `;
 }
 
+const FORM_CURRICULO_MANUAL_INICIAL = {
+  nome: '',
+  email: '',
+  telefone: '',
+  cidade: '',
+  bairro: '',
+  endereco: '',
+  data_nascimento: '',
+  vaga_pretendida: '',
+  experiencia_ativa: false,
+  experiencias: [],
+  formacao_ativa: false,
+  formacao: [],
+};
+
 export function TelaCaixaEmail({ controlador }) {
   const [modalComporAberto, setModalComporAberto] = useState(false);
   const [modalCvManualAberto, setModalCvManualAberto] = useState(false);
   const [arquivoCvManual, setArquivoCvManual] = useState(null);
   const [enviandoCvManual, setEnviandoCvManual] = useState(false);
   const [erroCvManual, setErroCvManual] = useState('');
+  const [modalCriarCurriculoAberto, setModalCriarCurriculoAberto] = useState(false);
+  const [formCurriculoManual, setFormCurriculoManual] = useState(FORM_CURRICULO_MANUAL_INICIAL);
+  const [criandoCurriculoManual, setCriandoCurriculoManual] = useState(false);
+  const [erroCurriculoManual, setErroCurriculoManual] = useState('');
   const [chaveRecarregarEmails, setChaveRecarregarEmails] = useState(0);
   const podeComporEmail =
     controlador?.possuiPermissao?.('emails.enviar_modelo') ||
@@ -2351,6 +2406,77 @@ export function TelaCaixaEmail({ controlador }) {
     }
   };
 
+  const fecharModalCriarCurriculo = () => {
+    if (criandoCurriculoManual) return;
+    setModalCriarCurriculoAberto(false);
+    setFormCurriculoManual(FORM_CURRICULO_MANUAL_INICIAL);
+    setErroCurriculoManual('');
+  };
+
+  const atualizarCampoCurriculoManual = (campo, valor) => {
+    setFormCurriculoManual((atual) => ({ ...atual, [campo]: valor }));
+  };
+
+  const adicionarExperienciaCurriculoManual = () => {
+    setFormCurriculoManual((atual) => ({
+      ...atual,
+      experiencias: [...atual.experiencias, { empresa: '', cargo: '', periodo: '', descricao: '' }],
+    }));
+  };
+
+  const atualizarExperienciaCurriculoManual = (indice, campo, valor) => {
+    setFormCurriculoManual((atual) => ({
+      ...atual,
+      experiencias: atual.experiencias.map((item, indiceAtual) =>
+        indiceAtual === indice ? { ...item, [campo]: valor } : item,
+      ),
+    }));
+  };
+
+  const removerExperienciaCurriculoManual = (indice) => {
+    setFormCurriculoManual((atual) => ({
+      ...atual,
+      experiencias: atual.experiencias.filter((_, indiceAtual) => indiceAtual !== indice),
+    }));
+  };
+
+  const adicionarFormacaoCurriculoManual = () => {
+    setFormCurriculoManual((atual) => ({
+      ...atual,
+      formacao: [...atual.formacao, { instituicao: '', curso: '', nivel: '', periodo: '', status: '' }],
+    }));
+  };
+
+  const atualizarFormacaoCurriculoManual = (indice, campo, valor) => {
+    setFormCurriculoManual((atual) => ({
+      ...atual,
+      formacao: atual.formacao.map((item, indiceAtual) => (indiceAtual === indice ? { ...item, [campo]: valor } : item)),
+    }));
+  };
+
+  const removerFormacaoCurriculoManual = (indice) => {
+    setFormCurriculoManual((atual) => ({
+      ...atual,
+      formacao: atual.formacao.filter((_, indiceAtual) => indiceAtual !== indice),
+    }));
+  };
+
+  const enviarCurriculoManual = async () => {
+    if (!formCurriculoManual.nome.trim()) return;
+    setCriandoCurriculoManual(true);
+    setErroCurriculoManual('');
+    try {
+      await criarCurriculoManualCaixaEmail(formCurriculoManual);
+      cacheSecoesEmail.clear();
+      setChaveRecarregarEmails((valor) => valor + 1);
+      fecharModalCriarCurriculo();
+    } catch (error) {
+      setErroCurriculoManual(error?.message || 'Não foi possível criar o currículo.');
+    } finally {
+      setCriandoCurriculoManual(false);
+    }
+  };
+
   return html`
     <${PainelRh}
       screenId="screen-email-inbox"
@@ -2369,6 +2495,9 @@ export function TelaCaixaEmail({ controlador }) {
               ? html`
                   <button type="button" class="btn btn-outline-primary" onClick=${() => setModalCvManualAberto(true)}>
                     <span class="material-symbols-outlined" aria-hidden="true">upload_file</span> Adicionar currículo manualmente
+                  </button>
+                  <button type="button" class="btn btn-outline-primary" onClick=${() => setModalCriarCurriculoAberto(true)}>
+                    <span class="material-symbols-outlined" aria-hidden="true">person_add</span> Criar currículo
                   </button>
                 `
               : null}
@@ -2439,6 +2568,314 @@ export function TelaCaixaEmail({ controlador }) {
                     onClick=${enviarCvManual}
                   >
                     ${enviandoCvManual ? 'Adicionando...' : 'Adicionar'}
+                  </button>
+                </div>
+              </footer>
+            </${ModalPadrao}>
+          `
+        : null}
+
+      ${podeAdicionarCvManual
+        ? html`
+            <${ModalPadrao}
+              aberto=${modalCriarCurriculoAberto}
+              titulo="Criar currículo"
+              subtitulo="Preencha os dados do candidato para cadastrá-lo manualmente na Cx de Currículos."
+              onClose=${fecharModalCriarCurriculo}
+            >
+              <div class="rh-details-body">
+                ${erroCurriculoManual ? html`<div class="alert alert-warning">${erroCurriculoManual}</div>` : null}
+
+                <div class="settings-ambiente-section">
+                  <h3>Dados de contato</h3>
+                  <div class="settings-password-grid">
+                    <label class="settings-name-field">
+                      <span>Nome completo *</span>
+                      <input
+                        class="form-control"
+                        value=${formCurriculoManual.nome}
+                        disabled=${criandoCurriculoManual}
+                        onInput=${(event) => atualizarCampoCurriculoManual('nome', event.target.value)}
+                      />
+                    </label>
+                    <label class="settings-name-field">
+                      <span>E-mail</span>
+                      <input
+                        class="form-control"
+                        type="email"
+                        value=${formCurriculoManual.email}
+                        disabled=${criandoCurriculoManual}
+                        onInput=${(event) => atualizarCampoCurriculoManual('email', event.target.value)}
+                      />
+                    </label>
+                    <label class="settings-name-field">
+                      <span>Telefone / WhatsApp</span>
+                      <input
+                        class="form-control"
+                        value=${formCurriculoManual.telefone}
+                        disabled=${criandoCurriculoManual}
+                        onInput=${(event) => atualizarCampoCurriculoManual('telefone', event.target.value)}
+                      />
+                    </label>
+                    <label class="settings-name-field">
+                      <span>Vaga pretendida</span>
+                      <input
+                        class="form-control"
+                        value=${formCurriculoManual.vaga_pretendida}
+                        disabled=${criandoCurriculoManual}
+                        onInput=${(event) => atualizarCampoCurriculoManual('vaga_pretendida', event.target.value)}
+                      />
+                    </label>
+                    <label class="settings-name-field">
+                      <span>Cidade</span>
+                      <input
+                        class="form-control"
+                        value=${formCurriculoManual.cidade}
+                        disabled=${criandoCurriculoManual}
+                        onInput=${(event) => atualizarCampoCurriculoManual('cidade', event.target.value)}
+                      />
+                    </label>
+                    <label class="settings-name-field">
+                      <span>Bairro</span>
+                      <input
+                        class="form-control"
+                        value=${formCurriculoManual.bairro}
+                        disabled=${criandoCurriculoManual}
+                        onInput=${(event) => atualizarCampoCurriculoManual('bairro', event.target.value)}
+                      />
+                    </label>
+                    <label class="settings-name-field">
+                      <span>Endereço</span>
+                      <input
+                        class="form-control"
+                        value=${formCurriculoManual.endereco}
+                        disabled=${criandoCurriculoManual}
+                        onInput=${(event) => atualizarCampoCurriculoManual('endereco', event.target.value)}
+                      />
+                    </label>
+                    <label class="settings-name-field">
+                      <span>Data de nascimento</span>
+                      <input
+                        class="form-control"
+                        type="date"
+                        value=${formCurriculoManual.data_nascimento}
+                        disabled=${criandoCurriculoManual}
+                        onInput=${(event) => atualizarCampoCurriculoManual('data_nascimento', event.target.value)}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div class="settings-ambiente-section">
+                  <div class="process-cutoff-panel">
+                    <label class="process-switch-row">
+                      <input
+                        type="checkbox"
+                        checked=${formCurriculoManual.experiencia_ativa}
+                        disabled=${criandoCurriculoManual}
+                        onChange=${(event) => atualizarCampoCurriculoManual('experiencia_ativa', event.target.checked)}
+                      />
+                      <span class="process-switch-visual"></span>
+                      <span>
+                        <strong>Experiência profissional</strong>
+                        <small>Ative para informar as experiências do candidato.</small>
+                      </span>
+                    </label>
+                  </div>
+
+                  ${formCurriculoManual.experiencia_ativa
+                    ? html`
+                        <div class="rh-details-body">
+                          ${formCurriculoManual.experiencias.map(
+                            (experiencia, indice) => html`
+                              <div class="c24-card settings-ambiente-section" key=${indice}>
+                                <div class="settings-password-grid">
+                                  <label class="settings-name-field">
+                                    <span>Empresa</span>
+                                    <input
+                                      class="form-control"
+                                      value=${experiencia.empresa}
+                                      disabled=${criandoCurriculoManual}
+                                      onInput=${(event) =>
+                                        atualizarExperienciaCurriculoManual(indice, 'empresa', event.target.value)}
+                                    />
+                                  </label>
+                                  <label class="settings-name-field">
+                                    <span>Cargo</span>
+                                    <input
+                                      class="form-control"
+                                      value=${experiencia.cargo}
+                                      disabled=${criandoCurriculoManual}
+                                      onInput=${(event) =>
+                                        atualizarExperienciaCurriculoManual(indice, 'cargo', event.target.value)}
+                                    />
+                                  </label>
+                                  <label class="settings-name-field">
+                                    <span>Período</span>
+                                    <input
+                                      class="form-control"
+                                      placeholder="ex.: 2020 - 2023"
+                                      value=${experiencia.periodo}
+                                      disabled=${criandoCurriculoManual}
+                                      onInput=${(event) =>
+                                        atualizarExperienciaCurriculoManual(indice, 'periodo', event.target.value)}
+                                    />
+                                  </label>
+                                </div>
+                                <label class="settings-name-field">
+                                  <span>Descrição</span>
+                                  <textarea
+                                    class="form-control"
+                                    rows="2"
+                                    value=${experiencia.descricao}
+                                    disabled=${criandoCurriculoManual}
+                                    onInput=${(event) =>
+                                      atualizarExperienciaCurriculoManual(indice, 'descricao', event.target.value)}
+                                  ></textarea>
+                                </label>
+                                <button
+                                  type="button"
+                                  class="btn btn-outline-secondary btn-sm"
+                                  disabled=${criandoCurriculoManual}
+                                  onClick=${() => removerExperienciaCurriculoManual(indice)}
+                                >
+                                  Remover experiência
+                                </button>
+                              </div>
+                            `,
+                          )}
+                          <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            disabled=${criandoCurriculoManual}
+                            onClick=${adicionarExperienciaCurriculoManual}
+                          >
+                            + Adicionar experiência
+                          </button>
+                        </div>
+                      `
+                    : null}
+                </div>
+
+                <div class="settings-ambiente-section">
+                  <div class="process-cutoff-panel">
+                    <label class="process-switch-row">
+                      <input
+                        type="checkbox"
+                        checked=${formCurriculoManual.formacao_ativa}
+                        disabled=${criandoCurriculoManual}
+                        onChange=${(event) => atualizarCampoCurriculoManual('formacao_ativa', event.target.checked)}
+                      />
+                      <span class="process-switch-visual"></span>
+                      <span>
+                        <strong>Formação acadêmica</strong>
+                        <small>Ative para informar a formação do candidato.</small>
+                      </span>
+                    </label>
+                  </div>
+
+                  ${formCurriculoManual.formacao_ativa
+                    ? html`
+                        <div class="rh-details-body">
+                          ${formCurriculoManual.formacao.map(
+                            (formacao, indice) => html`
+                              <div class="c24-card settings-ambiente-section" key=${indice}>
+                                <div class="settings-password-grid">
+                                  <label class="settings-name-field">
+                                    <span>Instituição</span>
+                                    <input
+                                      class="form-control"
+                                      value=${formacao.instituicao}
+                                      disabled=${criandoCurriculoManual}
+                                      onInput=${(event) =>
+                                        atualizarFormacaoCurriculoManual(indice, 'instituicao', event.target.value)}
+                                    />
+                                  </label>
+                                  <label class="settings-name-field">
+                                    <span>Curso</span>
+                                    <input
+                                      class="form-control"
+                                      value=${formacao.curso}
+                                      disabled=${criandoCurriculoManual}
+                                      onInput=${(event) =>
+                                        atualizarFormacaoCurriculoManual(indice, 'curso', event.target.value)}
+                                    />
+                                  </label>
+                                  <label class="settings-name-field">
+                                    <span>Nível</span>
+                                    <input
+                                      class="form-control"
+                                      placeholder="ex.: Graduação"
+                                      value=${formacao.nivel}
+                                      disabled=${criandoCurriculoManual}
+                                      onInput=${(event) =>
+                                        atualizarFormacaoCurriculoManual(indice, 'nivel', event.target.value)}
+                                    />
+                                  </label>
+                                  <label class="settings-name-field">
+                                    <span>Período</span>
+                                    <input
+                                      class="form-control"
+                                      placeholder="ex.: 2018 - 2022"
+                                      value=${formacao.periodo}
+                                      disabled=${criandoCurriculoManual}
+                                      onInput=${(event) =>
+                                        atualizarFormacaoCurriculoManual(indice, 'periodo', event.target.value)}
+                                    />
+                                  </label>
+                                  <label class="settings-name-field">
+                                    <span>Status</span>
+                                    <input
+                                      class="form-control"
+                                      placeholder="ex.: Concluído"
+                                      value=${formacao.status}
+                                      disabled=${criandoCurriculoManual}
+                                      onInput=${(event) =>
+                                        atualizarFormacaoCurriculoManual(indice, 'status', event.target.value)}
+                                    />
+                                  </label>
+                                </div>
+                                <button
+                                  type="button"
+                                  class="btn btn-outline-secondary btn-sm"
+                                  disabled=${criandoCurriculoManual}
+                                  onClick=${() => removerFormacaoCurriculoManual(indice)}
+                                >
+                                  Remover formação
+                                </button>
+                              </div>
+                            `,
+                          )}
+                          <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            disabled=${criandoCurriculoManual}
+                            onClick=${adicionarFormacaoCurriculoManual}
+                          >
+                            + Adicionar formação
+                          </button>
+                        </div>
+                      `
+                    : null}
+                </div>
+              </div>
+              <footer class="rh-modal-footer">
+                <div class="rh-modal-footer-actions">
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    disabled=${criandoCurriculoManual}
+                    onClick=${fecharModalCriarCurriculo}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    disabled=${!formCurriculoManual.nome.trim() || criandoCurriculoManual}
+                    onClick=${enviarCurriculoManual}
+                  >
+                    ${criandoCurriculoManual ? 'Criando...' : 'Criar currículo'}
                   </button>
                 </div>
               </footer>

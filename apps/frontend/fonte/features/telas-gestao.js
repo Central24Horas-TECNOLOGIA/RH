@@ -6,4 +6,4 @@ export {
   TelaHistorico,
   TelaInicio,
   TelaLogin,
-} from './gestao/index.js?v=20260902-perfil-drive-nav';
+} from './gestao/index.js?v=20260902-correcoes-txt';
