@@ -588,13 +588,29 @@ class ProcessRepositoryMixin:
             )
             conn.commit()
             logger.info("Processo '%s' criado.", resolved_process_id)
-            return {
-                "success": True,
-                "id_processo": resolved_process_id,
-                "urgente": urgente_novo,
-            }
         finally:
             conn.close()
+
+        detalhes_vaga = safe_json_loads(data.get("detalhes_vaga_json"), {})
+        trilha_ids = detalhes_vaga.get("treinamentos_selecionados") if isinstance(detalhes_vaga, dict) else None
+        if trilha_ids:
+            try:
+                self.sync_process_trainings(
+                    resolved_process_id,
+                    vagas_totais=int(data.get("quantidade_vagas", 0) or 0),
+                    trilha_ids=trilha_ids,
+                )
+            except Exception:
+                # O processo já foi criado com sucesso — a vinculação com a
+                # Central de Treinamentos pode ser refeita depois; não bloqueia
+                # a publicação da vaga por isso.
+                logger.exception("Falha ao vincular treinamentos ao processo '%s'.", resolved_process_id)
+
+        return {
+            "success": True,
+            "id_processo": resolved_process_id,
+            "urgente": urgente_novo,
+        }
 
     def update_process(
         self,

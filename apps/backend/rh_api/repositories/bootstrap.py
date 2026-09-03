@@ -1808,6 +1808,9 @@ def ensure_onboarding_tables(cursor) -> None:
         ("id_operacao", "INT"),
         ("modalidade", "NVARCHAR(20)"),
         ("local_padrao", "NVARCHAR(180)"),
+        # Correcoes.txt (rodada 03/set/2026): conteudo do treinamento (slides +
+        # script) que o Conecta "transcreve" na tela de Comecar Treinamento.
+        ("conteudo_json", "NVARCHAR(MAX)"),
     ):
         cursor.execute(
             f"""
@@ -1889,6 +1892,11 @@ def ensure_onboarding_tables(cursor) -> None:
         ("local", "NVARCHAR(180)"),
         ("ministrante", "NVARCHAR(180)"),
         ("status", "NVARCHAR(20)"),
+        # Correcoes.txt (rodada 03/set/2026): acesso ao aplicativo/plataforma
+        # auxiliar do treinamento e forma de login, alem da lista de presenca.
+        ("acesso_plataforma", "BIT"),
+        ("metodo_login", "NVARCHAR(20)"),
+        ("presenca", "NVARCHAR(20)"),
     ):
         cursor.execute(
             f"""
@@ -1990,6 +1998,47 @@ def ensure_onboarding_tables(cursor) -> None:
                 """,
                 (id_trilha_padrao, titulo, descricao, ordem, obrigatorio),
             )
+
+
+def ensure_process_trainings_table(cursor) -> None:
+    """Treinamentos vinculados a um processo seletivo (Correcoes.txt, rodada
+    03/set/2026): ao criar o processo com treinamentos selecionados, cada um
+    vira uma linha aqui com o total de vagas do processo bloqueado
+    (tag AGUARDANDO PROCESSO). O Gestor "libera" parte das vagas antes do
+    encerramento (tag ABERTO) escolhendo quais candidatos aprovados entram —
+    aí sim cria-se o onboarding_candidatos real de cada um deles.
+
+    Aditivo e idempotente: nenhuma tabela ou coluna existente é alterada/removida.
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.processos_treinamentos', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.processos_treinamentos (
+                id_processo_treinamento INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                id_processo NVARCHAR(80) NOT NULL,
+                trilha_id INT NOT NULL,
+                vagas_totais INT NOT NULL CONSTRAINT DF_processos_treinamentos_vagas_totais DEFAULT 0,
+                vagas_liberadas INT NOT NULL CONSTRAINT DF_processos_treinamentos_vagas_liberadas DEFAULT 0,
+                criado_em DATETIME NOT NULL CONSTRAINT DF_processos_treinamentos_criado_em DEFAULT GETDATE(),
+                atualizado_em DATETIME NOT NULL CONSTRAINT DF_processos_treinamentos_atualizado_em DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes
+            WHERE name = 'IX_processos_treinamentos_id_processo'
+              AND object_id = OBJECT_ID('dbo.processos_treinamentos')
+        )
+        BEGIN
+            CREATE INDEX IX_processos_treinamentos_id_processo
+            ON dbo.processos_treinamentos(id_processo)
+        END
+        """
+    )
 
 
 def ensure_document_templates_table(cursor) -> None:
@@ -3150,6 +3199,7 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_celebratory_dates_table(cursor)
             ensure_notification_automation_table(cursor)
             ensure_onboarding_tables(cursor)
+            ensure_process_trainings_table(cursor)
             ensure_document_templates_table(cursor)
             ensure_disc_tables(cursor)
             ensure_fit_cultural_tables(cursor)

@@ -75,3 +75,45 @@ export async function marcarItemOnboarding(idOnboardingItem, concluido) {
   invalidarCacheApi('onboarding-progresso');
   return resultado;
 }
+
+export async function excluirAtribuicaoTreinamento(idOnboarding) {
+  const resultado = await requisitar(`/onboarding/assignments/${encodeURIComponent(idOnboarding)}`, {
+    method: 'DELETE',
+  });
+  invalidarCacheApi('onboarding-progresso');
+  return resultado;
+}
+
+export async function salvarPresencaTreinamento(presencas) {
+  const resultado = await requisitar('/onboarding/assignments/presenca', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ presencas: presencas || [] }),
+  });
+  invalidarCacheApi('onboarding-progresso');
+  return resultado;
+}
+
+export async function listarTreinamentosProcesso(filtros = {}) {
+  return requisitar(`/onboarding/processos-treinamentos${montarQuery(filtros)}`, { method: 'GET' });
+}
+
+export async function listarCandidatosLiberacaoTreinamento(idProcessoTreinamento) {
+  return requisitar(
+    `/onboarding/processos-treinamentos/${encodeURIComponent(idProcessoTreinamento)}/candidatos`,
+    { method: 'GET' },
+  );
+}
+
+export async function liberarVagasTreinamento(idProcessoTreinamento, candidatos) {
+  const resultado = await requisitar(
+    `/onboarding/processos-treinamentos/${encodeURIComponent(idProcessoTreinamento)}/liberar`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidatos: candidatos || [] }),
+    },
+  );
+  invalidarCacheApi('onboarding-progresso');
+  return resultado;
+}
