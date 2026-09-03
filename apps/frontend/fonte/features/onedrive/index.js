@@ -515,7 +515,6 @@ export function TelaOneDriveArquivos({ controlador }) {
       <${PageIntro}
         kicker="Microsoft 365"
         title="Drive-Conecta"
-        description="Repositório de documentos do RH, hospedado no SharePoint/OneDrive corporativo. Nada fica armazenado localmente no Conecta."
         actions=${html`
           <div class="d-flex gap-2">
             ${podeEnviar
@@ -549,13 +548,20 @@ export function TelaOneDriveArquivos({ controlador }) {
       <${SectionCard}>
         ${segmentosBreadcrumb.length
           ? html`
-              <nav class="rh-breadcrumb mb-3">
+              <nav class="rh-breadcrumb mb-3" aria-label="Caminho de pastas">
+                <button type="button" class="btn btn-link p-0 text-decoration-none" onClick=${() => irParaSegmento(-1)}>
+                  <${Icone} name="home" /> Raiz
+                </button>
                 ${segmentosBreadcrumb.map(
                   (segmento, indice) => html`
-                    ${indice > 0 ? html`<span key=${`sep-${indice}`}> / </span>` : null}
-                    <button key=${indice} type="button" class="btn btn-link p-0 text-decoration-none" onClick=${() => irParaSegmento(indice)}>
-                      ${segmento}
-                    </button>
+                    <span key=${`sep-${indice}`} class="rh-breadcrumb-sep" aria-hidden="true">/</span>
+                    ${indice === segmentosBreadcrumb.length - 1
+                      ? html`<span key=${indice} class="rh-breadcrumb-current">${segmento}</span>`
+                      : html`
+                          <button key=${indice} type="button" class="btn btn-link p-0 text-decoration-none" onClick=${() => irParaSegmento(indice)}>
+                            ${segmento}
+                          </button>
+                        `}
                   `,
                 )}
               </nav>
@@ -664,7 +670,7 @@ export function TelaOneDriveArquivos({ controlador }) {
         </div>
 
         ${carregando
-          ? html`<${LoadingState} titulo="Carregando arquivos" descricao="Consultando o Microsoft Graph." />`
+          ? html`<${LoadingState} titulo="Carregando arquivos" />`
           : itensFiltrados.length
             ? modoVisualizacao === 'lista'
               ? html`<${Table} columns=${colunas} rows=${itensFiltrados} rowKey="id" renderCell=${renderCell} />`
@@ -744,7 +750,7 @@ export function TelaOneDriveArquivos({ controlador }) {
         onClose=${fecharVisualizacao}
       >
         ${previewCarregando
-          ? html`<${LoadingState} titulo="Gerando visualização" descricao="Buscando o conteúdo do arquivo no Microsoft Graph." />`
+          ? html`<${LoadingState} titulo="Gerando visualização" />`
           : previewErro
             ? html`<${EmptyState} titulo="Não foi possível visualizar" descricao=${previewErro} />`
             : previewTipo === 'texto'

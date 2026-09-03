@@ -746,7 +746,7 @@ export function TelaEntrevistas({ controlador }) {
                 setFormularioSlots({ ...formularioSlots, data: event.target.value })}
             />
           </div>
-          <div class="rh-filter-field">
+          <div class="rh-filter-field availability-somente-dia-field">
             <label class="availability-somente-dia">
               <input
                 type="checkbox"
@@ -823,17 +823,17 @@ export function TelaEntrevistas({ controlador }) {
                 })}
             />
           </div>
-          <div class="availability-submit">
-            <button
-              type="button"
-              class="btn btn-primary rh-action-btn"
-              disabled=${salvando}
-              onClick=${criarDisponibilidade}
-            >
-              <span class="material-symbols-outlined">calendar_add_on</span>
-              ${salvando ? 'Salvando...' : 'Gerar slots'}
-            </button>
-          </div>
+        </div>
+        <div class="availability-submit">
+          <button
+            type="button"
+            class="btn btn-primary rh-action-btn"
+            disabled=${salvando}
+            onClick=${criarDisponibilidade}
+          >
+            <span class="material-symbols-outlined">calendar_add_on</span>
+            ${salvando ? 'Salvando...' : 'Gerar slots'}
+          </button>
         </div>
       </${SectionCard}>
       </div>
