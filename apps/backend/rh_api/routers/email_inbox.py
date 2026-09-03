@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from ..auth import AuthenticatedUser
 from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
 from ..repositories import DatabaseRepository
+from ..schemas.email_inbox import ManualCandidateCreateRequest
 
 
 router = APIRouter(tags=["email-inbox"], dependencies=[Depends(get_current_user)])
@@ -54,6 +55,30 @@ async def create_manual_email_inbox_item(
         user,
         modulo="Candidatos",
         acao="adicionar_cv_manual_caixa_email",
+        entidade="email_inbox",
+        entidade_id=str((result.get("item") or {}).get("id") or ""),
+    )
+    return result
+
+
+@router.post(
+    "/email-inbox/messages/manual-estruturado",
+    dependencies=[Depends(require_permissions("candidatos.criar"))],
+)
+def create_manual_structured_email_inbox_item(
+    payload: ManualCandidateCreateRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.create_manual_structured_email_inbox_item(
+        dados=payload.model_dump(),
+        actor=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Candidatos",
+        acao="criar_curriculo_manual_estruturado",
         entidade="email_inbox",
         entidade_id=str((result.get("item") or {}).get("id") or ""),
     )

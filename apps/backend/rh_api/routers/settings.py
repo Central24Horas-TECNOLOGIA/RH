@@ -6,6 +6,7 @@ from fastapi.responses import Response
 from ..auth import AuthenticatedUser
 from ..dependencies import audit_action, get_current_user, get_repository, require_permissions
 from ..repositories import DatabaseRepository
+from ..schemas.auth import DecideEmailChangeRequest
 from ..schemas.common import SuccessResponse
 from ..schemas.security import (
     ConfigurationItemRequest,
@@ -130,6 +131,60 @@ def delete_user(
     repository: DatabaseRepository = Depends(get_repository),
 ):
     return repository.deactivate_system_user(id_usuario, actor=user, justificativa=justificativa)
+
+
+@router.get(
+    "/users/email-change-requests",
+    dependencies=[Depends(require_permissions("usuarios.alterar_email"))],
+)
+def list_email_change_requests(repository: DatabaseRepository = Depends(get_repository)):
+    return {"solicitacoes": repository.list_pending_email_change_requests()}
+
+
+@router.post(
+    "/users/email-change-requests/{id_solicitacao}/approve",
+    dependencies=[Depends(require_permissions("usuarios.alterar_email"))],
+)
+def approve_email_change_request(
+    id_solicitacao: int,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.approve_email_change_request(id_solicitacao, decidido_por=user.username)
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="aprovar_alteracao_email",
+        entidade="solicitacao_alteracao_email",
+        entidade_id=str(id_solicitacao),
+    )
+    return result
+
+
+@router.post(
+    "/users/email-change-requests/{id_solicitacao}/reject",
+    dependencies=[Depends(require_permissions("usuarios.alterar_email"))],
+)
+def reject_email_change_request(
+    id_solicitacao: int,
+    payload: DecideEmailChangeRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.reject_email_change_request(
+        id_solicitacao, decidido_por=user.username, motivo=payload.motivo
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="rejeitar_alteracao_email",
+        entidade="solicitacao_alteracao_email",
+        entidade_id=str(id_solicitacao),
+        valor_novo={"motivo": payload.motivo},
+    )
+    return result
 
 
 @router.get("/audit-logs", dependencies=[Depends(require_permissions("logs.visualizar"))])

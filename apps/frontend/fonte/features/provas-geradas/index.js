@@ -31,7 +31,7 @@ import {
   recalcularScoreProva,
   registrarDecisaoRhProva,
   salvarAvaliacaoManualProva,
-} from '../../servico-api.js?v=20260902-correcoes-rh';
+} from '../../servico-api.js?v=20260902-correcoes-txt';
 import { escaparHtml, obterItensPaginados } from '../../utilitarios.js';
 import { listarOperacoes } from '../../services/api/operations.js';
 import { abrirFichaCandidatoDaProva } from '../../app/controlador-aplicacao.js';

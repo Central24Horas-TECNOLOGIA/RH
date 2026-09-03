@@ -133,9 +133,9 @@
 }
 
 .rh-modern-topnav .rh-modern-nav-btn.is-active {
-  border-color: transparent;
-  background: var(--color-primary-soft);
-  color: var(--color-primary-strong);
+  /* border-color: transparent; */
+  background: #97c2ff;
+  color: #0b3fab;
 }
 
 .rh-modern-topnav .rh-modern-nav-group {

@@ -1,6 +1,7 @@
 import { html, useEffect, useMemo, useState } from '../../infraestrutura-react.js';
 import {
   alterarStatusUsuario,
+  aprovarSolicitacaoAlteracaoEmailApi,
   atualizarAutomacaoNotificacoes,
   atualizarItemConfiguracao,
   atualizarPermissoesPerfil,
@@ -15,8 +16,10 @@ import {
   listarLogsAuditoria,
   listarPerfis,
   listarPermissoes,
+  listarSolicitacoesAlteracaoEmailApi,
   listarUsuarios,
   redefinirSenhaUsuario,
+  rejeitarSolicitacaoAlteracaoEmailApi,
 } from '../../app/controlador-aplicacao.js';
 import { baixarBlob, obterItensPaginados } from '../../utilitarios.js';
 import { ModalPadrao, PageIntro, PainelRh } from '../../ui/componentes-compartilhados.js';
@@ -394,6 +397,18 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const [salvandoAvatar, setSalvandoAvatar] = useState(false);
   const [nomeDraft, setNomeDraft] = useState(() => controlador?.estado?.nomeUsuarioAutenticado || '');
   const [salvandoNome, setSalvandoNome] = useState(false);
+  const [sobrenomeDraft, setSobrenomeDraft] = useState(() => controlador?.estado?.sobrenomeUsuarioAutenticado || '');
+  const [salvandoSobrenome, setSalvandoSobrenome] = useState(false);
+  const [cargoDraft, setCargoDraft] = useState(() => controlador?.estado?.cargoUsuarioAutenticado || '');
+  const [salvandoCargo, setSalvandoCargo] = useState(false);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [salvandoEmail, setSalvandoEmail] = useState(false);
+  const [formLoginLocalAmbiente, setFormLoginLocalAmbiente] = useState({ novaSenha: '', confirmarSenha: '' });
+  const [mostrarFormLoginLocalAmbiente, setMostrarFormLoginLocalAmbiente] = useState(false);
+  const [salvandoLoginLocalAmbiente, setSalvandoLoginLocalAmbiente] = useState(false);
+  const [salvandoProvedorAmbiente, setSalvandoProvedorAmbiente] = useState(false);
+  const [solicitacoesEmailPendentes, setSolicitacoesEmailPendentes] = useState([]);
+  const [decidindoSolicitacaoEmailId, setDecidindoSolicitacaoEmailId] = useState('');
   const [abaAmbiente, setAbaAmbiente] = useState('perfil');
   const [coresNotificacaoAmbiente, setCoresNotificacaoAmbiente] = useState(() => lerCoresNotificacao());
   const [formSenhaAmbiente, setFormSenhaAmbiente] = useState({ senhaAtual: '', novaSenha: '', confirmarNovaSenha: '' });
@@ -548,6 +563,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       const tarefas = [];
       if (aba === 'usuarios' && controlador.possuiPermissao('usuarios.visualizar')) {
         tarefas.push(listarUsuarios().then((valor) => setUsuarios(normalizarLista(valor))));
+      }
+      if (aba === 'usuarios' && controlador.possuiPermissao('usuarios.alterar_email')) {
+        tarefas.push(carregarSolicitacoesEmailPendentes());
       }
       if (aba === 'perfis' && controlador.possuiPermissao('configuracoes.visualizar')) {
         tarefas.push(listarPerfis().then((valor) => setPerfis(normalizarLista(valor))));
@@ -1298,6 +1316,47 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
               </button>
             </div>
           </header>
+
+          ${controlador.possuiPermissao('usuarios.alterar_email') && solicitacoesEmailPendentes.length > 0
+            ? html`
+                <section class="c24-card settings-ambiente-section">
+                  <h3>Solicitações de e-mail pendentes</h3>
+                  <p class="settings-notifications-hint">
+                    Alterações de e-mail solicitadas pelos usuários aguardando sua aprovação.
+                  </p>
+                  <div class="settings-notif-list">
+                    ${solicitacoesEmailPendentes.map(
+                      (solicitacao) => html`
+                        <div class="settings-notif-row" key=${solicitacao.id}>
+                          <span>
+                            <strong>${solicitacao.nome_usuario || solicitacao.login_usuario || 'Usuário'}</strong>
+                            <small>${solicitacao.email_atual || '—'} → ${solicitacao.email_novo}</small>
+                          </span>
+                          <div class="settings-card-actions">
+                            <button
+                              type="button"
+                              class="btn btn-primary btn-sm"
+                              disabled=${decidindoSolicitacaoEmailId === String(solicitacao.id)}
+                              onClick=${() => aprovarSolicitacaoEmailAmbiente(solicitacao.id)}
+                            >
+                              Aprovar
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary btn-sm"
+                              disabled=${decidindoSolicitacaoEmailId === String(solicitacao.id)}
+                              onClick=${() => rejeitarSolicitacaoEmailAmbiente(solicitacao.id)}
+                            >
+                              Rejeitar
+                            </button>
+                          </div>
+                        </div>
+                      `,
+                    )}
+                  </div>
+                </section>
+              `
+            : null}
 
           <div class="users-modern-count">${totalUsuarios} ${totalUsuarios === 1 ? 'resultado' : 'resultados'}</div>
 
@@ -2492,6 +2551,126 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     }
   };
 
+  const salvarSobrenomeAmbiente = async () => {
+    setSalvandoSobrenome(true);
+    setErro('');
+    try {
+      await controlador.atualizarSobrenomeUsuario(sobrenomeDraft.trim());
+      setFeedback('Sobrenome atualizado.');
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível atualizar o sobrenome.');
+    } finally {
+      setSalvandoSobrenome(false);
+    }
+  };
+
+  const salvarCargoAmbiente = async () => {
+    setSalvandoCargo(true);
+    setErro('');
+    try {
+      await controlador.atualizarCargoUsuario(cargoDraft.trim());
+      setFeedback('Cargo atualizado.');
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível atualizar o cargo.');
+    } finally {
+      setSalvandoCargo(false);
+    }
+  };
+
+  const enviarSolicitacaoEmailAmbiente = async () => {
+    setSalvandoEmail(true);
+    setErro('');
+    try {
+      await controlador.solicitarAlteracaoEmail(emailDraft.trim());
+      setEmailDraft('');
+      setFeedback('Sua alteração foi enviada para aprovação do administrador.');
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível enviar a solicitação de alteração de e-mail.');
+    } finally {
+      setSalvandoEmail(false);
+    }
+  };
+
+  const salvarLoginLocalAmbiente = async () => {
+    setErro('');
+    if (formLoginLocalAmbiente.novaSenha.length < 8) {
+      setErro('A nova senha deve ter pelo menos 8 caracteres.');
+      return;
+    }
+    if (formLoginLocalAmbiente.novaSenha !== formLoginLocalAmbiente.confirmarSenha) {
+      setErro('A confirmação não corresponde à nova senha.');
+      return;
+    }
+    setSalvandoLoginLocalAmbiente(true);
+    try {
+      await controlador.ativarLoginLocal(formLoginLocalAmbiente.novaSenha, formLoginLocalAmbiente.confirmarSenha);
+      setFormLoginLocalAmbiente({ novaSenha: '', confirmarSenha: '' });
+      setMostrarFormLoginLocalAmbiente(false);
+      setFeedback(
+        `Login local ativado. Seu usuário de acesso é o e-mail ${controlador?.estado?.emailUsuarioAutenticado || 'cadastrado'}.`,
+      );
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível ativar o login local.');
+    } finally {
+      setSalvandoLoginLocalAmbiente(false);
+    }
+  };
+
+  const alternarLoginMicrosoftAmbiente = async (ativarMicrosoft) => {
+    setErro('');
+    setSalvandoProvedorAmbiente(true);
+    try {
+      await controlador.atualizarProvedorAutenticacao(ativarMicrosoft ? 'microsoft' : 'local');
+      setFeedback(ativarMicrosoft ? 'Login pela Microsoft reativado.' : 'Login pela Microsoft desativado.');
+    } catch (error) {
+      if (!ativarMicrosoft) {
+        // Ainda não existe senha local cadastrada — abre o formulário para criar uma antes de desativar.
+        setMostrarFormLoginLocalAmbiente(true);
+      } else {
+        setErro(error?.message || 'Não foi possível reativar o login pela Microsoft.');
+      }
+    } finally {
+      setSalvandoProvedorAmbiente(false);
+    }
+  };
+
+  const carregarSolicitacoesEmailPendentes = async () => {
+    try {
+      const resultado = await listarSolicitacoesAlteracaoEmailApi();
+      setSolicitacoesEmailPendentes(Array.isArray(resultado?.solicitacoes) ? resultado.solicitacoes : []);
+    } catch (error) {
+      // Painel de solicitações é complementar — falha ao carregar não deve travar a tela de Usuários.
+    }
+  };
+
+  const aprovarSolicitacaoEmailAmbiente = async (idSolicitacao) => {
+    setDecidindoSolicitacaoEmailId(String(idSolicitacao));
+    setErro('');
+    try {
+      await aprovarSolicitacaoAlteracaoEmailApi(idSolicitacao);
+      setFeedback('Alteração de e-mail aprovada.');
+      await carregarSolicitacoesEmailPendentes();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível aprovar a solicitação.');
+    } finally {
+      setDecidindoSolicitacaoEmailId('');
+    }
+  };
+
+  const rejeitarSolicitacaoEmailAmbiente = async (idSolicitacao) => {
+    setDecidindoSolicitacaoEmailId(String(idSolicitacao));
+    setErro('');
+    try {
+      await rejeitarSolicitacaoAlteracaoEmailApi(idSolicitacao);
+      setFeedback('Alteração de e-mail rejeitada.');
+      await carregarSolicitacoesEmailPendentes();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível rejeitar a solicitação.');
+    } finally {
+      setDecidindoSolicitacaoEmailId('');
+    }
+  };
+
   const ABAS_AMBIENTE = [
     { id: 'perfil', label: 'Perfil', icon: 'person' },
     { id: 'seguranca', label: 'Segurança', icon: 'lock' },
@@ -2531,6 +2710,80 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                       onClick=${salvarNomeAmbiente}
                     >
                       ${salvandoNome ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </div>
+                </label>
+              </div>
+
+              <div class="settings-ambiente-section">
+                <h3>Sobrenome</h3>
+                <label class="settings-name-field">
+                  <div class="settings-name-row">
+                    <input
+                      class="form-control"
+                      value=${sobrenomeDraft}
+                      maxlength="180"
+                      disabled=${salvandoSobrenome}
+                      onInput=${(event) => setSobrenomeDraft(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm"
+                      disabled=${salvandoSobrenome || sobrenomeDraft.trim() === (controlador?.estado?.sobrenomeUsuarioAutenticado || '').trim()}
+                      onClick=${salvarSobrenomeAmbiente}
+                    >
+                      ${salvandoSobrenome ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </div>
+                </label>
+              </div>
+
+              <div class="settings-ambiente-section">
+                <h3>Cargo</h3>
+                <label class="settings-name-field">
+                  <div class="settings-name-row">
+                    <input
+                      class="form-control"
+                      value=${cargoDraft}
+                      maxlength="180"
+                      disabled=${salvandoCargo}
+                      onInput=${(event) => setCargoDraft(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm"
+                      disabled=${salvandoCargo || cargoDraft.trim() === (controlador?.estado?.cargoUsuarioAutenticado || '').trim()}
+                      onClick=${salvarCargoAmbiente}
+                    >
+                      ${salvandoCargo ? 'Salvando...' : 'Salvar'}
+                    </button>
+                  </div>
+                </label>
+              </div>
+
+              <div class="settings-ambiente-section">
+                <h3>E-mail</h3>
+                <p class="settings-notifications-hint">
+                  E-mail atual: <strong>${controlador?.estado?.emailUsuarioAutenticado || 'não informado'}</strong>.
+                  Alterações passam por aprovação do administrador antes de valer.
+                </p>
+                <label class="settings-name-field">
+                  <div class="settings-name-row">
+                    <input
+                      class="form-control"
+                      type="email"
+                      placeholder="novo-email@exemplo.com"
+                      value=${emailDraft}
+                      disabled=${salvandoEmail}
+                      onInput=${(event) => setEmailDraft(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm"
+                      disabled=${salvandoEmail || !emailDraft.trim()}
+                      onClick=${enviarSolicitacaoEmailAmbiente}
+                    >
+                      ${salvandoEmail ? 'Enviando...' : 'Solicitar alteração'}
                     </button>
                   </div>
                 </label>
@@ -2613,6 +2866,80 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                 >
                   ${salvandoSenhaAmbiente ? 'Salvando...' : 'Alterar senha'}
                 </button>
+              </div>
+
+              <div class="settings-ambiente-section">
+                <h3>Login pela Microsoft</h3>
+                <div class="process-cutoff-panel">
+                  <label class="process-switch-row">
+                    <input
+                      type="checkbox"
+                      checked=${controlador?.estado?.provedorAutenticacaoUsuario === 'microsoft'}
+                      disabled=${salvandoProvedorAmbiente}
+                      onChange=${(event) => alternarLoginMicrosoftAmbiente(event.target.checked)}
+                    />
+                    <span class="process-switch-visual"></span>
+                    <span>
+                      <strong>Entrar pela Microsoft</strong>
+                      <small>
+                        Ao desativar, você cria um login e senha de acesso local — o login é sempre o seu
+                        e-mail cadastrado.
+                      </small>
+                    </span>
+                  </label>
+                </div>
+
+                ${mostrarFormLoginLocalAmbiente
+                  ? html`
+                      <div class="settings-password-grid">
+                        <label class="settings-name-field">
+                          <span>Nova senha de acesso local</span>
+                          <input
+                            class="form-control"
+                            type="password"
+                            autocomplete="new-password"
+                            value=${formLoginLocalAmbiente.novaSenha}
+                            disabled=${salvandoLoginLocalAmbiente}
+                            onInput=${(event) =>
+                              setFormLoginLocalAmbiente({ ...formLoginLocalAmbiente, novaSenha: event.target.value })}
+                          />
+                        </label>
+                        <label class="settings-name-field">
+                          <span>Confirmar nova senha</span>
+                          <input
+                            class="form-control"
+                            type="password"
+                            autocomplete="new-password"
+                            value=${formLoginLocalAmbiente.confirmarSenha}
+                            disabled=${salvandoLoginLocalAmbiente}
+                            onInput=${(event) =>
+                              setFormLoginLocalAmbiente({ ...formLoginLocalAmbiente, confirmarSenha: event.target.value })}
+                          />
+                        </label>
+                      </div>
+                      <div class="settings-card-actions settings-card-actions--stack">
+                        <button
+                          type="button"
+                          class="btn btn-primary btn-sm"
+                          disabled=${salvandoLoginLocalAmbiente || !formLoginLocalAmbiente.novaSenha}
+                          onClick=${salvarLoginLocalAmbiente}
+                        >
+                          ${salvandoLoginLocalAmbiente ? 'Salvando...' : 'Criar senha local'}
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-outline-secondary btn-sm"
+                          disabled=${salvandoLoginLocalAmbiente}
+                          onClick=${() => {
+                            setMostrarFormLoginLocalAmbiente(false);
+                            setFormLoginLocalAmbiente({ novaSenha: '', confirmarSenha: '' });
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    `
+                  : null}
               </div>
             `
           : null}

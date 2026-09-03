@@ -128,6 +128,8 @@ def ensure_security_tables(cursor, settings: Settings) -> None:
         ("criado_em", "DATETIME"),
         ("atualizado_em", "DATETIME"),
         ("avatar_ilustrado", "NVARCHAR(60)"),
+        ("sobrenome", "NVARCHAR(180)"),
+        ("cargo", "NVARCHAR(180)"),
     ):
         cursor.execute(
             f"""
@@ -465,6 +467,47 @@ def ensure_user_operacoes_table(cursor) -> None:
                 CONSTRAINT PK_usuarios_operacoes PRIMARY KEY (id_usuario, operacao)
             )
         END
+        """
+    )
+
+
+def ensure_email_change_requests_table(cursor) -> None:
+    """Correcoes.txt (rodada de 02/set/2026): aba Perfil permite pedir troca
+    do proprio e-mail, mas a troca so e aplicada apos aprovacao de um
+    administrador (permissao "usuarios.alterar_email", ja existente).
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.solicitacoes_alteracao_email', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.solicitacoes_alteracao_email (
+                id INT IDENTITY(1,1) PRIMARY KEY,
+                id_usuario INT NOT NULL,
+                email_atual NVARCHAR(180) NULL,
+                email_novo NVARCHAR(180) NOT NULL,
+                status NVARCHAR(20) NOT NULL DEFAULT 'pendente',
+                solicitado_em DATETIME NOT NULL DEFAULT GETDATE(),
+                decidido_em DATETIME NULL,
+                decidido_por NVARCHAR(180) NULL,
+                motivo_rejeicao NVARCHAR(500) NULL
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes WHERE name = 'IX_solicitacoes_email_usuario'
+        )
+        CREATE INDEX IX_solicitacoes_email_usuario ON dbo.solicitacoes_alteracao_email(id_usuario)
+        """
+    )
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes WHERE name = 'IX_solicitacoes_email_status'
+        )
+        CREATE INDEX IX_solicitacoes_email_status ON dbo.solicitacoes_alteracao_email(status)
         """
     )
 
@@ -3075,6 +3118,7 @@ def bootstrap_runtime_schema(settings: Settings, *, force: bool = False) -> bool
             ensure_reusable_config_tables(cursor)
             ensure_operacoes_seed(cursor)
             ensure_user_operacoes_table(cursor)
+            ensure_email_change_requests_table(cursor)
             ensure_process_columns(cursor)
             ensure_pipeline_columns(cursor)
             ensure_candidate_metadata_table(cursor)

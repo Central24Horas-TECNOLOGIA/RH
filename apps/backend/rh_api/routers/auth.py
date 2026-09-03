@@ -20,15 +20,20 @@ from ..dependencies import audit_action, get_current_user, get_repository
 from ..rbac import get_role_definition, get_role_permissions
 from ..repositories import DatabaseRepository
 from ..schemas.auth import (
+    ActivateLocalLoginRequest,
     E2ETestLoginRequest,
     LoginRequest,
     LoginResponse,
     MfaCodeRequest,
     MfaSetupResponse,
+    RequestEmailChangeRequest,
     SessionResponse,
+    UpdateAuthProviderRequest,
     UpdateAvatarRequest,
+    UpdateCargoRequest,
     UpdateNameRequest,
     UpdateOwnPasswordRequest,
+    UpdateSurnameRequest,
 )
 from ..schemas.common import SuccessResponse
 from ..config import get_settings
@@ -155,12 +160,15 @@ def _build_login_response(token: str, user: AuthenticatedUser) -> LoginResponse:
         access_token=token,
         usuario=user.username,
         nome=user.nome,
+        sobrenome=user.sobrenome,
+        cargo=user.cargo,
         email=user.email,
         perfil=user.perfil,
         perfil_nome=user.perfil_nome,
         nivel=user.nivel,
         permissoes=sorted(user.permissions),
         avatar_ilustrado=user.avatar_ilustrado,
+        provedor_autenticacao=user.provedor_autenticacao,
     )
 
 
@@ -522,12 +530,32 @@ def me(user: AuthenticatedUser = Depends(get_current_user)) -> SessionResponse:
     return SessionResponse(
         usuario=user.username,
         nome=user.nome,
+        sobrenome=user.sobrenome,
+        cargo=user.cargo,
         email=user.email,
         perfil=user.perfil,
         perfil_nome=user.perfil_nome,
         nivel=user.nivel,
         permissoes=sorted(user.permissions),
         avatar_ilustrado=user.avatar_ilustrado,
+        provedor_autenticacao=user.provedor_autenticacao,
+    )
+
+
+def _build_session_response(user: AuthenticatedUser) -> SessionResponse:
+    return SessionResponse(
+        usuario=user.username,
+        nome=user.nome,
+        sobrenome=user.sobrenome,
+        cargo=user.cargo,
+        email=user.email,
+        perfil=user.perfil,
+        perfil_nome=user.perfil_nome,
+        nivel=user.nivel,
+        permissoes=sorted(user.permissions),
+        avatar_ilustrado=user.avatar_ilustrado,
+        provedor_autenticacao=user.provedor_autenticacao,
+        access_token=reissue_token(user),
     )
 
 
@@ -550,17 +578,7 @@ def update_my_avatar(
         valor_novo={"avatar_ilustrado": payload.avatar_ilustrado},
     )
     usuario_atualizado = replace(user, avatar_ilustrado=payload.avatar_ilustrado)
-    return SessionResponse(
-        usuario=usuario_atualizado.username,
-        nome=usuario_atualizado.nome,
-        email=usuario_atualizado.email,
-        perfil=usuario_atualizado.perfil,
-        perfil_nome=usuario_atualizado.perfil_nome,
-        nivel=usuario_atualizado.nivel,
-        permissoes=sorted(usuario_atualizado.permissions),
-        avatar_ilustrado=usuario_atualizado.avatar_ilustrado,
-        access_token=reissue_token(usuario_atualizado),
-    )
+    return _build_session_response(usuario_atualizado)
 
 
 @router.put("/me/nome", response_model=SessionResponse)
@@ -582,17 +600,115 @@ def update_my_name(
         valor_novo={"nome": payload.nome},
     )
     usuario_atualizado = replace(user, nome=payload.nome)
-    return SessionResponse(
-        usuario=usuario_atualizado.username,
-        nome=usuario_atualizado.nome,
-        email=usuario_atualizado.email,
-        perfil=usuario_atualizado.perfil,
-        perfil_nome=usuario_atualizado.perfil_nome,
-        nivel=usuario_atualizado.nivel,
-        permissoes=sorted(usuario_atualizado.permissions),
-        avatar_ilustrado=usuario_atualizado.avatar_ilustrado,
-        access_token=reissue_token(usuario_atualizado),
+    return _build_session_response(usuario_atualizado)
+
+
+@router.put("/me/sobrenome", response_model=SessionResponse)
+def update_my_surname(
+    payload: UpdateSurnameRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+) -> SessionResponse:
+    if user.id_usuario is None:
+        raise HTTPException(status_code=400, detail="Este usuário não possui cadastro para salvar preferências.")
+    repository.update_own_surname(user.id_usuario, payload.sobrenome)
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="atualizar_sobrenome_usuario",
+        entidade="usuario",
+        entidade_id=str(user.id_usuario),
+        valor_novo={"sobrenome": payload.sobrenome},
     )
+    usuario_atualizado = replace(user, sobrenome=payload.sobrenome)
+    return _build_session_response(usuario_atualizado)
+
+
+@router.put("/me/cargo", response_model=SessionResponse)
+def update_my_cargo(
+    payload: UpdateCargoRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+) -> SessionResponse:
+    if user.id_usuario is None:
+        raise HTTPException(status_code=400, detail="Este usuário não possui cadastro para salvar preferências.")
+    repository.update_own_cargo(user.id_usuario, payload.cargo)
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="atualizar_cargo_usuario",
+        entidade="usuario",
+        entidade_id=str(user.id_usuario),
+        valor_novo={"cargo": payload.cargo},
+    )
+    usuario_atualizado = replace(user, cargo=payload.cargo)
+    return _build_session_response(usuario_atualizado)
+
+
+@router.put("/me/email", response_model=SuccessResponse)
+def request_my_email_change(
+    payload: RequestEmailChangeRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+) -> SuccessResponse:
+    if user.id_usuario is None:
+        raise HTTPException(status_code=400, detail="Este usuário não possui cadastro para solicitar alterações.")
+    repository.create_email_change_request(user.id_usuario, user.email, payload.email_novo)
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="solicitar_alteracao_email",
+        entidade="usuario",
+        entidade_id=str(user.id_usuario),
+        valor_novo={"email_novo": payload.email_novo},
+    )
+    return SuccessResponse(message="Alteração enviada para aprovação do administrador.")
+
+
+@router.post("/me/ativar-login-local", response_model=SessionResponse)
+def activate_my_local_login(
+    payload: ActivateLocalLoginRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+) -> SessionResponse:
+    if user.id_usuario is None:
+        raise HTTPException(status_code=400, detail="Este usuário não possui cadastro para alterar o acesso.")
+    repository.activate_local_login(user.id_usuario, payload.nova_senha)
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="ativar_login_local",
+        entidade="usuario",
+        entidade_id=str(user.id_usuario),
+    )
+    usuario_atualizado = replace(user, provedor_autenticacao="local")
+    return _build_session_response(usuario_atualizado)
+
+
+@router.put("/me/provedor-autenticacao", response_model=SessionResponse)
+def update_my_auth_provider(
+    payload: UpdateAuthProviderRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+) -> SessionResponse:
+    if user.id_usuario is None:
+        raise HTTPException(status_code=400, detail="Este usuário não possui cadastro para alterar o acesso.")
+    repository.update_own_auth_provider(user.id_usuario, payload.provedor)
+    audit_action(
+        repository,
+        user,
+        modulo="Configurações",
+        acao="atualizar_provedor_autenticacao",
+        entidade="usuario",
+        entidade_id=str(user.id_usuario),
+        valor_novo={"provedor_autenticacao": payload.provedor},
+    )
+    usuario_atualizado = replace(user, provedor_autenticacao=payload.provedor)
+    return _build_session_response(usuario_atualizado)
 
 
 @router.put("/me/senha", response_model=SuccessResponse)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from .common import BaseSchema
 
@@ -39,24 +39,30 @@ class LoginResponse(BaseSchema):
     token_type: str = "bearer"
     usuario: str
     nome: str = ""
+    sobrenome: str = ""
+    cargo: str = ""
     email: str = ""
     perfil: str = "administrador"
     perfil_nome: str = "Administrador"
     nivel: str = "Completo"
     permissoes: list[str] = []
     avatar_ilustrado: str = ""
+    provedor_autenticacao: str = ""
 
 
 class SessionResponse(BaseSchema):
     authenticated: bool = True
     usuario: str
     nome: str = ""
+    sobrenome: str = ""
+    cargo: str = ""
     email: str = ""
     perfil: str = "administrador"
     perfil_nome: str = "Administrador"
     nivel: str = "Completo"
     permissoes: list[str] = []
     avatar_ilustrado: str = ""
+    provedor_autenticacao: str = ""
     access_token: str = ""
 
 
@@ -94,4 +100,59 @@ class UpdateOwnPasswordRequest(BaseSchema):
         safe_value = str(value or "")
         if len(safe_value) < 8:
             raise ValueError("A nova senha deve ter pelo menos 8 caracteres.")
+        return safe_value
+
+
+class UpdateSurnameRequest(BaseSchema):
+    sobrenome: str = Field(default="", max_length=180)
+
+
+class UpdateCargoRequest(BaseSchema):
+    cargo: str = Field(default="", max_length=180)
+
+
+class RequestEmailChangeRequest(BaseSchema):
+    email_novo: str = Field(default="")
+
+    @field_validator("email_novo")
+    @classmethod
+    def validate_email_novo(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", safe_value):
+            raise ValueError("Informe um e-mail válido.")
+        return safe_value
+
+
+class DecideEmailChangeRequest(BaseSchema):
+    motivo: str = Field(default="", max_length=500)
+
+
+class ActivateLocalLoginRequest(BaseSchema):
+    nova_senha: str = Field(default="")
+    confirmar_senha: str = Field(default="")
+
+    @field_validator("nova_senha")
+    @classmethod
+    def validate_nova_senha(cls, value: str) -> str:
+        safe_value = str(value or "")
+        if len(safe_value) < 8:
+            raise ValueError("A nova senha deve ter pelo menos 8 caracteres.")
+        return safe_value
+
+    @model_validator(mode="after")
+    def validate_confirmacao(self):
+        if self.nova_senha != self.confirmar_senha:
+            raise ValueError("A confirmação não corresponde à nova senha.")
+        return self
+
+
+class UpdateAuthProviderRequest(BaseSchema):
+    provedor: str = Field(default="")
+
+    @field_validator("provedor")
+    @classmethod
+    def validate_provedor(cls, value: str) -> str:
+        safe_value = str(value or "").strip().lower()
+        if safe_value not in {"local", "microsoft"}:
+            raise ValueError("Tipo de acesso inválido.")
         return safe_value

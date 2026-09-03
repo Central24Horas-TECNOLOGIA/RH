@@ -47,6 +47,8 @@ class AuthenticatedUser:
     username: str
     id_usuario: int | None = None
     nome: str = ""
+    sobrenome: str = ""
+    cargo: str = ""
     email: str = ""
     perfil: str = ROLE_ADMIN
     perfil_nome: str = "Administrador"
@@ -54,6 +56,7 @@ class AuthenticatedUser:
     permissions: frozenset[str] = field(default_factory=lambda: frozenset(get_role_permissions(ROLE_ADMIN)))
     status: str = "Ativo"
     avatar_ilustrado: str = ""
+    provedor_autenticacao: str = ""
     # Achado SEC-002: escopo de operação, aditivo. Vazio == sem restrição
     # (comportamento de hoje, preservado para todo usuário existente) — só
     # passa a restringir quando alguém atribuir operações a este usuário em
@@ -98,6 +101,8 @@ def _build_user_payload(user: AuthenticatedUser) -> dict:
         "sub": user.username,
         "uid": user.id_usuario,
         "name": user.nome,
+        "sobrenome": user.sobrenome,
+        "cargo": user.cargo,
         "email": user.email,
         "role": user.perfil,
         "role_name": user.perfil_nome,
@@ -105,6 +110,7 @@ def _build_user_payload(user: AuthenticatedUser) -> dict:
         "permissions": sorted(user.permissions),
         "status": user.status,
         "avatar": user.avatar_ilustrado,
+        "provedor_autenticacao": user.provedor_autenticacao,
         "operacoes": sorted(user.operacoes),
     }
 
@@ -157,6 +163,8 @@ def _user_from_record(record: dict | None) -> AuthenticatedUser:
         username=normalize_text(safe_record.get("login") or safe_record.get("usuario") or safe_record.get("email")),
         id_usuario=safe_record.get("id_usuario"),
         nome=normalize_text(safe_record.get("nome")) or normalize_text(safe_record.get("login")),
+        sobrenome=normalize_text(safe_record.get("sobrenome")),
+        cargo=normalize_text(safe_record.get("cargo")),
         email=normalize_text(safe_record.get("email")),
         perfil=role.id,
         perfil_nome=normalize_text(safe_record.get("perfil_nome")) or role.name,
@@ -164,6 +172,7 @@ def _user_from_record(record: dict | None) -> AuthenticatedUser:
         permissions=frozenset(permissions),
         status=normalize_text(safe_record.get("status")) or "Ativo",
         avatar_ilustrado=normalize_text(safe_record.get("avatar_ilustrado")),
+        provedor_autenticacao=normalize_text(safe_record.get("provedor_autenticacao")),
         operacoes=frozenset(
             normalize_text(item) for item in (safe_record.get("operacoes") or []) if normalize_text(item)
         ),
@@ -265,6 +274,8 @@ def validate_access_token(token: str) -> AuthenticatedUser:
         username=username,
         id_usuario=data.get("uid"),
         nome=normalize_text(data.get("name")) or username,
+        sobrenome=normalize_text(data.get("sobrenome")),
+        cargo=normalize_text(data.get("cargo")),
         email=normalize_text(data.get("email")),
         perfil=role.id,
         perfil_nome=normalize_text(data.get("role_name")) or role.name,
@@ -272,6 +283,7 @@ def validate_access_token(token: str) -> AuthenticatedUser:
         permissions=frozenset(permissions),
         status=normalize_text(data.get("status")) or "Ativo",
         avatar_ilustrado=normalize_text(data.get("avatar")),
+        provedor_autenticacao=normalize_text(data.get("provedor_autenticacao")),
         operacoes=frozenset(
             normalize_text(item) for item in (data.get("operacoes") or []) if normalize_text(item)
         ),

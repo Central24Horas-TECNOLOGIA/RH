@@ -669,6 +669,116 @@ class EmailInboxRepositoryMixin:
         finally:
             conn.close()
 
+    def create_manual_structured_email_inbox_item(self, *, dados: dict, actor: str = "") -> dict:
+        """Correcoes.txt (rodada de 02/set/2026): "Criar curriculo" na Cx de
+        Curriculos -- alternativa ao upload de arquivo (create_manual_email_inbox_item
+        acima) para o RH cadastrar um candidato preenchendo um formulario
+        estruturado (contato + experiencia + formacao), sem depender de um
+        anexo. Reaproveita as mesmas colunas que o parser do "trabalhe
+        conosco" ja usa (nome_detectado/email_detectado/telefone_detectado/
+        campos_formulario_json), entao a listagem e o detalhe da Cx de
+        Curriculos ja existentes exibem o resultado sem trabalho extra.
+        """
+        item_id = f"manual-{uuid4().hex[:20]}"
+        nome = normalize_text(dados.get("nome"))
+        email = normalize_text(dados.get("email"))
+        telefone = normalize_text(dados.get("telefone"))
+        cidade = normalize_text(dados.get("cidade"))
+        bairro = normalize_text(dados.get("bairro"))
+        endereco = normalize_text(dados.get("endereco"))
+        data_nascimento = normalize_text(dados.get("data_nascimento"))
+        vaga = normalize_text(dados.get("vaga_pretendida"))
+        experiencias = list(dados.get("experiencias") or []) if dados.get("experiencia_ativa") else []
+        formacao = list(dados.get("formacao") or []) if dados.get("formacao_ativa") else []
+
+        linhas = [f"Currículo criado manualmente por {actor or 'RH'}.", "", f"Nome: {nome}"]
+        if email:
+            linhas.append(f"E-mail: {email}")
+        if telefone:
+            linhas.append(f"Telefone: {telefone}")
+        if bairro or cidade:
+            linhas.append(f"Localização: {', '.join(parte for parte in (bairro, cidade) if parte)}")
+        if endereco:
+            linhas.append(f"Endereço: {endereco}")
+        if data_nascimento:
+            linhas.append(f"Data de nascimento: {data_nascimento}")
+        if vaga:
+            linhas.append(f"Vaga pretendida: {vaga}")
+
+        if experiencias:
+            linhas.append("")
+            linhas.append("Experiência profissional:")
+            for experiencia in experiencias:
+                titulo = " — ".join(
+                    parte for parte in (normalize_text(experiencia.get("cargo")), normalize_text(experiencia.get("empresa"))) if parte
+                )
+                linha = f"- {titulo}" if titulo else "- (sem cargo/empresa informado)"
+                periodo = normalize_text(experiencia.get("periodo"))
+                if periodo:
+                    linha += f" ({periodo})"
+                linhas.append(linha)
+                descricao = normalize_text(experiencia.get("descricao"))
+                if descricao:
+                    linhas.append(f"  {descricao}")
+
+        if formacao:
+            linhas.append("")
+            linhas.append("Formação acadêmica:")
+            for item_formacao in formacao:
+                titulo = " — ".join(
+                    parte for parte in (normalize_text(item_formacao.get("curso")), normalize_text(item_formacao.get("instituicao"))) if parte
+                )
+                linha = f"- {titulo}" if titulo else "- (sem curso/instituição informado)"
+                extras = [
+                    parte
+                    for parte in (
+                        normalize_text(item_formacao.get("nivel")),
+                        normalize_text(item_formacao.get("periodo")),
+                        normalize_text(item_formacao.get("status")),
+                    )
+                    if parte
+                ]
+                if extras:
+                    linha += f" ({', '.join(extras)})"
+                linhas.append(linha)
+
+        corpo = "\n".join(linhas)
+        item = {
+            "id": item_id,
+            "remetente_nome": f"Criado manualmente — {actor or 'RH'}",
+            "assunto": "Currículo criado manualmente",
+            "data_recebimento": datetime.now().isoformat(),
+            "resumo": corpo[:500],
+            "corpo": corpo,
+            "nome_detectado": nome,
+            "telefone_detectado": telefone,
+            "email_detectado": email,
+            "vaga_detectada": vaga,
+            "experiencia_detectada": "sim" if experiencias else "nao",
+            "trabalhe_conosco": True,
+            "campos_formulario": {
+                "cidade": cidade,
+                "bairro": bairro,
+                "endereco": endereco,
+                "data_nascimento": data_nascimento,
+                "experiencias": experiencias,
+                "formacao": formacao,
+            },
+            "status": "Recebido",
+            "origem": MANUAL_UPLOAD_ORIGIN,
+        }
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_email_inbox_items_table(cursor)
+            self._upsert_email_inbox_summary(cursor, item)
+            conn.commit()
+            row = self._select_email_inbox_item(cursor, item_id)
+            return {"success": True, "item": self._serialize_email_inbox_item(row, include_body=True)}
+        finally:
+            conn.close()
+
     def download_configured_email_inbox_attachments(self, item_id: str) -> dict:
         conn = self._connect()
         try:

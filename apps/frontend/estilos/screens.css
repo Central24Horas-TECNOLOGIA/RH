@@ -5512,6 +5512,8 @@
   flex-direction: column;
   gap: 16px;
   max-width: 760px;
+  width: 100%;
+  align-self: center;
 }
 
 .settings-ambiente-tabs {
@@ -5551,6 +5553,10 @@
   flex-direction: column;
   gap: 16px;
   margin-top: 16px;
+}
+
+.settings-card-actions--stack {
+  margin-top: 8px;
 }
 
 .settings-notif-row {
@@ -11782,6 +11788,12 @@
   padding: 1rem;
 }
 
+.rh-details-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .rh-modal-header,
 .rh-modal-footer {
   padding: 0.9rem 1rem;
@@ -12368,7 +12380,7 @@
 .rh-modern-nav-btn.is-active {
   border-color: rgba(69, 135, 255, 0.5);
   background: linear-gradient(135deg, #0f5be8 0%, #0750d8 100%);
-  box-shadow: 0 12px 24px rgba(3, 24, 65, 0.22);
+  /* box-shadow: 0 12px 24px rgba(3, 24, 65, 0.22); */
 }
 
 .rh-modern-sidebar-actions {
