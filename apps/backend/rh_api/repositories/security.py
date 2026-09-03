@@ -1243,6 +1243,7 @@ class SecurityRepositoryMixin:
         safe_login = normalize_text(data.get("login")) or safe_email
         safe_password = normalize_text(data.get("senha") or data.get("password"))
         role = get_role_definition(data.get("perfil") or data.get("perfil_id") or ROLE_INTERN)
+        safe_cargo = normalize_text(data.get("cargo"))
         safe_status = normalize_text(data.get("status")) or "Ativo"
         auth_provider = _normalize_auth_provider(data.get("provedor_autenticacao"))
 
@@ -1276,6 +1277,7 @@ class SecurityRepositoryMixin:
                     nome,
                     email,
                     perfil_id,
+                    cargo,
                     status,
                     senha_hash,
                     provedor_autenticacao,
@@ -1285,13 +1287,14 @@ class SecurityRepositoryMixin:
                     atualizado_em
                 )
                 OUTPUT INSERTED.id_usuario
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
                 """,
                 (
                     safe_login,
                     safe_name,
                     safe_email,
                     role.id,
+                    safe_cargo,
                     safe_status,
                     password_hash,
                     auth_provider,
@@ -1312,6 +1315,7 @@ class SecurityRepositoryMixin:
                     "email": safe_email,
                     "login": safe_login,
                     "perfil": role.id,
+                    "cargo": safe_cargo,
                     "status": safe_status,
                     "provedor_autenticacao": auth_provider,
                 },
@@ -1372,6 +1376,7 @@ class SecurityRepositoryMixin:
                 "nome": normalize_text(data.get("nome")) or previous["nome"],
                 "email": requested_email,
                 "perfil_id": role.id,
+                "cargo": normalize_text(data.get("cargo")) if "cargo" in data else previous.get("cargo", ""),
                 "status": normalize_text(data.get("status")) or previous["status"],
                 "provedor_autenticacao": _normalize_auth_provider(
                     data.get("provedor_autenticacao"),
@@ -1387,6 +1392,7 @@ class SecurityRepositoryMixin:
                     nome = ?,
                     email = ?,
                     perfil_id = ?,
+                    cargo = ?,
                     status = ?,
                     provedor_autenticacao = ?,
                     atualizado_por = ?,
@@ -1398,6 +1404,7 @@ class SecurityRepositoryMixin:
                     new_values["nome"],
                     new_values["email"],
                     new_values["perfil_id"],
+                    new_values["cargo"],
                     new_values["status"],
                     new_values["provedor_autenticacao"],
                     actor_info.get("email") or actor_info.get("nome"),

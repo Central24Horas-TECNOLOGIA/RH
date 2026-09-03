@@ -54,6 +54,7 @@ const FORM_USUARIO_INICIAL = {
   login: '',
   senha: '',
   perfil: 'estagiario',
+  cargo: '',
   status: 'Ativo',
   provedor_autenticacao: 'microsoft',
   justificativa: '',
@@ -81,9 +82,84 @@ const FORM_ITEM_INICIAL = {
   duracaoMinutos: '',
   toleranciaMinutos: '',
   subCausas: '',
+  corTag: '#2563eb',
+  finalidadeOperacao: '',
+  segmentoMercado: '',
+  areaSegmento: '',
+  unidadeTipo: '',
+  unidadeEnderecosHibrido: [],
+  unidadeEnderecoCliente: '',
+  jornadasTrabalho: [],
+  turnoEscala: '',
+  necessitaDisponibilidade: false,
+  descricaoCliente: '',
+  descricaoAtividades: '',
 };
 
 const SISTEMA_ACESSO_INICIAL = { nome: '', descricao: '' };
+
+const TIPOS_OPERACAO = ['Receptivo', 'Ativo', 'Misto'];
+
+const FINALIDADES_OPERACAO = [
+  'SAC',
+  'Suporte Técnico',
+  'Televendas e Telemarketing',
+  'Cobranças',
+  'Pesquisa de Mercado',
+  'Retenção',
+];
+
+const SEGMENTOS_MERCADO = [
+  'Saúde e Bem-Estar',
+  'Entretenimento e Esportes',
+  'Plataformas de Serviço e Tecnologia (SaaS)',
+  'Setores Industriais',
+  'Infraestrutura de Alta Complexidade',
+  'Setor Financeiro e Seguros',
+  'Turismo, Viagens e Logística',
+  'Serviços Públicos e Cidadania',
+  'Indústria Automotiva e Mobilidade',
+  'Varejo Especializado e Bens de Consumo',
+  'Setor Imobiliário e Construção Civil',
+  'Defesa, Segurança e Jurídico',
+  'Outros Segmentos Emergentes',
+  'Outros',
+];
+
+const AREAS_POR_SEGMENTO = {
+  'Saúde e Bem-Estar': ['Hospitais e Clínicas', 'Planos de Saúde', 'Telemedicina', 'Farmácias e Laboratórios'],
+  'Entretenimento e Esportes': ['Clubes de Futebol (Sócios-Torcedores)', 'Plataformas de Streaming', 'Casas de Apostas (Betting)'],
+  'Plataformas de Serviço e Tecnologia (SaaS)': ['Marketplaces e E-commerce', 'Aplicativos de Delivery e Mobilidade', 'Plataformas de RH e Educação (EdTechs)'],
+  'Setores Industriais': ['Plataformas Petrolíferas e Energia', 'Telecomunicações', 'Saneamento e Distribuição de Energia'],
+  'Infraestrutura de Alta Complexidade': ['Plataformas Petrolíferas e Energia', 'Telecomunicações', 'Saneamento e Distribuição de Energia'],
+  'Setor Financeiro e Seguros': ['Bancos Digitais e Tradicionais', 'Seguradoras'],
+};
+
+const JORNADAS_OPERACAO = [
+  { value: '6x1', label: '6x1 (6 horas diárias / 36h semanais)' },
+  { value: '5x2', label: '5x2 (8 horas diárias / 44h semanais)' },
+  { value: '12x36', label: 'Escala 12x36' },
+];
+
+const ENDERECO_PRINCIPAL_CHAVE = 'ENDERECO_PRINCIPAL_EMPRESA';
+
+const ENDERECO_PRINCIPAL_INICIAL = {
+  id_item: '',
+  rua: '',
+  numero: '',
+  complemento: '',
+  bairro: '',
+  cidade: '',
+  uf: '',
+  cep: '',
+};
+
+const UNIDADE_TIPOS_OPERACAO = [
+  { value: 'em_loco', label: 'Em loco (endereço principal da empresa)' },
+  { value: 'homeoffice', label: 'Home Office' },
+  { value: 'hibrido', label: 'Híbrido' },
+  { value: 'alocado_cliente', label: 'Alocado ao cliente' },
+];
 
 const CATALOGO_ICONS = {
   geral: 'settings',
@@ -383,6 +459,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const [perfis, setPerfis] = useState([]);
   const [permissoes, setPermissoes] = useState([]);
   const [catalogo, setCatalogo] = useState([]);
+  const [formEndereco, setFormEndereco] = useState({ ...ENDERECO_PRINCIPAL_INICIAL });
+  const [editandoEndereco, setEditandoEndereco] = useState(false);
+  const [salvandoEndereco, setSalvandoEndereco] = useState(false);
   const [logs, setLogs] = useState([]);
   const [automacaoNotificacoes, setAutomacaoNotificacoes] = useState({
     email_automatico_ativo: false,
@@ -434,6 +513,12 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
   const [justificativaPerfil, setJustificativaPerfil] = useState('');
   const [tipoCatalogo, setTipoCatalogo] = useState('');
   const [formItem, setFormItem] = useState(FORM_ITEM_INICIAL);
+  const enderecoPrincipalItem = useMemo(
+    () => (catalogo.find((secao) => secao.tipo === 'geral')?.items || []).find(
+      (item) => item.chave === ENDERECO_PRINCIPAL_CHAVE,
+    ),
+    [catalogo],
+  );
   const [filtrosCatalogo, setFiltrosCatalogo] = useState({ busca: '', status: 'todos' });
   const [filtrosLogs, setFiltrosLogs] = useState({
     busca: '',
@@ -652,6 +737,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       email: textoSeguro(usuario.email, ''),
       login: textoSeguro(usuario.login, ''),
       perfil: textoSeguro(usuario.perfil || usuario.perfil_id, FORM_USUARIO_INICIAL.perfil),
+      cargo: textoSeguro(usuario.cargo, ''),
       status: textoSeguro(usuario.status, FORM_USUARIO_INICIAL.status),
       provedor_autenticacao: textoSeguro(usuario.provedor_autenticacao, 'local'),
       senha: '',
@@ -689,6 +775,7 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         email,
         login: formUsuario.login || email,
         perfil: formUsuario.perfil,
+        cargo: formUsuario.cargo,
         status: formUsuario.status,
         provedor_autenticacao: formUsuario.provedor_autenticacao,
         justificativa: formUsuario.justificativa,
@@ -763,6 +850,59 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     }
   };
 
+  useEffect(() => {
+    if (!enderecoPrincipalItem) return;
+    const payload = enderecoPrincipalItem.payload || {};
+    setFormEndereco({
+      id_item: enderecoPrincipalItem.id_item || '',
+      rua: payload.rua || '',
+      numero: payload.numero || '',
+      complemento: payload.complemento || '',
+      bairro: payload.bairro || '',
+      cidade: payload.cidade || '',
+      uf: payload.uf || '',
+      cep: payload.cep || '',
+    });
+  }, [enderecoPrincipalItem]);
+
+  const salvarEnderecoPrincipal = async (event) => {
+    event.preventDefault();
+    setSalvandoEndereco(true);
+    setErro('');
+    setFeedback('');
+    try {
+      const data = {
+        chave: ENDERECO_PRINCIPAL_CHAVE,
+        nome: 'Endereço principal da empresa',
+        descricao: '',
+        categoria: 'endereco_empresa',
+        payload: {
+          rua: formEndereco.rua,
+          numero: formEndereco.numero,
+          complemento: formEndereco.complemento,
+          bairro: formEndereco.bairro,
+          cidade: formEndereco.cidade,
+          uf: formEndereco.uf,
+          cep: formEndereco.cep,
+        },
+        ativo: true,
+        justificativa: 'Endereço principal da empresa (Configurações > Operações).',
+      };
+      if (formEndereco.id_item) {
+        await atualizarItemConfiguracao('geral', formEndereco.id_item, data);
+      } else {
+        await criarItemConfiguracao('geral', data);
+      }
+      setFeedback('Endereço principal atualizado.');
+      setEditandoEndereco(false);
+      await carregarAba('operacoes');
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível salvar o endereço principal.');
+    } finally {
+      setSalvandoEndereco(false);
+    }
+  };
+
   const selecionarCatalogo = (tipo) => {
     setTipoCatalogo(tipo);
     setFormItem(FORM_ITEM_INICIAL);
@@ -796,6 +936,18 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       duracaoMinutos: payload.duracao_minutos ? String(payload.duracao_minutos) : '',
       toleranciaMinutos: payload.tolerancia_minutos ? String(payload.tolerancia_minutos) : '',
       subCausas: formatarCsv(payload.sub_causas),
+      corTag: payload.cor_tag || '#2563eb',
+      finalidadeOperacao: payload.finalidade || '',
+      segmentoMercado: payload.segmento_mercado || '',
+      areaSegmento: payload.area_segmento || '',
+      unidadeTipo: payload.unidade_tipo || '',
+      unidadeEnderecosHibrido: normalizarLista(payload.unidade_enderecos_hibrido),
+      unidadeEnderecoCliente: payload.unidade_endereco_cliente || '',
+      jornadasTrabalho: normalizarLista(payload.jornadas_trabalho),
+      turnoEscala: payload.turno_escala || '',
+      necessitaDisponibilidade: Boolean(payload.necessita_disponibilidade),
+      descricaoCliente: payload.descricao_cliente || '',
+      descricaoAtividades: payload.descricao_atividades || '',
     });
   };
 
@@ -820,6 +972,39 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       ...atual,
       sistemasAcesso: normalizarLista(atual.sistemasAcesso).filter((_, indiceAtual) => indiceAtual !== indice),
     }));
+  };
+
+  const adicionarEnderecoHibrido = () => {
+    setFormItem((atual) => ({
+      ...atual,
+      unidadeEnderecosHibrido: [...normalizarLista(atual.unidadeEnderecosHibrido), ''],
+    }));
+  };
+
+  const atualizarEnderecoHibrido = (indice, valor) => {
+    setFormItem((atual) => ({
+      ...atual,
+      unidadeEnderecosHibrido: normalizarLista(atual.unidadeEnderecosHibrido).map(
+        (endereco, indiceAtual) => (indiceAtual === indice ? valor : endereco),
+      ),
+    }));
+  };
+
+  const removerEnderecoHibrido = (indice) => {
+    setFormItem((atual) => ({
+      ...atual,
+      unidadeEnderecosHibrido: normalizarLista(atual.unidadeEnderecosHibrido).filter((_, indiceAtual) => indiceAtual !== indice),
+    }));
+  };
+
+  const alternarJornadaOperacao = (valor) => {
+    setFormItem((atual) => {
+      const atuais = normalizarLista(atual.jornadasTrabalho);
+      const jornadasTrabalho = atuais.includes(valor)
+        ? atuais.filter((item) => item !== valor)
+        : [...atuais, valor];
+      return { ...atual, jornadasTrabalho };
+    });
   };
 
   const duplicarItem = (item) => {
@@ -863,6 +1048,18 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
           headcount_previsto: formItem.headcountPrevisto ? Number(formItem.headcountPrevisto) : null,
           softwares_utilizados: dividirCsv(formItem.softwaresUtilizados),
           sistemas_acesso: normalizarLista(formItem.sistemasAcesso).filter((sistema) => sistema.nome?.trim()),
+          cor_tag: formItem.corTag || '#2563eb',
+          finalidade: formItem.finalidadeOperacao,
+          segmento_mercado: formItem.segmentoMercado,
+          area_segmento: formItem.areaSegmento,
+          unidade_tipo: formItem.unidadeTipo,
+          unidade_enderecos_hibrido: normalizarLista(formItem.unidadeEnderecosHibrido).filter((endereco) => String(endereco || '').trim()),
+          unidade_endereco_cliente: formItem.unidadeEnderecoCliente,
+          jornadas_trabalho: normalizarLista(formItem.jornadasTrabalho),
+          turno_escala: formItem.turnoEscala,
+          necessita_disponibilidade: Boolean(formItem.necessitaDisponibilidade),
+          descricao_cliente: formItem.descricaoCliente,
+          descricao_atividades: formItem.descricaoAtividades,
         };
       }
 
@@ -882,7 +1079,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       }
 
       const data = {
-        chave: formItem.chave,
+        chave: secaoCatalogoAtiva.tipo === 'operacoes'
+          ? String(formItem.nome || '').trim().toUpperCase()
+          : formItem.chave,
         nome: formItem.nome,
         descricao: formItem.descricao,
         categoria: formItem.categoria,
@@ -1562,6 +1761,15 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                         </select>
                       </label>
                       <label>
+                        <span>Cargo</span>
+                        <input
+                          class="form-control"
+                          placeholder="Ex.: Analista de RH Pleno"
+                          value=${formUsuario.cargo}
+                          onInput=${(event) => setFormUsuario({ ...formUsuario, cargo: event.target.value })}
+                        />
+                      </label>
+                      <label>
                         <span>Tipo de acesso</span>
                         <select
                           class="form-select"
@@ -1986,6 +2194,73 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     <div class="settings-admin-shell">
       <${StatGrid} items=${metricasGerais} />
 
+      ${tipoCatalogo === 'operacoes'
+    ? html`
+          <section class="c24-card settings-rule-form-card">
+            <header class="c24-card-header compact">
+              <div>
+                <span class="c24-eyebrow">Endereço principal</span>
+                <h3>Endereço principal da empresa</h3>
+                <p>Usado por operações com Unidade "Em loco". Edição restrita a quem administra Configurações.</p>
+              </div>
+              ${controlador.possuiPermissao('configuracoes.editar') && !editandoEndereco
+        ? html`
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => setEditandoEndereco(true)}>
+                      <${Icone} name="edit" /> ${enderecoPrincipalItem ? 'Editar' : 'Cadastrar'}
+                    </button>
+                  `
+        : null}
+            </header>
+            ${editandoEndereco
+      ? html`
+                  <form class="c24-form-grid" onSubmit=${salvarEnderecoPrincipal}>
+                    <label class="is-wide">
+                      <span>Rua/Avenida</span>
+                      <input class="form-control" value=${formEndereco.rua} onInput=${(event) => setFormEndereco({ ...formEndereco, rua: event.target.value })} />
+                    </label>
+                    <label>
+                      <span>Número</span>
+                      <input class="form-control" value=${formEndereco.numero} onInput=${(event) => setFormEndereco({ ...formEndereco, numero: event.target.value })} />
+                    </label>
+                    <label>
+                      <span>Complemento</span>
+                      <input class="form-control" value=${formEndereco.complemento} onInput=${(event) => setFormEndereco({ ...formEndereco, complemento: event.target.value })} />
+                    </label>
+                    <label>
+                      <span>Bairro</span>
+                      <input class="form-control" value=${formEndereco.bairro} onInput=${(event) => setFormEndereco({ ...formEndereco, bairro: event.target.value })} />
+                    </label>
+                    <label>
+                      <span>Cidade</span>
+                      <input class="form-control" value=${formEndereco.cidade} onInput=${(event) => setFormEndereco({ ...formEndereco, cidade: event.target.value })} />
+                    </label>
+                    <label>
+                      <span>UF</span>
+                      <input class="form-control" maxlength="2" value=${formEndereco.uf} onInput=${(event) => setFormEndereco({ ...formEndereco, uf: event.target.value.toUpperCase() })} />
+                    </label>
+                    <label>
+                      <span>CEP</span>
+                      <input class="form-control" value=${formEndereco.cep} onInput=${(event) => setFormEndereco({ ...formEndereco, cep: event.target.value })} />
+                    </label>
+                    <footer class="settings-form-footer is-wide">
+                      <button type="submit" class="btn btn-primary" disabled=${salvandoEndereco}>
+                        ${salvandoEndereco ? 'Salvando...' : 'Salvar endereço'}
+                      </button>
+                      <button type="button" class="btn btn-outline-secondary" onClick=${() => setEditandoEndereco(false)}>Cancelar</button>
+                    </footer>
+                  </form>
+                `
+      : html`
+                  <p class="text-muted mb-0">
+                    ${enderecoPrincipalItem
+        ? `${formEndereco.rua}${formEndereco.numero ? `, ${formEndereco.numero}` : ''} — ${formEndereco.bairro || ''} ${formEndereco.cidade || ''}${formEndereco.uf ? `/${formEndereco.uf}` : ''}${formEndereco.cep ? ` — CEP ${formEndereco.cep}` : ''}`
+        : 'Nenhum endereço principal cadastrado ainda.'}
+                  </p>
+                `}
+          </section>
+        `
+    : null}
+
       <div class="settings-catalog-workspace">
         <section class="c24-card settings-area-panel">
           <header class="c24-card-header compact">
@@ -2049,22 +2324,56 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                 onInput=${(event) => setFormItem({ ...formItem, nome: event.target.value })}
               />
             </label>
-            <label>
-              <span>Chave</span>
-              <input
-                class="form-control"
-                value=${formItem.chave}
-                onInput=${(event) => setFormItem({ ...formItem, chave: event.target.value })}
-              />
-            </label>
+            ${secaoCatalogoAtiva?.tipo === 'operacoes'
+    ? html`
+                  <label>
+                    <span>Chave/Tag (automática)</span>
+                    <input class="form-control" disabled value=${String(formItem.nome || '').toUpperCase() || '—'} />
+                    <small class="text-muted">Gerada a partir do nome, em maiúsculas. Aparece como tag em todo o ambiente da operação.</small>
+                  </label>
+                  <label>
+                    <span>Cor da tag</span>
+                    <input
+                      type="color"
+                      class="form-control form-control-color"
+                      value=${formItem.corTag || '#2563eb'}
+                      onInput=${(event) => setFormItem({ ...formItem, corTag: event.target.value })}
+                    />
+                  </label>
+                `
+    : html`
+                  <label>
+                    <span>Chave</span>
+                    <input
+                      class="form-control"
+                      value=${formItem.chave}
+                      onInput=${(event) => setFormItem({ ...formItem, chave: event.target.value })}
+                    />
+                  </label>
+                `}
             <label>
               <span>${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'Tipo de operação' : 'Categoria'}</span>
-              <input
-                class="form-control"
-                placeholder=${secaoCatalogoAtiva?.tipo === 'operacoes' ? 'Ex.: Receptivo, Ativo, Backoffice, Híbrido' : ''}
-                value=${formItem.categoria}
-                onInput=${(event) => setFormItem({ ...formItem, categoria: event.target.value })}
-              />
+              ${secaoCatalogoAtiva?.tipo === 'operacoes'
+    ? html`
+                    <select
+                      class="form-select"
+                      value=${formItem.categoria}
+                      onChange=${(event) => setFormItem({ ...formItem, categoria: event.target.value })}
+                    >
+                      <option value="">Selecione</option>
+                      ${TIPOS_OPERACAO.map((tipo) => html`<option key=${tipo} value=${tipo}>${tipo}</option>`)}
+                      ${formItem.categoria && !TIPOS_OPERACAO.includes(formItem.categoria)
+        ? html`<option value=${formItem.categoria}>${formItem.categoria} (legado)</option>`
+        : null}
+                    </select>
+                  `
+    : html`
+                    <input
+                      class="form-control"
+                      value=${formItem.categoria}
+                      onInput=${(event) => setFormItem({ ...formItem, categoria: event.target.value })}
+                    />
+                  `}
             </label>
             <label>
               <span>Criticidade</span>
@@ -2218,6 +2527,54 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                       onInput=${(event) => setFormItem({ ...formItem, softwaresUtilizados: event.target.value })}
                     />
                   </label>
+                  <label>
+                    <span>Finalidade da operação</span>
+                    <select
+                      class="form-select"
+                      value=${formItem.finalidadeOperacao}
+                      onChange=${(event) => setFormItem({ ...formItem, finalidadeOperacao: event.target.value })}
+                    >
+                      <option value="">Selecione</option>
+                      ${FINALIDADES_OPERACAO.map((item) => html`<option key=${item} value=${item}>${item}</option>`)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Segmento de mercado</span>
+                    <select
+                      class="form-select"
+                      value=${formItem.segmentoMercado}
+                      onChange=${(event) => setFormItem({ ...formItem, segmentoMercado: event.target.value, areaSegmento: '' })}
+                    >
+                      <option value="">Selecione</option>
+                      ${SEGMENTOS_MERCADO.map((item) => html`<option key=${item} value=${item}>${item}</option>`)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Área específica do segmento</span>
+                    ${normalizarLista(AREAS_POR_SEGMENTO[formItem.segmentoMercado]).length
+        ? html`
+                          <select
+                            class="form-select"
+                            value=${formItem.areaSegmento}
+                            onChange=${(event) => setFormItem({ ...formItem, areaSegmento: event.target.value })}
+                          >
+                            <option value="">Selecione</option>
+                            ${AREAS_POR_SEGMENTO[formItem.segmentoMercado].map(
+          (area) => html`<option key=${area} value=${area}>${area}</option>`,
+        )}
+                          </select>
+                        `
+        : html`
+                          <input
+                            class="form-control"
+                            placeholder="Detalhe a área específica deste segmento"
+                            disabled=${!formItem.segmentoMercado}
+                            value=${formItem.areaSegmento}
+                            onInput=${(event) => setFormItem({ ...formItem, areaSegmento: event.target.value })}
+                          />
+                        `}
+                    <small class="text-muted">Usado para personalizar automaticamente provas e a análise de currículo desta operação.</small>
+                  </label>
                   <div class="is-wide">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                       <span>Sistemas e portais de acesso necessários</span>
@@ -2263,6 +2620,124 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         )
         : html`<p class="text-muted small mb-0">Nenhum sistema adicionado ainda.</p>`}
                   </div>
+                  <label>
+                    <span>Unidade</span>
+                    <select
+                      class="form-select"
+                      value=${formItem.unidadeTipo}
+                      onChange=${(event) => setFormItem({ ...formItem, unidadeTipo: event.target.value })}
+                    >
+                      <option value="">Selecione</option>
+                      ${UNIDADE_TIPOS_OPERACAO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
+                    </select>
+                  </label>
+                  ${formItem.unidadeTipo === 'em_loco'
+      ? html`
+                        <p class="is-wide text-muted small mb-0">
+                          Usa o endereço principal da empresa, cadastrado no topo desta tela (acesso restrito a quem edita Configurações).
+                        </p>
+                      `
+      : null}
+                  ${formItem.unidadeTipo === 'alocado_cliente'
+      ? html`
+                        <label class="is-wide">
+                          <span>Endereço alocado ao cliente</span>
+                          <input
+                            class="form-control"
+                            placeholder="Endereço completo do cliente"
+                            value=${formItem.unidadeEnderecoCliente}
+                            onInput=${(event) => setFormItem({ ...formItem, unidadeEnderecoCliente: event.target.value })}
+                          />
+                        </label>
+                      `
+      : null}
+                  ${formItem.unidadeTipo === 'hibrido'
+      ? html`
+                        <div class="is-wide">
+                          <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span>Endereços do modelo híbrido</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${adicionarEnderecoHibrido}>
+                              <${Icone} name="add" /> Adicionar endereço
+                            </button>
+                          </div>
+                          ${normalizarLista(formItem.unidadeEnderecosHibrido).length
+        ? normalizarLista(formItem.unidadeEnderecosHibrido).map(
+          (endereco, indice) => html`
+                                <div key=${indice} class="row g-2 align-items-start mb-2">
+                                  <div class="col-md-11">
+                                    <input
+                                      class="form-control"
+                                      placeholder="Endereço"
+                                      value=${endereco}
+                                      onInput=${(event) => atualizarEnderecoHibrido(indice, event.target.value)}
+                                    />
+                                  </div>
+                                  <div class="col-md-1">
+                                    <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Remover endereço" onClick=${() => removerEnderecoHibrido(indice)}>
+                                      <${Icone} name="close" />
+                                    </button>
+                                  </div>
+                                </div>
+                              `,
+        )
+        : html`<p class="text-muted small mb-0">Nenhum endereço adicionado ainda.</p>`}
+                        </div>
+                      `
+      : null}
+                  <div class="is-wide">
+                    <span>Jornada de trabalho</span>
+                    <p class="text-muted small mb-2">Pode marcar mais de uma — supervisores e outras funções costumam ter escalas diferentes da operação.</p>
+                    <div class="d-flex flex-wrap gap-3">
+                      ${JORNADAS_OPERACAO.map(
+        (item) => html`
+                            <label key=${item.value} class="settings-toggle-line" style=${{ minWidth: '0' }}>
+                              <input
+                                type="checkbox"
+                                checked=${normalizarLista(formItem.jornadasTrabalho).includes(item.value)}
+                                onChange=${() => alternarJornadaOperacao(item.value)}
+                              />
+                              <span>${item.label}</span>
+                            </label>
+                          `,
+      )}
+                    </div>
+                  </div>
+                  <label>
+                    <span>Horário da escala (turno)</span>
+                    <input
+                      class="form-control"
+                      placeholder="Ex.: Manhã, Tarde, Madrugada/Noite ou 14:00 às 20:20"
+                      value=${formItem.turnoEscala}
+                      onInput=${(event) => setFormItem({ ...formItem, turnoEscala: event.target.value })}
+                    />
+                  </label>
+                  <label class="settings-toggle-line">
+                    <input
+                      type="checkbox"
+                      checked=${formItem.necessitaDisponibilidade}
+                      onChange=${(event) => setFormItem({ ...formItem, necessitaDisponibilidade: event.target.checked })}
+                    />
+                    <span>Necessita disponibilidade de horário</span>
+                  </label>
+                  <label class="is-wide">
+                    <span>Descrição do cliente</span>
+                    <textarea
+                      class="form-control"
+                      rows="3"
+                      value=${formItem.descricaoCliente}
+                      onInput=${(event) => setFormItem({ ...formItem, descricaoCliente: event.target.value })}
+                    ></textarea>
+                  </label>
+                  <label class="is-wide">
+                    <span>Descrição das atividades</span>
+                    <textarea
+                      class="form-control"
+                      rows="3"
+                      placeholder="Como funciona a operação no dia a dia"
+                      value=${formItem.descricaoAtividades}
+                      onInput=${(event) => setFormItem({ ...formItem, descricaoAtividades: event.target.value })}
+                    ></textarea>
+                  </label>
                 `
       : null}
             <label class="is-wide">
@@ -2338,7 +2813,12 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
         (item) => html`
                       <article class=${`settings-catalog-item ${String(item.id_item) === String(formItem.id_item) ? 'is-active' : ''}`.trim()} key=${item.id_item}>
                         <button type="button" class="settings-catalog-item-main" onClick=${() => editarItem(item)}>
-                          <span class="settings-catalog-icon"><${Icone} name=${CATALOGO_ICONS[secaoCatalogoAtiva?.tipo] || 'settings'} /></span>
+                          <span
+                            class="settings-catalog-icon"
+                            style=${secaoCatalogoAtiva?.tipo === 'operacoes' && item.payload?.cor_tag
+        ? { color: item.payload.cor_tag, borderColor: item.payload.cor_tag }
+        : {}}
+                          ><${Icone} name=${CATALOGO_ICONS[secaoCatalogoAtiva?.tipo] || 'settings'} /></span>
                           <span>
                             <strong>${item.nome || '-'}</strong>
                             <small>${item.descricao || item.categoria || item.chave || 'Sem descrição'}</small>
@@ -2346,6 +2826,9 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                         </button>
                         <div class="settings-catalog-item-actions">
                           <${Badge} label=${item.ativo ? 'Ativo' : 'Inativo'} tone=${item.ativo ? 'success' : 'muted'} />
+                          <button type="button" class="c24-icon-btn" title="Editar" onClick=${() => editarItem(item)}>
+                            <${Icone} name="edit" />
+                          </button>
                           <button type="button" class="c24-icon-btn" title="Duplicar" onClick=${() => duplicarItem(item)}>
                             <${Icone} name="content_copy" />
                           </button>
