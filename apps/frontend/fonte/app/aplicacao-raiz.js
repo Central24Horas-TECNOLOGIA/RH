@@ -83,8 +83,8 @@ const TELAS_SEM_SHELL_FIXO = new Set([
   'screen-result',
 ]);
 
-const importarGestao = () => import('../features/telas-gestao.js?v=20260902-correcoes-txt');
-const importarProcessos = () => import('../features/telas-processos.js?v=20260823-cache-busting-fix');
+const importarGestao = () => import('../features/telas-gestao.js?v=20260904-correcoes-txt3');
+const importarProcessos = () => import('../features/telas-processos.js?v=20260904-correcoes-txt3');
 const importarProva = () => import('../features/telas-prova.js?v=20260823-cache-busting-fix');
 
 const TelaAnaliseCandidatos = carregarTela(importarGestao, 'TelaAnaliseCandidatos');
@@ -111,7 +111,7 @@ const TelaResultadosAnaliticosProcesso = carregarTela(
   'TelaResultadosAnaliticosProcesso',
 );
 const TelaConfiguracoesSistema = carregarTela(
-  () => import('../features/configuracoes/index.js?v=20260902-correcoes-txt'),
+  () => import('../features/configuracoes/index.js?v=20260904-correcoes-txt3'),
   'TelaConfiguracoesSistema',
 );
 const TelaCalendario = carregarTela(() => import('../features/calendario/index.js'), 'TelaCalendario');
@@ -126,7 +126,7 @@ const TelaTemplatesDocumentos = carregarTela(
   'TelaTemplatesDocumentos',
 );
 const TelaTreinamentos = carregarTela(
-  () => import('../features/treinamentos/index.js'),
+  () => import('../features/treinamentos/index.js?v=20260904-correcoes-txt3'),
   'TelaTreinamentos',
 );
 const TelaProvasConfiguracao = carregarTela(

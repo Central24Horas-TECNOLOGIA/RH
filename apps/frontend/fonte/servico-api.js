@@ -274,7 +274,7 @@ export {
   listarTrilhasOnboarding,
   marcarItemOnboarding,
   salvarPresencaTreinamento,
-} from './services/api/onboarding.js';
+} from './services/api/onboarding.js?v=20260904-correcoes-txt3';
 export {
   atualizarTemplateDocumento,
   criarTemplateDocumento,
