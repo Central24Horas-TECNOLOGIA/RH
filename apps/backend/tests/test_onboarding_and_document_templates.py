@@ -19,8 +19,10 @@ from rh_api.schemas.document_templates import (
     GenerateDocumentRequest,
 )
 from rh_api.schemas.onboarding import (
+    OnboardingAttendanceRequest,
     OnboardingStartRequest,
     OnboardingTrilhaCreateRequest,
+    ProcessTrainingReleaseRequest,
 )
 from rh_api.services.document_template_engine import (
     MISSING_VALUE_PLACEHOLDER,
@@ -98,6 +100,29 @@ def test_generate_document_request_requires_valid_ids():
 def test_onboarding_start_request_requires_valid_ids():
     with pytest.raises(ValidationError):
         OnboardingStartRequest(id_registro=0, trilha_id=1)
+
+
+def test_process_training_release_request_requires_at_least_one_candidate():
+    with pytest.raises(ValidationError):
+        ProcessTrainingReleaseRequest(candidatos=[])
+
+
+def test_process_training_release_request_drops_falsy_ids():
+    payload = ProcessTrainingReleaseRequest(candidatos=[1, 0, 2])
+    assert payload.candidatos == [1, 2]
+
+
+def test_process_training_release_request_enforces_limit():
+    with pytest.raises(ValidationError):
+        ProcessTrainingReleaseRequest(candidatos=list(range(1, 202)))
+
+
+def test_onboarding_attendance_request_accepts_multiple_entries():
+    payload = OnboardingAttendanceRequest(
+        presencas=[{"id_onboarding": 1, "presente": True}, {"id_onboarding": 2, "presente": False}],
+    )
+    assert payload.presencas[0].presente is True
+    assert payload.presencas[1].presente is False
 
 
 # ---------------------------------------------------------------------------

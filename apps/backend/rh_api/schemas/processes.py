@@ -31,6 +31,7 @@ class ProcessCreateRequest(BaseSchema):
     configuracao_prova_json: str | None = None
     prova_configurada_em: str | None = None
     urgente: bool = False
+    detalhes_vaga_json: str | None = None
 
     @field_validator("id_processo", "vaga", "data_encerramento")
     @classmethod
@@ -65,6 +66,16 @@ class ProcessCreateRequest(BaseSchema):
             raise ValueError("A configuração da prova é muito longa.")
         return safe_value
 
+    @field_validator("detalhes_vaga_json")
+    @classmethod
+    def validate_job_details(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 200000:
+            raise ValueError("Os detalhes da vaga são muito longos.")
+        return safe_value
+
     @model_validator(mode="after")
     def validate_cutoff(self):
         if int(self.usa_nota_corte or 0) == 1:
@@ -89,6 +100,7 @@ class ProcessUpdateRequest(BaseSchema):
     configuracao_prova_json: str | None = None
     prova_configurada_em: str | None = None
     urgente: bool | None = None
+    detalhes_vaga_json: str | None = None
 
     @field_validator("data_encerramento")
     @classmethod
@@ -151,6 +163,16 @@ class ProcessUpdateRequest(BaseSchema):
         safe_value = str(value or "").strip()
         if len(safe_value) > 8000:
             raise ValueError("A configuração da página pública deve ter no máximo 8000 caracteres por seção.")
+        return safe_value
+
+    @field_validator("detalhes_vaga_json")
+    @classmethod
+    def validate_job_details(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        safe_value = str(value or "").strip()
+        if len(safe_value) > 200000:
+            raise ValueError("Os detalhes da vaga são muito longos.")
         return safe_value
 
     @model_validator(mode="after")

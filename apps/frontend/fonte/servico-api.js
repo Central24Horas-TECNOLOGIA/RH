@@ -263,12 +263,17 @@ export {
   atualizarAgendaTreinamento,
   atualizarTrilhaOnboarding,
   criarTrilhaOnboarding,
+  excluirAtribuicaoTreinamento,
   iniciarOnboardingCandidato,
   lerProgressoOnboardingCandidato,
   lerTrilhaOnboarding,
+  liberarVagasTreinamento,
   listarAtribuicoesTreinamento,
+  listarCandidatosLiberacaoTreinamento,
+  listarTreinamentosProcesso,
   listarTrilhasOnboarding,
   marcarItemOnboarding,
+  salvarPresencaTreinamento,
 } from './services/api/onboarding.js';
 export {
   atualizarTemplateDocumento,

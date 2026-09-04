@@ -1,7 +1,35 @@
 import { html, useState } from '../../infraestrutura-react.js';
-import { copiarTexto } from '../browser-utils.js';
+import { copiarTexto, montarUrlPublicaCandidatura, obterBasePublicaCandidatura } from '../browser-utils.js';
 import { ModalPadrao } from '../../ui/componentes-compartilhados.js';
 import { quebrarListaTexto } from '../../shared/validacoes.js';
+
+const URL_CARREIRAS_PADRAO = 'https://central24horas.com.br/trabalhe-conosco';
+
+const REDES_COMPARTILHAMENTO_VAGA = [
+  { chave: 'linkedin', label: 'LinkedIn', icone: 'work' },
+  { chave: 'facebook', label: 'Facebook', icone: 'thumb_up' },
+  { chave: 'telegram', label: 'Telegram', icone: 'send' },
+  { chave: 'whatsapp', label: 'WhatsApp', icone: 'chat' },
+  { chave: 'instagram', label: 'Instagram', icone: 'photo_camera' },
+  { chave: 'catho', label: 'Catho', icone: 'business_center', desativado: true },
+];
+
+function montarLinkCompartilhamentoRede(chave, { url, texto }) {
+  const urlCodificada = encodeURIComponent(url);
+  const textoCodificado = encodeURIComponent(texto);
+  switch (chave) {
+    case 'linkedin':
+      return `https://www.linkedin.com/sharing/share-offsite/?url=${urlCodificada}`;
+    case 'facebook':
+      return `https://www.facebook.com/sharer/sharer.php?u=${urlCodificada}`;
+    case 'telegram':
+      return `https://t.me/share/url?url=${urlCodificada}&text=${textoCodificado}`;
+    case 'whatsapp':
+      return `https://wa.me/?text=${textoCodificado}%20${urlCodificada}`;
+    default:
+      return '';
+  }
+}
 
 export const REQUISITOS_PUBLICOS_PADRAO = [
   'Ensino médio completo ou formação compatível com a vaga.',
@@ -50,7 +78,7 @@ export function montarItensPublicosPadrao(textos) {
   return textos.map((texto) => ({ texto, visivel: true }));
 }
 
-export function montarTextoCompartilhamentoVaga({ processo = {}, requisitos = [], responsabilidades = [] } = {}) {
+export function montarTextoCompartilhamentoVaga({ processo = {}, requisitos = [], responsabilidades = [], url = '' } = {}) {
   const linhas = [];
   const tituloVaga = String(processo?.vaga || processo?.cargo || 'Processo seletivo')
     .trim()
@@ -75,7 +103,7 @@ export function montarTextoCompartilhamentoVaga({ processo = {}, requisitos = []
   const dataInscricao = formatarDataCurtaCompartilhamento(
     processo?.data_limite_inscricao || processo?.data_encerramento || processo?.data_fim,
   );
-  linhas.push('', 'Inscreva-se em nosso site: https://central24horas.com.br/trabalhe-conosco');
+  linhas.push('', `Inscreva-se em nosso site: ${url || URL_CARREIRAS_PADRAO}`);
   if (temValorProcesso(dataInscricao) && dataInscricao !== '-') {
     linhas.push('', `*Inscrições até: ${dataInscricao}*`);
   }
@@ -95,10 +123,14 @@ export function ModalCompartilharVaga({
   const [feedback, setFeedback] = useState('');
   const requisitosVisiveis = obterItensTextoProcesso(requisitos).filter((item) => item && item !== '-');
   const responsabilidadesVisiveis = obterItensTextoProcesso(responsabilidades).filter((item) => item && item !== '-');
+  const urlVaga = processo?.link_publico_slug
+    ? montarUrlPublicaCandidatura(processo.link_publico_slug, obterBasePublicaCandidatura())
+    : URL_CARREIRAS_PADRAO;
   const textoFinal = texto || montarTextoCompartilhamentoVaga({
     processo,
     requisitos: requisitosVisiveis,
     responsabilidades: responsabilidadesVisiveis,
+    url: urlVaga,
   });
 
   const copiar = async () => {
@@ -109,6 +141,21 @@ export function ModalCompartilharVaga({
     } catch (error) {
       setFeedback('Não foi possível copiar agora. Selecione o texto e copie manualmente.');
     }
+  };
+
+  const compartilharRede = async (chave) => {
+    if (chave === 'instagram') {
+      try {
+        await copiarTexto(textoFinal);
+        setFeedback('Texto copiado — cole na legenda ou stories do Instagram.');
+      } catch (error) {
+        setFeedback('Não foi possível copiar o texto para o Instagram agora.');
+      }
+      window.open('https://www.instagram.com/', '_blank', 'noopener');
+      return;
+    }
+    const link = montarLinkCompartilhamentoRede(chave, { url: urlVaga, texto: textoFinal });
+    if (link) window.open(link, '_blank', 'noopener');
   };
 
   return html`
@@ -159,6 +206,26 @@ export function ModalCompartilharVaga({
           value=${textoFinal}
           onFocus=${(event) => event.currentTarget.select()}
         ></textarea>
+        <div class="process-share-networks">
+          <span>Compartilhar diretamente em:</span>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            ${REDES_COMPARTILHAMENTO_VAGA.map(
+      (rede) => html`
+                  <button
+                    key=${rede.chave}
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    disabled=${Boolean(rede.desativado)}
+                    title=${rede.desativado ? 'Em breve' : `Compartilhar no ${rede.label}`}
+                    onClick=${() => compartilharRede(rede.chave)}
+                  >
+                    <span class="material-symbols-outlined">${rede.icone}</span>
+                    ${rede.label}
+                  </button>
+                `,
+    )}
+          </div>
+        </div>
         ${feedback ? html`<div class="alert alert-success">${feedback}</div>` : null}
       </div>
       <footer class="rh-modal-footer">

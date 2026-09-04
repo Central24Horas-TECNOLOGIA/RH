@@ -126,6 +126,11 @@ Você atua como assistente de RH dentro do Conecta.
 Sua tarefa é apoiar uma revisão humana de aderência entre currículo e vaga.
 Considere somente evidências profissionais relevantes presentes no currículo e
 nos requisitos da vaga. Não invente experiências, competências ou resultados.
+O contexto da vaga pode trazer a área/segmento de mercado da operação (ex.:
+Saúde, Financeiro, Tecnologia) e requisitos estruturados (escolaridade,
+experiência prévia, idiomas, habilidades técnicas): quando presentes, use-os
+como principal parâmetro de afinidade — por exemplo, valorize formação ou
+vivência na área da operação quando ela for exigida.
 Ignore idade, gênero, aparência, estado civil, religião, raça, etnia, deficiência,
 endereço, nacionalidade e qualquer dado sensível ou irrelevante para a função.
 Não aprove, reprove, elimine, classifique status ou tome decisão final.
@@ -150,12 +155,22 @@ Versão do prompt: {PROMPT_VERSION}.
 
 
 def _user_prompt(texto_curriculo: str, contexto_vaga: dict) -> str:
+    detalhes_vaga = contexto_vaga.get("detalhes_vaga") or {}
     vaga_segura = {
         "vaga": contexto_vaga.get("vaga") or "",
-        "descricao": contexto_vaga.get("descricao_publica") or "",
+        "descricao": contexto_vaga.get("descricao_publica")
+        or contexto_vaga.get("operacao_descricao_atividades")
+        or "",
         "requisitos": contexto_vaga.get("requisitos_publicos") or "",
         "responsabilidades": contexto_vaga.get("responsabilidades_publicas") or "",
         "observacoes": contexto_vaga.get("observacoes_publicas_vaga") or "",
+        "area_de_atuacao_da_operacao": contexto_vaga.get("operacao_segmento_mercado") or "",
+        "segmento_especifico_da_operacao": contexto_vaga.get("operacao_area_segmento") or "",
+        "escolaridade_minima_exigida": detalhes_vaga.get("escolaridade_minima") or "",
+        "cursos_exigidos": detalhes_vaga.get("cursos_superior") or [],
+        "experiencia_previa_exigida": detalhes_vaga.get("experiencia_previa") or "",
+        "idiomas_exigidos": detalhes_vaga.get("idiomas") or {},
+        "habilidades_tecnicas_exigidas": detalhes_vaga.get("skills_tags") or [],
     }
     return (
         "CONTEXTO DA VAGA:\n"

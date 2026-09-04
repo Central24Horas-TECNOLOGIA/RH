@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException, status
 
 from ..services.helpers import normalize_text, rows_to_dicts
-from .bootstrap import ensure_onboarding_tables
+from .bootstrap import ensure_onboarding_tables, ensure_process_trainings_table
 
 
 _TRILHA_COLUMNS = """
@@ -15,6 +15,7 @@ _TRILHA_COLUMNS = """
     id_operacao,
     modalidade,
     local_padrao,
+    conteudo_json,
     criado_por,
     criado_em,
     atualizado_em
@@ -54,12 +55,26 @@ _ONBOARDING_COLUMNS = """
     data_prevista,
     local,
     ministrante,
-    status
+    status,
+    acesso_plataforma,
+    metodo_login,
+    presenca
 """
 
-CATEGORIAS_TREINAMENTO = ("LGPD", "Segurança da Informação", "Onboarding", "Produto", "Outro")
+_PROCESS_TRAINING_COLUMNS = """
+    pt.id_processo_treinamento,
+    pt.id_processo,
+    pt.trilha_id,
+    pt.vagas_totais,
+    pt.vagas_liberadas,
+    pt.criado_em,
+    pt.atualizado_em
+"""
+
+CATEGORIAS_TREINAMENTO = ("LGPD", "Segurança da Informação", "Tecnologia", "Operações", "Onboarding", "Produto", "Outro")
 MODALIDADES_TREINAMENTO = ("presencial", "virtual", "hibrido")
-STATUS_ATRIBUICAO_TREINAMENTO = ("em_andamento", "concluido", "cancelado")
+STATUS_ATRIBUICAO_TREINAMENTO = ("em_andamento", "concluido", "cancelado", "aplicado")
+METODOS_LOGIN_TREINAMENTO = ("microsoft", "telefone", "email", "nome")
 
 
 class OnboardingRepositoryMixin:
@@ -142,7 +157,7 @@ class OnboardingRepositoryMixin:
             conn.close()
 
     @staticmethod
-    def _validate_trilha_input(data: dict) -> tuple[str, str, bool, str, "int | None", str, str, list[dict]]:
+    def _validate_trilha_input(data: dict) -> tuple[str, str, bool, str, "int | None", str, str, str, list[dict]]:
         nome = normalize_text(data.get("nome"))
         if not nome:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe o nome da trilha.")
@@ -153,6 +168,7 @@ class OnboardingRepositoryMixin:
         id_operacao = int(id_operacao_raw) if id_operacao_raw else None
         modalidade = normalize_text(data.get("modalidade"))
         local_padrao = normalize_text(data.get("local_padrao"))
+        conteudo_json = normalize_text(data.get("conteudo_json"))
         itens_raw = data.get("itens") or []
         itens: list[dict] = []
         for index, item in enumerate(itens_raw):
@@ -169,10 +185,10 @@ class OnboardingRepositoryMixin:
                     "conteudo_url": normalize_text(item.get("conteudo_url")),
                 }
             )
-        return nome, descricao, ativo, categoria, id_operacao, modalidade, local_padrao, itens
+        return nome, descricao, ativo, categoria, id_operacao, modalidade, local_padrao, conteudo_json, itens
 
     def create_onboarding_trilha(self, data: dict, *, actor: str = "") -> dict:
-        nome, descricao, ativo, categoria, id_operacao, modalidade, local_padrao, itens = self._validate_trilha_input(data)
+        nome, descricao, ativo, categoria, id_operacao, modalidade, local_padrao, conteudo_json, itens = self._validate_trilha_input(data)
 
         conn = self._connect()
         try:
@@ -182,11 +198,11 @@ class OnboardingRepositoryMixin:
             cursor.execute(
                 """
                 INSERT INTO trilhas_onboarding
-                (nome, descricao, ativo, categoria, id_operacao, modalidade, local_padrao, criado_por, criado_em, atualizado_em)
+                (nome, descricao, ativo, categoria, id_operacao, modalidade, local_padrao, conteudo_json, criado_por, criado_em, atualizado_em)
                 OUTPUT INSERTED.id_trilha
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
                 """,
-                (nome, descricao, 1 if ativo else 0, categoria, id_operacao, modalidade, local_padrao, normalize_text(actor)),
+                (nome, descricao, 1 if ativo else 0, categoria, id_operacao, modalidade, local_padrao, conteudo_json, normalize_text(actor)),
             )
             inserted = cursor.fetchone()
             id_trilha = int(inserted[0] or 0)
@@ -215,7 +231,7 @@ class OnboardingRepositoryMixin:
         return self.get_onboarding_trilha(id_trilha)
 
     def update_onboarding_trilha(self, id_trilha: int, data: dict, *, actor: str = "") -> dict:
-        nome, descricao, ativo, categoria, id_operacao, modalidade, local_padrao, itens = self._validate_trilha_input(data)
+        nome, descricao, ativo, categoria, id_operacao, modalidade, local_padrao, conteudo_json, itens = self._validate_trilha_input(data)
 
         conn = self._connect()
         try:
@@ -230,10 +246,10 @@ class OnboardingRepositoryMixin:
                 """
                 UPDATE trilhas_onboarding
                 SET nome = ?, descricao = ?, ativo = ?, categoria = ?, id_operacao = ?,
-                    modalidade = ?, local_padrao = ?, atualizado_em = GETDATE()
+                    modalidade = ?, local_padrao = ?, conteudo_json = ?, atualizado_em = GETDATE()
                 WHERE id_trilha = ?
                 """,
-                (nome, descricao, 1 if ativo else 0, categoria, id_operacao, modalidade, local_padrao, int(id_trilha or 0)),
+                (nome, descricao, 1 if ativo else 0, categoria, id_operacao, modalidade, local_padrao, conteudo_json, int(id_trilha or 0)),
             )
 
             # Itens da trilha (modelo genérico/editável): substitui o conjunto de
@@ -554,10 +570,15 @@ class OnboardingRepositoryMixin:
             if status_valor not in STATUS_ATRIBUICAO_TREINAMENTO:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Status de treinamento inválido.")
 
+            metodo_login = normalize_text(data.get("metodo_login"))
+            if metodo_login and metodo_login not in METODOS_LOGIN_TREINAMENTO:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Método de login inválido.")
+
             cursor.execute(
                 """
                 UPDATE onboarding_candidatos
-                SET data_prevista = ?, local = ?, ministrante = ?, status = ?
+                SET data_prevista = ?, local = ?, ministrante = ?, status = ?,
+                    acesso_plataforma = ?, metodo_login = ?
                 WHERE id_onboarding = ?
                 """,
                 (
@@ -565,6 +586,8 @@ class OnboardingRepositoryMixin:
                     normalize_text(data.get("local")),
                     normalize_text(data.get("ministrante")),
                     status_valor,
+                    1 if data.get("acesso_plataforma") else 0,
+                    metodo_login or None,
                     int(id_onboarding or 0),
                 ),
             )
@@ -573,3 +596,227 @@ class OnboardingRepositoryMixin:
             conn.close()
 
         return self.get_onboarding_progress(id_registro)
+
+    def delete_onboarding_assignment(self, id_onboarding: int, *, actor: str = "") -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_onboarding_tables(cursor)
+
+            cursor.execute(
+                "SELECT id_onboarding FROM onboarding_candidatos WHERE id_onboarding = ?",
+                (int(id_onboarding or 0),),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Treinamento do colaborador não encontrado.")
+
+            cursor.execute(
+                "DELETE FROM onboarding_candidatos_itens WHERE onboarding_candidato_id = ?",
+                (int(id_onboarding or 0),),
+            )
+            cursor.execute(
+                "DELETE FROM onboarding_candidatos WHERE id_onboarding = ?",
+                (int(id_onboarding or 0),),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return {"success": True}
+
+    def save_onboarding_attendance(self, presencas: list[dict], *, actor: str = "") -> dict:
+        """Salva a lista de presença de um ou mais treinamentos agendados.
+
+        Ao salvar, cada linha ganha a tag APLICADO (status='aplicado') — ver
+        Correcoes.txt, item Central de Treinamentos."""
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_onboarding_tables(cursor)
+
+            atualizados: list[int] = []
+            for item in presencas or []:
+                id_onboarding = int(item.get("id_onboarding") or 0)
+                if not id_onboarding:
+                    continue
+                presente = bool(item.get("presente"))
+                cursor.execute(
+                    """
+                    UPDATE onboarding_candidatos
+                    SET presenca = ?, status = 'aplicado'
+                    WHERE id_onboarding = ?
+                    """,
+                    ("presente" if presente else "falta", id_onboarding),
+                )
+                atualizados.append(id_onboarding)
+            conn.commit()
+        finally:
+            conn.close()
+
+        return {"success": True, "atualizados": atualizados}
+
+    # ------------------------------------------------------------------
+    # Treinamentos vinculados a um processo seletivo (Correcoes.txt, rodada
+    # 03/set/2026) — bloqueio/liberação de vagas por processo.
+    # ------------------------------------------------------------------
+    def sync_process_trainings(self, id_processo: str, *, vagas_totais: int, trilha_ids: list[int]) -> None:
+        """Chamado ao criar o processo: uma linha por trilha selecionada, com
+        todas as vagas do processo inicialmente bloqueadas (AGUARDANDO
+        PROCESSO). Idempotente — não duplica se já existir para o par
+        (processo, trilha)."""
+        safe_process_id = normalize_text(id_processo)
+        if not safe_process_id or not trilha_ids:
+            return
+
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_trainings_table(cursor)
+            for trilha_id_raw in trilha_ids:
+                try:
+                    trilha_id = int(trilha_id_raw)
+                except (TypeError, ValueError):
+                    continue
+                cursor.execute(
+                    "SELECT 1 FROM processos_treinamentos WHERE id_processo = ? AND trilha_id = ?",
+                    (safe_process_id, trilha_id),
+                )
+                if cursor.fetchone():
+                    continue
+                cursor.execute(
+                    """
+                    INSERT INTO processos_treinamentos (id_processo, trilha_id, vagas_totais, vagas_liberadas, criado_em, atualizado_em)
+                    VALUES (?, ?, ?, 0, GETDATE(), GETDATE())
+                    """,
+                    (safe_process_id, trilha_id, int(vagas_totais or 0)),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def list_process_trainings(self, *, id_processo: str | None = None) -> list[dict]:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_trainings_table(cursor)
+            ensure_onboarding_tables(cursor)
+
+            filtro = ""
+            parametros: list = []
+            if id_processo:
+                filtro = "WHERE pt.id_processo = ?"
+                parametros.append(normalize_text(id_processo))
+
+            cursor.execute(
+                f"""
+                SELECT
+                    {_PROCESS_TRAINING_COLUMNS},
+                    t.nome AS trilha_nome,
+                    t.categoria AS trilha_categoria,
+                    ps.vaga,
+                    ps.status AS processo_status
+                FROM processos_treinamentos pt
+                JOIN trilhas_onboarding t ON t.id_trilha = pt.trilha_id
+                JOIN processos_seletivos ps ON ps.id_processo = pt.id_processo
+                {filtro}
+                ORDER BY pt.criado_em DESC, pt.id_processo_treinamento DESC
+                """,
+                tuple(parametros),
+            )
+            linhas = rows_to_dicts(cursor, cursor.fetchall())
+        finally:
+            conn.close()
+
+        for linha in linhas:
+            vagas_totais = int(linha.get("vagas_totais") or 0)
+            vagas_liberadas = int(linha.get("vagas_liberadas") or 0)
+            linha["vagas_bloqueadas"] = max(vagas_totais - vagas_liberadas, 0)
+        return linhas
+
+    def list_process_training_release_candidates(self, id_processo_treinamento: int) -> list[dict]:
+        """Candidatos aprovados do processo que ainda não entraram nesta
+        trilha — para o Gestor escolher quem liberar."""
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_trainings_table(cursor)
+            ensure_onboarding_tables(cursor)
+
+            cursor.execute(
+                "SELECT id_processo, trilha_id FROM processos_treinamentos WHERE id_processo_treinamento = ?",
+                (int(id_processo_treinamento or 0),),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Treinamento do processo não encontrado.")
+            id_processo, trilha_id = normalize_text(row[0]), int(row[1])
+
+            cursor.execute(
+                """
+                SELECT cp.id_registro, cp.nome_candidato
+                FROM candidatos_processos cp
+                WHERE cp.id_processo = ? AND cp.status_candidato = 'Aprovado'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM onboarding_candidatos oc
+                      WHERE oc.id_registro = cp.id_registro AND oc.trilha_id = ?
+                  )
+                ORDER BY cp.nome_candidato ASC
+                """,
+                (id_processo, trilha_id),
+            )
+            return rows_to_dicts(cursor, cursor.fetchall())
+        finally:
+            conn.close()
+
+    def release_process_training_slots(
+        self,
+        id_processo_treinamento: int,
+        *,
+        candidatos: list[int],
+        actor: str = "",
+    ) -> dict:
+        conn = self._connect()
+        try:
+            cursor = conn.cursor()
+            ensure_process_trainings_table(cursor)
+            ensure_onboarding_tables(cursor)
+
+            cursor.execute(
+                "SELECT id_processo, trilha_id, vagas_totais, vagas_liberadas FROM processos_treinamentos WHERE id_processo_treinamento = ?",
+                (int(id_processo_treinamento or 0),),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Treinamento do processo não encontrado.")
+            id_processo, trilha_id, vagas_totais, vagas_liberadas = (
+                normalize_text(row[0]),
+                int(row[1]),
+                int(row[2] or 0),
+                int(row[3] or 0),
+            )
+
+            candidatos_validos = [int(item) for item in (candidatos or []) if item]
+            vagas_disponiveis = vagas_totais - vagas_liberadas
+            if len(candidatos_validos) > vagas_disponiveis:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Só é possível liberar até {vagas_disponiveis} vaga(s) neste treinamento.",
+                )
+
+            for id_registro in candidatos_validos:
+                self.start_onboarding(id_registro, trilha_id, actor=actor)
+
+            if candidatos_validos:
+                cursor.execute(
+                    """
+                    UPDATE processos_treinamentos
+                    SET vagas_liberadas = vagas_liberadas + ?, atualizado_em = GETDATE()
+                    WHERE id_processo_treinamento = ?
+                    """,
+                    (len(candidatos_validos), int(id_processo_treinamento or 0)),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return {"success": True, "liberados": len(candidatos_validos)}

@@ -3,8 +3,13 @@ import {
   atualizarAgendaTreinamento,
   atualizarTrilhaOnboarding,
   criarTrilhaOnboarding,
+  excluirAtribuicaoTreinamento,
+  liberarVagasTreinamento,
   listarAtribuicoesTreinamento,
+  listarCandidatosLiberacaoTreinamento,
+  listarTreinamentosProcesso,
   listarTrilhasOnboarding,
+  salvarPresencaTreinamento,
 } from '../../servico-api.js';
 import { listarOperacoes } from '../../services/api/operations.js';
 import {
@@ -17,7 +22,7 @@ import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 
-const CATEGORIAS_TREINAMENTO = ['LGPD', 'Segurança da Informação', 'Onboarding', 'Produto', 'Outro'];
+const CATEGORIAS_TREINAMENTO = ['LGPD', 'Segurança da Informação', 'Tecnologia', 'Operações', 'Onboarding', 'Produto', 'Outro'];
 const MODALIDADES_TREINAMENTO = [
   { value: '', label: 'Não definida' },
   { value: 'presencial', label: 'Presencial' },
@@ -35,9 +40,19 @@ const STATUS_ATRIBUICAO = [
   { value: 'em_andamento', label: 'Em andamento' },
   { value: 'concluido', label: 'Concluído' },
   { value: 'cancelado', label: 'Cancelado' },
+  { value: 'aplicado', label: 'Aplicado' },
 ];
-const STATUS_TOM = { em_andamento: '', concluido: 'is-indicacao', cancelado: 'is-eliminado' };
+const STATUS_TOM = { em_andamento: '', concluido: 'is-indicacao', cancelado: 'is-eliminado', aplicado: 'is-indicacao' };
 
+const METODOS_LOGIN_TREINAMENTO = [
+  { value: '', label: 'Não definido' },
+  { value: 'microsoft', label: 'Microsoft' },
+  { value: 'telefone', label: 'Telefone' },
+  { value: 'email', label: 'E-mail' },
+  { value: 'nome', label: 'Nome' },
+];
+
+const SLIDE_INICIAL = { titulo: '', texto: '' };
 const ITEM_INICIAL = { titulo: '', descricao: '', obrigatorio: true, tipo_conteudo: '', conteudo_url: '' };
 const FORM_TRILHA_INICIAL = {
   id_trilha: '',
@@ -49,13 +64,19 @@ const FORM_TRILHA_INICIAL = {
   modalidade: '',
   local_padrao: '',
   itens: [],
+  slides: [],
 };
-const FORM_AGENDA_INICIAL = {
+const FORM_AGENDAR_INICIAL = {
   id_onboarding: '',
   data_prevista: '',
   local: '',
   ministrante: '',
+};
+const FORM_EDITAR_TREINAMENTO_INICIAL = {
+  id_onboarding: '',
   status: 'em_andamento',
+  acesso_plataforma: false,
+  metodo_login: '',
 };
 
 function normalizarItensParaEnvio(itens) {
@@ -76,6 +97,13 @@ function formatarDataHora(valor) {
   } catch (error) {
     return valor;
   }
+}
+
+const REGEX_DIACRITICOS_TREINO = new RegExp('[' + String.fromCharCode(0x0300) + '-' + String.fromCharCode(0x036f) + ']', 'g');
+
+function normalizarBuscaTreino(valor) {
+  const semAcento = String(valor || '').normalize('NFD').replace(REGEX_DIACRITICOS_TREINO, '');
+  return semAcento.toLowerCase().trim();
 }
 
 function paraInputDatetimeLocal(valor) {
@@ -102,10 +130,27 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
   const [salvandoTrilha, setSalvandoTrilha] = useState(false);
   const [erroTrilha, setErroTrilha] = useState('');
 
-  const [modalAgendaAberto, setModalAgendaAberto] = useState(false);
-  const [formAgenda, setFormAgenda] = useState(FORM_AGENDA_INICIAL);
+  const [modalAgendarAberto, setModalAgendarAberto] = useState(false);
+  const [formAgendar, setFormAgendar] = useState(FORM_AGENDAR_INICIAL);
   const [salvandoAgenda, setSalvandoAgenda] = useState(false);
   const [erroAgenda, setErroAgenda] = useState('');
+
+  const [modalEditarTreinamentoAberto, setModalEditarTreinamentoAberto] = useState(false);
+  const [formEditarTreinamento, setFormEditarTreinamento] = useState(FORM_EDITAR_TREINAMENTO_INICIAL);
+
+  const [presencasPendentes, setPresencasPendentes] = useState({});
+  const [salvandoPresenca, setSalvandoPresenca] = useState(false);
+
+  const [treinamentoEmAndamento, setTreinamentoEmAndamento] = useState(null);
+  const [slideAtual, setSlideAtual] = useState(0);
+
+  const [treinamentosProcesso, setTreinamentosProcesso] = useState([]);
+  const [modalLiberarAberto, setModalLiberarAberto] = useState(false);
+  const [treinamentoProcessoSelecionado, setTreinamentoProcessoSelecionado] = useState(null);
+  const [candidatosParaLiberar, setCandidatosParaLiberar] = useState([]);
+  const [candidatosSelecionados, setCandidatosSelecionados] = useState([]);
+  const [salvandoLiberacao, setSalvandoLiberacao] = useState(false);
+  const [erroLiberacao, setErroLiberacao] = useState('');
 
   const carregarTrilhas = async () => {
     try {
@@ -134,10 +179,19 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
     }
   };
 
+  const carregarTreinamentosProcesso = async () => {
+    try {
+      const dados = await listarTreinamentosProcesso();
+      setTreinamentosProcesso(Array.isArray(dados) ? dados : []);
+    } catch (error) {
+      // Seção auxiliar — não bloqueia o restante da tela.
+    }
+  };
+
   const carregarTudo = async () => {
     setCarregando(true);
     setErro('');
-    await Promise.all([carregarTrilhas(), carregarAtribuicoes(), carregarOperacoes()]);
+    await Promise.all([carregarTrilhas(), carregarAtribuicoes(), carregarOperacoes(), carregarTreinamentosProcesso()]);
     setCarregando(false);
   };
 
@@ -163,6 +217,13 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
   };
 
   const abrirEdicaoTrilha = (trilha) => {
+    let slides = [];
+    try {
+      const conteudo = JSON.parse(trilha.conteudo_json || '{}');
+      slides = Array.isArray(conteudo.slides) ? conteudo.slides : [];
+    } catch (error) {
+      slides = [];
+    }
     setFormTrilha({
       id_trilha: trilha.id_trilha,
       nome: trilha.nome || '',
@@ -179,9 +240,25 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
         tipo_conteudo: item.tipo_conteudo || '',
         conteudo_url: item.conteudo_url || '',
       })),
+      slides: slides.map((slide) => ({ titulo: slide.titulo || '', texto: slide.texto || '' })),
     });
     setErroTrilha('');
     setModalTrilhaAberto(true);
+  };
+
+  const adicionarSlideTrilha = () => {
+    setFormTrilha((atual) => ({ ...atual, slides: [...atual.slides, { ...SLIDE_INICIAL }] }));
+  };
+
+  const atualizarSlideTrilha = (index, campo, valor) => {
+    setFormTrilha((atual) => ({
+      ...atual,
+      slides: atual.slides.map((slide, idx) => (idx === index ? { ...slide, [campo]: valor } : slide)),
+    }));
+  };
+
+  const removerSlideTrilha = (index) => {
+    setFormTrilha((atual) => ({ ...atual, slides: atual.slides.filter((_, idx) => idx !== index) }));
   };
 
   const fecharModalTrilha = () => {
@@ -238,6 +315,11 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
       modalidade: formTrilha.modalidade,
       local_padrao: formTrilha.local_padrao.trim(),
       itens: normalizarItensParaEnvio(formTrilha.itens),
+      conteudo_json: JSON.stringify({
+        slides: formTrilha.slides
+          .filter((slide) => slide.titulo.trim() || slide.texto.trim())
+          .map((slide) => ({ titulo: slide.titulo.trim(), texto: slide.texto.trim() })),
+      }),
     };
 
     setSalvandoTrilha(true);
@@ -256,42 +338,181 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
     }
   };
 
-  // -- Atribuições (agenda/local/status) ----------------------------------
+  // -- Atribuições: Agendar / Editar / Encerrar ---------------------------
 
-  const abrirAgenda = (atribuicao) => {
-    setFormAgenda({
+  const abrirAgendar = (atribuicao) => {
+    setFormAgendar({
       id_onboarding: atribuicao.id_onboarding,
       data_prevista: paraInputDatetimeLocal(atribuicao.data_prevista),
       local: atribuicao.local || '',
       ministrante: atribuicao.ministrante || '',
-      status: atribuicao.status || 'em_andamento',
     });
     setErroAgenda('');
-    setModalAgendaAberto(true);
+    setModalAgendarAberto(true);
   };
 
-  const fecharModalAgenda = () => {
-    setModalAgendaAberto(false);
-    setFormAgenda(FORM_AGENDA_INICIAL);
+  const fecharModalAgendar = () => {
+    setModalAgendarAberto(false);
+    setFormAgendar(FORM_AGENDAR_INICIAL);
     setErroAgenda('');
   };
 
-  const salvarAgenda = async () => {
+  const salvarAgendamento = async () => {
     setSalvandoAgenda(true);
     setErroAgenda('');
     try {
-      await atualizarAgendaTreinamento(formAgenda.id_onboarding, {
-        data_prevista: formAgenda.data_prevista ? new Date(formAgenda.data_prevista).toISOString() : null,
-        local: formAgenda.local.trim(),
-        ministrante: formAgenda.ministrante.trim(),
-        status: formAgenda.status,
+      await atualizarAgendaTreinamento(formAgendar.id_onboarding, {
+        data_prevista: formAgendar.data_prevista ? new Date(formAgendar.data_prevista).toISOString() : null,
+        local: formAgendar.local.trim(),
+        ministrante: formAgendar.ministrante.trim(),
       });
-      fecharModalAgenda();
+      fecharModalAgendar();
       await carregarAtribuicoes();
     } catch (error) {
       setErroAgenda(error?.message || 'Não foi possível salvar a agenda do treinamento.');
     } finally {
       setSalvandoAgenda(false);
+    }
+  };
+
+  const abrirEditarTreinamento = (atribuicao) => {
+    setFormEditarTreinamento({
+      id_onboarding: atribuicao.id_onboarding,
+      status: atribuicao.status || 'em_andamento',
+      acesso_plataforma: !!atribuicao.acesso_plataforma,
+      metodo_login: atribuicao.metodo_login || '',
+    });
+    setErroAgenda('');
+    setModalEditarTreinamentoAberto(true);
+  };
+
+  const fecharModalEditarTreinamento = () => {
+    setModalEditarTreinamentoAberto(false);
+    setFormEditarTreinamento(FORM_EDITAR_TREINAMENTO_INICIAL);
+  };
+
+  const salvarEdicaoTreinamento = async () => {
+    setSalvandoAgenda(true);
+    setErroAgenda('');
+    try {
+      const atribuicaoAtual = atribuicoes.find((item) => String(item.id_onboarding) === String(formEditarTreinamento.id_onboarding));
+      await atualizarAgendaTreinamento(formEditarTreinamento.id_onboarding, {
+        data_prevista: atribuicaoAtual?.data_prevista || null,
+        local: atribuicaoAtual?.local || '',
+        ministrante: atribuicaoAtual?.ministrante || '',
+        status: formEditarTreinamento.status,
+        acesso_plataforma: !!formEditarTreinamento.acesso_plataforma,
+        metodo_login: formEditarTreinamento.metodo_login,
+      });
+      fecharModalEditarTreinamento();
+      await carregarAtribuicoes();
+    } catch (error) {
+      setErroAgenda(error?.message || 'Não foi possível salvar as configurações do treinamento.');
+    } finally {
+      setSalvandoAgenda(false);
+    }
+  };
+
+  const encerrarTreinamentoColaborador = async (atribuicao) => {
+    if (!window.confirm(`Encerrar/excluir o treinamento "${atribuicao.trilha_nome}" de ${atribuicao.nome_candidato || 'colaborador'}?`)) return;
+    try {
+      await excluirAtribuicaoTreinamento(atribuicao.id_onboarding);
+      await carregarAtribuicoes();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível encerrar o treinamento.');
+    }
+  };
+
+  // -- Lista de presença ---------------------------------------------------
+
+  const alternarPresencaPendente = (idOnboarding, presente) => {
+    setPresencasPendentes((atual) => ({ ...atual, [idOnboarding]: presente }));
+  };
+
+  const salvarListaPresenca = async () => {
+    const presencas = Object.entries(presencasPendentes).map(([id_onboarding, presente]) => ({
+      id_onboarding: Number(id_onboarding),
+      presente,
+    }));
+    if (!presencas.length) return;
+    setSalvandoPresenca(true);
+    try {
+      await salvarPresencaTreinamento(presencas);
+      setPresencasPendentes({});
+      await carregarAtribuicoes();
+    } catch (error) {
+      setErro(error?.message || 'Não foi possível salvar a lista de presença.');
+    } finally {
+      setSalvandoPresenca(false);
+    }
+  };
+
+  // -- Começar Treinamento (ministrante) -----------------------------------
+
+  const podeComecarTreinamento = (atribuicao) => {
+    if (!atribuicao.data_prevista) return false;
+    const nomeUsuario = normalizarBuscaTreino(controlador?.estado?.nomeUsuarioAutenticado || '');
+    const ministrante = normalizarBuscaTreino(atribuicao.ministrante || '');
+    if (!ministrante || !nomeUsuario || !ministrante.includes(nomeUsuario)) return false;
+    const agora = Date.now();
+    const previsto = new Date(atribuicao.data_prevista).getTime();
+    const duasHoras = 2 * 60 * 60 * 1000;
+    return agora >= previsto - duasHoras && agora <= previsto + duasHoras;
+  };
+
+  const comecarTreinamento = (atribuicao) => {
+    const trilha = trilhas.find((item) => String(item.id_trilha) === String(atribuicao.trilha_id));
+    let slides = [];
+    try {
+      const conteudo = JSON.parse(trilha?.conteudo_json || '{}');
+      slides = Array.isArray(conteudo.slides) ? conteudo.slides : [];
+    } catch (error) {
+      slides = [];
+    }
+    setSlideAtual(0);
+    setTreinamentoEmAndamento({ atribuicao, slides });
+  };
+
+  // -- Treinamentos por processo (AGUARDANDO PROCESSO / ABERTO) -----------
+
+  const abrirLiberarVagas = async (treinamentoProcesso) => {
+    setTreinamentoProcessoSelecionado(treinamentoProcesso);
+    setCandidatosSelecionados([]);
+    setErroLiberacao('');
+    setModalLiberarAberto(true);
+    try {
+      const dados = await listarCandidatosLiberacaoTreinamento(treinamentoProcesso.id_processo_treinamento);
+      setCandidatosParaLiberar(Array.isArray(dados) ? dados : []);
+    } catch (error) {
+      setErroLiberacao(error?.message || 'Não foi possível carregar os candidatos aprovados deste processo.');
+    }
+  };
+
+  const fecharModalLiberar = () => {
+    setModalLiberarAberto(false);
+    setTreinamentoProcessoSelecionado(null);
+    setCandidatosParaLiberar([]);
+    setCandidatosSelecionados([]);
+  };
+
+  const alternarCandidatoLiberacao = (idRegistro) => {
+    setCandidatosSelecionados((atual) =>
+      atual.includes(idRegistro) ? atual.filter((item) => item !== idRegistro) : [...atual, idRegistro],
+    );
+  };
+
+  const confirmarLiberacaoVagas = async () => {
+    if (!treinamentoProcessoSelecionado || !candidatosSelecionados.length) return;
+    setSalvandoLiberacao(true);
+    setErroLiberacao('');
+    try {
+      await liberarVagasTreinamento(treinamentoProcessoSelecionado.id_processo_treinamento, candidatosSelecionados);
+      fecharModalLiberar();
+      await Promise.all([carregarTreinamentosProcesso(), carregarAtribuicoes()]);
+    } catch (error) {
+      setErroLiberacao(error?.message || 'Não foi possível liberar as vagas selecionadas.');
+    } finally {
+      setSalvandoLiberacao(false);
     }
   };
 
@@ -354,7 +575,15 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
     <${SectionCard}
       title="Colaboradores em treinamento"
       className="rh-section-card--flat"
-      description="Quem está fazendo o quê, quando e onde — inclui o check/OK do supervisor por módulo."
+      description="Quem está fazendo o quê, quando e onde — marque a presença ao final de cada treinamento aplicado."
+      actions=${Object.keys(presencasPendentes).length
+      ? html`
+              <button type="button" class="btn btn-primary btn-sm" disabled=${salvandoPresenca} onClick=${salvarListaPresenca}>
+                <span class="material-symbols-outlined">how_to_reg</span>
+                ${salvandoPresenca ? 'Salvando...' : `Salvar presença (${Object.keys(presencasPendentes).length})`}
+              </button>
+            `
+      : null}
     >
       <div class="table-responsive">
         <table class="table align-middle rh-modern-history-table">
@@ -367,12 +596,13 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
               <th>Local</th>
               <th>Ministrante</th>
               <th>Status</th>
+              <th>Presença</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             ${carregando
-      ? html`<${SkeletonTableRows} colunas=${8} linhas=${3} />`
+      ? html`<${SkeletonTableRows} colunas=${9} linhas=${3} />`
       : atribuicoes.length
         ? atribuicoes.map(
           (item) => html`
@@ -395,20 +625,102 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
                         </span>
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          class="btn btn-outline-secondary btn-sm"
+                        <select
+                          class="form-select form-select-sm"
                           disabled=${!podeEditar}
-                          onClick=${() => abrirAgenda(item)}
+                          value=${presencasPendentes[item.id_onboarding] === undefined
+          ? (item.presenca || '')
+          : (presencasPendentes[item.id_onboarding] ? 'presente' : 'falta')}
+                          onChange=${(event) => alternarPresencaPendente(item.id_onboarding, event.target.value === 'presente')}
                         >
-                          <span class="material-symbols-outlined">event</span>
-                          Agenda
-                        </button>
+                          <option value="">-</option>
+                          <option value="presente">Presente</option>
+                          <option value="falta">Falta</option>
+                        </select>
+                      </td>
+                      <td>
+                        <div class="d-flex flex-wrap gap-1">
+                          <button type="button" class="btn btn-outline-secondary btn-sm" disabled=${!podeEditar} onClick=${() => abrirAgendar(item)} title="Agendar">
+                            <span class="material-symbols-outlined">event</span>
+                          </button>
+                          <button type="button" class="btn btn-outline-secondary btn-sm" disabled=${!podeEditar} onClick=${() => abrirEditarTreinamento(item)} title="Editar">
+                            <span class="material-symbols-outlined">edit</span>
+                          </button>
+                          <button type="button" class="btn btn-outline-danger btn-sm" disabled=${!podeEditar} onClick=${() => encerrarTreinamentoColaborador(item)} title="Encerrar">
+                            <span class="material-symbols-outlined">stop_circle</span>
+                          </button>
+                          ${podeComecarTreinamento(item)
+          ? html`
+                                <button type="button" class="btn btn-primary btn-sm" onClick=${() => comecarTreinamento(item)}>
+                                  <span class="material-symbols-outlined">play_circle</span>
+                                  Começar treinamento
+                                </button>
+                              `
+          : null}
+                        </div>
                       </td>
                     </tr>
                   `,
         )
-        : html`<${TabelaVazia} colunas=${8} texto="Nenhum colaborador em treinamento no momento." icone="assignment_ind" />`}
+        : html`<${TabelaVazia} colunas=${9} texto="Nenhum colaborador em treinamento no momento." icone="assignment_ind" />`}
+          </tbody>
+        </table>
+      </div>
+    </${SectionCard}>
+  `;
+
+  const renderTreinamentosProcesso = () => html`
+    <${SectionCard}
+      title="Treinamentos por processo seletivo"
+      className="rh-section-card--flat mt-4"
+      description="Vagas de treinamento vinculadas a processos abertos — libere antes do encerramento quando já houver aprovados prontos para treinar."
+    >
+      <div class="table-responsive">
+        <table class="table align-middle rh-modern-history-table">
+          <thead>
+            <tr>
+              <th>Processo</th>
+              <th>Trilha</th>
+              <th>Aguardando processo</th>
+              <th>Aberto</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${treinamentosProcesso.length
+      ? treinamentosProcesso.map(
+        (item) => html`
+                    <tr key=${item.id_processo_treinamento}>
+                      <td>
+                        <strong>${item.vaga}</strong>
+                        <div class="text-muted small">${item.id_processo} · ${item.processo_status}</div>
+                      </td>
+                      <td>${item.trilha_nome}</td>
+                      <td>
+                        ${item.vagas_bloqueadas > 0
+            ? html`<span class="rh-chip">AGUARDANDO PROCESSO (${item.vagas_bloqueadas})</span>`
+            : html`<span class="text-muted">-</span>`}
+                      </td>
+                      <td>
+                        ${item.vagas_liberadas > 0
+            ? html`<span class="rh-chip is-indicacao">ABERTO (${item.vagas_liberadas})</span>`
+            : html`<span class="text-muted">-</span>`}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          class="btn btn-outline-primary btn-sm"
+                          disabled=${!podeEditar || item.vagas_bloqueadas <= 0}
+                          onClick=${() => abrirLiberarVagas(item)}
+                        >
+                          <span class="material-symbols-outlined">lock_open</span>
+                          Liberar vagas
+                        </button>
+                      </td>
+                    </tr>
+                  `,
+      )
+      : html`<${TabelaVazia} colunas=${5} texto="Nenhum treinamento vinculado a processo seletivo no momento." icone="fact_check" />`}
           </tbody>
         </table>
       </div>
@@ -437,12 +749,12 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
         <div class="d-flex align-items-start gap-3">
           <span class="material-symbols-outlined" aria-hidden="true">upcoming</span>
           <div>
-            <h3 class="h6 mb-1">Centro de Treinamentos — em breve</h3>
+            <h3 class="h6 mb-1">Centro de Treinamentos — em evolução</h3>
             <p class="rh-section-card-description mb-0">
-              A expansão desta área (acesso dedicado para instrutores e supervisores, atribuição de quem
-              ministra cada treinamento com aviso automático, e liberação vinculada ao processo seletivo)
-              está em desenvolvimento e chega em breve. As trilhas e atribuições abaixo continuam
-              funcionando normalmente.
+              Agendar/Editar/Encerrar, lista de presença, "Começar treinamento" e a liberação de vagas
+              vinculada ao processo seletivo já funcionam abaixo. Ainda em desenvolvimento: acesso e login
+              dedicados para instrutores/supervisores que não usam o Conecta, e o aviso automático 5 minutos
+              antes do horário agendado.
             </p>
           </div>
         </div>
@@ -459,7 +771,9 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
         </button>
       </div>
 
-      ${abaAtiva === 'trilhas' ? renderTrilhas() : renderAtribuicoes()}
+      ${abaAtiva === 'trilhas'
+      ? renderTrilhas()
+      : html`${renderAtribuicoes()}${renderTreinamentosProcesso()}`}
 
       <${ModalPadrao}
         aberto=${modalTrilhaAberto}
@@ -623,6 +937,45 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
               Adicionar módulo
             </button>
           </div>
+
+          <div class="rh-filter-field">
+            <label>Conteúdo apresentado em "Começar Treinamento" (slides)</label>
+            <p class="text-muted small mb-2">
+              Cada slide vira uma tela do curso online que o ministrante apresenta ao iniciar o treinamento.
+            </p>
+            ${formTrilha.slides.map(
+      (slide, index) => html`
+                <div key=${index} class="rh-section-card rh-section-card--flat" style=${{ padding: '12px', marginBottom: '8px' }}>
+                  <div class="row g-2">
+                    <div class="col-md-11">
+                      <input
+                        class="form-control mb-2"
+                        placeholder="Título do slide"
+                        value=${slide.titulo}
+                        onInput=${(event) => atualizarSlideTrilha(index, 'titulo', event.target.value)}
+                      />
+                      <textarea
+                        class="form-control"
+                        rows="2"
+                        placeholder="Texto/script do slide"
+                        value=${slide.texto}
+                        onInput=${(event) => atualizarSlideTrilha(index, 'texto', event.target.value)}
+                      ></textarea>
+                    </div>
+                    <div class="col-md-1">
+                      <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Remover slide" onClick=${() => removerSlideTrilha(index)}>
+                        <span class="material-symbols-outlined">close</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `,
+    )}
+            <button type="button" class="btn btn-outline-primary btn-sm" onClick=${adicionarSlideTrilha}>
+              <span class="material-symbols-outlined">add</span>
+              Adicionar slide
+            </button>
+          </div>
         </div>
 
         <footer class="rh-modal-footer">
@@ -643,10 +996,10 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
       </${ModalPadrao}>
 
       <${ModalPadrao}
-        aberto=${modalAgendaAberto}
-        titulo="Agenda do treinamento"
-        subtitulo="Defina quando, onde e com quem — e marque o status geral do treinamento."
-        onClose=${fecharModalAgenda}
+        aberto=${modalAgendarAberto}
+        titulo="Agendar treinamento"
+        subtitulo="Dia, horário, local e quem vai aplicar o treinamento."
+        onClose=${fecharModalAgendar}
       >
         <div class="rh-details-body">
           ${erroAgenda ? html`<div class="alert alert-warning">${erroAgenda}</div>` : null}
@@ -656,52 +1009,195 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
             <input
               type="datetime-local"
               class="form-control"
-              value=${formAgenda.data_prevista}
-              onInput=${(event) => setFormAgenda({ ...formAgenda, data_prevista: event.target.value })}
+              value=${formAgendar.data_prevista}
+              onInput=${(event) => setFormAgendar({ ...formAgendar, data_prevista: event.target.value })}
             />
           </div>
 
           <div class="rh-filter-field">
-            <label>Local</label>
+            <label>Local (sala)</label>
             <input
               class="form-control"
-              value=${formAgenda.local}
-              onInput=${(event) => setFormAgenda({ ...formAgenda, local: event.target.value })}
+              value=${formAgendar.local}
+              onInput=${(event) => setFormAgendar({ ...formAgendar, local: event.target.value })}
               placeholder="Ex.: Sala 2, ou link da videochamada"
             />
           </div>
 
           <div class="rh-filter-field">
-            <label>Ministrante</label>
+            <label>Quem vai aplicar o treinamento</label>
             <input
               class="form-control"
-              value=${formAgenda.ministrante}
-              onInput=${(event) => setFormAgenda({ ...formAgenda, ministrante: event.target.value })}
-              placeholder="Quem vai dar o treinamento"
+              value=${formAgendar.ministrante}
+              onInput=${(event) => setFormAgendar({ ...formAgendar, ministrante: event.target.value })}
+              placeholder="Nome do ministrante"
             />
-          </div>
-
-          <div class="rh-filter-field">
-            <label>Status</label>
-            <select
-              class="form-select"
-              value=${formAgenda.status}
-              onChange=${(event) => setFormAgenda({ ...formAgenda, status: event.target.value })}
-            >
-              ${STATUS_ATRIBUICAO.map((opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`)}
-            </select>
           </div>
         </div>
 
         <footer class="rh-modal-footer">
           <div class="rh-modal-footer-actions">
-            <button type="button" class="btn btn-outline-secondary" disabled=${salvandoAgenda} onClick=${fecharModalAgenda}>
+            <button type="button" class="btn btn-outline-secondary" disabled=${salvandoAgenda} onClick=${fecharModalAgendar}>
               Cancelar
             </button>
-            <button type="button" class="btn btn-primary" disabled=${salvandoAgenda} onClick=${salvarAgenda}>
+            <button type="button" class="btn btn-primary" disabled=${salvandoAgenda} onClick=${salvarAgendamento}>
               ${salvandoAgenda ? 'Salvando...' : 'Salvar'}
             </button>
           </div>
+        </footer>
+      </${ModalPadrao}>
+
+      <${ModalPadrao}
+        aberto=${modalEditarTreinamentoAberto}
+        titulo="Editar treinamento"
+        subtitulo="Conteúdo aplicado, status e acesso ao aplicativo/plataforma auxiliar."
+        onClose=${fecharModalEditarTreinamento}
+      >
+        <div class="rh-details-body">
+          ${erroAgenda ? html`<div class="alert alert-warning">${erroAgenda}</div>` : null}
+
+          <div class="rh-filter-field">
+            <label>Status</label>
+            <select
+              class="form-select"
+              value=${formEditarTreinamento.status}
+              onChange=${(event) => setFormEditarTreinamento({ ...formEditarTreinamento, status: event.target.value })}
+            >
+              ${STATUS_ATRIBUICAO.map((opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`)}
+            </select>
+          </div>
+
+          <label class="d-flex align-items-center gap-2">
+            <input
+              type="checkbox"
+              checked=${formEditarTreinamento.acesso_plataforma}
+              onChange=${(event) => setFormEditarTreinamento({ ...formEditarTreinamento, acesso_plataforma: !!event.target.checked })}
+            />
+            <span>Colaborador terá acesso ao aplicativo/plataforma auxiliar</span>
+          </label>
+
+          ${formEditarTreinamento.acesso_plataforma
+      ? html`
+              <div class="rh-filter-field">
+                <label>Forma de login</label>
+                <select
+                  class="form-select"
+                  value=${formEditarTreinamento.metodo_login}
+                  onChange=${(event) => setFormEditarTreinamento({ ...formEditarTreinamento, metodo_login: event.target.value })}
+                >
+                  ${METODOS_LOGIN_TREINAMENTO.map((opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`)}
+                </select>
+              </div>
+            `
+      : null}
+        </div>
+
+        <footer class="rh-modal-footer">
+          <div class="rh-modal-footer-actions">
+            <button type="button" class="btn btn-outline-secondary" disabled=${salvandoAgenda} onClick=${fecharModalEditarTreinamento}>
+              Cancelar
+            </button>
+            <button type="button" class="btn btn-primary" disabled=${salvandoAgenda} onClick=${salvarEdicaoTreinamento}>
+              ${salvandoAgenda ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+        </footer>
+      </${ModalPadrao}>
+
+      <${ModalPadrao}
+        aberto=${modalLiberarAberto}
+        titulo="Liberar vagas de treinamento"
+        subtitulo=${treinamentoProcessoSelecionado ? `${treinamentoProcessoSelecionado.trilha_nome} — ${treinamentoProcessoSelecionado.vaga}` : ''}
+        onClose=${fecharModalLiberar}
+      >
+        <div class="rh-details-body">
+          ${erroLiberacao ? html`<div class="alert alert-warning">${erroLiberacao}</div>` : null}
+          <p class="text-muted small">
+            Escolha quais candidatos aprovados já podem começar o treinamento agora. As vagas restantes continuam
+            com a tag "Aguardando processo" até o encerramento da vaga.
+          </p>
+          ${candidatosParaLiberar.length
+      ? candidatosParaLiberar.map(
+        (candidato) => html`
+                <label key=${candidato.id_registro} class="d-flex align-items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked=${candidatosSelecionados.includes(candidato.id_registro)}
+                    onChange=${() => alternarCandidatoLiberacao(candidato.id_registro)}
+                  />
+                  <span>${candidato.nome_candidato}</span>
+                </label>
+              `,
+      )
+      : html`<p class="text-muted small mb-0">Nenhum candidato aprovado disponível para liberar ainda.</p>`}
+        </div>
+        <footer class="rh-modal-footer">
+          <div class="rh-modal-footer-actions">
+            <button type="button" class="btn btn-outline-secondary" disabled=${salvandoLiberacao} onClick=${fecharModalLiberar}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              disabled=${salvandoLiberacao || !candidatosSelecionados.length}
+              onClick=${confirmarLiberacaoVagas}
+            >
+              ${salvandoLiberacao ? 'Liberando...' : `Liberar ${candidatosSelecionados.length || ''} vaga(s)`}
+            </button>
+          </div>
+        </footer>
+      </${ModalPadrao}>
+
+      <${ModalPadrao}
+        aberto=${!!treinamentoEmAndamento}
+        titulo="Começar treinamento"
+        subtitulo=${treinamentoEmAndamento?.atribuicao?.trilha_nome || ''}
+        onClose=${() => setTreinamentoEmAndamento(null)}
+        className="rh-modal-dialog--lg"
+      >
+        ${treinamentoEmAndamento
+      ? html`
+              <div class="rh-details-body">
+                ${treinamentoEmAndamento.slides.length
+        ? html`
+                      <div class="rh-section-card rh-section-card--flat" style=${{ padding: '20px' }}>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <strong>${treinamentoEmAndamento.slides[slideAtual]?.titulo || `Slide ${slideAtual + 1}`}</strong>
+                          <span class="text-muted small">${slideAtual + 1} / ${treinamentoEmAndamento.slides.length}</span>
+                        </div>
+                        <p style=${{ whiteSpace: 'pre-wrap' }}>${treinamentoEmAndamento.slides[slideAtual]?.texto || ''}</p>
+                        <div class="progress" style=${{ height: '8px' }}>
+                          <div
+                            class="progress-bar"
+                            style=${{ width: `${Math.round(((slideAtual + 1) / treinamentoEmAndamento.slides.length) * 100)}%` }}
+                          ></div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-3">
+                          <button type="button" class="btn btn-outline-secondary btn-sm" disabled=${slideAtual === 0} onClick=${() => setSlideAtual((atual) => Math.max(0, atual - 1))}>
+                            Anterior
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-primary btn-sm"
+                            disabled=${slideAtual >= treinamentoEmAndamento.slides.length - 1}
+                            onClick=${() => setSlideAtual((atual) => Math.min(treinamentoEmAndamento.slides.length - 1, atual + 1))}
+                          >
+                            Próximo
+                          </button>
+                        </div>
+                      </div>
+                    `
+        : html`<p class="text-muted">Esta trilha ainda não tem slides/script cadastrados — cadastre em "Editar trilha".</p>`}
+                <p class="text-muted small mt-3">
+                  Ao final da apresentação, use "Presença" na lista de colaboradores para marcar quem assistiu.
+                </p>
+              </div>
+            `
+      : null}
+        <footer class="rh-modal-footer">
+          <button type="button" class="btn btn-outline-secondary" onClick=${() => setTreinamentoEmAndamento(null)}>
+            Fechar
+          </button>
         </footer>
       </${ModalPadrao}>
     </${PainelRh}>

@@ -106,6 +106,7 @@ import {
 } from '../../shared/validacoes.js';
 import { BlocoFiltro, CampoFiltro } from './components/filtros.js';
 import { listarOperacoes } from '../../services/api/operations.js';
+import { listarTrilhasOnboarding } from '../../services/api/onboarding.js';
 import { CHAVE_COMANDO_NOVO_PROCESSO } from '../../ui/busca-global.js';
 import {
   AvatarUsuario,
@@ -221,6 +222,55 @@ const ETAPAS_PERSONALIZADAS_PROCESSO = [
   { key: 'conhecimentos_tecnicos', label: 'Conhecimentos Técnicos', termos: ['tecnico', 'tech', 'sistema', 'ti'] },
 ];
 const ETAPAS_BASE_PERSONALIZADAS_PROCESSO = ['word', 'excel', 'redacao'];
+
+const TIPOS_CONTRATACAO_PROCESSO = ['CLT', 'Temporário', 'PJ', 'Outro'];
+
+const MODELOS_TRABALHO_PROCESSO = [
+  { value: 'presencial', label: 'Presencial' },
+  { value: 'homeoffice', label: 'Home Office Total (Remoto)' },
+  { value: 'hibrido', label: 'Híbrido' },
+];
+
+const JORNADAS_TRABALHO_PROCESSO = [
+  { value: '6x1', label: '6x1 (6 horas e 20 minutos diárias / 36 horas semanais)' },
+  { value: '5x2', label: '5x2 (8 horas e 48 minutos diárias / 44 horas semanais)' },
+  { value: '12x36', label: 'Escala 12x36' },
+  { value: 'outro', label: 'Outro' },
+];
+
+const ESCOLARIDADES_PROCESSO = [
+  { value: 'fundamental', label: 'Ensino Fundamental Completo' },
+  { value: 'medio', label: 'Ensino Médio Completo' },
+  { value: 'superior', label: 'Ensino Superior Completo' },
+];
+
+const EXPERIENCIAS_PREVIAS_PROCESSO = [
+  { value: 'nenhuma', label: 'Não exige experiência (Primeiro emprego)' },
+  { value: 'generica', label: 'Exige experiência genérica em Call Center (mínimo 6 meses)' },
+  { value: 'tecnica', label: 'Exige experiência em áreas técnicas ou correlatas (suporte técnico, provedor de internet, Help Desk ou atendimento de tecnologia)' },
+];
+
+const NIVEIS_IDIOMA_PROCESSO = [
+  { value: '', label: 'Não exigido' },
+  { value: 'intermediario', label: 'Intermediário' },
+  { value: 'avancado', label: 'Avançado/Fluente' },
+];
+
+const BENEFICIOS_PROCESSO_PADRAO = [
+  'Vale Transporte',
+  'Vale Refeição',
+  'Vale Alimentação',
+  'Assistência Técnica',
+];
+
+const REDES_COMPARTILHAMENTO_PROCESSO = [
+  { chave: 'linkedin', label: 'LinkedIn' },
+  { chave: 'facebook', label: 'Facebook' },
+  { chave: 'instagram', label: 'Instagram' },
+  { chave: 'telegram', label: 'Telegram' },
+  { chave: 'whatsapp', label: 'WhatsApp' },
+  { chave: 'catho', label: 'Catho (em breve)', desativado: true },
+];
 
 function normalizarTextoPainel(valor) {
   return String(valor || '').trim();
@@ -3122,12 +3172,32 @@ export function TelaCriarProcesso({ controlador }) {
     manterNivelPadraoEtapas: true,
     niveisEtapas: {},
     disponibilidade: [],
+    tipoContratacao: '',
+    tipoContratacaoOutro: '',
+    modeloTrabalho: '',
+    hibridoEscala: '',
+    jornadaTrabalho: '',
+    jornadaTrabalhoOutro: '',
+    trabalhoEscala: '',
+    escolaridadeMinima: '',
+    cursosSuperior: '',
+    experienciaPrevia: '',
+    idiomaIngles: '',
+    idiomaEspanhol: '',
+    skillsTags: '',
+    salario: '',
+    mostrarSalario: false,
+    beneficios: BENEFICIOS_PROCESSO_PADRAO.map((nome) => ({ nome, selecionado: false, valor: '' })),
+    descricaoAtividades: '',
+    descricaoAtividadesEditada: false,
+    treinamentosSelecionados: [],
   });
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [modalCompartilharAberto, setModalCompartilharAberto] = useState(false);
   const [operacoesCadastradas, setOperacoesCadastradas] = useState([]);
+  const [trilhasDisponiveis, setTrilhasDisponiveis] = useState([]);
 
   useEffect(() => {
     let cancelado = false;
@@ -3138,10 +3208,71 @@ export function TelaCriarProcesso({ controlador }) {
       .catch(() => {
         // Mantém a lista estática (OPCOES_OPERACOES) como fallback silencioso.
       });
+    listarTrilhasOnboarding()
+      .then((itens) => {
+        if (!cancelado && Array.isArray(itens)) setTrilhasDisponiveis(itens);
+      })
+      .catch(() => {
+        // Seleção de treinamentos é opcional — sem a lista, o passo fica vazio.
+      });
     return () => {
       cancelado = true;
     };
   }, []);
+
+  const operacaoSelecionada = useMemo(
+    () => operacoesCadastradas.find((item) => item.nome === formulario.operacao),
+    [operacoesCadastradas, formulario.operacao],
+  );
+
+  useEffect(() => {
+    if (!operacaoSelecionada) return;
+    const payload = operacaoSelecionada.payload || {};
+    setFormulario((anterior) => ({
+      ...anterior,
+      modeloTrabalho: anterior.modeloTrabalho || payload.modalidade || '',
+      jornadaTrabalho: anterior.jornadaTrabalho || (payload.jornadas_trabalho || [])[0] || '',
+      descricaoAtividades: anterior.descricaoAtividadesEditada
+        ? anterior.descricaoAtividades
+        : payload.descricao_atividades || anterior.descricaoAtividades,
+    }));
+  }, [operacaoSelecionada]);
+
+  useEffect(() => {
+    if (!trilhasDisponiveis.length || formulario.treinamentosSelecionados.length) return;
+    const padroes = trilhasDisponiveis
+      .filter((trilha) => normalizarBuscaPainel(trilha.categoria) === normalizarBuscaPainel('Onboarding'))
+      .map((trilha) => trilha.id_trilha);
+    if (padroes.length) {
+      setFormulario((anterior) => ({ ...anterior, treinamentosSelecionados: padroes }));
+    }
+  }, [trilhasDisponiveis]);
+
+  const alternarTreinamentoSelecionado = (idTrilha) => {
+    setFormulario((anterior) => {
+      const atuais = anterior.treinamentosSelecionados;
+      const treinamentosSelecionados = atuais.includes(idTrilha)
+        ? atuais.filter((item) => item !== idTrilha)
+        : [...atuais, idTrilha];
+      return { ...anterior, treinamentosSelecionados };
+    });
+  };
+
+  const alternarBeneficioProcesso = (nome) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      beneficios: anterior.beneficios.map((item) =>
+        item.nome === nome ? { ...item, selecionado: !item.selecionado } : item,
+      ),
+    }));
+  };
+
+  const atualizarValorBeneficioProcesso = (nome, valor) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      beneficios: anterior.beneficios.map((item) => (item.nome === nome ? { ...item, valor } : item)),
+    }));
+  };
 
   const opcoesOperacaoDisponiveis = useMemo(() => {
     const nomesCadastrados = new Set(operacoesCadastradas.map((item) => item.nome));
@@ -3625,8 +3756,33 @@ export function TelaCriarProcesso({ controlador }) {
       return;
     }
     setErro('');
-    setEtapaAtual((etapa) => Math.min(4, etapa + 1));
+    setEtapaAtual((etapa) => Math.min(5, etapa + 1));
   };
+
+  const montarDetalhesVaga = () => ({
+    tipo_contratacao: formulario.tipoContratacao === 'Outro' ? formulario.tipoContratacaoOutro : formulario.tipoContratacao,
+    modelo_trabalho: formulario.modeloTrabalho,
+    hibrido_escala: formulario.modeloTrabalho === 'hibrido' ? formulario.hibridoEscala : '',
+    jornada_trabalho: formulario.jornadaTrabalho,
+    jornada_trabalho_outro: formulario.jornadaTrabalho === 'outro' ? formulario.jornadaTrabalhoOutro : '',
+    trabalho_escala: formulario.trabalhoEscala,
+    escolaridade_minima: formulario.escolaridadeMinima,
+    cursos_superior: formulario.escolaridadeMinima === 'superior'
+      ? formulario.cursosSuperior.split(',').map((item) => item.trim()).filter(Boolean)
+      : [],
+    experiencia_previa: formulario.experienciaPrevia,
+    idiomas: {
+      portugues: 'nativo',
+      ingles: formulario.idiomaIngles || null,
+      espanhol: formulario.idiomaEspanhol || null,
+    },
+    skills_tags: formulario.skillsTags.split(',').map((item) => item.trim()).filter(Boolean),
+    salario: formulario.salario ? Number(formulario.salario) : null,
+    mostrar_salario: Boolean(formulario.mostrarSalario),
+    beneficios: formulario.beneficios.filter((item) => item.selecionado).map((item) => ({ nome: item.nome, valor: item.valor })),
+    descricao_atividades: formulario.descricaoAtividades,
+    treinamentos_selecionados: formulario.treinamentosSelecionados,
+  });
 
   const criar = async () => {
     const mensagemErro = validarEtapaDadosProcesso() || validarEtapaProva();
@@ -3659,6 +3815,7 @@ export function TelaCriarProcesso({ controlador }) {
         configuracao_prova_json: JSON.stringify(configuracaoProva),
         prova_configurada_em: configuracaoProva.configurada_em,
         urgente: Boolean(formulario.urgente),
+        detalhes_vaga_json: JSON.stringify(montarDetalhesVaga()),
       });
 
       const disponibilidadesValidas = formulario.disponibilidade.filter((item) => item.data);
@@ -3708,7 +3865,9 @@ export function TelaCriarProcesso({ controlador }) {
         ? 'Configuração da Prova'
         : etapaAtual === 3
           ? 'Disponibilidade de Horários'
-          : 'Publicação'
+          : etapaAtual === 4
+            ? 'Detalhes da Vaga'
+            : 'Publicação'
     }`}
         description="Cadastre a vaga e configure a prova vinculada ao processo seletivo."
       />
@@ -3719,7 +3878,8 @@ export function TelaCriarProcesso({ controlador }) {
       ['1', 'Dados do Processo'],
       ['2', 'Configuração da Prova'],
       ['3', 'Disponibilidade de Horários'],
-      ['4', 'Publicação'],
+      ['4', 'Detalhes da Vaga'],
+      ['5', 'Publicação'],
     ].map(([numero, label], indice) => {
       const etapa = indice + 1;
       return html`
@@ -4083,6 +4243,197 @@ export function TelaCriarProcesso({ controlador }) {
       ? html`
                   <section class="process-create-card">
                     <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">badge</span>
+                      <h2>Detalhes da vaga</h2>
+                    </div>
+                    <div class="process-create-form-grid">
+                      <label>
+                        <span>Tipo de contratação</span>
+                        <select class="form-select" value=${formulario.tipoContratacao} onChange=${(event) => setFormulario({ ...formulario, tipoContratacao: event.target.value })}>
+                          <option value="">Selecione</option>
+                          ${TIPOS_CONTRATACAO_PROCESSO.map((item) => html`<option key=${item} value=${item}>${item}</option>`)}
+                        </select>
+                      </label>
+                      ${formulario.tipoContratacao === 'Outro'
+        ? html`
+                            <label>
+                              <span>Qual tipo de contratação?</span>
+                              <input class="form-control" value=${formulario.tipoContratacaoOutro} onInput=${(event) => setFormulario({ ...formulario, tipoContratacaoOutro: event.target.value })} />
+                            </label>
+                          `
+        : null}
+                      <label>
+                        <span>Perfil e modelo de trabalho</span>
+                        <select class="form-select" value=${formulario.modeloTrabalho} onChange=${(event) => setFormulario({ ...formulario, modeloTrabalho: event.target.value })}>
+                          <option value="">Selecione</option>
+                          ${MODELOS_TRABALHO_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
+                        </select>
+                      </label>
+                      ${formulario.modeloTrabalho === 'hibrido'
+        ? html`
+                            <label>
+                              <span>Escala do híbrido</span>
+                              <input class="form-control" placeholder="Ex.: 3 dias presenciais na Unidade Barra Olímpica / 3 dias Home Office" value=${formulario.hibridoEscala} onInput=${(event) => setFormulario({ ...formulario, hibridoEscala: event.target.value })} />
+                            </label>
+                          `
+        : null}
+                      <label>
+                        <span>Jornada de trabalho</span>
+                        <select class="form-select" value=${formulario.jornadaTrabalho} onChange=${(event) => setFormulario({ ...formulario, jornadaTrabalho: event.target.value })}>
+                          <option value="">Selecione</option>
+                          ${JORNADAS_TRABALHO_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
+                        </select>
+                      </label>
+                      ${formulario.jornadaTrabalho === 'outro'
+        ? html`
+                            <label>
+                              <span>Descreva a jornada</span>
+                              <input class="form-control" value=${formulario.jornadaTrabalhoOutro} onInput=${(event) => setFormulario({ ...formulario, jornadaTrabalhoOutro: event.target.value })} />
+                            </label>
+                          `
+        : null}
+                      <label>
+                        <span>Trabalho com escala</span>
+                        <select class="form-select" value=${formulario.trabalhoEscala} onChange=${(event) => setFormulario({ ...formulario, trabalhoEscala: event.target.value })}>
+                          <option value="">Selecione</option>
+                          <option value="sim">Sim</option>
+                          <option value="nao">Não</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">checklist</span>
+                      <h2>Requisitos do candidato</h2>
+                    </div>
+                    <div class="process-create-form-grid">
+                      <label>
+                        <span>Escolaridade mínima</span>
+                        <select class="form-select" value=${formulario.escolaridadeMinima} onChange=${(event) => setFormulario({ ...formulario, escolaridadeMinima: event.target.value })}>
+                          <option value="">Selecione</option>
+                          ${ESCOLARIDADES_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
+                        </select>
+                      </label>
+                      ${formulario.escolaridadeMinima === 'superior'
+        ? html`
+                            <label>
+                              <span>Quais cursos?</span>
+                              <input class="form-control" placeholder="Separados por vírgula" value=${formulario.cursosSuperior} onInput=${(event) => setFormulario({ ...formulario, cursosSuperior: event.target.value })} />
+                            </label>
+                          `
+        : null}
+                      <label class="is-wide">
+                        <span>Experiência prévia exigida</span>
+                        <select class="form-select" value=${formulario.experienciaPrevia} onChange=${(event) => setFormulario({ ...formulario, experienciaPrevia: event.target.value })}>
+                          <option value="">Selecione</option>
+                          ${EXPERIENCIAS_PREVIAS_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
+                        </select>
+                      </label>
+                      <label>
+                        <span>Inglês</span>
+                        <select class="form-select" value=${formulario.idiomaIngles} onChange=${(event) => setFormulario({ ...formulario, idiomaIngles: event.target.value })}>
+                          ${NIVEIS_IDIOMA_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
+                        </select>
+                      </label>
+                      <label>
+                        <span>Espanhol</span>
+                        <select class="form-select" value=${formulario.idiomaEspanhol} onChange=${(event) => setFormulario({ ...formulario, idiomaEspanhol: event.target.value })}>
+                          ${NIVEIS_IDIOMA_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
+                        </select>
+                      </label>
+                      <label class="is-wide">
+                        <span>Habilidades técnicas obrigatórias</span>
+                        <input class="form-control" placeholder="Separadas por vírgula — viram tags na vaga" value=${formulario.skillsTags} onInput=${(event) => setFormulario({ ...formulario, skillsTags: event.target.value })} />
+                      </label>
+                    </div>
+
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">payments</span>
+                      <h2>Salário e benefícios</h2>
+                    </div>
+                    <div class="process-create-form-grid">
+                      <label>
+                        <span>Salário</span>
+                        <input type="number" min="0" step="0.01" class="form-control" value=${formulario.salario} onInput=${(event) => setFormulario({ ...formulario, salario: event.target.value })} />
+                      </label>
+                      <label class="settings-toggle-line">
+                        <input type="checkbox" checked=${formulario.mostrarSalario} onChange=${(event) => setFormulario({ ...formulario, mostrarSalario: event.target.checked })} />
+                        <span>Informar o salário na descrição da vaga</span>
+                      </label>
+                      <div class="is-wide">
+                        <span>Benefícios</span>
+                        <div class="d-flex flex-wrap gap-3 mt-2">
+                          ${formulario.beneficios.map(
+        (beneficio) => html`
+                                <div key=${beneficio.nome} class="d-flex align-items-center gap-2">
+                                  <label class="settings-toggle-line" style=${{ minWidth: '0' }}>
+                                    <input type="checkbox" checked=${beneficio.selecionado} onChange=${() => alternarBeneficioProcesso(beneficio.nome)} />
+                                    <span>${beneficio.nome}</span>
+                                  </label>
+                                  ${beneficio.selecionado
+            ? html`
+                                        <input
+                                          class="form-control form-control-sm"
+                                          style=${{ maxWidth: '140px' }}
+                                          placeholder="Valor (opcional)"
+                                          value=${beneficio.valor}
+                                          onInput=${(event) => atualizarValorBeneficioProcesso(beneficio.nome, event.target.value)}
+                                        />
+                                      `
+            : null}
+                                </div>
+                              `,
+      )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">description</span>
+                      <h2>Descrição das atividades</h2>
+                    </div>
+                    <label class="is-wide">
+                      <span>Texto exibido na vaga</span>
+                      <textarea
+                        class="form-control"
+                        rows="4"
+                        placeholder="Como funciona a operação no dia a dia — nunca mencione o cliente diretamente"
+                        value=${formulario.descricaoAtividades}
+                        onInput=${(event) => setFormulario({ ...formulario, descricaoAtividades: event.target.value, descricaoAtividadesEditada: true })}
+                      ></textarea>
+                      <small class="text-muted">Pré-preenchido a partir da operação selecionada. Pode ajustar ou apagar livremente.</small>
+                    </label>
+
+                    <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">school</span>
+                      <h2>Treinamentos da trilha de aprovação</h2>
+                    </div>
+                    <p class="text-muted small mb-2">
+                      Selecionados por padrão os treinamentos de onboarding. Ao aprovar candidatos, eles entram na Central de Treinamentos com a tag "Aguardando processo" até o RH/Gestor liberar.
+                    </p>
+                    <div class="d-flex flex-wrap gap-3">
+                      ${trilhasDisponiveis.length
+        ? trilhasDisponiveis.map(
+          (trilha) => html`
+                              <label key=${trilha.id_trilha} class="settings-toggle-line" style=${{ minWidth: '0' }}>
+                                <input
+                                  type="checkbox"
+                                  checked=${formulario.treinamentosSelecionados.includes(trilha.id_trilha)}
+                                  onChange=${() => alternarTreinamentoSelecionado(trilha.id_trilha)}
+                                />
+                                <span>${trilha.nome}</span>
+                              </label>
+                            `,
+        )
+        : html`<p class="text-muted small mb-0">Nenhuma trilha de treinamento cadastrada ainda.</p>`}
+                    </div>
+                  </section>
+                `
+      : null}
+            ${etapaAtual === 5
+      ? html`
+                  <section class="process-create-card">
+                    <div class="process-create-section-title">
                       <span class="material-symbols-outlined">publish</span>
                       <h2>Publicação / Finalização</h2>
                     </div>
@@ -4161,7 +4512,7 @@ export function TelaCriarProcesso({ controlador }) {
             >
               Cancelar
             </button>
-            ${etapaAtual < 4
+            ${etapaAtual < 5
       ? html`
                   <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${avancar}>
                     Próximo passo

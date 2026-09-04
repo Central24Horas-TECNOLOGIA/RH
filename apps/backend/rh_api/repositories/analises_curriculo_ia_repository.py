@@ -143,6 +143,28 @@ class AnalisesCurriculoIaRepositoryMixin:
             if not process_context.get("vaga"):
                 process_context["vaga"] = normalize_text(candidate.get("vaga"))
 
+            # Correcoes.txt (rodada 03/set/2026): a analise de CV precisa
+            # refletir dinamicamente o segmento/area da operacao e os
+            # requisitos estruturados definidos na criacao da vaga (item
+            # "Detalhes da vaga"), nao so o texto livre publico.
+            process_context["detalhes_vaga"] = safe_json_loads(
+                process_context.get("detalhes_vaga_json"), {}
+            )
+            operacao_nome = normalize_text(process_context.get("operacao"))
+            if operacao_nome:
+                cursor.execute(
+                    "SELECT TOP 1 payload_json FROM operacoes WHERE nome = ?",
+                    (operacao_nome,),
+                )
+                operacao_row = cursor.fetchone()
+                operacao_payload = safe_json_loads(operacao_row[0], {}) if operacao_row else {}
+                process_context["operacao_segmento_mercado"] = operacao_payload.get("segmento_mercado") or ""
+                process_context["operacao_area_segmento"] = operacao_payload.get("area_segmento") or ""
+                if not process_context.get("descricao_publica"):
+                    process_context["operacao_descricao_atividades"] = (
+                        operacao_payload.get("descricao_atividades") or ""
+                    )
+
             return {
                 "id_candidato": candidate_id,
                 "id_processo": normalize_text(process_context.get("id_processo"))

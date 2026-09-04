@@ -559,9 +559,10 @@ class ProcessRepositoryMixin:
                     urgente,
                     urgente_marcado_em,
                     urgente_marcado_por,
-                    ia_analise_desabilitada
+                    ia_analise_desabilitada,
+                    detalhes_vaga_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     resolved_process_id,
@@ -582,17 +583,34 @@ class ProcessRepositoryMixin:
                     datetime.now() if urgente_novo else None,
                     normalize_text(marcado_por) if urgente_novo else None,
                     1 if data.get("ia_analise_desabilitada") else 0,
+                    data.get("detalhes_vaga_json"),
                 ),
             )
             conn.commit()
             logger.info("Processo '%s' criado.", resolved_process_id)
-            return {
-                "success": True,
-                "id_processo": resolved_process_id,
-                "urgente": urgente_novo,
-            }
         finally:
             conn.close()
+
+        detalhes_vaga = safe_json_loads(data.get("detalhes_vaga_json"), {})
+        trilha_ids = detalhes_vaga.get("treinamentos_selecionados") if isinstance(detalhes_vaga, dict) else None
+        if trilha_ids:
+            try:
+                self.sync_process_trainings(
+                    resolved_process_id,
+                    vagas_totais=int(data.get("quantidade_vagas", 0) or 0),
+                    trilha_ids=trilha_ids,
+                )
+            except Exception:
+                # O processo já foi criado com sucesso — a vinculação com a
+                # Central de Treinamentos pode ser refeita depois; não bloqueia
+                # a publicação da vaga por isso.
+                logger.exception("Falha ao vincular treinamentos ao processo '%s'.", resolved_process_id)
+
+        return {
+            "success": True,
+            "id_processo": resolved_process_id,
+            "urgente": urgente_novo,
+        }
 
     def update_process(
         self,
@@ -648,7 +666,8 @@ class ProcessRepositoryMixin:
                     urgente = ?,
                     urgente_marcado_em = ?,
                     urgente_marcado_por = ?,
-                    ia_analise_desabilitada = ?
+                    ia_analise_desabilitada = ?,
+                    detalhes_vaga_json = ?
                 WHERE {where_clause}
                 """,
                 (
@@ -690,6 +709,9 @@ class ProcessRepositoryMixin:
                         )
                         else 0
                     ),
+                    data.get("detalhes_vaga_json")
+                    if data.get("detalhes_vaga_json") is not None
+                    else processo.get("detalhes_vaga_json"),
                     *params,
                 ),
             )

@@ -7,10 +7,12 @@ from ..dependencies import audit_action, get_current_user, get_repository, requi
 from ..repositories import DatabaseRepository
 from ..schemas.onboarding import (
     OnboardingAssignmentUpdateRequest,
+    OnboardingAttendanceRequest,
     OnboardingItemToggleRequest,
     OnboardingStartRequest,
     OnboardingTrilhaCreateRequest,
     OnboardingTrilhaUpdateRequest,
+    ProcessTrainingReleaseRequest,
 )
 
 
@@ -46,6 +48,92 @@ def update_onboarding_assignment(
         acao="atualizar_agenda_treinamento",
         entidade="onboarding_candidato",
         entidade_id=str(id_onboarding),
+        valor_novo=payload.model_dump(),
+    )
+    return result
+
+
+@router.delete("/assignments/{id_onboarding}", dependencies=[Depends(require_permissions("onboarding.editar"))])
+def delete_onboarding_assignment(
+    id_onboarding: int,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.delete_onboarding_assignment(id_onboarding, actor=user.username)
+    audit_action(
+        repository,
+        user,
+        modulo="Onboarding",
+        acao="encerrar_treinamento_colaborador",
+        entidade="onboarding_candidato",
+        entidade_id=str(id_onboarding),
+    )
+    return result
+
+
+@router.post("/assignments/presenca", dependencies=[Depends(require_permissions("onboarding.editar"))])
+def save_onboarding_attendance(
+    payload: OnboardingAttendanceRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.save_onboarding_attendance(
+        [item.model_dump() for item in payload.presencas],
+        actor=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Onboarding",
+        acao="salvar_lista_presenca_treinamento",
+        entidade="onboarding_candidato",
+        entidade_id="lote",
+        valor_novo=payload.model_dump(),
+    )
+    return result
+
+
+@router.get(
+    "/processos-treinamentos",
+    dependencies=[Depends(require_permissions("onboarding.visualizar", "onboarding.editar"))],
+)
+def list_process_trainings(id_processo: str = "", repository: DatabaseRepository = Depends(get_repository)):
+    return repository.list_process_trainings(id_processo=id_processo or None)
+
+
+@router.get(
+    "/processos-treinamentos/{id_processo_treinamento}/candidatos",
+    dependencies=[Depends(require_permissions("onboarding.visualizar", "onboarding.editar"))],
+)
+def list_process_training_release_candidates(
+    id_processo_treinamento: int,
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    return repository.list_process_training_release_candidates(id_processo_treinamento)
+
+
+@router.post(
+    "/processos-treinamentos/{id_processo_treinamento}/liberar",
+    dependencies=[Depends(require_permissions("onboarding.editar"))],
+)
+def release_process_training_slots(
+    id_processo_treinamento: int,
+    payload: ProcessTrainingReleaseRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    repository: DatabaseRepository = Depends(get_repository),
+):
+    result = repository.release_process_training_slots(
+        id_processo_treinamento,
+        candidatos=payload.candidatos,
+        actor=user.username,
+    )
+    audit_action(
+        repository,
+        user,
+        modulo="Onboarding",
+        acao="liberar_vagas_treinamento_processo",
+        entidade="processo_treinamento",
+        entidade_id=str(id_processo_treinamento),
         valor_novo=payload.model_dump(),
     )
     return result

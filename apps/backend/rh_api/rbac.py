@@ -10,6 +10,9 @@ ROLE_MANAGER = "gestor"
 ROLE_RH = "rh"
 ROLE_CANDIDATE = "candidato"
 ROLE_ADMIN = "administrador"
+ROLE_EMPLOYEE = "funcionario"
+ROLE_SUPERVISOR = "supervisor"
+ROLE_OPERATOR = "operador"
 
 
 ACCESS_DENIED_MESSAGE = "Você não possui permissão para acessar esta área ou executar esta ação."
@@ -67,6 +70,24 @@ ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
         name="Administrador",
         level="Completo",
         description="Controle total do sistema.",
+    ),
+    ROLE_EMPLOYEE: RoleDefinition(
+        id=ROLE_EMPLOYEE,
+        name="Funcionário",
+        level="Básico",
+        description="Colaborador com acesso de autoatendimento e à Central de Treinamentos.",
+    ),
+    ROLE_SUPERVISOR: RoleDefinition(
+        id=ROLE_SUPERVISOR,
+        name="Supervisor",
+        level="Intermediário",
+        description="Acompanhamento de equipe, entrevistas e aplicação de treinamentos.",
+    ),
+    ROLE_OPERATOR: RoleDefinition(
+        id=ROLE_OPERATOR,
+        name="Operador",
+        level="Básico",
+        description="Colaborador operacional com acesso de autoatendimento e à Central de Treinamentos.",
     ),
 }
 
@@ -345,6 +366,28 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     },
     ROLE_CANDIDATE: set(),
     ROLE_ADMIN: set(PERMISSION_DEFINITIONS.keys()),
+    ROLE_EMPLOYEE: {
+        "inicio.visualizar",
+        "notificacoes.visualizar",
+        "onboarding.visualizar",
+    },
+    ROLE_OPERATOR: {
+        "inicio.visualizar",
+        "notificacoes.visualizar",
+        "onboarding.visualizar",
+    },
+    ROLE_SUPERVISOR: {
+        "inicio.visualizar",
+        "dashboard.visualizar",
+        "notificacoes.visualizar",
+        "candidatos.visualizar",
+        "processos.visualizar",
+        "entrevistas.visualizar",
+        "entrevistas.marcar_presenca",
+        "onboarding.visualizar",
+        "onboarding.editar",
+        "operacoes.visualizar",
+    },
 }
 
 
@@ -428,6 +471,10 @@ def normalize_role_id(value: str | None) -> str:
         "admin": ROLE_ADMIN,
         "rh": ROLE_RH,
         "candidato": ROLE_CANDIDATE,
+        "funcionario": ROLE_EMPLOYEE,
+        "colaborador": ROLE_EMPLOYEE,
+        "supervisor": ROLE_SUPERVISOR,
+        "operador": ROLE_OPERATOR,
     }
     return aliases.get(normalized, normalized)
 
