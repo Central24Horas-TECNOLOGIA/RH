@@ -79,7 +79,7 @@ import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   ModalCompartilharVaga,
   montarTextoCompartilhamentoVaga,
-} from '../../shared/components/share-job-modal.js';
+} from '../../shared/components/share-job-modal.js?v=20260904-correcoes-txt3';
 import {
   DOCUMENTOS_APROVACAO_PADRAO,
   ModalAprovacaoCandidato,

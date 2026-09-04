@@ -84,7 +84,7 @@ import {
   RESPONSABILIDADES_PUBLICAS_PADRAO,
   montarItensPublicosPadrao,
   montarTextoCompartilhamentoVaga,
-} from '../../shared/components/share-job-modal.js';
+} from '../../shared/components/share-job-modal.js?v=20260904-correcoes-txt3';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 import {
@@ -106,7 +106,7 @@ import {
 } from '../../shared/validacoes.js';
 import { BlocoFiltro, CampoFiltro } from './components/filtros.js';
 import { listarOperacoes } from '../../services/api/operations.js';
-import { listarTrilhasOnboarding } from '../../services/api/onboarding.js';
+import { listarTrilhasOnboarding } from '../../services/api/onboarding.js?v=20260904-correcoes-txt3';
 import { CHAVE_COMANDO_NOVO_PROCESSO } from '../../ui/busca-global.js';
 import {
   AvatarUsuario,

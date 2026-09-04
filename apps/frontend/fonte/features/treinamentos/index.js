@@ -10,7 +10,7 @@ import {
   listarTreinamentosProcesso,
   listarTrilhasOnboarding,
   salvarPresencaTreinamento,
-} from '../../servico-api.js';
+} from '../../servico-api.js?v=20260904-correcoes-txt3';
 import { listarOperacoes } from '../../services/api/operations.js';
 import {
   ModalPadrao,
