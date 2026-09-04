@@ -639,7 +639,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
                         </select>
                       </td>
                       <td>
-                        <div class="d-flex flex-wrap gap-1">
+                        <div class="d-flex flex-wrap gap-2">
                           <button type="button" class="btn btn-outline-secondary btn-sm" disabled=${!podeEditar} onClick=${() => abrirAgendar(item)} title="Agendar">
                             <span class="material-symbols-outlined">event</span>
                           </button>
@@ -887,7 +887,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
                         ${TIPOS_CONTEUDO.map((opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`)}
                       </select>
                     </div>
-                    <div class="col-md-3 d-flex gap-1">
+                    <div class="col-md-3 d-flex gap-2">
                       <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => moverItemTrilha(index, -1)} title="Mover para cima">
                         <span class="material-symbols-outlined">arrow_upward</span>
                       </button>

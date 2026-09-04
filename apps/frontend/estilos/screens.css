@@ -3158,7 +3158,7 @@
 
 .process-create-shell {
   display: grid;
-  gap: 0.9rem;
+  gap: var(--space-3);
 }
 
 .process-create-stepper {
@@ -3240,19 +3240,19 @@
 .process-create-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
-  gap: 0.9rem;
+  gap: var(--space-3);
   align-items: start;
 }
 
 .process-create-main {
   display: grid;
-  gap: 0.86rem;
+  gap: var(--space-3);
   min-width: 0;
 }
 
 .process-create-card {
   min-width: 0;
-  padding: 1rem;
+  padding: var(--space-3);
   border: 1px solid rgba(205, 216, 232, 0.96);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
@@ -3262,9 +3262,9 @@
 .process-create-section-title {
   display: flex;
   align-items: center;
-  gap: 0.52rem;
-  margin-bottom: 0.86rem;
-  padding-bottom: 0.7rem;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid rgba(217, 226, 238, 0.86);
 }
 
@@ -3290,11 +3290,11 @@
 .process-create-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.74rem;
+  gap: var(--space-3);
 }
 
 .process-create-hint {
-  margin: 0 0 1rem;
+  margin: 0 0 var(--space-3);
   color: var(--color-text-soft);
   font-size: 0.82rem;
   line-height: 1.4;
@@ -3302,14 +3302,14 @@
 
 .process-availability-list {
   display: grid;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
 .process-availability-item {
   display: grid;
-  gap: 0.74rem;
-  padding: 1rem;
+  gap: var(--space-3);
+  padding: var(--space-3);
   border: 1px solid rgba(205, 216, 232, 0.96);
   border-radius: var(--radius-sm);
   background: #f7faff;
@@ -3318,7 +3318,7 @@
 .process-create-field {
   display: grid;
   min-width: 0;
-  gap: 0.3rem;
+  gap: var(--space-1);
 }
 
 .process-create-field.is-wide {
@@ -3355,12 +3355,12 @@
 .process-create-field select,
 .process-release-field input,
 .process-release-field select {
-  padding: 0.48rem 0.62rem;
+  padding: var(--space-2) var(--space-3);
 }
 
 .process-create-field textarea {
   min-height: 86px;
-  padding: 0.58rem 0.64rem;
+  padding: var(--space-2) var(--space-3);
   resize: vertical;
 }
 
@@ -3370,22 +3370,22 @@
 
 .process-stage-selector,
 .process-stage-levels {
-  gap: 0.55rem;
+  gap: var(--space-2);
 }
 
 .process-stage-checklist,
 .process-stage-level-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 0.55rem;
+  gap: var(--space-2);
 }
 
 .process-stage-check {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   min-height: 38px;
-  padding: 0.48rem 0.62rem;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid rgba(185, 199, 219, 0.98);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
@@ -3416,9 +3416,9 @@
 .process-cutoff-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(130px, 180px);
-  gap: 0.8rem;
+  gap: var(--space-3);
   align-items: center;
-  padding: 0.78rem;
+  padding: var(--space-3);
   border: 1px solid rgba(205, 216, 232, 0.95);
   border-radius: var(--radius-sm);
   background: #f7faff;
@@ -3428,7 +3428,7 @@
 .process-personalization-toggle {
   display: flex;
   align-items: flex-start;
-  gap: 0.72rem;
+  gap: var(--space-3);
   min-width: 0;
   margin: 0;
   cursor: pointer;
@@ -3497,10 +3497,10 @@
 .process-blueprint-preview {
   display: flex;
   align-items: flex-start;
-  gap: 0.62rem;
+  gap: var(--space-2);
   min-width: 0;
-  margin-top: 0.8rem;
-  padding: 0.74rem 0.78rem;
+  margin-top: var(--space-3);
+  padding: var(--space-3);
   border: 1px solid rgba(15, 91, 232, 0.18);
   border-radius: var(--radius-sm);
   background: #f4f8ff;
@@ -3540,7 +3540,7 @@
 }
 
 .process-personalization-toggle {
-  padding: 0.78rem;
+  padding: var(--space-3);
   border: 1px solid rgba(205, 216, 232, 0.95);
   border-radius: var(--radius-sm);
   background: #fbfdff;
@@ -3573,7 +3573,7 @@
 .process-final-review {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.58rem;
+  gap: var(--space-2);
 }
 
 .process-final-review span {
@@ -3599,11 +3599,11 @@
 
 .process-create-summary {
   position: sticky;
-  top: 0.9rem;
+  top: var(--space-3);
   display: grid;
-  gap: 0.82rem;
+  gap: var(--space-3);
   min-width: 0;
-  padding: 1rem;
+  padding: var(--space-3);
   border: 1px solid rgba(22, 47, 89, 0.16);
   border-radius: var(--radius-sm);
   background: #172033;
@@ -3671,15 +3671,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.74rem;
-  padding: 0.78rem 0 0.1rem;
+  gap: var(--space-3);
+  padding: var(--space-3) 0 var(--space-1);
 }
 
 .process-create-actions > div {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.48rem;
+  gap: var(--space-2);
 }
 
 .process-create-actions .btn {

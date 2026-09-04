@@ -4308,7 +4308,7 @@ export function TelaProcessos({ controlador }) {
                                     ${obterCodigoProcessoUsuario(processo)}
                                   </strong>
                                   ${processo.urgente
-              ? html`<span class="process-urgent-badge" title="Botão Expresso: contratação urgente">Urgente</span>`
+              ? html`<span class="process-urgent-badge" title="Botão Vaga Urgente: contratação urgente">Urgente</span>`
               : null}
                                   <span>${processo.data_criacao ? `Criado em ${formatarDataCurta(processo.data_criacao)}` : processo.vaga || '-'}</span>
                                 </td>
@@ -4920,7 +4920,7 @@ export function TelaProcessosAbertos({ controlador }) {
                               ${obterCodigoProcessoUsuario(processo)}
                             </strong>
                             ${processo.urgente
-              ? html`<span class="process-urgent-badge" title="Botão Expresso: contratação urgente">Urgente</span>`
+              ? html`<span class="process-urgent-badge" title="Botão Vaga Urgente: contratação urgente">Urgente</span>`
               : null}
                             <span>${processo.data_criacao ? `Criado em ${formatarDataCurta(processo.data_criacao)}` : processo.vaga || '-'}</span>
                           </td>
@@ -5396,7 +5396,7 @@ export function TelaProcessosEncerrados({ controlador }) {
                               ${obterCodigoProcessoUsuario(processo)}
                             </strong>
                             ${processo.urgente
-              ? html`<span class="process-urgent-badge" title="Botão Expresso: contratação urgente">Urgente</span>`
+              ? html`<span class="process-urgent-badge" title="Botão Vaga Urgente: contratação urgente">Urgente</span>`
               : null}
                             <span>${processo.data_criacao ? `Criado em ${formatarDataCurta(processo.data_criacao)}` : processo.vaga || '-'}</span>
                           </td>
@@ -6046,7 +6046,7 @@ function KanbanCandidatosProcesso({
                           </div>
                           <div class="process-kanban-card-meta">
                             ${processo?.urgente
-                              ? html`<span class="process-urgent-badge" title="Botão Expresso: contratação urgente">Urgente</span>`
+                              ? html`<span class="process-urgent-badge" title="Botão Vaga Urgente: contratação urgente">Urgente</span>`
                               : null}
                             <span class="process-kanban-score-badge" title="Média das notas do scorecard">
                               <span class="material-symbols-outlined">star</span>
@@ -6216,7 +6216,6 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
       titulo: 'Fluxo seletivo',
       itens: [
         ['Etapas do processo', processo?.etapas_processo || processo?.etapas || resumo?.etapas],
-        ['Observações internas', processo?.observacoes_internas || processo?.observacoes],
       ],
     },
   ].map((secao) => ({
@@ -6545,6 +6544,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
 
 export function TelaDetalhesProcesso({ controlador }) {
   const { showToast, ToastHost } = useToast();
+  const idProcesso = sessionStorage.getItem(CHAVE_PROCESSO_DETALHE) || '';
   const [carregando, setCarregando] = useState(true);
   const [salvandoEntrevista, setSalvandoEntrevista] = useState(false);
   const [erro, setErro] = useState('');
@@ -6781,8 +6781,6 @@ export function TelaDetalhesProcesso({ controlador }) {
     cvsNaoQualificados: true,
     candidatosAprovados: true,
   });
-
-  const idProcesso = sessionStorage.getItem(CHAVE_PROCESSO_DETALHE) || '';
 
   const alternarSecao = (chave) => {
     setSecoesExpandidas((anteriores) => ({
@@ -11647,20 +11645,20 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                     </div>
                   </div>
                   <div class="col-md-4">
-                    <label class="form-label d-block mb-2">Botão Expresso</label>
-                    <div class="form-check form-switch pt-2">
+                    <label class="form-label d-block mb-2">Botão Vaga Urgente</label>
+                    <div class="form-check form-switch pt-2" title="Em breve">
                       <input
                         class="form-check-input"
                         type="checkbox"
                         checked=${Boolean(edicaoProcesso.urgente)}
-                        disabled=${salvandoProcesso}
+                        disabled
                         onChange=${(event) =>
           atualizarCampoEdicaoProcesso('urgente', event.target.checked)}
                       />
                       <label class="form-check-label">Vaga urgente</label>
                     </div>
                     <small class="form-text text-muted">
-                      Use apenas para emergências reais. Há um limite de vagas urgentes abertas ao mesmo tempo.
+                      Em breve. Use apenas para emergências reais quando disponível — há um limite de vagas urgentes abertas ao mesmo tempo.
                     </small>
                   </div>
                   <div class="col-md-4">
