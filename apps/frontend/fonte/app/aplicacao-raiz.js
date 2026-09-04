@@ -126,7 +126,7 @@ const TelaTemplatesDocumentos = carregarTela(
   'TelaTemplatesDocumentos',
 );
 const TelaTreinamentos = carregarTela(
-  () => import('../features/treinamentos/index.js?v=20260904-correcoes-txt3'),
+  () => import('../features/treinamentos/index.js?v=20260904-correcoes-txt4'),
   'TelaTreinamentos',
 );
 const TelaProvasConfiguracao = carregarTela(

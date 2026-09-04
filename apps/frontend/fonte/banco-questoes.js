@@ -951,11 +951,12 @@ function filtrarQuestoes(candidatas, filtro, usadas) {
     if (filtro.nivel && !corresponde(questao.nivel, filtro.nivel)) return false;
     if (filtro.vaga && !corresponde(questao.vaga, filtro.vaga)) return false;
     if (filtro.area && !corresponde(questao.area, filtro.area)) return false;
+    if (filtro.dificuldade && !corresponde(questao.dificuldade, filtro.dificuldade)) return false;
     return true;
   });
 }
 
-function selecionarComFallback({ etapa, vaga, area, nivel, quantidade, usadas }) {
+function selecionarComFallback({ etapa, vaga, area, nivel, dificuldade = '', quantidade, usadas }) {
   const candidatas = obterQuestoesAtivas().filter(
     (questao) => normalizarTexto(questao.etapa) === normalizarTexto(etapa),
   );
@@ -970,6 +971,19 @@ function selecionarComFallback({ etapa, vaga, area, nivel, quantidade, usadas })
   const falhas = [];
 
   trilhas.forEach((trilha) => {
+    if (selecionadas.length >= quantidade) return;
+
+    // Preferência: tenta primeiro casar também a dificuldade pedida dentro desta trilha,
+    // antes de completar sem esse filtro — nunca deixa a dificuldade travar a quantidade mínima.
+    if (dificuldade) {
+      const preferidos = filtrarQuestoes(candidatas, { ...trilha.filtro, dificuldade }, usadas);
+      preferidos.forEach((questao) => {
+        if (selecionadas.length >= quantidade || usadas.has(questao.id)) return;
+        usadas.add(questao.id);
+        selecionadas.push(questao);
+      });
+    }
+
     if (selecionadas.length >= quantidade) return;
     const encontrados = filtrarQuestoes(candidatas, trilha.filtro, usadas);
     if (!encontrados.length) falhas.push(trilha.nome);
@@ -1172,6 +1186,7 @@ export function getQuestoes({
   stageLabelPorEtapa = {},
   pointsPorEtapa = {},
   idsExcluidos = [],
+  dificuldade = '',
 } = {}) {
   garantirBancoValido();
   const usadas = new Set(idsExcluidos);
@@ -1188,6 +1203,7 @@ export function getQuestoes({
       vaga,
       area,
       nivel,
+      dificuldade,
       quantidade,
       usadas,
     });
@@ -1211,10 +1227,13 @@ export function getQuestoesParaBlueprint(
   stage = {},
   legado = [],
   idsExcluidos = [],
+  dificuldade = '',
 ) {
   const etapa = mapearStageKeyParaEtapa(stage.key);
   if (etapa === 'excel') return Array.isArray(legado) ? legado : [];
 
+  // Questões reformuladas/personalizadas por cliente não passam pelo filtro de dificuldade —
+  // são um banco à parte, fora do escopo do filtro do banco padrão.
   const reformuladas = obterQuestoesReformuladasParaStage(blueprint, stage);
   if (Array.isArray(reformuladas) && reformuladas.length) {
     const pontosLegados = (Array.isArray(legado) ? legado : []).map((questao) =>
@@ -1243,6 +1262,7 @@ export function getQuestoesParaBlueprint(
     pointsPorEtapa: { [etapa]: points },
     excluirExcel: true,
     idsExcluidos,
+    dificuldade,
   });
 
   return questoesPorEtapa[etapa] || [];
