@@ -1,15 +1,126 @@
-Seguinte, agora é necessário que você analise bem esse documento e me pergunte se houver dúvidas.
-Pra ficar mais fácil  de entender, apagar o arquivo "respostas.txt", e vamos trabalhar em cima de 2 arquivos. "Prompt.txt" e "Correções.txt"
-O "Prompt.txt" será para ideias e implementações novas, enquanto Correções.txt será para ajustes. Então, vamos lá..
+CONTEXTO E OBJETIVO
 
-Eu criei um desing novo para a tela inicial. Esta na pasta: "C:\Users\psilva\OneDrive - Empresa Brasileira de Soluções e Serviços em Teleatendimento Ltda\Projetos\RH\docs\Desing" em formato de imagem. Nessa mesma pasta encontra-se: as paletas de cores azul e amarelho, as regras das cores dos alertas e notificação, 2 imagens com os Avatares e uma tela de desing como eu quero os menus. 
-Aplique perfeitamente (ajustando, padronizando, corrigindo, o que precisa ser corrigido) aplique o novo desing na tela inicial renderizando perfeitamente, esse desing foi feito no paint então ele esta bem bruto, porem, da pra você ter uma ideia de como eu quero. Você irá perceber também, que nesse novo desing existem funções e botões que não existem atualmente no Conecta, implemente essas funções mas respeitando as regras: 
+Você está atuando como um Diretor de Design (Design Director) sênior, com 15+ anos de 
+experiência em produtos digitais reais (SaaS B2B, fintechs, plataformas de RH). Sua 
+especialidade é justamente identificar e eliminar o "cheiro de IA" em interfaces geradas 
+por LLMs — aquele padrão genérico que qualquer usuário experiente reconhece instantaneamente.
 
-- Troque os lugares que possuem nomes genéricos e são entre "_ _" significa que devem ser ocupados pelos nomes reais do usuário ou da variável que deve ocupar aquele lugar, por exemplo: "_Nome do usuário_" significa que esse espaço ficará o nome do usuário que estiver logado.  
+Este é o design system da plataforma Conecta (recrutamento/seleção). O visual atual 
+funciona, mas parece obviamente gerado por IA. Sua missão é reformular a CAMADA VISUAL 
+(estilo, não estrutura) para que o produto pareça ter sido desenhado por um time de 
+design humano, sênior, com um sistema de design proprietário e maduro.
 
--- Uma nova etapa durante a criação do processo seletivo, será a disponibilização de horários e dias para o processo seletivo. 
-Durante a criação do processo seletivo, adicionar uma nova etapa que será sobre disponibilidade de horários. Ali, o RH terá a opção de agendar o dia e a range de horários para se criar os slots para o processo seletivo, no entanto, também terá a opção de não definir a hora e sim apenas o dia (pro caso do RH não saber quando estará disponibilizar nível) e várias opções de disponibilizar horário. 
+REGRA ABSOLUTA — NÃO NEGOCIÁVEL:
+Você NÃO pode alterar:
+- Estrutura de componentes (não remova, não adicione, não reordene elementos)
+- Funcionalidades, lógica, rotas, dados, textos/copy
+- Hierarquia de informação (o que está em cada tela continua o mesmo)
+- Comportamento (cliques, navegação, estados funcionais)
 
--- Adicionar opção de configurar avatar como foto de perfil (use as 2 fotos de perfil dos avatares, separe cada avatar em 1 imagem diferente que estará disponível no conecta)
--- Aba configuração - Adicionar área de configuração de ambiente, onde o usuário poderá configurar: Modo escuro, ativar as orientações, alterar/escolher avatar, configurar notificações. 
-Se houver duvidas, me pergunte ! 
+Você PODE e DEVE alterar:
+- Paleta de cores, tokens de cor
+- Tipografia (fontes, pesos, escala, tracking, line-height)
+- Espaçamento, grid, densidade visual
+- Bordas, raios, sombras, elevação
+- Estados de hover/focus/active
+- Ícones (estilo, peso, consistência)
+- Micro-detalhes de acabamento (dividers, backgrounds, texturas sutis)
+
+DIAGNÓSTICO — PADRÕES "AI-GENERATED" A ELIMINAR
+
+Antes de escrever qualquer CSS, faça uma varredura completa do código e identifique 
+(liste no output antes de codar) onde estes padrões aparecem:
+
+1. GRADIENTES CLICHÊ
+   - Gradientes roxo→azul, roxo→rosa, azul→ciano em botões, heros ou backgrounds
+   - Qualquer `bg-gradient-to-r from-purple-* to-blue-*` ou equivalente
+   → Substituir por cores sólidas ou gradientes muito sutis (mesma família de matiz, 
+     variação de 5-10% em luminosidade), ou remover completamente
+
+2. SOMBRAS GENÉRICAS E EXCESSIVAS
+   - `box-shadow` pesado e roxo/azulado em cards (efeito "glow")
+   - Sombras aplicadas indiscriminadamente em todos os elementos
+   → Sombras neutras (preto com baixa opacidade, 4-8%), usadas com intenção — 
+     só onde comunica elevação real (modais, dropdowns, cards interativos)
+
+3. BORDER-RADIUS EXAGERADO E UNIFORME
+   - Tudo com `rounded-2xl` ou `rounded-3xl` sem critério
+   → Escala de raio consistente e mais contida (ex: 6px inputs, 8px cards, 
+     12px modais) — variar por função, não aplicar o mesmo valor em tudo
+
+4. PALETA "IA DEFAULT"
+   - Roxo/violeta (#8B5CF6, #A855F7) e azul vibrante como cor primária "porque sim"
+   - Cores neon ou saturação muito alta
+   → Definir uma paleta com propósito de marca: 1 cor primária com significado, 
+     neutros bem calibrados (não cinza puro — usar cinzas com leve matiz quente 
+     ou frio, consistente), 1-2 cores de apoio para estados (sucesso/erro/aviso) 
+     com saturação mais contida
+
+5. TIPOGRAFIA GENÉRICA
+   - Inter/system-font sem hierarquia clara, ou peso 700 em tudo que é "importante"
+   - Tamanhos de fonte em saltos arbitrários
+   → Escala tipográfica modular (ex: 12/14/16/20/24/32/40px), pesos usados com 
+     intenção (400 texto, 500 labels, 600 destaques, 700 apenas títulos principais), 
+     line-height generoso em corpo de texto (1.5-1.6), tracking negativo sutil 
+     em títulos grandes
+
+6. ÍCONES INCONSISTENTES
+   - Mistura de estilos de ícone (outline + filled + emoji)
+   - Ícones grandes demais ou desalinhados com o texto
+   → Padronizar em uma única biblioteca/estilo, tamanho consistente relativo 
+     ao texto adjacente (geralmente 1.2-1.4x o line-height)
+
+7. CARDS/CONTAINERS "FLUTUANDO NO VÁCUO"
+   - Muito espaço em branco sem propósito, ou cards sem relação visual entre si
+   - Falta de agrupamento visual (todo elemento parece ter o mesmo peso)
+   → Criar hierarquia de agrupamento: usar espaçamento consistente (múltiplos 
+     de 4 ou 8px), diferenciar background entre seções (branco vs cinza muito 
+     claro) para guiar o olho
+
+8. ESTADOS INTERATIVOS RASOS
+   - Hover que só muda opacidade ou brilho
+   - Falta de transições, ou transições genéricas (`transition-all duration-300` 
+     em tudo sem critério)
+   → Transições específicas por propriedade (não `all`), timing entre 
+     120-200ms para micro-interações, easing customizado (não linear/ease padrão), 
+     hover states que comunicam affordance real (leve deslocamento, mudança de 
+     borda, não só cor)
+
+9. BOTÕES "GENÉRICOS DE TEMPLATE"
+   - Botão primário com gradiente + sombra colorida + rounded-full
+   → Botão sólido, cor de marca, radius consistente com o resto do sistema, 
+     hover com mudança de tom (não gradiente novo), foco visível para acessibilidade
+
+10. FALTA DE PERSONALIDADE/DETALHES DE ACABAMENTO
+    - Ausência de detalhes que diferenciam produtos "feitos à mão": dividers 
+      sutis, backgrounds com textura leve, empty states ilustrados, 
+      microcopy visual
+    → Adicionar 2-3 detalhes de acabamento consistentes com a marca Conecta 
+      (ex: um padrão sutil de fundo em áreas vazias, um tratamento único para 
+      empty states, um uso de cor de destaque em pontos estratégicos apenas)
+
+PROCESSO DE EXECUÇÃO
+
+1. Rode uma auditoria: liste os arquivos de estilo (CSS/Tailwind config/styled-components/
+   design tokens) e identifique onde cada um dos 10 padrões acima aparece.
+2. Proponha ANTES de aplicar: defina a nova paleta (com valores hex/HSL exatos), a nova 
+   escala tipográfica, a escala de espaçamento e a escala de raio — mostre como uma 
+   tabela/resumo curto.
+3. Aplique as mudanças de forma centralizada (tokens/variáveis globais primeiro — 
+   Tailwind config, CSS variables, theme file), depois componente por componente, 
+   para garantir consistência e evitar duplicação de valores mágicos espalhados pelo código.
+4. Não toque em nenhum arquivo de lógica (.ts/.tsx sem JSX de estilo, controllers, 
+   hooks de dados, APIs).
+5. Ao final, rode uma checagem visual (se houver Storybook, preview ou build local) 
+   em pelo menos 3 telas diferentes do sistema para confirmar consistência.
+6. Entregue um resumo do que foi alterado, arquivo por arquivo, e por quê — 
+   relacionando cada mudança a um dos 10 padrões corrigidos.
+
+CRITÉRIO DE SUCESSO
+
+O resultado deve parecer que foi desenhado por um designer sênior específico para a 
+marca Conecta, não que "seguiu um framework de UI genérico". Se alguém olhar a tela 
+e não conseguir dizer "isso foi feito com Tailwind default + IA", a missão foi cumprida.
+
+Antes de começar, confirme comigo o resumo da paleta/tipografia/tokens propostos 
+(passo 2) antes de aplicar em massa.
