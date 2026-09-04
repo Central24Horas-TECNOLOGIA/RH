@@ -111,7 +111,7 @@ const TelaResultadosAnaliticosProcesso = carregarTela(
   'TelaResultadosAnaliticosProcesso',
 );
 const TelaConfiguracoesSistema = carregarTela(
-  () => import('../features/configuracoes/index.js?v=20260904-correcoes-txt3'),
+  () => import('../features/configuracoes/index.js?v=20260904-correcoes-txt4'),
   'TelaConfiguracoesSistema',
 );
 const TelaCalendario = carregarTela(() => import('../features/calendario/index.js'), 'TelaCalendario');

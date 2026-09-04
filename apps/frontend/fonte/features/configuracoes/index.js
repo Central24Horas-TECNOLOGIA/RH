@@ -652,8 +652,10 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       if (aba === 'usuarios' && controlador.possuiPermissao('usuarios.alterar_email')) {
         tarefas.push(carregarSolicitacoesEmailPendentes());
       }
-      if (aba === 'perfis' && controlador.possuiPermissao('configuracoes.visualizar')) {
+      if ((aba === 'usuarios' || aba === 'perfis') && controlador.possuiPermissao('configuracoes.visualizar')) {
         tarefas.push(listarPerfis().then((valor) => setPerfis(normalizarLista(valor))));
+      }
+      if (aba === 'perfis' && controlador.possuiPermissao('configuracoes.visualizar')) {
         tarefas.push(listarPermissoes().then((valor) => setPermissoes(normalizarLista(valor))));
       }
       if ((aba === 'operacoes' || aba === 'catalogos') && controlador.possuiPermissao('configuracoes.visualizar')) {
