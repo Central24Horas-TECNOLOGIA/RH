@@ -22,7 +22,7 @@
 .rh-score-bar-track {
   flex: 1 1 auto;
   height: 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--color-surface-strong);
   border: 1px solid var(--color-border);
   overflow: hidden;
@@ -32,7 +32,7 @@
 .rh-score-bar-fill {
   height: 100%;
   background: var(--color-primary);
-  border-radius: 999px 0 0 999px;
+  border-radius: var(--radius-full) 0 0 999px;
   transition: width var(--transition-md);
 }
 
@@ -160,7 +160,7 @@
 
 .rh-teste-publico-progresso {
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--color-surface-strong);
   overflow: hidden;
   margin-bottom: var(--space-5);

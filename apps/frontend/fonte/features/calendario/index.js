@@ -15,6 +15,7 @@ import {
 import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -213,7 +214,7 @@ export function TelaCalendario({ controlador }) {
                                     class="btn btn-outline-secondary btn-sm"
                                     onClick=${() => abrirEdicao(item)}
                                   >
-                                    <span class="material-symbols-outlined">edit</span>
+                                    <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                                     Editar
                                   </button>
                                   <button
@@ -221,7 +222,7 @@ export function TelaCalendario({ controlador }) {
                                     class="btn btn-outline-danger btn-sm"
                                     onClick=${() => excluir(item)}
                                   >
-                                    <span class="material-symbols-outlined">delete</span>
+                                    <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                                     Remover
                                   </button>
                                 </div>

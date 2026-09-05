@@ -1,3 +1,5 @@
+import { IconeSvg } from '../icone.js';
+
 ﻿import {
   html,
   useEffect,
@@ -181,7 +183,7 @@ export function EditorTextoRich({
           aria-label="Alinhar a esquerda"
           onMouseDown=${aplicarComando('justifyLeft')}
         >
-          <span class="material-symbols-outlined">format_align_left</span>
+          <span class="material-symbols-outlined">${IconeSvg('format_align_left')}</span>
         </button>
         <button
           type="button"
@@ -190,7 +192,7 @@ export function EditorTextoRich({
           aria-label="Centralizar"
           onMouseDown=${aplicarComando('justifyCenter')}
         >
-          <span class="material-symbols-outlined">format_align_center</span>
+          <span class="material-symbols-outlined">${IconeSvg('format_align_center')}</span>
         </button>
         <button
           type="button"
@@ -199,7 +201,7 @@ export function EditorTextoRich({
           aria-label="Alinhar a direita"
           onMouseDown=${aplicarComando('justifyRight')}
         >
-          <span class="material-symbols-outlined">format_align_right</span>
+          <span class="material-symbols-outlined">${IconeSvg('format_align_right')}</span>
         </button>
         <button
           type="button"
@@ -208,7 +210,7 @@ export function EditorTextoRich({
           aria-label="Justificar"
           onMouseDown=${aplicarComando('justifyFull')}
         >
-          <span class="material-symbols-outlined">format_align_justify</span>
+          <span class="material-symbols-outlined">${IconeSvg('format_align_justify')}</span>
         </button>
         <button
           type="button"
@@ -217,7 +219,7 @@ export function EditorTextoRich({
           aria-label="Lista com marcadores"
           onMouseDown=${aplicarComando('insertUnorderedList')}
         >
-          <span class="material-symbols-outlined">format_list_bulleted</span>
+          <span class="material-symbols-outlined">${IconeSvg('format_list_bulleted')}</span>
         </button>
         <button
           type="button"
@@ -226,7 +228,7 @@ export function EditorTextoRich({
           aria-label="Lista numerada"
           onMouseDown=${aplicarComando('insertOrderedList')}
         >
-          <span class="material-symbols-outlined">format_list_numbered</span>
+          <span class="material-symbols-outlined">${IconeSvg('format_list_numbered')}</span>
         </button>
       </div>
       <div

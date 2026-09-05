@@ -20,6 +20,7 @@ import {
   ToastAlert,
 } from '../../ui/componentes-compartilhados.js';
 import { ModalComporEmail } from '../../shared/components/compose-email-modal.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const CHAVE_MODO_VISUALIZACAO = 'rh_onedrive_modo_visualizacao_v1';
 
@@ -48,7 +49,7 @@ function obterCategoriaExtensao(nomeArquivo) {
 }
 
 function Icone({ name, className = '' }) {
-  return html`<span class=${`material-symbols-outlined ${className}`.trim()} aria-hidden="true">${name}</span>`;
+  return html`<span class=${`material-symbols-outlined ${className}`.trim()} aria-hidden="true">${IconeSvg(name)}</span>`;
 }
 
 function iconeDoItem(item) {

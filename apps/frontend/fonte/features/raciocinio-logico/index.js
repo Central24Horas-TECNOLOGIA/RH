@@ -14,6 +14,7 @@ import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 import { obterIdAplicacaoRaciocinioPorHash } from '../../rotas.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const TIPOS = [
   { valor: 'sequencia_logica', label: 'Sequência lógica' },
@@ -210,11 +211,11 @@ export function TelaRaciocinioAdmin({ controlador }) {
                         </td>
                         <td class="d-flex gap-2">
                           <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => abrirEdicao(pergunta)}>
-                            <span class="material-symbols-outlined">edit</span>
+                            <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                             Editar
                           </button>
                           <button type="button" class="btn btn-outline-danger btn-sm" onClick=${() => excluir(pergunta)}>
-                            <span class="material-symbols-outlined">delete</span>
+                            <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                             Excluir
                           </button>
                         </td>
@@ -292,13 +293,13 @@ export function TelaRaciocinioAdmin({ controlador }) {
                     disabled=${form.alternativas.length <= 2}
                     onClick=${() => removerAlternativa(indice)}
                   >
-                    <span class="material-symbols-outlined">delete</span>
+                    <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                   </button>
                 </div>
               `,
       )}
             <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${adicionarAlternativa}>
-              <span class="material-symbols-outlined">add</span>
+              <span class="material-symbols-outlined">${IconeSvg('add')}</span>
               Adicionar alternativa
             </button>
           </div>
@@ -589,7 +590,7 @@ export function PainelResultadoRaciocinio({ idTeste }) {
   return html`
     <div>
       <div class="rh-aderencia-badge is-alta" style=${{ marginBottom: '12px' }}>
-        <span class="material-symbols-outlined">psychology</span>
+        <span class="material-symbols-outlined">${IconeSvg('psychology')}</span>
         Nota final: ${dados.nota ?? '-'} (${dados.acertos ?? 0}/${dados.total_questoes ?? 0} acertos)
       </div>
       <div class="row g-3">

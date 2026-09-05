@@ -7,6 +7,7 @@ import {
 } from '../../servico-api.js?v=20260721-exam-analytics-2';
 import { SectionCard } from '../../ui/componentes-compartilhados.js';
 import { formatarDataHora } from '../../shared/helpers-visuais.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 
 const AVISO_REVISAO_HUMANA =
@@ -160,7 +161,7 @@ export function PainelAnaliseCurriculoIa({ candidato, podeAnalisar = false }) {
                       disabled=${executando || revisando}
                       onClick=${executarAnalise}
                     >
-                      <span class="material-symbols-outlined">auto_awesome</span>
+                      <span class="material-symbols-outlined">${IconeSvg('auto_awesome')}</span>
                       ${executando
                         ? 'Analisando...'
                         : analise

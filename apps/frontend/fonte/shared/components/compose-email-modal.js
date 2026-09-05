@@ -5,6 +5,7 @@ import {
   listarModelosEmail,
 } from '../../servico-api.js';
 import { ModalPadrao, ToastAlert } from '../../ui/componentes-compartilhados.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const PADRAO_VARIAVEL = /{{\s*([a-zA-Z0-9_]+)\s*}}/g;
 
@@ -105,10 +106,10 @@ function SeletorArquivoOneDrive({ anexos, onAdicionar }) {
                             class="btn btn-link p-0 text-decoration-none"
                             onClick=${() => setCaminho([caminho, item.nome].filter(Boolean).join('/'))}
                           >
-                            <span class="material-symbols-outlined" aria-hidden="true">folder</span> ${item.nome}
+                            <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('folder')}</span> ${item.nome}
                           </button>
                         `
-                      : html`<span><span class="material-symbols-outlined" aria-hidden="true">description</span> ${item.nome}</span>`}
+                      : html`<span><span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('description')}</span> ${item.nome}</span>`}
                     ${item.tipo !== 'pasta'
                       ? html`
                           <button

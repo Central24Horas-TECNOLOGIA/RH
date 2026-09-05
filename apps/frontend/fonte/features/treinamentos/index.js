@@ -21,6 +21,7 @@ import {
 import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const CATEGORIAS_TREINAMENTO = ['LGPD', 'Segurança da Informação', 'Tecnologia', 'Operações', 'Onboarding', 'Produto', 'Outro'];
 const MODALIDADES_TREINAMENTO = [
@@ -556,7 +557,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
                       </td>
                       <td>
                         <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => abrirEdicaoTrilha(item)}>
-                          <span class="material-symbols-outlined">edit</span>
+                          <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                           Editar
                         </button>
                       </td>
@@ -579,7 +580,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
       actions=${Object.keys(presencasPendentes).length
       ? html`
               <button type="button" class="btn btn-primary btn-sm" disabled=${salvandoPresenca} onClick=${salvarListaPresenca}>
-                <span class="material-symbols-outlined">how_to_reg</span>
+                <span class="material-symbols-outlined">${IconeSvg('how_to_reg')}</span>
                 ${salvandoPresenca ? 'Salvando...' : `Salvar presença (${Object.keys(presencasPendentes).length})`}
               </button>
             `
@@ -641,18 +642,18 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
                       <td>
                         <div class="d-flex flex-wrap gap-1">
                           <button type="button" class="btn btn-outline-secondary btn-sm" disabled=${!podeEditar} onClick=${() => abrirAgendar(item)} title="Agendar">
-                            <span class="material-symbols-outlined">event</span>
+                            <span class="material-symbols-outlined">${IconeSvg('event')}</span>
                           </button>
                           <button type="button" class="btn btn-outline-secondary btn-sm" disabled=${!podeEditar} onClick=${() => abrirEditarTreinamento(item)} title="Editar">
-                            <span class="material-symbols-outlined">edit</span>
+                            <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                           </button>
                           <button type="button" class="btn btn-outline-danger btn-sm" disabled=${!podeEditar} onClick=${() => encerrarTreinamentoColaborador(item)} title="Encerrar">
-                            <span class="material-symbols-outlined">stop_circle</span>
+                            <span class="material-symbols-outlined">${IconeSvg('stop_circle')}</span>
                           </button>
                           ${podeComecarTreinamento(item)
           ? html`
                                 <button type="button" class="btn btn-primary btn-sm" onClick=${() => comecarTreinamento(item)}>
-                                  <span class="material-symbols-outlined">play_circle</span>
+                                  <span class="material-symbols-outlined">${IconeSvg('play_circle')}</span>
                                   Começar treinamento
                                 </button>
                               `
@@ -713,7 +714,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
                           disabled=${!podeEditar || item.vagas_bloqueadas <= 0}
                           onClick=${() => abrirLiberarVagas(item)}
                         >
-                          <span class="material-symbols-outlined">lock_open</span>
+                          <span class="material-symbols-outlined">${IconeSvg('lock_open')}</span>
                           Liberar vagas
                         </button>
                       </td>
@@ -747,7 +748,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
 
       <${SectionCard} className="rh-section-card--flat mb-4">
         <div class="d-flex align-items-start gap-3">
-          <span class="material-symbols-outlined" aria-hidden="true">upcoming</span>
+          <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('upcoming')}</span>
           <div>
             <h3 class="h6 mb-1">Centro de Treinamentos — em evolução</h3>
             <p class="rh-section-card-description mb-0">
@@ -762,11 +763,11 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
 
       <div class="c24-tabs" style=${{ marginBottom: '16px', display: 'flex', gap: '8px' }}>
         <button type="button" class=${`c24-pill-tab ${abaAtiva === 'trilhas' ? 'is-active' : ''}`} onClick=${() => irParaAba('trilhas')}>
-          <span class="material-symbols-outlined">school</span>
+          <span class="material-symbols-outlined">${IconeSvg('school')}</span>
           Trilhas
         </button>
         <button type="button" class=${`c24-pill-tab ${abaAtiva === 'atribuicoes' ? 'is-active' : ''}`} onClick=${() => irParaAba('atribuicoes')}>
-          <span class="material-symbols-outlined">assignment_ind</span>
+          <span class="material-symbols-outlined">${IconeSvg('assignment_ind')}</span>
           Atribuições
         </button>
       </div>
@@ -889,10 +890,10 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
                     </div>
                     <div class="col-md-3 d-flex gap-1">
                       <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => moverItemTrilha(index, -1)} title="Mover para cima">
-                        <span class="material-symbols-outlined">arrow_upward</span>
+                        <span class="material-symbols-outlined">${IconeSvg('arrow_upward')}</span>
                       </button>
                       <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => moverItemTrilha(index, 1)} title="Mover para baixo">
-                        <span class="material-symbols-outlined">arrow_downward</span>
+                        <span class="material-symbols-outlined">${IconeSvg('arrow_downward')}</span>
                       </button>
                     </div>
                   </div>
@@ -925,7 +926,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
                       <span>Módulo obrigatório</span>
                     </label>
                     <button type="button" class="btn btn-outline-danger btn-sm" onClick=${() => removerItemTrilha(index)}>
-                      <span class="material-symbols-outlined">delete</span>
+                      <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                       Remover
                     </button>
                   </div>
@@ -933,7 +934,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
               `,
     )}
             <button type="button" class="btn btn-outline-primary btn-sm" onClick=${adicionarItemTrilha}>
-              <span class="material-symbols-outlined">add</span>
+              <span class="material-symbols-outlined">${IconeSvg('add')}</span>
               Adicionar módulo
             </button>
           </div>
@@ -964,7 +965,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
                     </div>
                     <div class="col-md-1">
                       <button type="button" class="btn btn-outline-danger btn-sm" aria-label="Remover slide" onClick=${() => removerSlideTrilha(index)}>
-                        <span class="material-symbols-outlined">close</span>
+                        <span class="material-symbols-outlined">${IconeSvg('close')}</span>
                       </button>
                     </div>
                   </div>
@@ -972,7 +973,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
               `,
     )}
             <button type="button" class="btn btn-outline-primary btn-sm" onClick=${adicionarSlideTrilha}>
-              <span class="material-symbols-outlined">add</span>
+              <span class="material-symbols-outlined">${IconeSvg('add')}</span>
               Adicionar slide
             </button>
           </div>

@@ -16,6 +16,7 @@ import {
 import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const FORM_INICIAL = { id_template: '', titulo: '', corpo_texto: '', ativo: true };
 
@@ -163,7 +164,7 @@ export function TelaTemplatesDocumentos({ controlador }) {
                             class="btn btn-outline-secondary btn-sm"
                             onClick=${() => abrirEdicao(item)}
                           >
-                            <span class="material-symbols-outlined">edit</span>
+                            <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                             Editar
                           </button>
                           <button
@@ -171,7 +172,7 @@ export function TelaTemplatesDocumentos({ controlador }) {
                             class="btn btn-outline-danger btn-sm"
                             onClick=${() => excluir(item)}
                           >
-                            <span class="material-symbols-outlined">delete</span>
+                            <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                             Excluir
                           </button>
                         </td>
@@ -371,7 +372,7 @@ export function ModalGerarDocumento({ aberto, idRegistro, onClose }) {
                 <div class="d-flex justify-content-between align-items-center">
                   <label class="mb-0">Documento gerado</label>
                   <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${copiar}>
-                    <span class="material-symbols-outlined">content_copy</span>
+                    <span class="material-symbols-outlined">${IconeSvg('content_copy')}</span>
                     ${copiado ? 'Copiado!' : 'Copiar texto'}
                   </button>
                 </div>

@@ -12,6 +12,7 @@ import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 import { obterCandidatoProcessoIdFitCulturalPorHash } from '../../rotas.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const FRASE_VAZIA = () => ({ frase: '' });
 const FORM_INICIAL = () => ({ id_valor: '', nome: '', descricao: '', ativo: true, frases: [FRASE_VAZIA()] });
@@ -171,7 +172,7 @@ export function TelaFitCulturalAdmin({ controlador }) {
                         </td>
                         <td>
                           <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => abrirEdicao(valor)}>
-                            <span class="material-symbols-outlined">edit</span>
+                            <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                             Editar
                           </button>
                         </td>
@@ -230,13 +231,13 @@ export function TelaFitCulturalAdmin({ controlador }) {
                     disabled=${form.frases.length <= 1}
                     onClick=${() => removerFrase(indice)}
                   >
-                    <span class="material-symbols-outlined">delete</span>
+                    <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                   </button>
                 </div>
               `,
       )}
             <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${adicionarFrase}>
-              <span class="material-symbols-outlined">add</span>
+              <span class="material-symbols-outlined">${IconeSvg('add')}</span>
               Adicionar frase
             </button>
           </div>
@@ -424,7 +425,7 @@ export function PainelResultadoFitCultural({ candidatoProcessoId }) {
         `,
       )}
       <div class="rh-aderencia-badge is-alta" style=${{ marginTop: '8px' }}>
-        <span class="material-symbols-outlined">diversity_3</span>
+        <span class="material-symbols-outlined">${IconeSvg('diversity_3')}</span>
         Score geral de fit cultural: ${resultado.score_geral}%
       </div>
     </div>

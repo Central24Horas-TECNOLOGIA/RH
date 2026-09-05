@@ -4,4 +4,4 @@ export {
   TelaConclusao,
   TelaProva,
   TelaResultado,
-} from './prova/index.js';
+} from './prova/index.js?v=20260904-identidade-conecta';

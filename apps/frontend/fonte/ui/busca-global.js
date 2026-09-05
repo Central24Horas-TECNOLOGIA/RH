@@ -15,6 +15,7 @@ import {
   CHAVE_PIPELINE_PROCESSO,
   CHAVE_PROCESSO_DETALHE,
 } from '../features/processos-estado.js';
+import { IconeSvg } from './icone.js';
 
 export const CHAVE_REQUISITO_BUSCA = 'rh_requisito_busca_atual';
 export const CHAVE_COMANDO_NOVO_PROCESSO = 'rh_comando_novo_processo';
@@ -308,7 +309,7 @@ export function BuscaGlobalTopbar({ placeholderBusca, controlador }) {
   return html`
     <div class="rh-global-search" ref=${caixaRef}>
       <div class="rh-modern-search-shell">
-        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+        <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('search')}</span>
         <label class="visually-hidden" for="rh-global-search-input">
           Pesquisar candidatos, processos e informações
         </label>

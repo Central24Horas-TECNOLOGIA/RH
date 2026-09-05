@@ -1,3 +1,5 @@
+import { IconeSvg } from '../../ui/icone.js';
+
 ﻿import { html, useEffect, useMemo, useState } from '../infraestrutura-react.js';
 import {
   OPCOES_OPERACOES,
@@ -1102,7 +1104,7 @@ export function TelaConfiguracao({ controlador }) {
 
         <div class="rh-flow-preview mt-4">
           <div class="rh-flow-preview-icon">
-            <span class="material-symbols-outlined">info</span>
+            <span class="material-symbols-outlined">${IconeSvg('info')}</span>
           </div>
           <div>
             <div class="fw-semibold mb-1">
@@ -1304,7 +1306,7 @@ export function TelaConfiguracao({ controlador }) {
 
         ${erro ? html`<div class="alert alert-danger mt-4">${erro}</div>` : null}
 
-        <div class="rh-form-footer">
+        <div class="rh-form-footer rh-form-footer--sticky">
           <button
             type="button"
             class="btn btn-outline-secondary"
@@ -1408,7 +1410,7 @@ export function TelaCandidato({ controlador }) {
                 }}
                 type="text"
               />
-              <span class="material-symbols-outlined">badge</span>
+              <span class="material-symbols-outlined">${IconeSvg('badge')}</span>
             </div>
 
             <div class="rh-candidate-contact-grid">
@@ -1558,7 +1560,7 @@ export function TelaCandidato({ controlador }) {
 
             <div class="rh-candidate-footer">
               <div class="rh-candidate-disclaimer">
-                <span class="material-symbols-outlined">info</span>
+                <span class="material-symbols-outlined">${IconeSvg('info')}</span>
                 <span>
                   Ao iniciar, você confirma seus dados de contato e concorda
                   com as orientações da avaliação.
@@ -1865,7 +1867,7 @@ export function TelaProva({ controlador }) {
             <div class="exam-screen-toolbar">
               <span class="exam-stage-badge">${questaoAtual.stage}</span>
               <div class="exam-timer-shell">
-                <span class="material-symbols-outlined">timer</span>
+                <span class="material-symbols-outlined">${IconeSvg('timer')}</span>
                 <div>${formatarTempoRestante(controlador.estado.segundosRestantes)}</div>
               </div>
             </div>
@@ -2082,7 +2084,7 @@ export function TelaConclusao({ controlador }) {
               class="rh-finish-info-card rh-finish-info-card-save is-required"
             >
               <div class="rh-finish-info-icon is-blue">
-                <span class="material-symbols-outlined">task_alt</span>
+                <span class="material-symbols-outlined">${IconeSvg('task_alt')}</span>
               </div>
               <h3>${modoDesistencia ? 'Registro de desistência' : 'Finalização obrigatória'}</h3>
               <p>
@@ -2110,7 +2112,7 @@ export function TelaConclusao({ controlador }) {
 
             <article class="rh-finish-info-card is-soft">
               <div class="rh-finish-info-icon is-gold">
-                <span class="material-symbols-outlined">trending_up</span>
+                <span class="material-symbols-outlined">${IconeSvg('trending_up')}</span>
               </div>
               <h3>${modoDesistencia ? 'Acesso bloqueado' : 'Próximos passos'}</h3>
               <p>
@@ -2141,7 +2143,7 @@ export function TelaConclusao({ controlador }) {
 
           <div class="rh-finish-access-card no-print">
             <div class="rh-finish-access-icon">
-              <span class="material-symbols-outlined">lock</span>
+              <span class="material-symbols-outlined">${IconeSvg('lock')}</span>
             </div>
             <div class="rh-finish-access-title">Acesso restrito RH</div>
             <p class="rh-finish-access-text">
@@ -2193,7 +2195,7 @@ export function TelaResultado({ controlador }) {
       <div class="rh-result-screen">
         <aside class="rh-result-sidebar no-print">
           <div class="rh-result-sidebar-title">
-            <span class="material-symbols-outlined">assignment_turned_in</span>
+            <span class="material-symbols-outlined">${IconeSvg('assignment_turned_in')}</span>
             <div>
               <strong>Avaliação técnica</strong>
               <span>${`ID: ${identificador}`}</span>

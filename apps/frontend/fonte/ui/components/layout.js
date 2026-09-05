@@ -5,6 +5,7 @@ import { TourGuiado, orientacoesAtivas } from '../tour-guiado.js';
 import { definirTema, obterTemaSalvo, proximoTema } from '../../shared/tema.js';
 import { resolverAvatarUrl } from '../../shared/avatares.js';
 import { lerCoresNotificacao, useResumoNotificacoes } from '../../shared/notificacoes.js';
+import { IconeSvg } from '../icone.js';
 
 const TEMA_ROTULO = { claro: 'Claro', escuro: 'Escuro' };
 const TEMA_ICONE = { claro: 'light_mode', escuro: 'dark_mode' };
@@ -18,7 +19,7 @@ function BotaoVoltarGlobal() {
       aria-label="Voltar para a tela anterior"
       onClick=${() => window.history.back()}
     >
-      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+      <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('arrow_back')}</span>
     </button>
   `;
 }
@@ -39,7 +40,7 @@ function SeletorTema() {
       aria-label=${`Alternar tema. Tema atual: ${TEMA_ROTULO[tema]}.`}
       onClick=${alternar}
     >
-      <span class="material-symbols-outlined c24-icon">${TEMA_ICONE[tema]}</span>
+      <span class="material-symbols-outlined c24-icon">${IconeSvg(TEMA_ICONE[tema])}</span>
     </button>
   `;
 }
@@ -328,9 +329,7 @@ export function BarraLateral({
         aria-current=${ativo ? 'page' : null}
         onClick=${item.acao || (() => controlador.irParaTelaProtegida(item.tela))}
       >
-        <span class="material-symbols-outlined" aria-hidden="true">
-          ${item.icone}
-        </span>
+        <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg(item.icone)}</span>
         <span class="rh-modern-nav-label">${item.label}</span>
       </button>
     `;
@@ -387,16 +386,12 @@ export function BarraLateral({
         }
                   onClick=${() => alternarGrupo('processos')}
                 >
-                  <span class="material-symbols-outlined" aria-hidden="true">
-                    business_center
-                  </span>
+                  <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('business_center')}</span>
                   <span class="rh-modern-nav-label">Processos</span>
                   <span
                     class="material-symbols-outlined rh-modern-nav-chevron"
                     aria-hidden="true"
-                  >
-                    expand_more
-                  </span>
+                  >${IconeSvg('expand_more')}</span>
                 </button>
                 ${grupoAberto === 'processos'
           ? html`
@@ -425,9 +420,7 @@ export function BarraLateral({
                               <span
                                 class="material-symbols-outlined"
                                 aria-hidden="true"
-                              >
-                                ${subitem.icone}
-                              </span>
+                              >${IconeSvg(subitem.icone)}</span>
                               <span>${subitem.label}</span>
                             </button>
                           `,
@@ -454,16 +447,12 @@ export function BarraLateral({
                   aria-controls="rh-modern-subnav-provas"
                   onClick=${() => alternarGrupo('provas')}
                 >
-                  <span class="material-symbols-outlined" aria-hidden="true">
-                    quiz
-                  </span>
+                  <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('quiz')}</span>
                   <span class="rh-modern-nav-label">Conecta Provas</span>
                   <span
                     class="material-symbols-outlined rh-modern-nav-chevron"
                     aria-hidden="true"
-                  >
-                    expand_more
-                  </span>
+                  >${IconeSvg('expand_more')}</span>
                 </button>
                 ${grupoAberto === 'provas'
           ? html`
@@ -492,9 +481,7 @@ export function BarraLateral({
                               <span
                                 class="material-symbols-outlined"
                                 aria-hidden="true"
-                              >
-                                ${subitem.icone}
-                              </span>
+                              >${IconeSvg(subitem.icone)}</span>
                               <span>${subitem.label}</span>
                             </button>
                           `,
@@ -521,16 +508,12 @@ export function BarraLateral({
                   aria-controls="rh-modern-subnav-gestao"
                   onClick=${() => alternarGrupo('gestao')}
                 >
-                  <span class="material-symbols-outlined" aria-hidden="true">
-                    manage_accounts
-                  </span>
+                  <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('manage_accounts')}</span>
                   <span class="rh-modern-nav-label">Gestão</span>
                   <span
                     class="material-symbols-outlined rh-modern-nav-chevron"
                     aria-hidden="true"
-                  >
-                    expand_more
-                  </span>
+                  >${IconeSvg('expand_more')}</span>
                 </button>
                 ${grupoAberto === 'gestao'
           ? html`
@@ -559,9 +542,7 @@ export function BarraLateral({
                               <span
                                 class="material-symbols-outlined"
                                 aria-hidden="true"
-                              >
-                                ${subitem.icone}
-                              </span>
+                              >${IconeSvg(subitem.icone)}</span>
                               <span>${subitem.label}</span>
                             </button>
                           `,
@@ -589,16 +570,12 @@ export function BarraLateral({
                   aria-controls="rh-modern-subnav-treinamentos"
                   onClick=${() => alternarGrupo('treinamentos')}
                 >
-                  <span class="material-symbols-outlined" aria-hidden="true">
-                    school
-                  </span>
+                  <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('school')}</span>
                   <span class="rh-modern-nav-label">Treinamentos</span>
                   <span
                     class="material-symbols-outlined rh-modern-nav-chevron"
                     aria-hidden="true"
-                  >
-                    expand_more
-                  </span>
+                  >${IconeSvg('expand_more')}</span>
                 </button>
                 ${grupoAberto === 'treinamentos'
           ? html`
@@ -627,9 +604,7 @@ export function BarraLateral({
                               <span
                                 class="material-symbols-outlined"
                                 aria-hidden="true"
-                              >
-                                ${subitem.icone}
-                              </span>
+                              >${IconeSvg(subitem.icone)}</span>
                               <span>${subitem.label}</span>
                             </button>
                           `,
@@ -656,16 +631,12 @@ export function BarraLateral({
                   aria-controls="rh-modern-subnav-configuracoes"
                   onClick=${() => alternarGrupo('configuracoes')}
                 >
-                  <span class="material-symbols-outlined" aria-hidden="true">
-                    settings
-                  </span>
+                  <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('settings')}</span>
                   <span class="rh-modern-nav-label">Configurações</span>
                   <span
                     class="material-symbols-outlined rh-modern-nav-chevron"
                     aria-hidden="true"
-                  >
-                    expand_more
-                  </span>
+                  >${IconeSvg('expand_more')}</span>
                 </button>
                 ${grupoAberto === 'configuracoes'
           ? html`
@@ -694,9 +665,7 @@ export function BarraLateral({
                               <span
                                 class="material-symbols-outlined"
                                 aria-hidden="true"
-                              >
-                                ${subitem.icone}
-                              </span>
+                              >${IconeSvg(subitem.icone)}</span>
                               <span>${subitem.label}</span>
                             </button>
                           `,
@@ -900,9 +869,7 @@ export function CartaoUsuarioTopo({ controlador, onOpenHelp = null, mostrarAjuda
           <strong>${nome}</strong>
           <small>${perfil}</small>
         </span>
-        <span class="material-symbols-outlined c24-user-chevron">
-          ${aberto ? 'expand_less' : 'expand_more'}
-        </span>
+        <span class="material-symbols-outlined c24-user-chevron">${IconeSvg(aberto ? 'expand_less' : 'expand_more')}</span>
       </button>
 
       ${aberto
@@ -919,7 +886,7 @@ export function CartaoUsuarioTopo({ controlador, onOpenHelp = null, mostrarAjuda
               onOpenHelp();
             }}
                     >
-                      <span class="material-symbols-outlined">help</span>
+                      <span class="material-symbols-outlined">${IconeSvg('help')}</span>
                       Ver orientações
                     </button>
                   `
@@ -933,7 +900,7 @@ export function CartaoUsuarioTopo({ controlador, onOpenHelp = null, mostrarAjuda
           alternarTema();
         }}
               >
-                <span class="material-symbols-outlined">${TEMA_ICONE[tema]}</span>
+                <span class="material-symbols-outlined">${IconeSvg(TEMA_ICONE[tema])}</span>
                 Alternar modo claro e escuro
               </button>
               <button
@@ -945,7 +912,7 @@ export function CartaoUsuarioTopo({ controlador, onOpenHelp = null, mostrarAjuda
           controlador.irParaTelaProtegida('screen-settings-environment');
         }}
               >
-                <span class="material-symbols-outlined">settings</span>
+                <span class="material-symbols-outlined">${IconeSvg('settings')}</span>
                 Configurações de Perfil
               </button>
               <button
@@ -957,7 +924,7 @@ export function CartaoUsuarioTopo({ controlador, onOpenHelp = null, mostrarAjuda
           controlador.sair();
         }}
               >
-                <span class="material-symbols-outlined">logout</span>
+                <span class="material-symbols-outlined">${IconeSvg('logout')}</span>
                 Sair
               </button>
             </div>
@@ -1005,7 +972,7 @@ export function SinoNotificacoes({ controlador }) {
           setAberto((valor) => !valor);
         }}
       >
-        <span class="material-symbols-outlined c24-icon">notifications</span>
+        <span class="material-symbols-outlined c24-icon">${IconeSvg('notifications')}</span>
         ${itens.length ? html`<span class="c24-notif-badge">${itens.length}</span>` : null}
       </button>
 
@@ -1102,7 +1069,7 @@ export function PainelRh({
                       onClick=${acaoPrimaria.onClick}
                     >
                       ${acaoPrimaria.icon
-          ? html`<span class="material-symbols-outlined">${acaoPrimaria.icon}</span>`
+          ? html`<span class="material-symbols-outlined">${IconeSvg(acaoPrimaria.icon)}</span>`
           : null}
                       ${acaoPrimaria.label}
                     </button>

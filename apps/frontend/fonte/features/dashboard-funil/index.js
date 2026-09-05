@@ -9,6 +9,7 @@ import {
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
 import { AcaoSair } from '../../shared/components/actions.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const FILTROS_INICIAIS = { dataInicial: '', dataFinal: '', processo: '' };
 
@@ -165,7 +166,7 @@ export function TelaDashboardFunil({ controlador }) {
           </div>
           <div class="rh-filter-field funnel-dashboard-filter-actions">
             <button type="button" class="btn btn-primary" disabled=${carregando} onClick=${aplicarFiltros}>
-              <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
+              <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('filter_alt')}</span>
               Aplicar filtros
             </button>
             <button type="button" class="btn btn-outline-secondary" disabled=${carregando} onClick=${limparFiltros}>
@@ -181,7 +182,7 @@ export function TelaDashboardFunil({ controlador }) {
           <div class="funnel-dashboard-hero-grid">
             <section class="funnel-dashboard-hero funnel-dashboard-hero--principal">
               <div class="funnel-dashboard-hero-label">
-                <span class="material-symbols-outlined" aria-hidden="true">flag</span>
+                <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('flag')}</span>
                 <span>Tempo de preenchimento de vaga</span>
               </div>
               <div class="funnel-dashboard-hero-value">
@@ -197,7 +198,7 @@ export function TelaDashboardFunil({ controlador }) {
 
             <section class="funnel-dashboard-hero">
               <div class="funnel-dashboard-hero-label">
-                <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('schedule')}</span>
                 <span>Time-to-hire médio</span>
               </div>
               <div class="funnel-dashboard-hero-value">

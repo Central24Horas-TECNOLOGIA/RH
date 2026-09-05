@@ -45,6 +45,7 @@ import {
   obterChaveProcesso,
   obterReferenciaProcesso,
 } from '../../shared/process-reference.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const ETAPAS_PIPELINE = [
   'Triagem',
@@ -332,7 +333,7 @@ export function TelaPipelineCandidatos({ controlador }) {
             class="btn btn-outline-secondary"
             onClick=${() => carregar(true)}
           >
-            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+            <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('refresh')}</span>
             Atualizar
           </button>
         `}
@@ -443,11 +444,9 @@ export function TelaPipelineCandidatos({ controlador }) {
                                         card.id_registro,
                                       )}
                                   >
-                                    <span class="material-symbols-outlined">
-                                      ${cardsRecolhidos[card.id_registro]
+                                    <span class="material-symbols-outlined">${IconeSvg(cardsRecolhidos[card.id_registro]
                                         ? 'keyboard_arrow_down'
-                                        : 'keyboard_arrow_up'}
-                                    </span>
+                                        : 'keyboard_arrow_up')}</span>
                                   </button>
                                 </div>
                                 <span class="rh-status-pill">

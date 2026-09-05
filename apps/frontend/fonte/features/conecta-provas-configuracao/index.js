@@ -1,6 +1,7 @@
 import { html } from '../../infraestrutura-react.js';
 import { PageIntro, PainelRh, SectionCard } from '../../ui/componentes-compartilhados.js';
 import { AcaoSair } from '../../shared/components/actions.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const DIRETRIZES = [
   {
@@ -61,7 +62,7 @@ export function TelaProvasConfiguracao({ controlador }) {
                 <div key=${item.tela} class="col-md-6">
                   <div class="rh-section-card rh-section-card--flat h-100 d-flex flex-column justify-content-between" style=${{ padding: '16px' }}>
                     <div class="d-flex align-items-start gap-3">
-                      <span class="material-symbols-outlined" aria-hidden="true">${item.icone}</span>
+                      <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg(item.icone)}</span>
                       <div>
                         <h3 class="h6 mb-1">${item.titulo}</h3>
                         <p class="rh-section-card-description mb-0">${item.descricao}</p>
@@ -74,7 +75,7 @@ export function TelaProvasConfiguracao({ controlador }) {
                         onClick=${() => controlador.irParaTelaProtegida(item.tela)}
                       >
                         Configurar
-                        <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('arrow_forward')}</span>
                       </button>
                     </div>
                   </div>

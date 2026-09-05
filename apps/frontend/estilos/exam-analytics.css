@@ -20,10 +20,10 @@
 .exam-analytics-table td > small { display: block; margin-top: .25rem; color: #77849a; max-width: 210px; }
 .exam-analytics-table .is-check { width: 40px; text-align: center; }
 .exam-analytics-rank { font-size: 1.15rem; color: #203a68; }
-.exam-analytics-score-bar { min-width: 125px; position: relative; height: 26px; border-radius: 999px; overflow: hidden; background: #edf1f7; }
+.exam-analytics-score-bar { min-width: 125px; position: relative; height: 26px; border-radius: var(--radius-full); overflow: hidden; background: #edf1f7; }
 .exam-analytics-score-bar > span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #4978d1, #6f9ced); }
 .exam-analytics-score-bar > strong { position: relative; z-index: 1; display: grid; place-items: center; height: 100%; font-size: .78rem; color: #1e3154; text-shadow: 0 1px 1px rgba(255,255,255,.8); }
-.exam-analytics-status, .exam-analytics-sample { display: inline-flex; align-items: center; padding: .28rem .6rem; border-radius: 999px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.exam-analytics-status, .exam-analytics-sample { display: inline-flex; align-items: center; padding: .28rem .6rem; border-radius: var(--radius-full); font-size: .72rem; font-weight: 700; white-space: nowrap; }
 .exam-analytics-status.is-success, .exam-analytics-sample.is-ready { background: #e7f7ef; color: #16744b; }
 .exam-analytics-status.is-warning, .exam-analytics-sample.is-small { background: #fff5db; color: #8b6410; }
 .exam-analytics-status.is-danger { background: #fdecec; color: #a83a3a; }

@@ -1,4 +1,5 @@
 import { html } from '../../../infraestrutura-react.js';
+import { IconeSvg } from '../../../ui/icone.js';
 
 export function CabecalhoSecaoColapsavel({ aberto, titulo, onClick }) {
   return html`
@@ -7,9 +8,7 @@ export function CabecalhoSecaoColapsavel({ aberto, titulo, onClick }) {
       class="btn btn-link text-decoration-none p-0 d-flex align-items-center gap-2"
       onClick=${onClick}
     >
-      <span class="material-symbols-outlined">
-        ${aberto ? 'expand_less' : 'expand_more'}
-      </span>
+      <span class="material-symbols-outlined">${IconeSvg(aberto ? 'expand_less' : 'expand_more')}</span>
       <h3 class="h5 mb-0">${titulo}</h3>
     </button>
   `;

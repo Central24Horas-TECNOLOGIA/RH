@@ -1,4 +1,5 @@
 import { html } from '../../infraestrutura-react.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 export function TabelaVazia({ colunas, texto, icone = '' }) {
   const carregando = String(texto || '').toLowerCase().includes('carregando');
@@ -19,7 +20,7 @@ export function TabelaVazia({ colunas, texto, icone = '' }) {
           : icone
             ? html`
                 <div class="c24-table-empty-state">
-                  <span class="material-symbols-outlined" aria-hidden="true">${icone}</span>
+                  <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg(icone)}</span>
                   <span class="c24-table-empty-state-text">${texto}</span>
                 </div>
               `

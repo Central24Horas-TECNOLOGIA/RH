@@ -1,3 +1,5 @@
+import { IconeSvg } from '../../ui/icone.js';
+
 ﻿import {
   html,
   lazy,
@@ -79,7 +81,7 @@ import { useToast } from '../../shared/hooks/use-toast.js';
 import {
   ModalCompartilharVaga,
   montarTextoCompartilhamentoVaga,
-} from '../../shared/components/share-job-modal.js?v=20260904-correcoes-txt3';
+} from '../../shared/components/share-job-modal.js?v=20260904-identidade-conecta';
 import {
   DOCUMENTOS_APROVACAO_PADRAO,
   ModalAprovacaoCandidato,
@@ -1898,23 +1900,23 @@ function renderizarResumoProcessoAberto({ processo, candidatosProcesso, entrevis
         <div class="process-feature-meta-grid">
           <span>
             <small>Candidatos</small>
-            <strong><i class="material-symbols-outlined">groups</i>${candidatosProcesso.length}</strong>
+            <strong><i class="material-symbols-outlined">${IconeSvg('groups')}</i>${candidatosProcesso.length}</strong>
           </span>
           <span>
             <small>Vagas</small>
-            <strong><i class="material-symbols-outlined">tag</i>${vagasPreenchidas}/${totalVagas}</strong>
+            <strong><i class="material-symbols-outlined">${IconeSvg('tag')}</i>${vagasPreenchidas}/${totalVagas}</strong>
           </span>
           <span>
             <small>Abertura</small>
-            <strong><i class="material-symbols-outlined">calendar_month</i>${formatarDataCurta(processo.data_criacao)}</strong>
+            <strong><i class="material-symbols-outlined">${IconeSvg('calendar_month')}</i>${formatarDataCurta(processo.data_criacao)}</strong>
           </span>
           <span>
             <small>Operação</small>
-            <strong><i class="material-symbols-outlined">business_center</i>${processo.operacao || '-'}</strong>
+            <strong><i class="material-symbols-outlined">${IconeSvg('business_center')}</i>${processo.operacao || '-'}</strong>
           </span>
           <span>
             <small>Responsável</small>
-            <strong class="is-primary"><i class="material-symbols-outlined">person</i>${obterResponsavelProcesso(processo)}</strong>
+            <strong class="is-primary"><i class="material-symbols-outlined">${IconeSvg('person')}</i>${obterResponsavelProcesso(processo)}</strong>
           </span>
         </div>
         <div class="process-feature-progress" aria-label=${`Progresso do preenchimento ${progresso}%`}>
@@ -1928,7 +1930,7 @@ function renderizarResumoProcessoAberto({ processo, candidatosProcesso, entrevis
       <div class="process-feature-actions">
         <button type="button" class="process-feature-detail-btn" onClick=${() => onDetalhes(processo)}>
           Ver Detalhes
-          <span class="material-symbols-outlined">arrow_forward</span>
+          <span class="material-symbols-outlined">${IconeSvg('arrow_forward')}</span>
         </button>
       </div>
     </article>
@@ -2024,7 +2026,7 @@ function MenuAcoesProcesso({
         onClick=${alternarMenu}
       >
         ${label ? html`<span>${label}</span>` : null}
-        <span class="material-symbols-outlined">${icon}</span>
+        <span class="material-symbols-outlined">${IconeSvg(icon)}</span>
       </button>
       ${aberto
       ? html`
@@ -2048,7 +2050,7 @@ function MenuAcoesProcesso({
                     onClick=${(event) => executarAcao(event, acao)}
                   >
                     ${acao.icon
-              ? html`<span class="material-symbols-outlined">${acao.icon}</span>`
+              ? html`<span class="material-symbols-outlined">${IconeSvg(acao.icon)}</span>`
               : null}
                     <span>${acao.label}</span>
                   </button>
@@ -2188,7 +2190,7 @@ function renderizarAcoesDoCandidato({
           disabled=${fichaCarregandoId === String(candidato.id_teste || '')}
           onClick=${() => onFicha(candidato)}
         >
-          <span class="material-symbols-outlined">badge</span>
+          <span class="material-symbols-outlined">${IconeSvg('badge')}</span>
           ${fichaCarregandoId === String(candidato.id_teste || '') ? 'Abrindo...' : 'Detalhes'}
         </button>
       `,
@@ -2209,7 +2211,7 @@ function renderizarAcoesDoCandidato({
         title="Liberar prova para o candidato"
         onClick=${() => onGerarProva(candidato)}
       >
-        <span class="material-symbols-outlined">assignment_add</span>
+        <span class="material-symbols-outlined">${IconeSvg('assignment_add')}</span>
         Liberar prova
       </button>
     `);
@@ -2229,7 +2231,7 @@ function renderizarAcoesDoCandidato({
           title="Agendar entrevista"
           onClick=${() => onAgendarEntrevista(candidato)}
         >
-          <span class="material-symbols-outlined">event</span>
+          <span class="material-symbols-outlined">${IconeSvg('event')}</span>
           Entrevista
         </button>
       `,
@@ -2248,7 +2250,7 @@ function renderizarAcoesDoCandidato({
             ? onAprovar(candidato)
             : onAtualizarStatus(candidato, 'Aprovado')}
         >
-          <span class="material-symbols-outlined">check_circle</span>
+          <span class="material-symbols-outlined">${IconeSvg('check_circle')}</span>
           Aprovar
         </button>
       `,
@@ -2264,7 +2266,7 @@ function renderizarAcoesDoCandidato({
           title="Eliminar candidato"
           onClick=${() => onAtualizarStatus(candidato, 'Eliminado')}
         >
-          <span class="material-symbols-outlined">cancel</span>
+          <span class="material-symbols-outlined">${IconeSvg('cancel')}</span>
           Eliminar
         </button>
       `,
@@ -2283,7 +2285,7 @@ function renderizarAcoesDoCandidato({
           title="Enviar para Banco de Talentos"
           onClick=${() => onAtualizarStatus(candidato, 'Banco de Talentos')}
         >
-          <span class="material-symbols-outlined">inventory_2</span>
+          <span class="material-symbols-outlined">${IconeSvg('inventory_2')}</span>
           Banco
         </button>
       `,
@@ -2299,7 +2301,7 @@ function renderizarAcoesDoCandidato({
           title="Editar dados do candidato"
           onClick=${() => onEditar(candidato)}
         >
-          <span class="material-symbols-outlined">edit</span>
+          <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
           Editar
         </button>
       `,
@@ -2478,7 +2480,7 @@ function ModalLiberarProva({
         ${!configuracoes.length
       ? html`
               <div class="process-release-empty">
-                <span class="material-symbols-outlined">assignment_late</span>
+                <span class="material-symbols-outlined">${IconeSvg('assignment_late')}</span>
                 <h3>Nenhuma prova configurada para este processo</h3>
                 <p>Configure a prova no fluxo de criação do processo seletivo antes de liberar para candidatos.</p>
               </div>
@@ -2934,7 +2936,7 @@ function ModalFichaCandidato({
     >
       <div class="candidate-profile-page">
         <button type="button" class="candidate-profile-back" onClick=${onClose}>
-          <span class="material-symbols-outlined">arrow_back</span>Voltar
+          <span class="material-symbols-outlined">${IconeSvg('arrow_back')}</span>Voltar
         </button>
         ${erro
       ? html`<div class="alert alert-danger py-2">${erro}</div>`
@@ -2945,7 +2947,7 @@ function ModalFichaCandidato({
         <div class="candidate-profile-layout">
           <aside class="candidate-profile-sidebar">
             <section class="candidate-profile-identity">
-              <span class="candidate-profile-avatar material-symbols-outlined">person</span>
+              <span class="candidate-profile-avatar material-symbols-outlined">${IconeSvg('person')}</span>
               <h2>${candidato.nome_candidato || 'Candidato'}</h2>
               <small>Processo seletivo</small>
               <strong>${processoPrincipal.vaga || 'Não informado'}</strong>
@@ -2960,7 +2962,7 @@ function ModalFichaCandidato({
             </section>
             <section class="candidate-profile-side-card">
               <h3>Redes sociais</h3>
-              ${socialItems.length ? html`<div class="candidate-profile-socials">${socialItems.map(([icon, link]) => html`<a href=${link} target="_blank" rel="noreferrer"><span class="material-symbols-outlined">${icon}</span></a>`)}</div>` : html`<p class="candidate-profile-uninformed">Não informado</p>`}
+              ${socialItems.length ? html`<div class="candidate-profile-socials">${socialItems.map(([icon, link]) => html`<a href=${link} target="_blank" rel="noreferrer"><span class="material-symbols-outlined">${IconeSvg(icon)}</span></a>`)}</div>` : html`<p class="candidate-profile-uninformed">Não informado</p>`}
             </section>
           </aside>
 
@@ -2971,7 +2973,7 @@ function ModalFichaCandidato({
               <div class="candidate-info-row"><span>Nota geral / Aderência</span><div class="candidate-score-composite"><b>${formatarNota(notaGeral)}</b><i>/</i><strong>${aderenciaLabel}</strong><small>de aderência à vaga</small></div></div>
               <div class="candidate-info-row"><span>Tag de qualificação</span><em class=${`candidate-fit-label ${classeAderencia}`}>${classificacao}</em></div>
               <div class="candidate-info-row"><span>Nota do CV</span><b class="candidate-score-badge is-blue">${formatarNota(notaCv)}</b></div>
-              <div class="candidate-info-row"><span>Nota das provas</span><div class="candidate-proof-score"><b class="candidate-score-badge is-blue">${formatarNota(notaProvas)}</b>${resultadosProva.length ? html`<button type="button" onClick=${onNotaCompleta}>Ver nota completa <span class="material-symbols-outlined">chevron_right</span></button>` : html`<small>Candidato sem prova</small>`}</div></div>
+              <div class="candidate-info-row"><span>Nota das provas</span><div class="candidate-proof-score"><b class="candidate-score-badge is-blue">${formatarNota(notaProvas)}</b>${resultadosProva.length ? html`<button type="button" onClick=${onNotaCompleta}>Ver nota completa <span class="material-symbols-outlined">${IconeSvg('chevron_right')}</span></button>` : html`<small>Candidato sem prova</small>`}</div></div>
               <div class="candidate-info-row candidate-info-row--list"><span>Qualidades analisadas do CV</span>${qualidades.length ? html`<ul>${qualidades.map((item) => html`<li key=${item}>${item}</li>`)}</ul>` : html`<strong>Não informado</strong>`}</div>
               <div class="candidate-info-row candidate-info-row--skills"><span>Skills</span>${skills.length ? html`<div>${skills.map((item) => html`<em key=${item}>${item}</em>`)}</div>` : html`<strong>Não informado</strong>`}</div>
               <div class="candidate-cv-inline-actions">
@@ -2987,7 +2989,7 @@ function ModalFichaCandidato({
             cv_disponivel: curriculo.disponivel,
           })}
                   >
-                    <span class="material-symbols-outlined">description</span>
+                    <span class="material-symbols-outlined">${IconeSvg('description')}</span>
                     Ver CV
                   </button>
                 `
@@ -3002,7 +3004,7 @@ function ModalFichaCandidato({
                       onChange=${(event) =>
           onArquivoCvChange(event.target.files?.[0] || null)}
                     />
-                    <span class="material-symbols-outlined">upload_file</span>
+                    <span class="material-symbols-outlined">${IconeSvg('upload_file')}</span>
                     <span class="process-cv-picker-copy">
                       <strong>Adicionar CV</strong>
                       <small title=${arquivoCv?.name || ''}>
@@ -3016,7 +3018,7 @@ function ModalFichaCandidato({
                     disabled=${!arquivoCv || enviandoCv || analisandoCv}
                     onClick=${onAdicionarCv}
                   >
-                    <span class="material-symbols-outlined">upload</span>
+                    <span class="material-symbols-outlined">${IconeSvg('upload')}</span>
                     ${enviandoCv ? 'Adicionando...' : 'Adicionar CV'}
                   </button>
                 `}
@@ -3026,7 +3028,7 @@ function ModalFichaCandidato({
               disabled=${analisandoCv || enviandoCv || (!curriculo.disponivel && !arquivoCv)}
               onClick=${onAnalisarCv}
             >
-              <span class="material-symbols-outlined">auto_awesome</span>
+              <span class="material-symbols-outlined">${IconeSvg('auto_awesome')}</span>
               ${analisandoCv ? 'Analisando...' : 'Analisar CV'}
             </button>
               </div>
@@ -3039,7 +3041,7 @@ function ModalFichaCandidato({
                     <div class="process-history-list">
                       ${timeline.map((evento, indice) => html`
                         <article key=${`${evento.tipo || 'evento'}-${indice}`}>
-                          <span class="process-history-icon"><i class="material-symbols-outlined">${evento.icone || 'circle'}</i></span>
+                          <span class="process-history-icon"><i class="material-symbols-outlined">${IconeSvg(evento.icone || 'circle')}</i></span>
                           <div>
                             <strong>${evento.titulo || 'Evento'}</strong>
                             <p>${evento.descricao || ''}</p>
@@ -3063,11 +3065,11 @@ function ModalFichaCandidato({
             </section>
 
             <footer class="candidate-profile-actions">
-              <button type="button" class="btn btn-outline-primary" onClick=${onEditar}><span class="material-symbols-outlined">edit</span>Editar candidato</button>
-              <button type="button" class="btn btn-outline-primary" onClick=${onPrint}><span class="material-symbols-outlined">download</span>Baixar ficha</button>
-              <button type="button" class="btn btn-outline-danger" onClick=${onEliminar}><span class="material-symbols-outlined">delete</span>Eliminar</button>
-              ${typeof onBanco === 'function' ? html`<button type="button" class="btn btn-outline-secondary" onClick=${onBanco}><span class="material-symbols-outlined">inventory_2</span>Banco</button>` : ''}
-              <button type="button" class="btn btn-primary" onClick=${onAprovar}><span class="material-symbols-outlined">check</span>Aprovar</button>
+              <button type="button" class="btn btn-outline-primary" onClick=${onEditar}><span class="material-symbols-outlined">${IconeSvg('edit')}</span>Editar candidato</button>
+              <button type="button" class="btn btn-outline-primary" onClick=${onPrint}><span class="material-symbols-outlined">${IconeSvg('download')}</span>Baixar ficha</button>
+              <button type="button" class="btn btn-outline-danger" onClick=${onEliminar}><span class="material-symbols-outlined">${IconeSvg('delete')}</span>Eliminar</button>
+              ${typeof onBanco === 'function' ? html`<button type="button" class="btn btn-outline-secondary" onClick=${onBanco}><span class="material-symbols-outlined">${IconeSvg('inventory_2')}</span>Banco</button>` : ''}
+              <button type="button" class="btn btn-primary" onClick=${onAprovar}><span class="material-symbols-outlined">${IconeSvg('check')}</span>Aprovar</button>
             </footer>
           </main>
         </div>
@@ -3302,7 +3304,7 @@ function WidgetEntrevistasProcesso({
                           title=${isProcessClosed(entrevista.status_processo) ? 'Processo encerrado' : 'Editar entrevista'}
                           onClick=${() => onEditar(entrevista)}
                         >
-                          <span class="material-symbols-outlined">edit</span>
+                          <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                           Editar
                         </button>
                       </td>
@@ -3323,7 +3325,7 @@ function WidgetEntrevistasProcesso({
             `
         : html`
               <div class="c24-empty-state c24-empty-state-horizontal">
-                <span class="material-symbols-outlined">calendar_month</span>
+                <span class="material-symbols-outlined">${IconeSvg('calendar_month')}</span>
                 <div>
                   <h3>Nenhuma entrevista registrada</h3>
                 </div>
@@ -3553,7 +3555,7 @@ function DossieProcesso({
               `
       : html`
                 <div class="c24-empty-state">
-                  <span class="material-symbols-outlined">bar_chart</span>
+                  <span class="material-symbols-outlined">${IconeSvg('bar_chart')}</span>
                   <h3>Ainda não há dados suficientes para o gráfico.</h3>
                   <p>Registre nota de prova ou score de currículo para comparar candidatos.</p>
                 </div>
@@ -3737,7 +3739,7 @@ function DossieProcesso({
       )
       : html`
                   <div class="c24-empty-state">
-                    <span class="material-symbols-outlined">edit_note</span>
+                    <span class="material-symbols-outlined">${IconeSvg('edit_note')}</span>
                     <h3>Nenhuma anotação registrada para este processo.</h3>
                     <p>Use o campo ao lado para registrar contexto administrativo.</p>
                   </div>
@@ -4092,7 +4094,7 @@ export function TelaProcessos({ controlador }) {
                 class="process-create-primary-btn"
                 onClick=${() => controlador.irParaTelaProtegida('screen-process-create')}
               >
-                <span class="material-symbols-outlined">add</span>
+                <span class="material-symbols-outlined">${IconeSvg('add')}</span>
                 Criar Processo
               </button>
             `
@@ -4190,7 +4192,7 @@ export function TelaProcessos({ controlador }) {
           </div>
           <div class="process-dashboard-filter-action">
             <button type="button" class="process-filter-apply-btn">
-              <span class="material-symbols-outlined">filter_alt</span>
+              <span class="material-symbols-outlined">${IconeSvg('filter_alt')}</span>
               Filtrar
             </button>
           </div>
@@ -4220,7 +4222,7 @@ export function TelaProcessos({ controlador }) {
             `
       : html`
               <div class="c24-empty-state c24-empty-state-horizontal">
-                <span class="material-symbols-outlined">folder_open</span>
+                <span class="material-symbols-outlined">${IconeSvg('folder_open')}</span>
                 <div>
                   <h3>Nenhum processo aberto</h3>
                   <p>Quando houver processos ativos, eles aparecerão aqui.</p>
@@ -4266,7 +4268,7 @@ export function TelaProcessos({ controlador }) {
             `
       : html`
               <div class="process-dashboard-empty">
-                <span class="material-symbols-outlined">assignment_turned_in</span>
+                <span class="material-symbols-outlined">${IconeSvg('assignment_turned_in')}</span>
                 <strong>Tudo em dia!</strong>
                 <p>Nenhum candidato com decisão final pendente.</p>
               </div>
@@ -5002,7 +5004,7 @@ export function TelaProcessosAbertos({ controlador }) {
                 ${registrosRecentes.map(
         (item) => html`
                     <article class="rh-recent-card" key=${item.id}>
-                      <span class="rh-recent-avatar-wrap material-symbols-outlined">${item.icone}</span>
+                      <span class="rh-recent-avatar-wrap material-symbols-outlined">${IconeSvg(item.icone)}</span>
                       <span class="rh-recent-card-body">
                         <strong>${item.titulo}</strong>
                         <span>${item.descricao}</span>
@@ -5015,7 +5017,7 @@ export function TelaProcessosAbertos({ controlador }) {
             `
       : html`
               <div class="c24-empty-state c24-empty-state-horizontal">
-                <span class="material-symbols-outlined">history</span>
+                <span class="material-symbols-outlined">${IconeSvg('history')}</span>
                 <div>
                   <h3>Nenhum registro recente</h3>
                   <p>Sem histórico, logs ou eventos disponíveis para processos abertos.</p>
@@ -5628,7 +5630,7 @@ function ModalConfirmacaoEntrevista({
       ${candidato ? html`
         <div class="rh-details-body process-interview-confirmation-modal">
           <div class="process-friendly-notice">
-            <span class="material-symbols-outlined">event_available</span>
+            <span class="material-symbols-outlined">${IconeSvg('event_available')}</span>
             Entrevista em ${formatarDataCurta(candidato.data_entrevista)} às ${formatarHoraCurta(candidato.data_entrevista)}.
           </div>
           <label class="form-label">Mensagem</label>
@@ -5638,10 +5640,10 @@ function ModalConfirmacaoEntrevista({
         <footer class="rh-modal-footer">
           <button type="button" class="btn btn-outline-secondary" onClick=${onClose}>Cancelar</button>
           <button type="button" class="btn btn-outline-primary" disabled=${!candidato.email} onClick=${onEmail}>
-            <span class="material-symbols-outlined">mail</span>Enviar por e-mail
+            <span class="material-symbols-outlined">${IconeSvg('mail')}</span>Enviar por e-mail
           </button>
           <button type="button" class="btn btn-success" disabled=${!normalizarNumeroWhatsAppBrasil(candidato.whatsapp || candidato.telefone)} onClick=${onWhatsapp}>
-            <span class="material-symbols-outlined">chat</span>Enviar por WhatsApp
+            <span class="material-symbols-outlined">${IconeSvg('chat')}</span>Enviar por WhatsApp
           </button>
         </footer>
       ` : null}
@@ -5671,17 +5673,17 @@ function ModalAnaliseCvProcesso({
       onClose=${onClose}
     >
       <div class="process-cv-modal-content">
-        <div class="process-cv-modal-intro"><span class="material-symbols-outlined">document_scanner</span><div><strong>Analisar currículo</strong><p>Se o candidato for qualificado, ele entra em Candidatos no processo. Caso contrário, ficará disponível em CVs não qualificados para eventual uso manual pelo RH.</p></div></div>
+        <div class="process-cv-modal-intro"><span class="material-symbols-outlined">${IconeSvg('document_scanner')}</span><div><strong>Analisar currículo</strong><p>Se o candidato for qualificado, ele entra em Candidatos no processo. Caso contrário, ficará disponível em CVs não qualificados para eventual uso manual pelo RH.</p></div></div>
         <label class=${`process-cv-picker ${processoEncerrado || analisando ? 'is-disabled' : ''}`.trim()}>
           <input key=${arquivoCv?.name || 'novo-cv-processo'} type="file" class="process-cv-native-input" accept=".pdf,.doc,.docx" disabled=${processoEncerrado || analisando} onChange=${(event) => onArquivo(event.target.files?.[0] || null)} />
-          <span class="material-symbols-outlined">upload_file</span>
+          <span class="material-symbols-outlined">${IconeSvg('upload_file')}</span>
           <span class="process-cv-picker-copy"><strong>Selecionar CV</strong><small>${arquivoCv?.name || 'PDF, DOC ou DOCX'}</small></span>
         </label>
         <label class="process-cv-keep-original"><input type="checkbox" checked=${guardarOriginal} disabled=${analisando} onChange=${(event) => onGuardarOriginal(event.target.checked)} /><span class="process-cv-toggle-box" aria-hidden="true"></span><span>Guardar CV original</span></label>
         ${erro ? html`<div class="alert alert-warning mb-0">${erro}</div>` : null}
         ${mensagem ? html`<div class="alert alert-success mb-0">${mensagem}</div>` : null}
       </div>
-      <footer class="rh-modal-footer"><button type="button" class="btn btn-outline-secondary" disabled=${analisando} onClick=${onClose}>Cancelar</button><button type="button" class="btn btn-primary" disabled=${processoEncerrado || analisando || !arquivoCv} onClick=${onAnalisar}><span class="material-symbols-outlined">auto_awesome</span>${processoEncerrado ? 'Processo encerrado' : analisando ? 'Analisando...' : 'Analisar e adicionar'}</button></footer>
+      <footer class="rh-modal-footer"><button type="button" class="btn btn-outline-secondary" disabled=${analisando} onClick=${onClose}>Cancelar</button><button type="button" class="btn btn-primary" disabled=${processoEncerrado || analisando || !arquivoCv} onClick=${onAnalisar}><span class="material-symbols-outlined">${IconeSvg('auto_awesome')}</span>${processoEncerrado ? 'Processo encerrado' : analisando ? 'Analisando...' : 'Analisar e adicionar'}</button></footer>
     </${ModalPadrao}>
   `;
 }
@@ -6049,7 +6051,7 @@ function KanbanCandidatosProcesso({
                               ? html`<span class="process-urgent-badge" title="Botão Expresso: contratação urgente">Urgente</span>`
                               : null}
                             <span class="process-kanban-score-badge" title="Média das notas do scorecard">
-                              <span class="material-symbols-outlined">star</span>
+                              <span class="material-symbols-outlined">${IconeSvg('star')}</span>
                               ${media === null || media === undefined ? 'Sem scorecard' : media.toFixed(1)}
                             </span>
                           </div>
@@ -6232,7 +6234,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
       <header class="process-header">
         <div class="process-header-main">
           <button type="button" class="process-back-button" aria-label="Voltar" onClick=${actions.voltar}>
-            <span class="material-symbols-outlined">arrow_back</span>
+            <span class="material-symbols-outlined">${IconeSvg('arrow_back')}</span>
           </button>
           <div>
             <h1>Detalhes do processo</h1>
@@ -6243,9 +6245,9 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
               </span>
             </div>
             <div class="process-date-line">
-              <span><i class="material-symbols-outlined">calendar_today</i>Publicada em ${formatarDataCurta(datas.publicacao)}</span>
-              <span><i class="material-symbols-outlined">calendar_today</i>Inscrições até ${formatarDataCurta(datas.inscricao)}</span>
-              <span><i class="material-symbols-outlined">calendar_today</i>Contratação até ${formatarDataCurta(datas.contratacao)}</span>
+              <span><i class="material-symbols-outlined">${IconeSvg('calendar_today')}</i>Publicada em ${formatarDataCurta(datas.publicacao)}</span>
+              <span><i class="material-symbols-outlined">${IconeSvg('calendar_today')}</i>Inscrições até ${formatarDataCurta(datas.inscricao)}</span>
+              <span><i class="material-symbols-outlined">${IconeSvg('calendar_today')}</i>Contratação até ${formatarDataCurta(datas.contratacao)}</span>
             </div>
           </div>
         </div>
@@ -6253,12 +6255,12 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
           ${actions.abrirResultadosAnaliticos
       ? html`
                 <button type="button" class="btn btn-outline-primary" onClick=${actions.abrirResultadosAnaliticos}>
-                  <span class="material-symbols-outlined">analytics</span>Resultados das provas
+                  <span class="material-symbols-outlined">${IconeSvg('analytics')}</span>Resultados das provas
                 </button>
               `
       : null}
           <button type="button" class="btn btn-outline-primary" onClick=${actions.voltar}>
-            <span class="material-symbols-outlined">arrow_back</span>Voltar à vaga
+            <span class="material-symbols-outlined">${IconeSvg('arrow_back')}</span>Voltar à vaga
           </button>
           <${MenuAcoesProcesso}
             acoes=${actions.acoesCabecalho || []}
@@ -6279,7 +6281,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
       ['schedule', 'Decisões pendentes', decisoesPendentes, 'orange'],
     ].map(([icon, label, value, tone]) => html`
           <article class="process-summary-card" key=${label}>
-            <span class=${`process-summary-icon is-${tone}`}><i class="material-symbols-outlined">${icon}</i></span>
+            <span class=${`process-summary-icon is-${tone}`}><i class="material-symbols-outlined">${IconeSvg(icon)}</i></span>
             <div><span>${label}</span><strong>${value}</strong></div>
           </article>
         `)}
@@ -6299,7 +6301,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
       ${aba === 'candidatos' ? html`
         <section class="process-candidate-toolbar">
           <label class="process-search-control">
-            <span class="material-symbols-outlined">search</span>
+            <span class="material-symbols-outlined">${IconeSvg('search')}</span>
             <input
               value=${buscaCandidatos}
               placeholder="Buscar candidato, etapa ou palavra-chave"
@@ -6318,7 +6320,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
     )}
           </select>
           <button type="button" class="btn btn-primary" onClick=${actions.aplicarFiltrosCandidatos}>
-            <span class="material-symbols-outlined">filter_alt</span>Filtrar
+            <span class="material-symbols-outlined">${IconeSvg('filter_alt')}</span>Filtrar
           </button>
           <div class="process-view-toggle" role="group" aria-label="Alternar visualização">
             <button
@@ -6327,7 +6329,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
               aria-pressed=${visualizacaoCandidatos !== 'kanban'}
               onClick=${() => actions.setVisualizacaoCandidatos('lista')}
             >
-              <span class="material-symbols-outlined">view_list</span>Lista
+              <span class="material-symbols-outlined">${IconeSvg('view_list')}</span>Lista
             </button>
             <button
               type="button"
@@ -6335,7 +6337,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
               aria-pressed=${visualizacaoCandidatos === 'kanban'}
               onClick=${() => actions.setVisualizacaoCandidatos('kanban')}
             >
-              <span class="material-symbols-outlined">view_kanban</span>Kanban
+              <span class="material-symbols-outlined">${IconeSvg('view_kanban')}</span>Kanban
             </button>
           </div>
         </section>
@@ -6360,20 +6362,20 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
 
       ${aba === 'entrevistas' ? html`
         <section class="process-filter-bar process-filter-bar--interviews">
-          <label><span>Nome</span><div class="process-input-icon"><i class="material-symbols-outlined">search</i><input value=${filtrosEntrevistas.nome} placeholder="Buscar candidato ou entrevistador" onInput=${(event) => actions.setFiltrosEntrevistas({ ...filtrosEntrevistas, nome: event.target.value })} /></div></label>
+          <label><span>Nome</span><div class="process-input-icon"><i class="material-symbols-outlined">${IconeSvg('search')}</i><input value=${filtrosEntrevistas.nome} placeholder="Buscar candidato ou entrevistador" onInput=${(event) => actions.setFiltrosEntrevistas({ ...filtrosEntrevistas, nome: event.target.value })} /></div></label>
           <label><span>Status</span><select value=${filtrosEntrevistas.status} onChange=${(event) => actions.setFiltrosEntrevistas({ ...filtrosEntrevistas, status: event.target.value })}><option value="">Todos os status</option>${Array.from(new Set(model.entrevistasOriginais.map((item) => item.status_entrevista).filter(Boolean))).map((status) => html`<option key=${status} value=${status}>${status}</option>`)}</select></label>
           <label><span>Data</span><input type="date" value=${filtrosEntrevistas.data} onInput=${(event) => actions.setFiltrosEntrevistas({ ...filtrosEntrevistas, data: event.target.value })} /></label>
-          <button type="button" class="btn btn-outline-primary" onClick=${actions.aplicarFiltrosEntrevistas}><span class="material-symbols-outlined">filter_alt</span>Filtros</button>
+          <button type="button" class="btn btn-outline-primary" onClick=${actions.aplicarFiltrosEntrevistas}><span class="material-symbols-outlined">${IconeSvg('filter_alt')}</span>Filtros</button>
         </section>
       ` : null}
 
       ${aba === 'provas' ? html`
         <section class="process-filter-bar process-filter-bar--exams">
-          <label><span>Nome</span><div class="process-input-icon"><i class="material-symbols-outlined">search</i><input value=${filtrosProvas.nome} placeholder="Buscar por nome do candidato" onInput=${(event) => actions.setFiltrosProvas({ ...filtrosProvas, nome: event.target.value })} /></div></label>
+          <label><span>Nome</span><div class="process-input-icon"><i class="material-symbols-outlined">${IconeSvg('search')}</i><input value=${filtrosProvas.nome} placeholder="Buscar por nome do candidato" onInput=${(event) => actions.setFiltrosProvas({ ...filtrosProvas, nome: event.target.value })} /></div></label>
           <label><span>Status</span><select value=${filtrosProvas.status} onChange=${(event) => actions.setFiltrosProvas({ ...filtrosProvas, status: event.target.value })}><option value="">Todos os status</option><option>Prova disponível</option><option>Prova concluída</option><option>Prova em andamento</option><option>Prova pendente</option><option>Prova cancelada</option></select></label>
           <label><span>Nota</span><select value=${filtrosProvas.nota} onChange=${(event) => actions.setFiltrosProvas({ ...filtrosProvas, nota: event.target.value })}><option value="">Todas as notas</option><option value="com-nota">Com resultado</option><option value="aprovacao">7,0 ou mais</option><option value="abaixo">Abaixo de 7,0</option></select></label>
-          <button type="button" class="btn btn-outline-primary" onClick=${actions.aplicarFiltrosProvas}><span class="material-symbols-outlined">filter_alt</span>Filtros</button>
-          <button type="button" class="btn btn-primary" disabled=${model.processoEncerrado} onClick=${actions.abrirGeracaoProvaGeral}><span class="material-symbols-outlined">assignment_add</span>Liberar prova</button>
+          <button type="button" class="btn btn-outline-primary" onClick=${actions.aplicarFiltrosProvas}><span class="material-symbols-outlined">${IconeSvg('filter_alt')}</span>Filtros</button>
+          <button type="button" class="btn btn-primary" disabled=${model.processoEncerrado} onClick=${actions.abrirGeracaoProvaGeral}><span class="material-symbols-outlined">${IconeSvg('assignment_add')}</span>Liberar prova</button>
         </section>
       ` : null}
 
@@ -6404,7 +6406,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
                       <td><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span><div><strong>${candidato.nome_candidato || '-'}</strong><small>ID: ${candidato.id_registro || candidato.id_teste || '-'}</small></div></div></td>
                       <td><div class="process-score-cell"><div><strong>${nota.valor}</strong><small>${nota.tipo}</small></div><span class=${`process-fit-tag ${aderencia.className}`}>${aderencia.label}</span></div></td>
                       <td><span class=${`process-status-tag ${obterStatusClasseVisual(status)}`}>${status}</span></td>
-                      <td><span class="process-next-action"><i class="material-symbols-outlined">arrow_circle_right</i>${obterProximaAcaoVisual(candidato)}</span></td>
+                      <td><span class="process-next-action"><i class="material-symbols-outlined">${IconeSvg('arrow_circle_right')}</i>${obterProximaAcaoVisual(candidato)}</span></td>
                     </tr>`;
     }) : html`<tr><td colspan="5" class="process-empty-row">Nenhum candidato encontrado com os filtros informados.</td></tr>`}
                 </tbody>
@@ -6472,7 +6474,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
 
           ${aba === 'historico' ? html`
             <div class="process-section-heading"><div><h3>Histórico do processo</h3><p>Movimentações registradas para candidatos, entrevistas e avaliações.</p></div></div>
-            <div class="process-history-list">${historico.length ? historico.map((evento) => html`<article key=${evento.id}><span class="process-history-icon"><i class="material-symbols-outlined">${evento.icone || 'history'}</i></span><div><strong>${evento.titulo}</strong><p>${evento.descricao}</p><small>${formatarDataHora(evento.data)}</small></div></article>`) : html`<div class="process-empty-row">Nenhuma movimentação registrada para este processo.</div>`}</div>
+            <div class="process-history-list">${historico.length ? historico.map((evento) => html`<article key=${evento.id}><span class="process-history-icon"><i class="material-symbols-outlined">${IconeSvg(evento.icone || 'history')}</i></span><div><strong>${evento.titulo}</strong><p>${evento.descricao}</p><small>${formatarDataHora(evento.data)}</small></div></article>`) : html`<div class="process-empty-row">Nenhuma movimentação registrada para este processo.</div>`}</div>
           ` : null}
 
           ${aba === 'encontrar' ? html`
@@ -6480,18 +6482,18 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
             <nav class="process-find-subtabs" aria-label="Fontes de candidatos"><button type="button" class=${subAbaEncontrar === 'cvs' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('cvs')}>CVs não qualificados <span>${cvsNaoQualificadosPaginacao.totalItens}</span></button><button type="button" class=${subAbaEncontrar === 'banco' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('banco')}>Banco de Talentos <span>${bancoTalentos.length}</span></button><button type="button" class=${subAbaEncontrar === 'sugeridos' ? 'is-active' : ''} onClick=${() => actions.setSubAbaEncontrar('sugeridos')}>Sugeridos para esta vaga <span>${sugeridosProcesso.length}</span></button></nav>
 
             ${subAbaEncontrar === 'cvs' ? html`
-              <div class="process-find-toolbar"><label class="process-search-control"><span class="material-symbols-outlined">search</span><input value=${buscaTalentos} placeholder="Buscar por nome, e-mail, telefone ou arquivo" onInput=${(event) => actions.setBuscaTalentos(event.target.value)} /></label><strong>${cvsNaoQualificadosFiltrados.length} currículo(s)</strong></div>
+              <div class="process-find-toolbar"><label class="process-search-control"><span class="material-symbols-outlined">${IconeSvg('search')}</span><input value=${buscaTalentos} placeholder="Buscar por nome, e-mail, telefone ou arquivo" onInput=${(event) => actions.setBuscaTalentos(event.target.value)} /></label><strong>${cvsNaoQualificadosFiltrados.length} currículo(s)</strong></div>
               <div class="process-table-shell"><table class="process-table process-find-table"><thead><tr><th>Candidato</th><th>Contato</th><th>Nota</th><th>Classificação</th><th>Motivo da não qualificação</th><th>Ação</th></tr></thead><tbody>${cvsNaoQualificadosFiltrados.length ? cvsNaoQualificadosFiltrados.map((item) => html`<tr key=${item.id_pre_analise}><td><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(item.nome_candidato || item.nome_arquivo)}</span><div><strong>${item.nome_candidato || 'Nome não identificado'}</strong><small>${item.nome_arquivo || '-'}</small></div></div></td><td>${item.email || item.telefone || item.whatsapp || '-'}</td><td><strong>${item.score_final ?? '-'} pts</strong></td><td><span class="process-status-tag is-danger">${item.classificacao || 'Não qualificado'}</span></td><td>${obterMotivoNaoQualificacao(item)}</td><td><button type="button" class="btn btn-sm btn-outline-primary" disabled=${Number(item.ja_adicionado_ao_processo || 0) === 1 || actions.usandoPreAnaliseId === String(item.id_pre_analise || '')} onClick=${() => actions.iniciarUsoPreAnalise(item)}>${Number(item.ja_adicionado_ao_processo || 0) === 1 ? 'Já utilizado' : 'Atrelar ao processo'}</button>${actions.preAnalisePendente === String(item.id_pre_analise || '') ? html`<${PainelIndicacaoUso} formulario=${actions.formIndicacaoPreAnalise} salvando=${actions.usandoPreAnaliseId === String(item.id_pre_analise || '')} onChange=${actions.setFormIndicacaoPreAnalise} onConfirmar=${() => actions.confirmarUsoPreAnalise(item)} onCancelar=${actions.cancelarUsoPreAnalise} />` : null}</td></tr>`) : html`<tr><td colspan="6" class="process-empty-row">Nenhum CV não qualificado encontrado.</td></tr>`}</tbody></table><${PaginacaoCompacta} paginaAtual=${cvsNaoQualificadosPaginacao.paginaAtual} totalPaginas=${cvsNaoQualificadosPaginacao.totalPaginas} totalItens=${cvsNaoQualificadosPaginacao.totalItens} tamanhoPagina=${TAMANHO_PAGINA_CVS_NAO_QUALIFICADOS} itensNaPagina=${cvsNaoQualificados.length} onChange=${actions.setPaginaCvsNaoQualificados} /></div>
               ${emails.length ? html`<section class="process-email-strip"><div><h4>E-mails relacionados</h4><span>Currículos recebidos que podem ser analisados e vinculados.</span></div><div>${emails.slice(0, 4).map((email) => html`<span key=${email.uid}><strong>${email.nome_candidato_possivel || email.remetente || '-'}</strong>${email.email_encontrado || email.assunto || '-'}</span>`)}</div></section>` : null}
             ` : null}
 
             ${subAbaEncontrar === 'banco' ? html`
-              <section class="process-filter-bar process-talent-filters process-talent-filters--compact"><label><span>Busca</span><div class="process-input-icon"><i class="material-symbols-outlined">search</i><input value=${buscaTalentos} placeholder="Nome, contato, cargo ou tag" onInput=${(event) => actions.setBuscaTalentos(event.target.value)} /></div></label><label><span>Status</span><input value=${filtrosTalentos.status} placeholder="Todos" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, status: event.target.value })} /></label><label><span>Área</span><input value=${filtrosTalentos.area} placeholder="Todas" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, area: event.target.value })} /></label><label><span>Cargo</span><input value=${filtrosTalentos.cargo} placeholder="Todos" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, cargo: event.target.value })} /></label><label><span>Indicação</span><select value=${filtrosTalentos.indicacao} onChange=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, indicacao: event.target.value })}><option value="">Todas</option><option value="sim">Sim</option><option value="nao">Não</option></select></label></section>
+              <section class="process-filter-bar process-talent-filters process-talent-filters--compact"><label><span>Busca</span><div class="process-input-icon"><i class="material-symbols-outlined">${IconeSvg('search')}</i><input value=${buscaTalentos} placeholder="Nome, contato, cargo ou tag" onInput=${(event) => actions.setBuscaTalentos(event.target.value)} /></div></label><label><span>Status</span><input value=${filtrosTalentos.status} placeholder="Todos" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, status: event.target.value })} /></label><label><span>Área</span><input value=${filtrosTalentos.area} placeholder="Todas" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, area: event.target.value })} /></label><label><span>Cargo</span><input value=${filtrosTalentos.cargo} placeholder="Todos" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, cargo: event.target.value })} /></label><label><span>Indicação</span><select value=${filtrosTalentos.indicacao} onChange=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, indicacao: event.target.value })}><option value="">Todas</option><option value="sim">Sim</option><option value="nao">Não</option></select></label></section>
               <div class="process-table-shell"><table class="process-table process-find-table"><thead><tr><th>Candidato</th><th>Contato</th><th>Cargo / origem</th><th>Pontuação</th><th>Situação</th><th>Ação</th></tr></thead><tbody>${bancoTalentosPagina.itens.length ? bancoTalentosPagina.itens.map((candidato) => { const vinculado = candidatoBancoJaEstaNoProcesso(candidato, todosCandidatos); return html`<tr key=${candidato.id_banco || candidato.id_teste}><td><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span><div><strong>${candidato.nome_candidato || '-'}</strong><small>ID: ${candidato.id_teste || candidato.id_banco || '-'}</small></div></div></td><td>${candidato.email || candidato.telefone || candidato.whatsapp || '-'}</td><td><strong>${candidato.vaga || candidato.cargo || '-'}</strong><small class="process-cell-subtitle">${candidato.origem || 'Banco de Talentos'}</small></td><td>${candidato.pontuacao_final || candidato.nota_prova || '-'}</td><td><span class=${`process-status-tag ${vinculado ? 'is-warning' : 'is-info'}`}>${vinculado ? 'Já vinculado' : 'Disponível'}</span></td><td><button type="button" class="btn btn-sm btn-primary" disabled=${vinculado || actions.usandoTalento} onClick=${() => actions.iniciarUsoTalento(candidato)}>${vinculado ? 'Já no processo' : 'Atrelar ao processo'}</button>${actions.talentoPendente === String(candidato.id_banco || '') ? html`<${PainelIndicacaoUso} formulario=${actions.formIndicacaoTalento} salvando=${actions.usandoTalento} onChange=${actions.setFormIndicacaoTalento} onConfirmar=${actions.confirmarUsoTalento} onCancelar=${actions.cancelarUsoTalento} />` : null}</td></tr>`; }) : html`<tr><td colspan="6" class="process-empty-row">Nenhum candidato encontrado no Banco de Talentos.</td></tr>`}</tbody></table><${PaginacaoCompacta} paginaAtual=${bancoTalentosPagina.paginaAtual} totalPaginas=${bancoTalentosPagina.totalPaginas} totalItens=${bancoTalentosPagina.totalItens} tamanhoPagina=${TAMANHO_PAGINA_BANCO_TALENTOS_DETALHE} itensNaPagina=${bancoTalentosPagina.itens.length} onChange=${actions.setPaginaTalentos} /></div>
             ` : null}
 
             ${subAbaEncontrar === 'sugeridos' ? html`
-              <div class="process-friendly-notice"><span class="material-symbols-outlined">auto_awesome</span>Cruza palavras-chave da vaga com o perfil de cada candidato do Banco de Talentos — sem custo, sem IA. Quem já está neste processo não aparece aqui.</div>
+              <div class="process-friendly-notice"><span class="material-symbols-outlined">${IconeSvg('auto_awesome')}</span>Cruza palavras-chave da vaga com o perfil de cada candidato do Banco de Talentos — sem custo, sem IA. Quem já está neste processo não aparece aqui.</div>
               ${carregandoSugeridos
                 ? html`<div class="process-empty-row">Buscando sugestões para esta vaga...</div>`
                 : html`<div class="process-table-shell"><table class="process-table process-find-table"><thead><tr><th>Candidato</th><th>Por que combina</th><th>Pontuação</th><th>Ação</th></tr></thead><tbody>${sugeridosProcesso.length ? sugeridosProcesso.map((candidato) => html`<tr key=${candidato.id_banco || candidato.id_teste}><td><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span><div><strong>${candidato.nome_candidato || '-'}</strong><small>${candidato.vaga_anterior || candidato.origem || '-'}</small></div></div></td><td><small class="process-cell-subtitle">${candidato.motivo || '-'}</small></td><td><strong>${candidato.pontuacao_match ?? '-'}</strong></td><td><button type="button" class="btn btn-sm btn-primary" disabled=${actions.usandoTalento} onClick=${() => actions.iniciarUsoTalento(candidato)}>Atrelar ao processo</button>${actions.talentoPendente === String(candidato.id_banco || '') ? html`<${PainelIndicacaoUso} formulario=${actions.formIndicacaoTalento} salvando=${actions.usandoTalento} onChange=${actions.setFormIndicacaoTalento} onConfirmar=${actions.confirmarUsoTalento} onCancelar=${actions.cancelarUsoTalento} />` : null}</td></tr>`) : html`<tr><td colspan="4" class="process-empty-row">Nenhuma sugestão encontrada — tente ampliar os requisitos publicados da vaga.</td></tr>`}</tbody></table></div>`}
@@ -6501,16 +6503,16 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
           ${false && aba === 'encontrar' ? html`
             <div class="process-section-heading"><div><h3>Encontrar mais candidatos</h3><p>Pesquise no Banco de Talentos e nos currículos recebidos, sem duplicar vínculos.</p></div><button type="button" class="btn btn-outline-primary" onClick=${() => actions.trocarAba('candidatos')}>Voltar aos candidatos</button></div>
             <section class="process-filter-bar process-talent-filters">
-              <label><span>Busca</span><div class="process-input-icon"><i class="material-symbols-outlined">search</i><input value=${buscaTalentos} placeholder="Nome, e-mail, telefone, cargo, tags ou observações" onInput=${(event) => actions.setBuscaTalentos(event.target.value)} /></div></label>
+              <label><span>Busca</span><div class="process-input-icon"><i class="material-symbols-outlined">${IconeSvg('search')}</i><input value=${buscaTalentos} placeholder="Nome, e-mail, telefone, cargo, tags ou observações" onInput=${(event) => actions.setBuscaTalentos(event.target.value)} /></div></label>
               <label><span>Status</span><input value=${filtrosTalentos.status} placeholder="Todos" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, status: event.target.value })} /></label>
               <label><span>Área</span><input value=${filtrosTalentos.area} placeholder="Todas" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, area: event.target.value })} /></label>
               <label><span>Cargo</span><input value=${filtrosTalentos.cargo} placeholder="Todos" onInput=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, cargo: event.target.value })} /></label>
               <label><span>Aderência</span><select value=${filtrosTalentos.aderencia} onChange=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, aderencia: event.target.value })}><option value="">Todas</option><option>Alta</option><option>Média</option><option>Baixa</option></select></label>
               <label><span>Indicação</span><select value=${filtrosTalentos.indicacao} onChange=${(event) => actions.setFiltrosTalentos({ ...filtrosTalentos, indicacao: event.target.value })}><option value="">Todas</option><option value="sim">Sim</option><option value="nao">Não</option></select></label>
             </section>
-            ${model.talentosJaVinculados > 0 ? html`<div class="process-friendly-notice"><span class="material-symbols-outlined">info</span>${model.talentosJaVinculados} candidato(s) já vinculados foram ocultados para evitar duplicidade.</div>` : null}
+            ${model.talentosJaVinculados > 0 ? html`<div class="process-friendly-notice"><span class="material-symbols-outlined">${IconeSvg('info')}</span>${model.talentosJaVinculados} candidato(s) já vinculados foram ocultados para evitar duplicidade.</div>` : null}
             <div class="process-talent-grid">
-              ${bancoTalentosPagina.itens.length ? bancoTalentosPagina.itens.map((candidato) => html`<article class="process-talent-card" key=${candidato.id_banco || candidato.id_teste}><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span><div><strong>${candidato.nome_candidato || '-'}</strong><small>${candidato.email || candidato.telefone || '-'}</small></div></div><div class="process-talent-meta"><span>${candidato.vaga || candidato.cargo || 'Cargo não informado'}</span><span>${candidato.origem || 'Banco de Talentos'}</span></div><button type="button" class="btn btn-primary" disabled=${actions.usandoTalento} onClick=${() => actions.iniciarUsoTalento(candidato)}><span class="material-symbols-outlined">person_add</span>Atrelar ao processo</button>${actions.talentoPendente === String(candidato.id_banco || '') ? html`<${PainelIndicacaoUso} formulario=${actions.formIndicacaoTalento} salvando=${actions.usandoTalento} onChange=${actions.setFormIndicacaoTalento} onConfirmar=${actions.confirmarUsoTalento} onCancelar=${actions.cancelarUsoTalento} />` : null}</article>`) : html`<div class="process-empty-row">Nenhum candidato disponível no Banco de Talentos.</div>`}
+              ${bancoTalentosPagina.itens.length ? bancoTalentosPagina.itens.map((candidato) => html`<article class="process-talent-card" key=${candidato.id_banco || candidato.id_teste}><div class="process-candidate-cell"><span class="process-avatar">${obterIniciaisCandidato(candidato.nome_candidato)}</span><div><strong>${candidato.nome_candidato || '-'}</strong><small>${candidato.email || candidato.telefone || '-'}</small></div></div><div class="process-talent-meta"><span>${candidato.vaga || candidato.cargo || 'Cargo não informado'}</span><span>${candidato.origem || 'Banco de Talentos'}</span></div><button type="button" class="btn btn-primary" disabled=${actions.usandoTalento} onClick=${() => actions.iniciarUsoTalento(candidato)}><span class="material-symbols-outlined">${IconeSvg('person_add')}</span>Atrelar ao processo</button>${actions.talentoPendente === String(candidato.id_banco || '') ? html`<${PainelIndicacaoUso} formulario=${actions.formIndicacaoTalento} salvando=${actions.usandoTalento} onChange=${actions.setFormIndicacaoTalento} onConfirmar=${actions.confirmarUsoTalento} onCancelar=${actions.cancelarUsoTalento} />` : null}</article>`) : html`<div class="process-empty-row">Nenhum candidato disponível no Banco de Talentos.</div>`}
             </div>
             <${PaginacaoCompacta} paginaAtual=${bancoTalentosPagina.paginaAtual} totalPaginas=${bancoTalentosPagina.totalPaginas} totalItens=${bancoTalentosPagina.totalItens} tamanhoPagina=${TAMANHO_PAGINA_BANCO_TALENTOS_DETALHE} itensNaPagina=${bancoTalentosPagina.itens.length} onChange=${actions.setPaginaTalentos} />
             <div class="process-related-sources"><section><h4>E-mails relacionados</h4>${emails.length ? emails.slice(0, 6).map((email) => html`<article key=${email.uid}><strong>${email.nome_candidato_possivel || email.remetente || '-'}</strong><span>${email.email_encontrado || email.assunto || '-'}</span></article>`) : html`<p>Nenhum e-mail relacionado disponível.</p>`}</section><section><h4>Currículos em pré-análise</h4>${preAnalises.length ? preAnalises.slice(0, 6).map((item) => html`<article key=${item.id_pre_analise}><strong>${item.nome_candidato || item.nome_arquivo || '-'}</strong><span>${item.classificacao || 'Aguardando análise'} · ${item.score_final ?? '-'} pts</span><button type="button" class="process-link-button" disabled=${Number(item.ja_adicionado_ao_processo || 0) === 1 || actions.usandoPreAnaliseId === String(item.id_pre_analise || '')} onClick=${() => actions.iniciarUsoPreAnalise(item)}>${Number(item.ja_adicionado_ao_processo || 0) === 1 ? 'Já vinculado' : 'Atrelar ao processo'}</button>${actions.preAnalisePendente === String(item.id_pre_analise || '') ? html`<${PainelIndicacaoUso} formulario=${actions.formIndicacaoPreAnalise} salvando=${actions.usandoPreAnaliseId === String(item.id_pre_analise || '')} onChange=${actions.setFormIndicacaoPreAnalise} onConfirmar=${() => actions.confirmarUsoPreAnalise(item)} onCancelar=${actions.cancelarUsoPreAnalise} />` : null}</article>`) : html`<p>Nenhum currículo em pré-análise.</p>`}</section></div>
@@ -6518,7 +6520,7 @@ function DetalhesProcessoRedesenhado({ model, state, actions }) {
         </div>
 
         ${selecionados.length ? html`
-          <aside class="quick-actions-panel"><h3>Ações rápidas</h3>${actions.acoesRapidas.map((acao) => html`<button key=${acao.label} type="button" class=${acao.danger ? 'is-danger' : ''} disabled=${acao.disabled} title=${acao.title || acao.label} onClick=${acao.onClick}><span class="material-symbols-outlined">${acao.icon}</span>${acao.label}</button>`)}</aside>
+          <aside class="quick-actions-panel"><h3>Ações rápidas</h3>${actions.acoesRapidas.map((acao) => html`<button key=${acao.label} type="button" class=${acao.danger ? 'is-danger' : ''} disabled=${acao.disabled} title=${acao.title || acao.label} onClick=${acao.onClick}><span class="material-symbols-outlined">${IconeSvg(acao.icon)}</span>${acao.label}</button>`)}</aside>
         ` : null}
       </div>
 
@@ -6713,6 +6715,8 @@ export function TelaDetalhesProcesso({ controlador }) {
   const [abaDetalheAtiva, setAbaDetalheAtiva] = useState('candidatos');
   const [subAbaEncontrar, setSubAbaEncontrar] = useState('cvs');
 
+  const idProcesso = sessionStorage.getItem(CHAVE_PROCESSO_DETALHE) || '';
+
   useEffect(() => {
     if (subAbaEncontrar !== 'sugeridos' || sugeridosCarregados || !idProcesso) return;
     let cancelado = false;
@@ -6781,8 +6785,6 @@ export function TelaDetalhesProcesso({ controlador }) {
     cvsNaoQualificados: true,
     candidatosAprovados: true,
   });
-
-  const idProcesso = sessionStorage.getItem(CHAVE_PROCESSO_DETALHE) || '';
 
   const alternarSecao = (chave) => {
     setSecoesExpandidas((anteriores) => ({
@@ -10008,7 +10010,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                     class="btn btn-outline-primary btn-sm"
                     onClick=${() => setModoDossieProcessoAberto(true)}
                   >
-                    <span class="material-symbols-outlined">clinical_notes</span>
+                    <span class="material-symbols-outlined">${IconeSvg('clinical_notes')}</span>
                     Dossiê do Processo
                   </button>
                 `
@@ -10019,7 +10021,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
               disabled=${!processo}
               onClick=${abrirEdicaoProcessoDetalhe}
             >
-              <span class="material-symbols-outlined">edit_square</span>
+              <span class="material-symbols-outlined">${IconeSvg('edit_square')}</span>
               Editar processo seletivo
             </button>
             <button
@@ -10028,7 +10030,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
               disabled=${processoEncerrado}
               onClick=${abrirModalPreAnalise}
             >
-              <span class="material-symbols-outlined">person_add</span>
+              <span class="material-symbols-outlined">${IconeSvg('person_add')}</span>
               Adicionar candidato ao processo
             </button>
           </div>
@@ -10107,9 +10109,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
       ].map(
         (item) => html`
                 <article class="process-summary-card summary-metric-card" key=${item.label}>
-                  <span class="material-symbols-outlined summary-metric-icon">
-                    ${item.icon}
-                  </span>
+                  <span class="material-symbols-outlined summary-metric-icon">${IconeSvg(item.icon)}</span>
                   <div class="summary-metric-content">
                     <span class="summary-metric-label">${item.label}</span>
                     <strong class="summary-metric-value">${item.value}</strong>
@@ -10476,7 +10476,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                   message: emailItem.resumo || 'Sem corpo para exibir.',
                 })}
                             >
-                              <span class="material-symbols-outlined">visibility</span>
+                              <span class="material-symbols-outlined">${IconeSvg('visibility')}</span>
                               Detalhes
                             </button>
                             <button
@@ -10485,7 +10485,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                               disabled=${processoEncerrado || !anexoPrincipal || analisandoEmailUid === emailItem.uid}
                               onClick=${() => analisarCvDoEmail(emailItem, anexoPrincipal)}
                             >
-                              <span class="material-symbols-outlined">auto_awesome</span>
+                              <span class="material-symbols-outlined">${IconeSvg('auto_awesome')}</span>
                               ${analisandoEmailUid === emailItem.uid ? 'Analisando...' : 'Analisar CV'}
                             </button>
                           </div>
@@ -10655,7 +10655,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                 disabled=${processoEncerrado || analisandoCv}
                 onChange=${(event) => setArquivoCv(event.target.files?.[0] || null)}
               />
-              <span class="material-symbols-outlined">upload_file</span>
+              <span class="material-symbols-outlined">${IconeSvg('upload_file')}</span>
               <span class="process-cv-picker-copy">
                 <strong>Selecionar CV</strong>
                 <small title=${arquivoCv?.name || ''}>
@@ -10680,7 +10680,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             onClick=${enviarCv}
             disabled=${processoEncerrado || analisandoCv}
           >
-            <span class="material-symbols-outlined">auto_awesome</span>
+            <span class="material-symbols-outlined">${IconeSvg('auto_awesome')}</span>
             ${processoEncerrado
         ? 'Processo encerrado'
         : analisandoCv
@@ -10715,7 +10715,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             ? html`
                     <div class="process-section-toolbar process-talent-bank-toolbar">
                       <label class="process-search-field" aria-label="Buscar candidato no Banco de Talentos">
-                        <span class="material-symbols-outlined">search</span>
+                        <span class="material-symbols-outlined">${IconeSvg('search')}</span>
                         <input
                           class="form-control"
                           placeholder="Buscar no Banco de Talentos..."
@@ -10782,7 +10782,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                                       disabled=${processoEncerrado || usandoBancoTalentos}
                                       onClick=${() => iniciarUsoBancoTalentos(candidatoBanco)}
                                     >
-                                      <span class="material-symbols-outlined">person_add</span>
+                                      <span class="material-symbols-outlined">${IconeSvg('person_add')}</span>
                                       ${usandoBancoTalentos && selecionado ? 'Utilizando...' : 'Utilizar'}
                                     </button>
                                   </article>
@@ -10811,7 +10811,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                           `
                 : html`
                             <div class="c24-empty-state c24-empty-state-horizontal process-empty-compact">
-                              <span class="material-symbols-outlined">search_off</span>
+                              <span class="material-symbols-outlined">${IconeSvg('search_off')}</span>
                               <div>
                                 <h3>Nenhum candidato encontrado</h3>
                                 <p>Ajuste a busca para visualizar candidatos disponíveis do Banco de Talentos.</p>
@@ -10821,7 +10821,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                   `
             : html`
                     <div class="c24-empty-state c24-empty-state-horizontal process-empty-compact">
-                      <span class="material-symbols-outlined">check_circle</span>
+                      <span class="material-symbols-outlined">${IconeSvg('check_circle')}</span>
                       <div>
                         <h3>Todos os candidatos disponíveis já estão vinculados</h3>
                         <p>Não há novos candidatos do Banco de Talentos para este processo agora.</p>
@@ -10831,7 +10831,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             `
         : html`
               <div class="c24-empty-state c24-empty-state-horizontal process-empty-compact">
-                <span class="material-symbols-outlined">groups</span>
+                <span class="material-symbols-outlined">${IconeSvg('groups')}</span>
                 <div>
                   <h3>Nenhum candidato no Banco de Talentos</h3>
                   <p>Quando houver candidatos disponíveis, eles aparecerão aqui para seleção.</p>
@@ -10853,7 +10853,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
         >
         <div class="process-section-toolbar">
           <label class="process-search-field" aria-label="Buscar candidato no processo">
-            <span class="material-symbols-outlined">search</span>
+            <span class="material-symbols-outlined">${IconeSvg('search')}</span>
             <input
               class="form-control"
               placeholder="Buscar candidato..."
@@ -11021,7 +11021,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           `
         : html`
             <div class="c24-empty-state c24-empty-state-horizontal">
-              <span class="material-symbols-outlined">person_search</span>
+              <span class="material-symbols-outlined">${IconeSvg('person_search')}</span>
               <div>
                 <h3>${candidatosOperacionais.length ? 'Nenhum candidato encontrado' : 'Nenhum candidato vinculado'}</h3>
                 <p>
@@ -11101,7 +11101,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             usandoPreAnaliseId === String(item.id_pre_analise || '')}
                             onClick=${() => iniciarUsoPreAnalise(item)}
                           >
-                            <span class="material-symbols-outlined">person_add</span>
+                            <span class="material-symbols-outlined">${IconeSvg('person_add')}</span>
                           </button>
                           <button
                             type="button"
@@ -11110,7 +11110,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                             aria-label="Resultado"
                             onClick=${() => setResultadoAnaliseSelecionado(item)}
                           >
-                            <span class="material-symbols-outlined">fact_check</span>
+                            <span class="material-symbols-outlined">${IconeSvg('fact_check')}</span>
                           </button>
                           <button
                             type="button"
@@ -11121,7 +11121,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
             usandoPreAnaliseId === String(item.id_pre_analise || '')}
                             onClick=${() => excluirPreAnalise(item.id_pre_analise)}
                           >
-                            <span class="material-symbols-outlined">person_remove</span>
+                            <span class="material-symbols-outlined">${IconeSvg('person_remove')}</span>
                           </button>
                         </div>
                         ${usoPreAnalisePendente === String(item.id_pre_analise || '')
@@ -11151,7 +11151,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
               `
         : html`
                 <div class="c24-empty-state c24-empty-state-horizontal process-empty-compact">
-                  <span class="material-symbols-outlined">description</span>
+                  <span class="material-symbols-outlined">${IconeSvg('description')}</span>
                   <div>
                     <h3>Nenhum CV analisado fora do processo até o momento.</h3>
                     <p>Quando a análise automática não qualificar um currículo, ele aparecerá aqui.</p>
@@ -11267,7 +11267,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
           `
         : html`
             <div class="c24-empty-state">
-              <span class="material-symbols-outlined">groups</span>
+              <span class="material-symbols-outlined">${IconeSvg('groups')}</span>
               <h3>Nenhum candidato aprovado neste processo.</h3>
               <p>Aprovados ficam disponíveis aqui para consulta e relatórios.</p>
             </div>
@@ -12327,7 +12327,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
               setResultadoAnaliseSelecionado(null);
             }}
                         >
-                          <span class="material-symbols-outlined">description</span>
+                          <span class="material-symbols-outlined">${IconeSvg('description')}</span>
                           Ver CV
                         </button>
                       `
@@ -12342,7 +12342,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
               setResultadoAnaliseSelecionado(null);
             }}
                         >
-                          <span class="material-symbols-outlined">edit</span>
+                          <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                           Editar dados
                         </button>
                       `
@@ -12355,7 +12355,7 @@ Nosso endereço fica na Rua Victor Civita, 77 - Bloco 1, 3° Andar. Se precisar 
                           class="btn btn-outline-secondary btn-sm rh-action-btn"
                           onClick=${() => enviarPreAnaliseAoBancoTalentos(resultadoAnaliseSelecionado)}
                         >
-                          <span class="material-symbols-outlined">inventory_2</span>
+                          <span class="material-symbols-outlined">${IconeSvg('inventory_2')}</span>
                           Banco de Talentos
                         </button>
                       `

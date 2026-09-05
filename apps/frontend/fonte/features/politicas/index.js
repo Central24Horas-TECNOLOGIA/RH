@@ -13,6 +13,7 @@ import {
 import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const FORM_INICIAL = { id_politica: '', titulo: '', corpo_texto: '', ativo: true };
 
@@ -143,7 +144,7 @@ export function TelaPoliticas({ controlador }) {
                             class="btn btn-outline-secondary btn-sm"
                             onClick=${() => abrirEdicao(item)}
                           >
-                            <span class="material-symbols-outlined">edit</span>
+                            <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                             Editar
                           </button>
                         </td>

@@ -33,6 +33,7 @@ import {
   salvarCorNotificacao,
   salvarPreferenciasNotificacao,
 } from '../../shared/notificacoes.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const ABAS = [
   { id: 'usuarios', tela: 'screen-settings-users', label: 'Usuários', permissao: 'usuarios.visualizar', icon: 'person' },
@@ -328,9 +329,7 @@ function inferirCriticidadeLog(log) {
 
 function Icone({ name, className = '' }) {
   return html`
-    <span class=${`material-symbols-outlined ${className}`.trim()} aria-hidden="true">
-      ${name}
-    </span>
+    <span class=${`material-symbols-outlined ${className}`.trim()} aria-hidden="true">${IconeSvg(name)}</span>
   `;
 }
 
@@ -1500,24 +1499,6 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
     return html`
       <div class="settings-admin-shell users-modern-page">
         <section class="users-modern-panel">
-          <header class="users-modern-header">
-            <div class="users-modern-actions">
-              <button type="button" class="btn btn-primary btn-sm" disabled=${!podeCriar} onClick=${iniciarNovoUsuario}>
-                Criar usuário
-              </button>
-              <button
-                type="button"
-                class="c24-icon-btn"
-                title="Atualizar usuários"
-                aria-label="Atualizar usuários"
-                disabled=${carregando}
-                onClick=${() => carregarAba(abaRenderizada)}
-              >
-                <${Icone} name="refresh" />
-              </button>
-            </div>
-          </header>
-
           ${controlador.possuiPermissao('usuarios.alterar_email') && solicitacoesEmailPendentes.length > 0
             ? html`
                 <section class="c24-card settings-ambiente-section">
@@ -1688,13 +1669,13 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                                   aria-expanded=${String(menuUsuarioAbertoId) === String(idUsuario)}
                                   onClick=${(event) => alternarMenuUsuario(event, idUsuario)}
                                 >
-                                  <span class="material-symbols-outlined">more_horiz</span>
+                                  <span class="material-symbols-outlined">${IconeSvg('more_horiz')}</span>
                                 </button>
                                 ${String(menuUsuarioAbertoId) === String(idUsuario)
               ? html`
                                       <div class="users-row-actions-dropdown" role="menu" style=${menuUsuarioPosicao || {}} onClick=${(event) => event.stopPropagation()}>
                                         <button type="button" role="menuitem" class="process-row-actions-item" onClick=${() => selecionarUsuario(usuario)}>
-                                          <span class="material-symbols-outlined">edit</span>
+                                          <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                                           <span>Editar usuário</span>
                                         </button>
                                       </div>
@@ -2044,22 +2025,6 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                         label=${`${alteracoesPendentesPerfil} pendente(s)`}
                         tone=${alteracoesPendentesPerfil ? 'danger' : 'muted'}
                       />
-                      <button
-                        type="button"
-                        class="btn btn-primary btn-sm"
-                        disabled=${salvando || !controlador.possuiPermissao('configuracoes.editar')}
-                        onClick=${salvarPermissoesPerfil}
-                      >
-                        <${Icone} name="save" /> ${salvando ? 'Salvando...' : 'Salvar matriz'}
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary btn-sm"
-                        disabled=${salvando}
-                        onClick=${() => setPermissoesPerfilDraft(permissoesOriginaisPerfil)}
-                      >
-                        <${Icone} name="restore" /> Restaurar
-                      </button>
                     </div>
                   </header>
 
@@ -2176,6 +2141,32 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
                           />
                         `}
                   </div>
+
+                  <footer class="rh-form-footer rh-form-footer--sticky">
+                    <span class="rh-form-footer-hint">
+                      ${alteracoesPendentesPerfil
+        ? `${alteracoesPendentesPerfil} alteração(ões) pendente(s) de salvar.`
+        : 'Nenhuma alteração pendente.'}
+                    </span>
+                    <div class="settings-card-actions">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        disabled=${salvando}
+                        onClick=${() => setPermissoesPerfilDraft(permissoesOriginaisPerfil)}
+                      >
+                        <${Icone} name="restore" /> Restaurar
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-primary btn-sm"
+                        disabled=${salvando || !controlador.possuiPermissao('configuracoes.editar')}
+                        onClick=${salvarPermissoesPerfil}
+                      >
+                        <${Icone} name="save" /> ${salvando ? 'Salvando...' : 'Salvar matriz'}
+                      </button>
+                    </div>
+                  </footer>
                 </section>
               `
         : html`
@@ -3739,6 +3730,28 @@ export function TelaConfiguracoesSistema({ controlador, telaAtual = 'screen-sett
       <${PageIntro}
         kicker="Console - Administração"
         title=${abasPermitidas.find((aba) => aba.id === abaRenderizada)?.label || 'Configurações'}
+        actions=${abaRenderizada === 'usuarios'
+      ? html`
+              <button
+                type="button"
+                class="c24-icon-btn"
+                title="Atualizar usuários"
+                aria-label="Atualizar usuários"
+                disabled=${carregando}
+                onClick=${() => carregarAba(abaRenderizada)}
+              >
+                <${Icone} name="refresh" />
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                disabled=${!controlador.possuiPermissao('usuarios.criar')}
+                onClick=${iniciarNovoUsuario}
+              >
+                Criar usuário
+              </button>
+            `
+      : null}
       />
 
       ${erro ? html`<div class="alert alert-danger c24-feedback">${erro}</div>` : null}

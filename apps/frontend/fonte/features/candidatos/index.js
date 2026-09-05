@@ -59,6 +59,7 @@ import {
 } from '../../shared/helpers-visuais.js';
 import { obterReferenciaProcesso } from '../../shared/process-reference.js';
 import { PainelAnaliseCurriculoIa } from './analise-curriculo-ia.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 function normalizarTexto(valor) {
   return String(valor || '')
@@ -1513,7 +1514,7 @@ export function TelaDetalhesCandidato({ controlador }) {
           ? window.history.back()
           : controlador.irParaTelaProtegida('screen-candidates')}
           >
-            <span class="material-symbols-outlined">arrow_back</span>
+            <span class="material-symbols-outlined">${IconeSvg('arrow_back')}</span>
             Voltar
           </button>
           <button
@@ -1521,7 +1522,7 @@ export function TelaDetalhesCandidato({ controlador }) {
             class="btn btn-outline-secondary btn-sm"
             onClick=${() => controlador.irParaTelaProtegida('screen-candidates')}
           >
-            <span class="material-symbols-outlined">groups</span>
+            <span class="material-symbols-outlined">${IconeSvg('groups')}</span>
             Lista geral de candidatos
           </button>
           <button type="button" class="btn btn-outline-primary btn-sm" onClick=${() => abrirFichaImpressao(candidato, dossie, showToast)}>
@@ -1539,9 +1540,6 @@ export function TelaDetalhesCandidato({ controlador }) {
                 </button>
               `
         : null}
-          <button type="button" class="btn btn-primary btn-sm" disabled=${salvando} onClick=${salvar}>
-            ${salvando ? 'Salvando...' : 'Salvar alterações'}
-          </button>
         `}
       />
 
@@ -1694,7 +1692,7 @@ export function TelaDetalhesCandidato({ controlador }) {
               ${candidato.cv_disponivel
       ? html`
                     <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${abrirCurriculo}>
-                      <span class="material-symbols-outlined">description</span>
+                      <span class="material-symbols-outlined">${IconeSvg('description')}</span>
                       Ver CV
                     </button>
                   `
@@ -1708,7 +1706,7 @@ export function TelaDetalhesCandidato({ controlador }) {
                         disabled=${enviandoCvFicha || analisandoCvFicha}
                         onChange=${(event) => setArquivoCvFicha(event.target.files?.[0] || null)}
                       />
-                      <span class="material-symbols-outlined">upload_file</span>
+                      <span class="material-symbols-outlined">${IconeSvg('upload_file')}</span>
                       <span class="process-cv-picker-copy">
                         <strong>Adicionar CV</strong>
                         <small title=${arquivoCvFicha?.name || ''}>
@@ -1722,7 +1720,7 @@ export function TelaDetalhesCandidato({ controlador }) {
                       disabled=${!arquivoCvFicha || enviandoCvFicha || analisandoCvFicha}
                       onClick=${enviarCvFicha}
                     >
-                      <span class="material-symbols-outlined">upload</span>
+                      <span class="material-symbols-outlined">${IconeSvg('upload')}</span>
                       ${enviandoCvFicha ? 'Adicionando...' : 'Adicionar CV'}
                     </button>
                   `}
@@ -1732,7 +1730,7 @@ export function TelaDetalhesCandidato({ controlador }) {
                 disabled=${analisandoCvFicha || enviandoCvFicha || (!candidato.cv_disponivel && !arquivoCvFicha)}
                 onClick=${analisarCvFicha}
               >
-                <span class="material-symbols-outlined">auto_awesome</span>
+                <span class="material-symbols-outlined">${IconeSvg('auto_awesome')}</span>
                 ${analisandoCvFicha ? 'Analisando...' : 'Analisar CV'}
               </button>
             </div>
@@ -1822,6 +1820,16 @@ export function TelaDetalhesCandidato({ controlador }) {
         </div>
       </${SectionCard}>
       </${TabPanel}>
+
+      <footer class="rh-form-footer rh-form-footer--sticky">
+        <span class="rh-form-footer-hint">
+          ${salvando ? 'Salvando alterações...' : 'Revise os dados antes de salvar.'}
+        </span>
+        <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${salvar}>
+          <span class="material-symbols-outlined">${IconeSvg('save')}</span>
+          ${salvando ? 'Salvando...' : 'Salvar alterações'}
+        </button>
+      </footer>
 
       <${ModalPadrao}
         aberto=${modalVinculoAberto}
@@ -2744,6 +2752,17 @@ export function TelaCandidatos({ controlador }) {
         kicker="Console | Candidatos"
         title="Central de candidatos"
         description="Dossiê completo com dados pessoais, CV, provas, score, classificação, entrevistas, alertas e histórico."
+        actions=${html`
+          <button
+            type="button"
+            class="btn btn-outline-primary"
+            disabled=${carregando || salvando}
+            onClick=${() => carregar({ forcar: true })}
+          >
+            <span class="material-symbols-outlined">${IconeSvg('refresh')}</span>
+            Atualizar
+          </button>
+        `}
       />
 
       ${erro ? html`<div class="rh-inline-alert">${erro}</div>` : null}
@@ -2820,16 +2839,6 @@ export function TelaCandidatos({ controlador }) {
       <${SectionCard}
         title="Lista geral de candidatos"
         description="As ações desta tela são atalhos. As telas antigas continuam funcionando normalmente."
-        actions=${html`
-          <button
-            type="button"
-            class="btn btn-outline-primary"
-            disabled=${carregando || salvando}
-            onClick=${() => carregar({ forcar: true })}
-          >
-            Atualizar
-          </button>
-        `}
       >
         ${html`
               <div class="table-responsive">
@@ -3258,7 +3267,7 @@ export function TelaCandidatos({ controlador }) {
                             class="btn btn-outline-secondary"
                             onClick=${() => abrirCurriculo(detalhe)}
                           >
-                            <span class="material-symbols-outlined">description</span>
+                            <span class="material-symbols-outlined">${IconeSvg('description')}</span>
                             Visualizar ou baixar CV
                           </button>
                         `
@@ -3272,7 +3281,7 @@ export function TelaCandidatos({ controlador }) {
                               disabled=${enviandoCvDetalhe || analisandoCvDetalhe}
                               onChange=${(event) => setArquivoCvDetalhe(event.target.files?.[0] || null)}
                             />
-                            <span class="material-symbols-outlined">upload_file</span>
+                            <span class="material-symbols-outlined">${IconeSvg('upload_file')}</span>
                             <span class="process-cv-picker-copy">
                               <strong>Adicionar CV</strong>
                               <small title=${arquivoCvDetalhe?.name || ''}>
@@ -3286,7 +3295,7 @@ export function TelaCandidatos({ controlador }) {
                             disabled=${!arquivoCvDetalhe || enviandoCvDetalhe || analisandoCvDetalhe}
                             onClick=${enviarCvDetalhe}
                           >
-                            <span class="material-symbols-outlined">upload</span>
+                            <span class="material-symbols-outlined">${IconeSvg('upload')}</span>
                             ${enviandoCvDetalhe ? 'Adicionando...' : 'Adicionar CV'}
                           </button>
                         `}
@@ -3296,7 +3305,7 @@ export function TelaCandidatos({ controlador }) {
                       disabled=${analisandoCvDetalhe || enviandoCvDetalhe || (!detalhe.cv_disponivel && !arquivoCvDetalhe)}
                       onClick=${analisarCvDetalhe}
                     >
-                      <span class="material-symbols-outlined">auto_awesome</span>
+                      <span class="material-symbols-outlined">${IconeSvg('auto_awesome')}</span>
                       ${analisandoCvDetalhe ? 'Analisando...' : 'Analisar CV'}
                     </button>
                   </div>
@@ -3409,7 +3418,7 @@ export function TelaCandidatos({ controlador }) {
                           class="btn btn-outline-secondary btn-sm mt-2"
                           onClick=${() => setModalGerarDocumentoAberto(true)}
                         >
-                          <span class="material-symbols-outlined">description</span>
+                          <span class="material-symbols-outlined">${IconeSvg('description')}</span>
                           Gerar documento
                         </button>
                       `

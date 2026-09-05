@@ -1,3 +1,5 @@
+import { IconeSvg } from '../../ui/icone.js';
+
 ﻿import {
   html,
   useEffect,
@@ -84,7 +86,7 @@ import {
   RESPONSABILIDADES_PUBLICAS_PADRAO,
   montarItensPublicosPadrao,
   montarTextoCompartilhamentoVaga,
-} from '../../shared/components/share-job-modal.js?v=20260904-correcoes-txt3';
+} from '../../shared/components/share-job-modal.js?v=20260904-identidade-conecta';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 import {
@@ -767,7 +769,7 @@ function PaginacaoCompacta({
           disabled=${paginaAtual <= 1}
           onClick=${() => onChange(paginaAtual - 1)}
         >
-          <span class="material-symbols-outlined">chevron_left</span>
+          <span class="material-symbols-outlined">${IconeSvg('chevron_left')}</span>
         </button>
         ${paginas.map(
     (pagina) => html`
@@ -788,7 +790,7 @@ function PaginacaoCompacta({
           disabled=${paginaAtual >= totalPaginas}
           onClick=${() => onChange(paginaAtual + 1)}
         >
-          <span class="material-symbols-outlined">chevron_right</span>
+          <span class="material-symbols-outlined">${IconeSvg('chevron_right')}</span>
         </button>
         ${onVerTodos
       ? html`
@@ -1154,7 +1156,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
         ? html`
                   <form class="mailbox-filter-form" onSubmit=${enviarFiltro}>
                     <label class="email-search-control">
-                      <span class="material-symbols-outlined">search</span>
+                      <span class="material-symbols-outlined">${IconeSvg('search')}</span>
                       <input
                         class="form-control form-control-sm rh-email-filter-input email-filter-input"
                         aria-label="Filtrar e-mails"
@@ -1168,7 +1170,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                       class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
                       disabled=${carregando}
                     >
-                      <span class="material-symbols-outlined">filter_alt</span>
+                      <span class="material-symbols-outlined">${IconeSvg('filter_alt')}</span>
                       Filtrar
                     </button>
                   </form>
@@ -1180,7 +1182,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                       class="btn btn-outline-primary btn-sm rh-action-btn email-toolbar-btn"
                       onClick=${() => controlador.irParaTelaProtegida('screen-email-inbox')}
                     >
-                      <span class="material-symbols-outlined">mail</span>
+                      <span class="material-symbols-outlined">${IconeSvg('mail')}</span>
                       Abrir caixa completa
                     </button>
                   `
@@ -1217,7 +1219,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                 disabled=${carregando}
                 onClick=${() => carregarEmails({ forcar: true })}
               >
-                <span class="material-symbols-outlined">refresh</span>
+                <span class="material-symbols-outlined">${IconeSvg('refresh')}</span>
                 ${carregando ? 'Atualizando...' : 'Atualizar'}
               </button>
 
@@ -1228,7 +1230,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                       class="btn btn-outline-secondary btn-sm rh-action-btn email-toolbar-btn"
                       onClick=${() => setAberta((valor) => !valor)}
                     >
-                      <span class="material-symbols-outlined">${aberta ? 'expand_less' : 'expand_more'}</span>
+                      <span class="material-symbols-outlined">${IconeSvg(aberta ? 'expand_less' : 'expand_more')}</span>
                       ${aberta ? 'Recolher' : 'Expandir'}
                     </button>
                   `
@@ -1243,7 +1245,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
               ${payloadEmail && !payloadEmail.configured
           ? html`
                     <div class="alert alert-warning mailbox-config-alert">
-                      <span class="material-symbols-outlined">error</span>
+                      <span class="material-symbols-outlined">${IconeSvg('error')}</span>
                       <div>
                         <strong>Caixa de e-mail corporativa ainda não configurada.</strong>
                         <span>Informe TENANT_ID, CLIENT_ID e CLIENT_SECRET no servidor.</span>
@@ -1359,7 +1361,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                                     />
                                   `
                                 : html`
-                                    <span class="material-symbols-outlined">inbox</span>
+                                    <span class="material-symbols-outlined">${IconeSvg('inbox')}</span>
                                     <span>Nenhum currículo recebido por e-mail para listar.</span>
                                   `}
                             </td>
@@ -1405,7 +1407,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                   aria-label="Fechar ações rápidas"
                   onClick=${() => setIdsSelecionados([])}
                 >
-                  <span class="material-symbols-outlined">close</span>
+                  <span class="material-symbols-outlined">${IconeSvg('close')}</span>
                 </button>
               </header>
 
@@ -1413,7 +1415,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
           ? html`
                     <div class="email-quick-actions-list">
                       <button type="button" onClick=${() => abrirDetalhesEmail(itemSelecionado)}>
-                        <span class="material-symbols-outlined">mail</span>
+                        <span class="material-symbols-outlined">${IconeSvg('mail')}</span>
                         Ver e-mail
                       </button>
                       <button
@@ -1421,7 +1423,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                         disabled=${!itemSelecionado.possui_anexo || acaoEmAndamento === `cv:${itemSelecionado.id}` || !controlador?.possuiPermissao?.('candidatos.baixar_curriculo')}
                         onClick=${() => abrirCvEmail(itemSelecionado)}
                       >
-                        <span class="material-symbols-outlined">description</span>
+                        <span class="material-symbols-outlined">${IconeSvg('description')}</span>
                         Ver CV
                       </button>
                       <button
@@ -1429,7 +1431,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                         disabled=${!itemSelecionado.possui_anexo || acaoEmAndamento === `analisar:${itemSelecionado.id}` || !controlador?.possuiPermissao?.('candidatos.avaliar_curriculo')}
                         onClick=${() => analisarEmail(itemSelecionado)}
                       >
-                        <span class="material-symbols-outlined">auto_awesome</span>
+                        <span class="material-symbols-outlined">${IconeSvg('auto_awesome')}</span>
                         Analisar CV
                       </button>
 
@@ -1455,7 +1457,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                           disabled=${!selecoesProcesso[itemSelecionado.id] || acaoEmAndamento === `vincular:${itemSelecionado.id}` || !controlador?.possuiPermissao?.('candidatos.criar')}
                           onClick=${() => vincularEmail(itemSelecionado)}
                         >
-                          <span class="material-symbols-outlined">link</span>
+                          <span class="material-symbols-outlined">${IconeSvg('link')}</span>
                           Vincular ao processo
                         </button>
                       </div>
@@ -1467,7 +1469,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                               disabled=${acaoEmAndamento === `banco:${itemSelecionado.id}`}
                               onClick=${() => enviarParaBanco(itemSelecionado)}
                             >
-                              <span class="material-symbols-outlined">group</span>
+                              <span class="material-symbols-outlined">${IconeSvg('group')}</span>
                               Banco de Talentos
                             </button>
                           `
@@ -1485,7 +1487,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                         disabled=${!!acaoEmAndamento}
                         onClick=${itemSelecionado ? () => ignorarEmail(itemSelecionado) : ignorarEmailsSelecionados}
                       >
-                        <span class="material-symbols-outlined">visibility_off</span>
+                        <span class="material-symbols-outlined">${IconeSvg('visibility_off')}</span>
                         Ignorar
                       </button>
                     `
@@ -1498,7 +1500,7 @@ function SecaoCurriculosRecebidosEmail({ modo = 'resumo', controlador = null } =
                         disabled=${!!acaoEmAndamento}
                         onClick=${itemSelecionado ? () => excluirEmail(itemSelecionado) : excluirEmailsSelecionados}
                       >
-                        <span class="material-symbols-outlined">delete</span>
+                        <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                         Excluir
                       </button>
                     `
@@ -1743,9 +1745,7 @@ export function TelaLogin({ controlador }) {
                   <div class="mb-3">
                     <label class="form-label rh-login-label">Login</label>
                     <div class="rh-login-input-wrap">
-                      <span class="material-symbols-outlined rh-login-input-icon">
-                        alternate_email
-                      </span>
+                      <span class="material-symbols-outlined rh-login-input-icon">${IconeSvg('alternate_email')}</span>
                       <input
                         autocomplete="username"
                         class="form-control rh-login-input rh-login-input-modern"
@@ -1765,9 +1765,7 @@ export function TelaLogin({ controlador }) {
                       </button>
                     </div>
                     <div class="rh-login-input-wrap">
-                      <span class="material-symbols-outlined rh-login-input-icon">
-                        lock
-                      </span>
+                      <span class="material-symbols-outlined rh-login-input-icon">${IconeSvg('lock')}</span>
                       <input
                         autocomplete="current-password"
                         class="form-control rh-login-input rh-login-input-modern"
@@ -1784,7 +1782,7 @@ export function TelaLogin({ controlador }) {
                     onClick=${enviar}
                   >
                     <span>Acessar sistema</span>
-                    <span class="material-symbols-outlined">arrow_forward</span>
+                    <span class="material-symbols-outlined">${IconeSvg('arrow_forward')}</span>
                   </button>
                 </div>
               `
@@ -2112,9 +2110,21 @@ export function TelaInicio({ controlador }) {
             class="btn btn-outline-secondary rh-action-btn c24-top-refresh-btn"
             onClick=${() => carregar({ forcar: true })}
           >
-            <span class="material-symbols-outlined">refresh</span>
+            <span class="material-symbols-outlined">${IconeSvg('refresh')}</span>
             Atualizar
           </button>
+          ${controlador.possuiPermissao('vagas.criar')
+      ? html`
+                <button
+                  type="button"
+                  class="btn btn-primary rh-action-btn"
+                  onClick=${() => controlador.irParaTelaProtegida('screen-process-create')}
+                >
+                  <span class="material-symbols-outlined">${IconeSvg('work')}</span>
+                  Nova vaga
+                </button>
+              `
+      : ''}
         `}
       />
 
@@ -2125,12 +2135,6 @@ export function TelaInicio({ controlador }) {
       >
         <div class="home-quick-grid">
           ${[
-      {
-        label: 'Nova vaga',
-        icon: 'work',
-        permissao: 'vagas.criar',
-        onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
-      },
       /*
       {
         label: 'Adicionar candidato',
@@ -2174,7 +2178,7 @@ export function TelaInicio({ controlador }) {
                   class="home-quick-action"
                   onClick=${item.onClick}
                 >
-                  <span class="material-symbols-outlined">${item.icon}</span>
+                  <span class="material-symbols-outlined">${IconeSvg(item.icon)}</span>
                   <strong>${item.label}</strong>
                 </button>
               `,
@@ -2194,7 +2198,7 @@ export function TelaInicio({ controlador }) {
     ].map(
       (item) => html`
               <article class=${`home-pillar-card ${item.variant || ''}`} key=${item.label}>
-                <span class="home-pillar-icon material-symbols-outlined">${item.icon}</span>
+                <span class="home-pillar-icon material-symbols-outlined">${IconeSvg(item.icon)}</span>
                 <div>
                   <strong>${item.value}</strong>
                   <span>${item.label}</span>
@@ -2226,7 +2230,7 @@ export function TelaInicio({ controlador }) {
                 `
       : html`
                   <div class="home-empty-state">
-                    <span class="material-symbols-outlined">history</span>
+                    <span class="material-symbols-outlined">${IconeSvg('history')}</span>
                     <h3>Nenhuma movimentação por aqui</h3>
                     <p>Aprovações, novos processos e alertas do dia aparecerão aqui.</p>
                   </div>
@@ -2245,7 +2249,7 @@ export function TelaInicio({ controlador }) {
                     ${entrevistasHoje.slice(0, 5).map(
         (item) => html`
                         <article class="processes-today-item" key=${`${item.id_entrevista || item.id_slot || item.nome_candidato}-${item.data_entrevista}`}>
-                          <span class="material-symbols-outlined">event_available</span>
+                          <span class="material-symbols-outlined">${IconeSvg('event_available')}</span>
                           <div>
                             <strong>${item.nome_candidato || 'Entrevista'}</strong>
                             <small>${item.vaga || item.id_processo || 'Processo'} • ${formatarDataHora(item.data_entrevista)}</small>
@@ -2260,7 +2264,7 @@ export function TelaInicio({ controlador }) {
                 `
       : html`
                   <div class="home-empty-state">
-                    <span class="material-symbols-outlined">calendar_month</span>
+                    <span class="material-symbols-outlined">${IconeSvg('calendar_month')}</span>
                     <h3>Nenhuma entrevista hoje</h3>
                     <p>As entrevistas agendadas para hoje aparecerão aqui.</p>
                   </div>
@@ -2357,7 +2361,7 @@ export function TelaInicio({ controlador }) {
                               <span>${item.vaga || '-'}</span>
                               <span>${item.data_exibicao || '-'}</span>
                             </div>
-                            <span class="material-symbols-outlined">arrow_forward</span>
+                            <span class="material-symbols-outlined">${IconeSvg('arrow_forward')}</span>
                           </button>
                         `,
         )}
@@ -2544,17 +2548,17 @@ export function TelaCaixaEmail({ controlador }) {
             ${podeAdicionarCvManual
               ? html`
                   <button type="button" class="btn btn-outline-primary" onClick=${() => setModalCvManualAberto(true)}>
-                    <span class="material-symbols-outlined" aria-hidden="true">upload_file</span> Adicionar currículo manualmente
+                    <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('upload_file')}</span> Adicionar currículo manualmente
                   </button>
                   <button type="button" class="btn btn-outline-primary" onClick=${() => setModalCriarCurriculoAberto(true)}>
-                    <span class="material-symbols-outlined" aria-hidden="true">person_add</span> Criar currículo
+                    <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('person_add')}</span> Criar currículo
                   </button>
                 `
               : null}
             ${podeComporEmail
               ? html`
                   <button type="button" class="btn btn-primary" onClick=${() => setModalComporAberto(true)}>
-                    <span class="material-symbols-outlined" aria-hidden="true">edit_note</span> Compor e-mail
+                    <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('edit_note')}</span> Compor e-mail
                   </button>
                 `
               : null}
@@ -2597,7 +2601,7 @@ export function TelaCaixaEmail({ controlador }) {
                     disabled=${enviandoCvManual}
                     onChange=${(event) => setArquivoCvManual(event.target.files?.[0] || null)}
                   />
-                  <span class="material-symbols-outlined">upload_file</span>
+                  <span class="material-symbols-outlined">${IconeSvg('upload_file')}</span>
                   <span class="process-cv-picker-copy">
                     <strong>Selecionar arquivo</strong>
                     <small title=${arquivoCvManual?.name || ''}>
@@ -3884,7 +3888,7 @@ export function TelaCriarProcesso({ controlador }) {
       const etapa = indice + 1;
       return html`
               <div class=${`process-create-step ${etapaAtual === etapa ? 'is-active' : ''} ${etapaAtual > etapa ? 'is-done' : ''}`} key=${numero}>
-                <span>${etapaAtual > etapa ? html`<i class="material-symbols-outlined">check</i>` : numero}</span>
+                <span>${etapaAtual > etapa ? html`<i class="material-symbols-outlined">${IconeSvg('check')}</i>` : numero}</span>
                 <strong>${label}</strong>
               </div>
             `;
@@ -3897,7 +3901,7 @@ export function TelaCriarProcesso({ controlador }) {
       ? html`
                   <section class="process-create-card" tour-id="process-create-form">
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">work</span>
+                      <span class="material-symbols-outlined">${IconeSvg('work')}</span>
                       <h2>Informações da Vaga</h2>
                     </div>
                     <div class="process-create-form-grid">
@@ -3940,7 +3944,7 @@ export function TelaCriarProcesso({ controlador }) {
                   </section>
                   <section class="process-create-card">
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">bolt</span>
+                      <span class="material-symbols-outlined">${IconeSvg('bolt')}</span>
                       <h2>Botão Expresso</h2>
                     </div>
                     <div class="process-cutoff-panel">
@@ -3956,7 +3960,7 @@ export function TelaCriarProcesso({ controlador }) {
                   </section>
                   <section class="process-create-card">
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">rule</span>
+                      <span class="material-symbols-outlined">${IconeSvg('rule')}</span>
                       <h2>Critérios de Avaliação</h2>
                     </div>
                     <div class="process-cutoff-panel">
@@ -3981,7 +3985,7 @@ export function TelaCriarProcesso({ controlador }) {
       ? html`
                   <section class="process-create-card">
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">settings_applications</span>
+                      <span class="material-symbols-outlined">${IconeSvg('settings_applications')}</span>
                       <h2>Dados da Prova</h2>
                     </div>
                     <div class="process-create-form-grid">
@@ -4021,7 +4025,7 @@ export function TelaCriarProcesso({ controlador }) {
                       </label>
                     </div>
                     <div class="process-blueprint-preview">
-                      <span class="material-symbols-outlined">fact_check</span>
+                      <span class="material-symbols-outlined">${IconeSvg('fact_check')}</span>
                       <div>
                         <strong>${blueprint?.label || 'Blueprint não selecionado'}</strong>
                         <small>${questoesConfiguradas.length ? `${questoesConfiguradas.length} questões em ${etapasConfiguradasProva.length} etapa(s)` : 'Escolha vaga, trilha, nível e etapas para montar a prova.'}</small>
@@ -4031,7 +4035,7 @@ export function TelaCriarProcesso({ controlador }) {
 
                   <section class="process-create-card">
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">palette</span>
+                      <span class="material-symbols-outlined">${IconeSvg('palette')}</span>
                       <h2>Personalização</h2>
                     </div>
                     <label class="process-personalization-toggle">
@@ -4143,7 +4147,7 @@ export function TelaCriarProcesso({ controlador }) {
       ? html`
                   <section class="process-create-card">
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">event_available</span>
+                      <span class="material-symbols-outlined">${IconeSvg('event_available')}</span>
                       <h2>Disponibilidade de Horários</h2>
                     </div>
                     <p class="process-create-hint">
@@ -4224,7 +4228,7 @@ export function TelaCriarProcesso({ controlador }) {
                               class="btn btn-outline-secondary btn-sm"
                               onClick=${() => removerDisponibilidade(item.id)}
                             >
-                              <span class="material-symbols-outlined">delete</span>
+                              <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                               Remover
                             </button>
                           </div>
@@ -4232,7 +4236,7 @@ export function TelaCriarProcesso({ controlador }) {
       )}
                     </div>
                     <button type="button" class="btn btn-outline-primary btn-sm" onClick=${adicionarDisponibilidade}>
-                      <span class="material-symbols-outlined">add</span>
+                      <span class="material-symbols-outlined">${IconeSvg('add')}</span>
                       Adicionar disponibilidade
                     </button>
                   </section>
@@ -4243,7 +4247,7 @@ export function TelaCriarProcesso({ controlador }) {
       ? html`
                   <section class="process-create-card">
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">badge</span>
+                      <span class="material-symbols-outlined">${IconeSvg('badge')}</span>
                       <h2>Detalhes da vaga</h2>
                     </div>
                     <div class="process-create-form-grid">
@@ -4303,7 +4307,7 @@ export function TelaCriarProcesso({ controlador }) {
                     </div>
 
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">checklist</span>
+                      <span class="material-symbols-outlined">${IconeSvg('checklist')}</span>
                       <h2>Requisitos do candidato</h2>
                     </div>
                     <div class="process-create-form-grid">
@@ -4348,7 +4352,7 @@ export function TelaCriarProcesso({ controlador }) {
                     </div>
 
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">payments</span>
+                      <span class="material-symbols-outlined">${IconeSvg('payments')}</span>
                       <h2>Salário e benefícios</h2>
                     </div>
                     <div class="process-create-form-grid">
@@ -4389,7 +4393,7 @@ export function TelaCriarProcesso({ controlador }) {
                     </div>
 
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">description</span>
+                      <span class="material-symbols-outlined">${IconeSvg('description')}</span>
                       <h2>Descrição das atividades</h2>
                     </div>
                     <label class="is-wide">
@@ -4405,7 +4409,7 @@ export function TelaCriarProcesso({ controlador }) {
                     </label>
 
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">school</span>
+                      <span class="material-symbols-outlined">${IconeSvg('school')}</span>
                       <h2>Treinamentos da trilha de aprovação</h2>
                     </div>
                     <p class="text-muted small mb-2">
@@ -4434,7 +4438,7 @@ export function TelaCriarProcesso({ controlador }) {
       ? html`
                   <section class="process-create-card">
                     <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">publish</span>
+                      <span class="material-symbols-outlined">${IconeSvg('publish')}</span>
                       <h2>Publicação / Finalização</h2>
                     </div>
                     <div class="process-final-review">
@@ -4460,7 +4464,7 @@ export function TelaCriarProcesso({ controlador }) {
         )}
                     </div>
                     <div class="process-blueprint-preview is-ready">
-                      <span class="material-symbols-outlined">check_circle</span>
+                      <span class="material-symbols-outlined">${IconeSvg('check_circle')}</span>
                       <div>
                         <strong>Prova configurada para o processo</strong>
                         <small>Ao publicar, esta configuração fica disponível para liberar prova aos candidatos deste processo.</small>
@@ -4472,7 +4476,7 @@ export function TelaCriarProcesso({ controlador }) {
           </div>
 
           <aside class="process-create-summary">
-            <h3><span class="material-symbols-outlined">info</span>Resumo do processo</h3>
+            <h3><span class="material-symbols-outlined">${IconeSvg('info')}</span>Resumo do processo</h3>
             <dl>
               <div><dt>Vaga</dt><dd>${formulario.vaga || '-'}</dd></div>
               <div><dt>Quantidade</dt><dd>${String(formulario.quantidade || 0).padStart(2, '0')} vaga(s)</dd></div>
@@ -4482,7 +4486,7 @@ export function TelaCriarProcesso({ controlador }) {
               <div><dt>Questões</dt><dd>${questoesConfiguradas.length || '-'}</dd></div>
             </dl>
             <div class="process-create-summary-note">
-              <span class="material-symbols-outlined">verified</span>
+              <span class="material-symbols-outlined">${IconeSvg('verified')}</span>
               A prova configurada aqui fica vinculada ao processo seletivo.
             </div>
           </aside>
@@ -4500,7 +4504,7 @@ export function TelaCriarProcesso({ controlador }) {
         ? setEtapaAtual((etapa) => etapa - 1)
         : controlador.irParaTelaProtegida('screen-processes')}
           >
-            <span class="material-symbols-outlined">arrow_back</span>
+            <span class="material-symbols-outlined">${IconeSvg('arrow_back')}</span>
             Voltar
           </button>
           <div>
@@ -4516,17 +4520,17 @@ export function TelaCriarProcesso({ controlador }) {
       ? html`
                   <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${avancar}>
                     Próximo passo
-                    <span class="material-symbols-outlined">arrow_forward</span>
+                    <span class="material-symbols-outlined">${IconeSvg('arrow_forward')}</span>
                   </button>
                 `
       : html`
                   <button type="button" class="btn btn-outline-primary" disabled=${salvando} onClick=${() => setModalCompartilharAberto(true)}>
-                    <span class="material-symbols-outlined">share</span>
+                    <span class="material-symbols-outlined">${IconeSvg('share')}</span>
                     Compartilhar vaga
                   </button>
                   <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${criar}>
                     ${salvando ? 'Publicando...' : 'Publicar processo'}
-                    <span class="material-symbols-outlined">check</span>
+                    <span class="material-symbols-outlined">${IconeSvg('check')}</span>
                   </button>
                 `}
           </div>
@@ -5433,7 +5437,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
         title="Relatórios"
         description=${html`${formatarAtualizacaoRelatorio(ultimaAtualizacaoRelatorio)}
           <button type="button" class="reports-refresh-link" disabled=${carregandoRelatorio} onClick=${carregarRelatorios}>
-            <span class="material-symbols-outlined" aria-hidden="true">sync</span>
+            <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('sync')}</span>
             Atualizar
           </button>`}
         actions=${html`
@@ -5444,7 +5448,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
             disabled=${carregandoRelatorio}
             onClick=${carregarRelatorios}
           >
-            <span class="material-symbols-outlined" aria-hidden="true">sync</span>
+            <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('sync')}</span>
           </button>
           <div class="reports-export-menu" ref=${exportMenuRef}>
             <button
@@ -5457,9 +5461,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
               disabled=${carregandoRelatorio || exportandoRelatorio}
               onClick=${() => setMenuExportacaoAberto((aberto) => !aberto)}
             >
-              <span class="material-symbols-outlined" aria-hidden="true">
-                ${exportandoRelatorio ? 'hourglass_top' : 'settings'}
-              </span>
+              <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg(exportandoRelatorio ? 'hourglass_top' : 'settings')}</span>
             </button>
             ${menuExportacaoAberto
               ? html`
@@ -5472,7 +5474,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                       disabled=${exportandoRelatorio}
                       onClick=${() => exportarRelatorioAtivo('csv')}
                     >
-                      <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                      <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('description')}</span>
                       CSV
                     </button>
                     <button
@@ -5482,7 +5484,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
                       disabled=${exportandoRelatorio}
                       onClick=${() => exportarRelatorioAtivo('xlsx')}
                     >
-                      <span class="material-symbols-outlined" aria-hidden="true">table_view</span>
+                      <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('table_view')}</span>
                       Excel (.xlsx)
                     </button>
                   </div>
@@ -5510,7 +5512,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
           </label>
 
           <label class="reports-search-field">
-            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+            <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('search')}</span>
             <input
               class="form-control"
               placeholder=${relatorioAtivo === 'processos'
@@ -5530,7 +5532,7 @@ export function TelaAnaliseCandidatos({ controlador }) {
               onClick=${() => setPainelFiltrosRelatorioAberto((aberto) => !aberto)}
               aria-expanded=${painelFiltrosRelatorioAberto}
             >
-              <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
+              <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('filter_alt')}</span>
               Filtros
               ${filtrosRelatorioAtivos
                 ? html`<span class="reports-filter-count">${filtrosRelatorioAtivos}</span>`

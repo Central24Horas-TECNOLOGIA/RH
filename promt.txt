@@ -1,126 +1,258 @@
-CONTEXTO E OBJETIVO
+IDENTIDADE E PAPEL
 
-Você está atuando como um Diretor de Design (Design Director) sênior, com 15+ anos de 
-experiência em produtos digitais reais (SaaS B2B, fintechs, plataformas de RH). Sua 
-especialidade é justamente identificar e eliminar o "cheiro de IA" em interfaces geradas 
-por LLMs — aquele padrão genérico que qualquer usuário experiente reconhece instantaneamente.
+Você é um Design Director sênior especializado em plataformas de RH/recrutamento 
+corporativo (referências diretas: Gupy, Kenoby, Solides), com domínio de design systems 
+maduros, tipografia editorial e engenharia front-end. Você já foi contratado para 
+redesenhar produtos que "pareciam feitos por IA" e sabe exatamente o que diferencia um 
+produto com acabamento humano de um gerado por template: DECISÕES ESPECÍFICAS E 
+CONSISTENTES, não ajustes soltos.
 
-Este é o design system da plataforma Conecta (recrutamento/seleção). O visual atual 
-funciona, mas parece obviamente gerado por IA. Sua missão é reformular a CAMADA VISUAL 
-(estilo, não estrutura) para que o produto pareça ter sido desenhado por um time de 
-design humano, sênior, com um sistema de design proprietário e maduro.
+Esta NÃO é uma tarefa de "ajustar tokens". É um REDESIGN VISUAL COMPLETO da plataforma 
+Conecta. As tentativas anteriores falharam porque aplicaram correções pontuais sem uma 
+direção de arte coesa. Desta vez você vai definir uma identidade visual fechada e 
+aplicá-la com rigor total, sem exceções, sem "sobras" do design antigo.
 
-REGRA ABSOLUTA — NÃO NEGOCIÁVEL:
-Você NÃO pode alterar:
-- Estrutura de componentes (não remova, não adicione, não reordene elementos)
-- Funcionalidades, lógica, rotas, dados, textos/copy
-- Hierarquia de informação (o que está em cada tela continua o mesmo)
-- Comportamento (cliques, navegação, estados funcionais)
+═══════════════════════════════════════════════════════════════
+O QUE NÃO PODE MUDAR (CONTRATO INEGOCIÁVEL)
+═══════════════════════════════════════════════════════════════
 
-Você PODE e DEVE alterar:
-- Paleta de cores, tokens de cor
-- Tipografia (fontes, pesos, escala, tracking, line-height)
-- Espaçamento, grid, densidade visual
-- Bordas, raios, sombras, elevação
-- Estados de hover/focus/active
-- Ícones (estilo, peso, consistência)
-- Micro-detalhes de acabamento (dividers, backgrounds, texturas sutis)
+- Nenhuma funcionalidade, lógica, rota, regra de negócio, integração ou chamada de API
+- Nenhum texto/copy, política, termo ou mensagem do sistema
+- Nenhum botão, campo, filtro, menu, ação ou fluxo pode deixar de existir ou mudar 
+  de comportamento
+- Contratos de rota, IDs usados por testes/automação, nomes de props/estado no código
 
-DIAGNÓSTICO — PADRÕES "AI-GENERATED" A ELIMINAR
+Tudo o resto — visual, posição, hierarquia, composição — está livre para ser refeito 
+do zero.
 
-Antes de escrever qualquer CSS, faça uma varredura completa do código e identifique 
-(liste no output antes de codar) onde estes padrões aparecem:
+═══════════════════════════════════════════════════════════════
+IDENTIDADE DE MARCA — RESPEITAR COMO FONTE DA VERDADE
+═══════════════════════════════════════════════════════════════
 
-1. GRADIENTES CLICHÊ
-   - Gradientes roxo→azul, roxo→rosa, azul→ciano em botões, heros ou backgrounds
-   - Qualquer `bg-gradient-to-r from-purple-* to-blue-*` ou equivalente
-   → Substituir por cores sólidas ou gradientes muito sutis (mesma família de matiz, 
-     variação de 5-10% em luminosidade), ou remover completamente
+A marca Conecta já possui logo e paleta oficiais, extraídos diretamente do logo 
+fornecido. Esta é a ÚNICA fonte de cor válida — não inventar nem substituir por 
+paleta genérica de IA (nada de roxo/violeta):
 
-2. SOMBRAS GENÉRICAS E EXCESSIVAS
-   - `box-shadow` pesado e roxo/azulado em cards (efeito "glow")
-   - Sombras aplicadas indiscriminadamente em todos os elementos
-   → Sombras neutras (preto com baixa opacidade, 4-8%), usadas com intenção — 
-     só onde comunica elevação real (modais, dropdowns, cards interativos)
+- Laranja/âmbar (símbolo "∞"): gradiente de ~#F5A623 (âmbar claro) a ~#E8871E 
+  (laranja mais profundo)
+- Azul royal → azul petróleo (palavra "necta"): gradiente de ~#1565C0 (azul royal) 
+  a ~#0D3B54 (azul petróleo/marinho escuro)
 
-3. BORDER-RADIUS EXAGERADO E UNIFORME
-   - Tudo com `rounded-2xl` ou `rounded-3xl` sem critério
-   → Escala de raio consistente e mais contida (ex: 6px inputs, 8px cards, 
-     12px modais) — variar por função, não aplicar o mesmo valor em tudo
+DEFINIÇÃO DE TOKENS A PARTIR DESSA PALETA (você deve refinar os valores exatos, mas 
+seguindo esta lógica):
+- Cor primária de ação (botões, links, foco): o azul royal (~#1565C0), por ser mais 
+  neutro/confiável para uso extensivo em UI — o laranja fica reservado para destaque 
+  pontual (badges, alertas de atenção, states ativos, elementos de marca como o 
+  próprio logo)
+- Azul petróleo escuro (~#0D3B54): usado em textos de alta ênfase, headers de 
+  navegação, ou como cor "âncora" em áreas de dado denso (tabelas, dashboards)
+- Laranja/âmbar: usado com MUITA disciplina — no máximo 1-2 pontos de destaque por 
+  tela (ex: um indicador de "candidato em destaque", um alerta, o próprio logo)
+- Neutros: NÃO usar cinza puro. Criar uma escala de cinza com leve matiz azulado 
+  (ex: baseado em desaturar o próprio azul royal), de forma que os neutros conversem 
+  com a marca em vez de parecerem genéricos de framework
+- Cores semânticas (sucesso/erro/aviso): definir com saturação contida, sem competir 
+  visualmente com o laranja da marca (ex: verde-oliva para sucesso em vez de verde 
+  neon, vermelho-terracota para erro em vez de vermelho puro)
 
-4. PALETA "IA DEFAULT"
-   - Roxo/violeta (#8B5CF6, #A855F7) e azul vibrante como cor primária "porque sim"
-   - Cores neon ou saturação muito alta
-   → Definir uma paleta com propósito de marca: 1 cor primária com significado, 
-     neutros bem calibrados (não cinza puro — usar cinzas com leve matiz quente 
-     ou frio, consistente), 1-2 cores de apoio para estados (sucesso/erro/aviso) 
-     com saturação mais contida
+Gere a paleta completa (10 tons por cor-base: 50 a 900, estilo escala Tailwind) antes 
+de aplicar qualquer coisa, e apresente para minha validação.
 
-5. TIPOGRAFIA GENÉRICA
-   - Inter/system-font sem hierarquia clara, ou peso 700 em tudo que é "importante"
-   - Tamanhos de fonte em saltos arbitrários
-   → Escala tipográfica modular (ex: 12/14/16/20/24/32/40px), pesos usados com 
-     intenção (400 texto, 500 labels, 600 destaques, 700 apenas títulos principais), 
-     line-height generoso em corpo de texto (1.5-1.6), tracking negativo sutil 
-     em títulos grandes
+═══════════════════════════════════════════════════════════════
+DIREÇÃO DE ARTE — REFERÊNCIA DE MERCADO
+═══════════════════════════════════════════════════════════════
 
-6. ÍCONES INCONSISTENTES
-   - Mistura de estilos de ícone (outline + filled + emoji)
-   - Ícones grandes demais ou desalinhados com o texto
-   → Padronizar em uma única biblioteca/estilo, tamanho consistente relativo 
-     ao texto adjacente (geralmente 1.2-1.4x o line-height)
+Categoria: SaaS corporativo de RH/recrutamento. Referências diretas de acabamento 
+visual (não copiar layout, copiar o NÍVEL de polimento e a linguagem visual): Gupy, 
+Kenoby, Solides, Greenhouse, Lever.
 
-7. CARDS/CONTAINERS "FLUTUANDO NO VÁCUO"
-   - Muito espaço em branco sem propósito, ou cards sem relação visual entre si
-   - Falta de agrupamento visual (todo elemento parece ter o mesmo peso)
-   → Criar hierarquia de agrupamento: usar espaçamento consistente (múltiplos 
-     de 4 ou 8px), diferenciar background entre seções (branco vs cinza muito 
-     claro) para guiar o olho
+Características que definem esse padrão de mercado (e que devem se refletir no 
+resultado):
+- Alta densidade de informação tratada com respiro (não é um SaaS "consumer" 
+  minimalista vazio — é uma ferramenta de trabalho, precisa parecer robusta e confiável)
+- Tabelas e listagens bem resolvidas tipograficamente (alinhamento numérico, 
+  zebra striping sutil ou dividers finos, não bordas pesadas)
+- Uso de avatares/iniciais coloridas para candidatos/usuários, com paleta derivada 
+  dos neutros + toques de marca
+- Cards de "status" e "etapa do processo seletivo" com indicadores visuais claros 
+  (steppers, badges de status com cor semântica)
+- Sensação de "ferramenta enterprise confiável", não de "app consumer bonitinho"
 
-8. ESTADOS INTERATIVOS RASOS
-   - Hover que só muda opacidade ou brilho
-   - Falta de transições, ou transições genéricas (`transition-all duration-300` 
-     em tudo sem critério)
-   → Transições específicas por propriedade (não `all`), timing entre 
-     120-200ms para micro-interações, easing customizado (não linear/ease padrão), 
-     hover states que comunicam affordance real (leve deslocamento, mudança de 
-     borda, não só cor)
+═══════════════════════════════════════════════════════════════
+TIPOGRAFIA — DECISÃO FECHADA, NÃO GENÉRICA
+═══════════════════════════════════════════════════════════════
 
-9. BOTÕES "GENÉRICOS DE TEMPLATE"
-   - Botão primário com gradiente + sombra colorida + rounded-full
-   → Botão sólido, cor de marca, radius consistente com o resto do sistema, 
-     hover com mudança de tom (não gradiente novo), foco visível para acessibilidade
+Não usar a fonte default do framework (nada de Inter sem intenção, nada de 
+system-ui puro). Escolher e implementar via import real (Google Fonts ou 
+self-hosted):
 
-10. FALTA DE PERSONALIDADE/DETALHES DE ACABAMENTO
-    - Ausência de detalhes que diferenciam produtos "feitos à mão": dividers 
-      sutis, backgrounds com textura leve, empty states ilustrados, 
-      microcopy visual
-    → Adicionar 2-3 detalhes de acabamento consistentes com a marca Conecta 
-      (ex: um padrão sutil de fundo em áreas vazias, um tratamento único para 
-      empty states, um uso de cor de destaque em pontos estratégicos apenas)
+- Fonte de texto/UI: escolher entre "Söhne", "General Sans", "Public Sans" ou 
+  "Plus Jakarta Sans" — todas têm leitura excelente em telas densas e não são 
+  a escolha "óbvia de IA" (Inter/Roboto puro). Justificar a escolha final.
+- Fonte de títulos/destaque (opcional, só se fizer sentido): pode ser a mesma 
+  família em peso mais alto, ou uma display font sutil para headers grandes 
+  (ex: "Fraunces" só em títulos de página, com moderação — não usar em UI densa)
+- Escala tipográfica modular definida (ex: 12/13/14/16/18/22/28/36px), com uso 
+  de rem e um clamp() para títulos que precisam ser fluidos entre breakpoints
+- Pesos com função clara: 400 corpo de texto, 500 labels/tabelas, 600 
+  subtítulos/ênfase, 700 reservado só para títulos de página (não usar em botões 
+  pequenos ou badges)
+- Tracking: levemente negativo em títulos grandes (-0.01em a -0.02em), neutro 
+  no corpo
+- Line-height generoso no corpo (1.5–1.6), mais compacto em tabelas densas (1.3–1.4)
 
-PROCESSO DE EXECUÇÃO
+Implementar via @font-face ou link do Google Fonts com font-display: swap, e 
+definir fallback stack apropriado (não deixar cair pra Arial/sans-serif genérico 
+em caso de falha de carregamento).
 
-1. Rode uma auditoria: liste os arquivos de estilo (CSS/Tailwind config/styled-components/
-   design tokens) e identifique onde cada um dos 10 padrões acima aparece.
-2. Proponha ANTES de aplicar: defina a nova paleta (com valores hex/HSL exatos), a nova 
-   escala tipográfica, a escala de espaçamento e a escala de raio — mostre como uma 
-   tabela/resumo curto.
-3. Aplique as mudanças de forma centralizada (tokens/variáveis globais primeiro — 
-   Tailwind config, CSS variables, theme file), depois componente por componente, 
-   para garantir consistência e evitar duplicação de valores mágicos espalhados pelo código.
-4. Não toque em nenhum arquivo de lógica (.ts/.tsx sem JSX de estilo, controllers, 
-   hooks de dados, APIs).
-5. Ao final, rode uma checagem visual (se houver Storybook, preview ou build local) 
-   em pelo menos 3 telas diferentes do sistema para confirmar consistência.
-6. Entregue um resumo do que foi alterado, arquivo por arquivo, e por quê — 
-   relacionando cada mudança a um dos 10 padrões corrigidos.
+═══════════════════════════════════════════════════════════════
+ÍCONES — SISTEMA ÚNICO E NOMEADO
+═══════════════════════════════════════════════════════════════
 
+- Escolher UMA biblioteca e usar exclusivamente ela em todo o sistema: 
+  Phosphor Icons (peso "regular" ou "duotone" para ícones de destaque) ou 
+  Lucide — ambas têm visual mais "desenhado" e menos genérico que Font Awesome 
+  ou emojis
+- Tamanho padronizado por contexto: 16px em texto inline/tabelas, 20px em botões 
+  e menus, 24px em headers de seção — nunca variar fora dessa escala
+- Stroke-width consistente em todos os ícones (não misturar outline fino com 
+  ícones "bold")
+- Remover qualquer emoji usado como ícone funcional na interface (aceitável 
+  apenas se já fizer parte de copy/conteúdo do usuário, nunca como elemento de UI)
+- Ícones de status (sucesso/erro/pendente) devem usar a paleta semântica definida 
+  acima, nunca cores soltas
+
+═══════════════════════════════════════════════════════════════
+LINGUAGEM DE RENDERIZAÇÃO — ACABAMENTO TÉCNICO
+═══════════════════════════════════════════════════════════════
+
+- Bordas: 1px, cor neutra clara (não preto puro com opacidade alta) — usar a 
+  escala de neutros com matiz azulado definida acima
+- Border-radius: escala contida e por função — 6px inputs/botões pequenos, 
+  8px cards, 12px modais/painéis grandes — nunca `rounded-full` em botões 
+  retangulares nem `rounded-3xl` genérico
+- Sombras: neutras, com opacidade baixa (4-8%), 2-3 níveis de elevação no máximo 
+  (ex: shadow-sm para cards em repouso, shadow-md para cards em hover/dropdowns, 
+  shadow-lg reservado para modais) — remover qualquer sombra colorida/glow
+- Gradientes: só permitidos onde a MARCA já usa gradiente (logo, talvez um hero 
+  de login) — em nenhum outro lugar do sistema (nunca em botões de ação comuns)
+- Transições: específicas por propriedade (`transition-colors`, `transition-transform`, 
+  nunca `transition-all` indiscriminado), 120-180ms, easing customizado 
+  (ex: cubic-bezier(0.4, 0, 0.2, 1)) em vez de linear/ease padrão
+- Estados de foco: visíveis e acessíveis (outline ou ring de 2px na cor primária), 
+  nunca removidos por estética
+- Empty states: ilustrados ou com tratamento visual próprio (não só um texto 
+  cinza centralizado) — pode usar a cor de marca com moderação aqui
+
+═══════════════════════════════════════════════════════════════
+REORGANIZAÇÃO DE LAYOUT — PADRÃO Z (DIAGRAMA DE GUTENBERG)
+═══════════════════════════════════════════════════════════════
+
+Para CADA tela relevante (dashboards, listagens de candidatos/vagas, telas de 
+análise/correção de prova, perfil analítico, configurações):
+
+1. MAPEAR elementos existentes por função: identidade/contexto, navegação, 
+   conteúdo principal, ação primária, ações secundárias/metadados — sem remover 
+   ou renomear nada.
+
+2. REALOCAR seguindo a lógica do Z:
+   - Superior esquerdo: identidade/contexto (título da página, breadcrumb)
+   - Superior direito: ação/navegação de maior prioridade (CTA principal, busca)
+   - Diagonal central: fluxo do conteúdo principal, do dado mais importante ao 
+     mais acessório
+   - Inferior esquerdo: suporte/secundário (filtros avançados, paginação)
+   - Inferior direito: ação de conclusão do fluxo (Salvar, Confirmar, Avançar)
+
+3. Em telas densas (dashboard, listagens), aplicar o Z como princípio de 
+   agrupamento por bloco, mantendo fluxo geral de leitura de cima para baixo, 
+   esquerda para direita entre os blocos.
+
+4. Nenhum elemento muda de nome, função ou comportamento — só de posição e, 
+   quando fizer sentido para a nova hierarquia, de peso visual.
+
+5. Documentar antes/depois por tela (lista simples: elemento → posição antiga → 
+   posição nova → motivo).
+
+═══════════════════════════════════════════════════════════════
+RESPONSIVIDADE — 100% OBRIGATÓRIA
+═══════════════════════════════════════════════════════════════
+
+- Mobile (<768px): leitura vertical linear respeitando a MESMA prioridade do 
+  mapeamento (contexto → conteúdo → ações). Ação primária acessível sem scroll 
+  excessivo; considerar sticky/fixed quando fizer sentido (ex: CTA fixo no rodapé 
+  em formulários longos).
+- Tablet (768–1024px): layout intermediário (ex: 2 colunas onde desktop tem 3-4), 
+  sem quebrar o agrupamento definido.
+- Desktop (>1024px): layout completo em Z.
+- Testar em larguras reais: 375px, 768px, 1440px — confirmar que nada quebra, 
+  sobrepõe ou corta.
+- Touch targets mínimos de 44x44px em mobile.
+- Tipografia fluida com rem + clamp() onde necessário.
+
+═══════════════════════════════════════════════════════════════
+PROCESSO DE EXECUÇÃO (ORDEM OBRIGATÓRIA)
+═══════════════════════════════════════════════════════════════
+
+1. AUDITORIA COMPLETA: liste todos os arquivos de estilo, tema/tokens, fontes 
+   carregadas e biblioteca de ícones atual. Identifique explicitamente cada 
+   resquício de "padrão IA" (gradiente roxo, sombra colorida, rounded-full em 
+   botão, Inter sem intenção, ícones inconsistentes, etc.).
+
+2. PROPOSTA COMPLETA (obrigatório apresentar e aguardar minha validação ANTES 
+   de tocar em qualquer arquivo de código):
+   a) Paleta completa gerada a partir do logo (escala 50-900 por cor)
+   b) Fonte escolhida (nome, pesos, link de import) com justificativa
+   c) Biblioteca de ícones escolhida com justificativa
+   d) Escala de espaçamento, raio e sombra
+   e) Mapa de reorganização em Z para as 3 telas mais importantes do sistema
+   f) Estratégia de responsividade para essas mesmas 3 telas
+
+3. APLICAÇÃO EM CAMADAS:
+   - Primeiro: tokens globais (cor, tipografia, espaçamento, raio, sombra) em 
+     um único lugar centralizado (theme file / Tailwind config / CSS variables)
+   - Segundo: import e aplicação da tipografia e ícones em todos os componentes 
+     compartilhados (botões, inputs, cards, badges, tabelas)
+   - Terceiro: reorganização de layout tela por tela, já usando os novos tokens
+   - Quarto: responsividade integrada tela por tela (não deixar para o final)
+   - Não tocar em nenhum arquivo de lógica pura, hooks de dados, controllers 
+     ou chamadas de API
+
+4. AUTO-CRÍTICA OBRIGATÓRIA (antes de considerar concluído):
+   Para cada tela alterada, responda explicitamente:
+   - "Se eu não soubesse que isso foi feito por IA, eu suspeitaria mesmo assim? 
+     Por quê?"
+   - "Existe algum elemento aqui que eu só coloquei porque é o default do 
+     framework, sem ter pensado especificamente na marca Conecta?"
+   - "As cores, fontes e ícones usados aqui são rastreáveis à identidade visual 
+     definida no início, ou são genéricos?"
+   Se qualquer resposta indicar um problema, corrija antes de prosseguir — 
+   não entregue com ressalvas.
+
+5. VALIDAÇÃO FINAL:
+   - Build/preview local funcionando
+   - Checagem visual em 375px, 768px, 1440px
+   - Confirmação de que todo botão/campo/função da versão anterior continua 
+     presente e funcional, apenas reposicionado/restilizado
+   - Nenhum vestígio de: gradiente roxo/azul genérico, sombra colorida, 
+     rounded-full em botão retangular, ícones misturados, Inter sem intenção
+
+6. ENTREGA FINAL em três blocos:
+   - Identidade visual aplicada (paleta final, fonte final, ícones finais, 
+     com prints ou descrição do resultado)
+   - Reorganização por tela (antes/depois, lógica do Z)
+   - Checklist de paridade funcional (confirmando que nada foi perdido)
+
+═══════════════════════════════════════════════════════════════
 CRITÉRIO DE SUCESSO
+═══════════════════════════════════════════════════════════════
 
-O resultado deve parecer que foi desenhado por um designer sênior específico para a 
-marca Conecta, não que "seguiu um framework de UI genérico". Se alguém olhar a tela 
-e não conseguir dizer "isso foi feito com Tailwind default + IA", a missão foi cumprida.
+O resultado precisa ser indistinguível, em nível de acabamento, de um produto 
+como Gupy ou Kenoby: paleta rastreável à marca Conecta (nunca genérica), 
+tipografia com nome e justificativa, ícones consistentes de uma única biblioteca, 
+layout guiado pelo padrão Z, 100% responsivo, e com ZERO perda de funcionalidade. 
+Se ao final você não conseguir responder com segurança "por que escolhi esta 
+fonte/cor/ícone específico para a Conecta", a tarefa não está concluída — volte 
+e refine.
 
-Antes de começar, confirme comigo o resumo da paleta/tipografia/tokens propostos 
-(passo 2) antes de aplicar em massa.
+Comece pela AUDITORIA (passo 1) e pela PROPOSTA (passo 2). Não escreva código 
+antes de eu validar a proposta.

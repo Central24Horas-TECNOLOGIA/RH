@@ -16,6 +16,7 @@ import {
 import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const ITEM_INICIAL = { titulo: '', descricao: '', obrigatorio: true };
 const FORM_INICIAL = { id_trilha: '', nome: '', descricao: '', ativo: true, itens: [] };
@@ -229,7 +230,7 @@ export function TelaOnboarding({ controlador }) {
                             class="btn btn-outline-secondary btn-sm"
                             onClick=${() => abrirEdicao(item)}
                           >
-                            <span class="material-symbols-outlined">edit</span>
+                            <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                             Editar
                           </button>
                         </td>
@@ -311,10 +312,10 @@ export function TelaOnboarding({ controlador }) {
                     </div>
                     <div class="col-md-2 d-flex gap-1">
                       <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => moverItem(index, -1)} title="Mover para cima">
-                        <span class="material-symbols-outlined">arrow_upward</span>
+                        <span class="material-symbols-outlined">${IconeSvg('arrow_upward')}</span>
                       </button>
                       <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => moverItem(index, 1)} title="Mover para baixo">
-                        <span class="material-symbols-outlined">arrow_downward</span>
+                        <span class="material-symbols-outlined">${IconeSvg('arrow_downward')}</span>
                       </button>
                     </div>
                   </div>
@@ -328,7 +329,7 @@ export function TelaOnboarding({ controlador }) {
                       <span>Item obrigatório</span>
                     </label>
                     <button type="button" class="btn btn-outline-danger btn-sm" onClick=${() => removerItem(index)}>
-                      <span class="material-symbols-outlined">delete</span>
+                      <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                       Remover
                     </button>
                   </div>
@@ -336,7 +337,7 @@ export function TelaOnboarding({ controlador }) {
               `,
     )}
             <button type="button" class="btn btn-outline-primary btn-sm" onClick=${adicionarItem}>
-              <span class="material-symbols-outlined">add</span>
+              <span class="material-symbols-outlined">${IconeSvg('add')}</span>
               Adicionar item
             </button>
           </div>

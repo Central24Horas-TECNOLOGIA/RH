@@ -11,6 +11,7 @@ import { AcaoSair } from '../../shared/components/actions.js';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 import { obterIdAplicacaoDiscPorHash } from '../../rotas.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const DIMENSOES = ['D', 'I', 'S', 'C'];
 const DIMENSAO_LABEL = { D: 'Dominância (D)', I: 'Influência (I)', S: 'Estabilidade (S)', C: 'Conformidade (C)' };
@@ -441,7 +442,7 @@ export function PainelResultadoDisc({ idTeste }) {
         `,
       )}
       <div class=${`rh-aderencia-badge ${faixaClasse}`} style=${{ marginTop: '8px' }}>
-        <span class="material-symbols-outlined">support_agent</span>
+        <span class="material-symbols-outlined">${IconeSvg('support_agent')}</span>
         Aderência Call Center: ${aderencia.percentual_aderencia ?? '-'}% (${aderencia.faixa || 'não calculada'})
       </div>
     </div>

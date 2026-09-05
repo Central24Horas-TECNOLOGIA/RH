@@ -25,6 +25,7 @@ import {
   PainelRh,
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 
 function numero(value, digits = 1) {
@@ -141,7 +142,7 @@ function ModalDetalheAnalitico({ detail, loading, onClose }) {
           : html`<${EmptyState} title="Categorias indisponíveis" text="O resultado oficial ainda não gerou categorias analíticas válidas." />`}
           </section>
           ${result.indicador_execucao
-          ? html`<div class="exam-analytics-execution"><span class="material-symbols-outlined">speed</span><div><strong>Indicador de execução</strong><p>${result.indicador_execucao}</p></div></div>`
+          ? html`<div class="exam-analytics-execution"><span class="material-symbols-outlined">${IconeSvg('speed')}</span><div><strong>Indicador de execução</strong><p>${result.indicador_execucao}</p></div></div>`
           : null}
           <section class="exam-analytics-detail-section">
             <h4>Indicadores objetivos de execução</h4>
@@ -194,7 +195,7 @@ function ModalDetalheAnalitico({ detail, loading, onClose }) {
           ${(result.explicacoes || []).length
           ? html`<section class="exam-analytics-detail-section"><h4>Como interpretar</h4><ul class="exam-analytics-notes">${result.explicacoes.map((text, index) => html`<li key=${index}>${text}</li>`)}</ul></section>`
           : null}
-          <div class="exam-analytics-privacy"><span class="material-symbols-outlined">lock</span>Respostas brutas e conteúdo da área de transferência não são exibidos nem coletados por este módulo.</div>
+          <div class="exam-analytics-privacy"><span class="material-symbols-outlined">${IconeSvg('lock')}</span>Respostas brutas e conteúdo da área de transferência não são exibidos nem coletados por este módulo.</div>
         `}
     </${ModalPadrao}>
   `;
@@ -333,7 +334,7 @@ function ModalConfiguracao({ open, configuration, form, mappings, saving, error,
   return html`
     <${ModalPadrao} aberto=${open} titulo="Configuração analítica do processo" subtitulo="Pesos e perfil ideal são versionados e nunca alteram a nota oficial." onClose=${onClose} className="exam-analytics-config-modal">
       <div class="exam-analytics-config-help">
-        <span class="material-symbols-outlined">info</span>
+        <span class="material-symbols-outlined">${IconeSvg('info')}</span>
         <p>Informe pesos que totalizem 100%. Ausências não recebem zero e os pesos não são redistribuídos silenciosamente.</p>
       </div>
       ${form.length
@@ -611,14 +612,14 @@ export function TelaResultadosAnaliticosProcesso({ controlador }) {
       acaoPrimaria=${controlador.possuiPermissao('provas.configurar_pesos') ? { label: 'Configurar análise', icon: 'tune', onClick: openConfiguration } : null}
     >
       <div class="exam-analytics-page">
-        <div class="exam-analytics-heading">
-          <button type="button" class="btn btn-outline-secondary" onClick=${() => navegarParaTela('screen-process-details')}><span class="material-symbols-outlined">arrow_back</span>Voltar ao processo</button>
-          <button type="button" class="btn btn-outline-primary" disabled=${loading} onClick=${() => load()}><span class="material-symbols-outlined">refresh</span>Atualizar</button>
-        </div>
         <${PageIntro}
           kicker="Conecta Provas"
           title="Resultados analíticos do processo"
           description=${data?.process?.vacancy ? `${data.process.vacancy} · ${data.process.status || 'Status não informado'}` : 'Comparabilidade, execução e evidências complementares, sem alterar a correção oficial.'}
+          actions=${html`
+            <button type="button" class="btn btn-outline-secondary" onClick=${() => navegarParaTela('screen-process-details')}><span class="material-symbols-outlined">${IconeSvg('arrow_back')}</span>Voltar ao processo</button>
+            <button type="button" class="btn btn-outline-primary" disabled=${loading} onClick=${() => load()}><span class="material-symbols-outlined">${IconeSvg('refresh')}</span>Atualizar</button>
+          `}
         />
         <div class="exam-analytics-process-meta">
           <span><strong>Processo</strong>${data?.process?.id || processId || '–'}</span>
@@ -627,7 +628,7 @@ export function TelaResultadosAnaliticosProcesso({ controlador }) {
           <span><strong>Atualização analítica</strong>${dataHora(statusData?.updatedAt)}</span>
           <span><strong>Processamento</strong><em class=${`exam-analytics-status ${classeStatus(statusData?.processingStatus)}`}>${statusData?.processingStatus || 'Aguardando'}</em></span>
         </div>
-        <div class="exam-analytics-principle"><span class="material-symbols-outlined">verified_user</span><div><strong>Leitura de apoio ao RH</strong><p>Nota oficial, decisão humana e regras atuais do processo continuam soberanas. Amostras pequenas e dados ausentes são sinalizados explicitamente.</p></div></div>
+        <div class="exam-analytics-principle"><span class="material-symbols-outlined">${IconeSvg('verified_user')}</span><div><strong>Leitura de apoio ao RH</strong><p>Nota oficial, decisão humana e regras atuais do processo continuam soberanas. Amostras pequenas e dados ausentes são sinalizados explicitamente.</p></div></div>
         <${MetricGrid} items=${metricItems} />
         ${error ? html`<div class="alert alert-danger">${error}</div>` : null}
         ${pendingJobs ? html`<div class="alert alert-info">Processamento pendente: ${pendingJobs} job(s) aguardando ou em execução. A página continua exibindo a última consolidação válida.</div>` : null}
@@ -650,7 +651,7 @@ export function TelaResultadosAnaliticosProcesso({ controlador }) {
             <label><span>Correção manual</span><select class="form-select" value=${filters.manual_correction} onChange=${(event) => setFilters((current) => ({ ...current, manual_correction: event.target.value }))}><option value="">Todas</option><option value="true">Com correção manual</option><option value="false">Sem correção manual</option></select></label>
             <label><span>Ordenar por</span><select class="form-select" value=${filters.sort} onChange=${(event) => setFilters((current) => ({ ...current, page: 1, sort: event.target.value }))}><option value="ranking">Ranking</option><option value="candidate">Candidato</option><option value="official_score">Nota oficial</option><option value="analytical_score">Score analítico</option><option value="adherence">Aderência</option><option value="updated_at">Atualização</option></select></label>
             <label><span>Direção</span><select class="form-select" value=${filters.direction} onChange=${(event) => setFilters((current) => ({ ...current, direction: event.target.value }))}><option value="asc">Crescente</option><option value="desc">Decrescente</option></select></label>
-            <div class="exam-analytics-filter-actions"><button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">search</span>Aplicar</button><button type="button" class="btn btn-outline-secondary" onClick=${clearFilters}>Limpar</button></div>
+            <div class="exam-analytics-filter-actions"><button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">${IconeSvg('search')}</span>Aplicar</button><button type="button" class="btn btn-outline-secondary" onClick=${clearFilters}>Limpar</button></div>
           </form>
           <div class="exam-analytics-selection-bar">
             <span>${selected.length ? `${selected.length} selecionado(s)` : 'Selecione 2 ou 3 candidatos para comparar'}</span>

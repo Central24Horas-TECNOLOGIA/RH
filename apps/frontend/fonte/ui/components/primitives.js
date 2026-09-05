@@ -1,12 +1,13 @@
 import { html } from '../../infraestrutura-react.js';
 import { GrupoPaginacao } from './feedback.js';
 import { ModalPadrao } from './modals.js';
+import { IconeSvg } from '../icone.js';
 
 
 export function Button({ label = '', icon = '', variant = 'primary', className = '', children, ...props }) {
   return html`
     <button class=${`btn btn-${variant} ${className}`.trim()} ...${props}>
-      ${icon ? html`<span class="material-symbols-outlined" aria-hidden="true">${icon}</span>` : null}
+      ${icon ? html`<span class="material-symbols-outlined" aria-hidden="true">${IconeSvg(icon)}</span>` : null}
       ${children || label}
     </button>
   `;
@@ -50,7 +51,7 @@ export function Table({ columns = [], rows = [], rowKey = 'id', renderCell = nul
                     ${emptyIcon
                       ? html`
                           <div class="c24-table-empty-state">
-                            <span class="material-symbols-outlined" aria-hidden="true">${emptyIcon}</span>
+                            <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg(emptyIcon)}</span>
                             <span class="c24-table-empty-state-text">${emptyText}</span>
                           </div>
                         `

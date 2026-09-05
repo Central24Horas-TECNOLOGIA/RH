@@ -1,4 +1,5 @@
 import { html } from '../../../infraestrutura-react.js';
+import { IconeSvg } from '../../../ui/icone.js';
 
 export function BlocoFiltro({ children, tourId = '' }) {
   return html`
@@ -13,7 +14,7 @@ export function CampoFiltro({ label, icon, children }) {
     <div class="rh-filter-field">
       <label>${label}</label>
       <div class="rh-modern-input-shell">
-        <span class="material-symbols-outlined">${icon}</span>
+        <span class="material-symbols-outlined">${IconeSvg(icon)}</span>
         ${children}
       </div>
     </div>

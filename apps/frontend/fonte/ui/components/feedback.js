@@ -1,5 +1,6 @@
 import { html, useEffect, useState } from '../../infraestrutura-react.js';
 import { construirModeloPaginacao } from '../../utilitarios.js';
+import { IconeSvg } from '../icone.js';
 
 function BotaoPaginacao({ pagina, ativa, onClick }) {
   return html`
@@ -55,9 +56,7 @@ export function MetricGrid({ items = [] }) {
           >
             ${item.icon
               ? html`
-                  <span class="material-symbols-outlined rh-metric-icon">
-                    ${item.icon}
-                  </span>
+                  <span class="material-symbols-outlined rh-metric-icon">${IconeSvg(item.icon)}</span>
                 `
               : null}
             <span class="rh-metric-content">
@@ -101,9 +100,7 @@ export function EmptyState({ title, text, icon = '', ilustracao = null, action =
         ? ilustracao
         : icon
           ? html`
-            <span class="rh-empty-state-icon material-symbols-outlined" aria-hidden="true">
-              ${icon}
-            </span>
+            <span class="rh-empty-state-icon material-symbols-outlined" aria-hidden="true">${IconeSvg(icon)}</span>
           `
           : null}
       <h3>${title}</h3>
@@ -116,7 +113,7 @@ export function EmptyState({ title, text, icon = '', ilustracao = null, action =
               onClick=${action.onClick}
             >
               ${action.icon
-                ? html`<span class="material-symbols-outlined">${action.icon}</span>`
+                ? html`<span class="material-symbols-outlined">${IconeSvg(action.icon)}</span>`
                 : null}
               ${action.label}
             </button>

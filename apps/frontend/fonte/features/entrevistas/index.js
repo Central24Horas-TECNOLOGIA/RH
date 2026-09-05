@@ -41,6 +41,7 @@ import {
   obterReferenciaProcesso,
 } from '../../shared/process-reference.js';
 import { obterItensPaginados } from '../../utilitarios.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const STATUS_SLOT_DISPONIVEL = 'Disponivel';
 const STATUS_SLOT_BLOQUEADO = 'Bloqueado';
@@ -586,7 +587,7 @@ export function TelaEntrevistas({ controlador }) {
             class="btn btn-outline-secondary"
             onClick=${() => carregar()}
           >
-            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+            <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('refresh')}</span>
             Atualizar
           </button>
         `}
@@ -611,7 +612,7 @@ export function TelaEntrevistas({ controlador }) {
             ].map(
               (item) => html`
                 <article class=${`interview-stat-card ${item.variant}`} key=${item.label}>
-                  <span class="material-symbols-outlined">${item.icon}</span>
+                  <span class="material-symbols-outlined">${IconeSvg(item.icon)}</span>
                   <div>
                     <small>${item.label}</small>
                     <strong>${item.value}</strong>
@@ -634,7 +635,7 @@ export function TelaEntrevistas({ controlador }) {
               aria-label="Dia anterior"
               onClick=${() => selecionarData(moverDataIso(filtros.data, -1))}
             >
-              <span class="material-symbols-outlined">chevron_left</span>
+              <span class="material-symbols-outlined">${IconeSvg('chevron_left')}</span>
             </button>
             <span class="interview-day-title">${formatarDataLonga(filtros.data)}</span>
             <button
@@ -643,7 +644,7 @@ export function TelaEntrevistas({ controlador }) {
               aria-label="Próximo dia"
               onClick=${() => selecionarData(moverDataIso(filtros.data, 1))}
             >
-              <span class="material-symbols-outlined">chevron_right</span>
+              <span class="material-symbols-outlined">${IconeSvg('chevron_right')}</span>
             </button>
           `}
         >
@@ -669,7 +670,7 @@ export function TelaEntrevistas({ controlador }) {
                   ${entrevistasResumoDia.map(
                     (item) => html`
                       <article class="interview-day-row" key=${item.id_entrevista}>
-                        <span class="material-symbols-outlined">event_available</span>
+                        <span class="material-symbols-outlined">${IconeSvg('event_available')}</span>
                         <div>
                           <strong>${item.nome_candidato || '-'}</strong>
                           <small> ${formatarDataHora(item.data_entrevista)}</small>
@@ -695,7 +696,7 @@ export function TelaEntrevistas({ controlador }) {
               `
             : html`
                 <div class="c24-empty-state c24-empty-state-horizontal">
-                  <span class="material-symbols-outlined">calendar_clock</span>
+                  <span class="material-symbols-outlined">${IconeSvg('calendar_clock')}</span>
                   <div>
                     <h3>Nenhuma entrevista registrada hoje</h3>
                     <p>Use os slots ou confirmações para registrar entrevistas.</p>
@@ -831,7 +832,7 @@ export function TelaEntrevistas({ controlador }) {
             disabled=${salvando}
             onClick=${criarDisponibilidade}
           >
-            <span class="material-symbols-outlined">calendar_add_on</span>
+            <span class="material-symbols-outlined">${IconeSvg('calendar_add_on')}</span>
             ${salvando ? 'Salvando...' : 'Gerar slots'}
           </button>
         </div>
@@ -908,7 +909,7 @@ export function TelaEntrevistas({ controlador }) {
               title="Aplicar filtros"
               onClick=${() => carregar({ forcar: true })}
             >
-              <span class="material-symbols-outlined">filter_alt</span>
+              <span class="material-symbols-outlined">${IconeSvg('filter_alt')}</span>
               Aplicar
             </button>
             <button
@@ -917,7 +918,7 @@ export function TelaEntrevistas({ controlador }) {
               title="Limpar filtros"
               onClick=${limparFiltros}
             >
-              <span class="material-symbols-outlined">refresh</span>
+              <span class="material-symbols-outlined">${IconeSvg('refresh')}</span>
               Limpar
             </button>
           </div>
@@ -967,7 +968,7 @@ export function TelaEntrevistas({ controlador }) {
                               aria-label="Editar slot"
                               onClick=${() => abrirEdicaoSlot(slot)}
                             >
-                              <span class="material-symbols-outlined">edit</span>
+                              <span class="material-symbols-outlined">${IconeSvg('edit')}</span>
                             </button>
                             <button
                               type="button"
@@ -977,7 +978,7 @@ export function TelaEntrevistas({ controlador }) {
                               disabled=${salvando}
                               onClick=${() => excluirSlot(slot)}
                             >
-                              <span class="material-symbols-outlined">delete</span>
+                              <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                             </button>
                           </div>
                         </article>
@@ -995,7 +996,7 @@ export function TelaEntrevistas({ controlador }) {
                 `
               : html`
                   <div class="c24-empty-state c24-empty-state-horizontal">
-                    <span class="material-symbols-outlined">calendar_month</span>
+                    <span class="material-symbols-outlined">${IconeSvg('calendar_month')}</span>
                     <div>
                       <h3>Nenhum slot para o filtro</h3>
                       <p>Crie disponibilidade para o dia desejado ou ajuste os filtros.</p>
@@ -1061,7 +1062,7 @@ export function TelaEntrevistas({ controlador }) {
                                     showToast('Não foi possível copiar a mensagem automaticamente.', 'error'),
                                   )}
                             >
-                              <span class="material-symbols-outlined">content_copy</span>
+                              <span class="material-symbols-outlined">${IconeSvg('content_copy')}</span>
                             </button>
                             <button
                               type="button"
@@ -1075,7 +1076,7 @@ export function TelaEntrevistas({ controlador }) {
                               disabled=${isProcessClosed(item.status_processo)}
                               onClick=${() => abrirEdicao(item)}
                             >
-                              <span class="material-symbols-outlined">edit_calendar</span>
+                              <span class="material-symbols-outlined">${IconeSvg('edit_calendar')}</span>
                             </button>
                             <button
                               type="button"
@@ -1089,7 +1090,7 @@ export function TelaEntrevistas({ controlador }) {
                               disabled=${salvando || isProcessClosed(item.status_processo)}
                               onClick=${() => apagarEntrevistaAgendada(item)}
                             >
-                              <span class="material-symbols-outlined">delete</span>
+                              <span class="material-symbols-outlined">${IconeSvg('delete')}</span>
                             </button>
                           </div>
                         </article>
@@ -1107,7 +1108,7 @@ export function TelaEntrevistas({ controlador }) {
                 `
               : html`
                   <div class="c24-empty-state c24-empty-state-horizontal">
-                    <span class="material-symbols-outlined">assignment</span>
+                    <span class="material-symbols-outlined">${IconeSvg('assignment')}</span>
                     <div>
                       <h3>Nenhuma entrevista encontrada</h3>
                       <p>Agende entrevistas a partir do detalhe do processo para acompanhar a jornada por aqui.</p>

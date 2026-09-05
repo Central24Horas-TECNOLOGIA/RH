@@ -49,6 +49,7 @@ import {
   PainelRh,
   SectionCard,
 } from '../../ui/componentes-compartilhados.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const LINK_CONECTA_PROVAS = '/conecta-provas';
 const CHAVE_ABRIR_MODAL_GERAR_PROVA = 'rh_open_generated_exam_modal_v1';
@@ -612,7 +613,7 @@ function BotaoAcaoProva({ icon, label, variant = 'neutral', onClick, disabled = 
       disabled=${disabled}
       title=${label}
     >
-      <span class="material-symbols-outlined">${icon}</span>
+      <span class="material-symbols-outlined">${IconeSvg(icon)}</span>
       <span>${label}</span>
     </button>
   `;
@@ -1663,7 +1664,7 @@ function ModalDetalheProvaGerada({
           ].map(
             (item) => html`
               <article class="generated-detail-summary-card" key=${item.label}>
-                <span class="material-symbols-outlined">${item.icon}</span>
+                <span class="material-symbols-outlined">${IconeSvg(item.icon)}</span>
                 <small>${item.label}</small>
                 <strong>${item.value}</strong>
               </article>
@@ -1679,7 +1680,7 @@ function ModalDetalheProvaGerada({
           ].map(
             (item) => html`
               <div class="generated-detail-date-item" key=${item.label}>
-                <span class="material-symbols-outlined">${item.icon}</span>
+                <span class="material-symbols-outlined">${IconeSvg(item.icon)}</span>
                 <span>${item.label}: <strong>${item.value}</strong></span>
               </div>
             `,
@@ -1700,7 +1701,7 @@ function ModalDetalheProvaGerada({
                       return html`
                       <article class=${`generated-stage-result-card is-${tom}`} key=${etapa.key}>
                         <div class="generated-stage-card-head">
-                          <span class="material-symbols-outlined">${etapa.icon}</span>
+                          <span class="material-symbols-outlined">${IconeSvg(etapa.icon)}</span>
                           <strong>${etapa.label}</strong>
                           <span class=${`generated-stage-status ${obterClasseStatusEtapa(etapa.status)}`}>
                             ${etapa.status}
@@ -1789,9 +1790,7 @@ function ModalDetalheProvaGerada({
             aria-expanded=${mostrarResultadoCompleto}
           >
             <h3>Resultado completo</h3>
-            <span class="material-symbols-outlined">
-              ${mostrarResultadoCompleto ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
-            </span>
+            <span class="material-symbols-outlined">${IconeSvg(mostrarResultadoCompleto ? 'keyboard_arrow_up' : 'keyboard_arrow_down')}</span>
           </button>
           ${mostrarResultadoCompleto
             ? linhasResultado.length
@@ -1946,7 +1945,7 @@ function ModalDetalheProvaGerada({
                     setMenuAcoesAberto(false);
                     onCopiarCodigo?.();
                   }}>
-                    <span class="material-symbols-outlined">content_copy</span>
+                    <span class="material-symbols-outlined">${IconeSvg('content_copy')}</span>
                     Copiar Código
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
@@ -1957,28 +1956,28 @@ function ModalDetalheProvaGerada({
                       window.alert(error?.message || 'Não foi possível gerar o PDF do resultado.');
                     }
                   }}>
-                    <span class="material-symbols-outlined">picture_as_pdf</span>
+                    <span class="material-symbols-outlined">${IconeSvg('picture_as_pdf')}</span>
                     Exportar PDF
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
                     abrirReplay();
                   }}>
-                    <span class="material-symbols-outlined">history</span>
+                    <span class="material-symbols-outlined">${IconeSvg('history')}</span>
                     Ver replay
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
                     abrirPreview();
                   }}>
-                    <span class="material-symbols-outlined">visibility</span>
+                    <span class="material-symbols-outlined">${IconeSvg('visibility')}</span>
                     Pré-visualizar
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
                     onAvaliacaoManual?.();
                   }}>
-                    <span class="material-symbols-outlined">menu_book</span>
+                    <span class="material-symbols-outlined">${IconeSvg('menu_book')}</span>
                     Inserir Manualmente
                   </button>
                   <button
@@ -1990,28 +1989,28 @@ function ModalDetalheProvaGerada({
                       onRecalcular?.();
                     }}
                   >
-                    <span class="material-symbols-outlined">sync</span>
+                    <span class="material-symbols-outlined">${IconeSvg('sync')}</span>
                     Recalcular Score
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
                     (provaCancelada ? onReabrir : onCancelar)?.();
                   }}>
-                    <span class="material-symbols-outlined">${provaCancelada ? 'history' : 'delete'}</span>
+                    <span class="material-symbols-outlined">${IconeSvg(provaCancelada ? 'history' : 'delete')}</span>
                     ${provaCancelada ? 'Reabrir Prova' : 'Cancelar'}
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
                     onDecisao?.();
                   }}>
-                    <span class="material-symbols-outlined">person_add</span>
+                    <span class="material-symbols-outlined">${IconeSvg('person_add')}</span>
                     Decisão RH
                   </button>
                   <button type="button" role="menuitem" onClick=${() => {
                     setMenuAcoesAberto(false);
                     onDadosCandidato?.();
                   }}>
-                    <span class="material-symbols-outlined">badge</span>
+                    <span class="material-symbols-outlined">${IconeSvg('badge')}</span>
                     Dados Candidato
                   </button>
                 </div>
@@ -2039,12 +2038,12 @@ function ModalDetalheProvaGerada({
               ? html`
                     <div class="generated-detail-summary-grid">
                       <article class="generated-detail-summary-card">
-                        <span class="material-symbols-outlined">timer</span>
+                        <span class="material-symbols-outlined">${IconeSvg('timer')}</span>
                         <small>Tempo ativo total</small>
                         <strong>${formatarTempoRestante(replay.resumo?.tempo_ativo_total_segundos || 0)}</strong>
                       </article>
                       <article class="generated-detail-summary-card">
-                        <span class="material-symbols-outlined">visibility</span>
+                        <span class="material-symbols-outlined">${IconeSvg('visibility')}</span>
                         <small>Questões visitadas</small>
                         <strong>${replay.resumo?.questoes_visitadas ?? 0} de ${replay.resumo?.total_questoes ?? 0}</strong>
                       </article>
@@ -2053,12 +2052,10 @@ function ModalDetalheProvaGerada({
                       ${replay.eventos.map((evento, indice) => html`
                         <article key=${`${evento.tipo}-${indice}`}>
                           <span class="generated-replay-icon">
-                            <i class="material-symbols-outlined">
-                              ${evento.tipo === 'etapa_iniciada' ? 'play_circle'
+                            <i class="material-symbols-outlined">${IconeSvg(evento.tipo === 'etapa_iniciada' ? 'play_circle'
                 : evento.tipo === 'etapa_finalizada' ? 'flag'
                   : evento.tipo === 'questao_respondida' ? 'edit'
-                    : 'visibility'}
-                            </i>
+                    : 'visibility')}</i>
                           </span>
                           <div>
                             <strong>${evento.titulo}</strong>
@@ -2594,7 +2591,7 @@ export function TelaProvasResultados({ controlador }) {
         description="Acompanhe o andamento, correções e resultados das provas."
         actions=${html`
           <button type="button" class="btn btn-outline-secondary rh-action-btn" onClick=${abrirHeatmap}>
-            <span class="material-symbols-outlined">grid_view</span>
+            <span class="material-symbols-outlined">${IconeSvg('grid_view')}</span>
             Heatmap de questões
           </button>
         `}
@@ -2619,7 +2616,7 @@ export function TelaProvasResultados({ controlador }) {
       >
         <div class="generated-exams-filters generated-exams-filters-wide">
           <label class="generated-filter-field generated-filter-search">
-            <span class="material-symbols-outlined">person_search</span>
+            <span class="material-symbols-outlined">${IconeSvg('person_search')}</span>
             <input
               class="form-control"
               placeholder="Candidato, e-mail ou código"
@@ -2684,7 +2681,7 @@ export function TelaProvasResultados({ controlador }) {
             <option value="sem_alertas">Sem alertas</option>
           </select>
           <label class="generated-filter-field generated-filter-score">
-            <span class="material-symbols-outlined">trending_up</span>
+            <span class="material-symbols-outlined">${IconeSvg('trending_up')}</span>
             <input
               class="form-control"
               type="number"
@@ -2697,7 +2694,7 @@ export function TelaProvasResultados({ controlador }) {
             />
           </label>
           <label class="generated-filter-field generated-filter-score">
-            <span class="material-symbols-outlined">trending_down</span>
+            <span class="material-symbols-outlined">${IconeSvg('trending_down')}</span>
             <input
               class="form-control"
               type="number"
@@ -2710,7 +2707,7 @@ export function TelaProvasResultados({ controlador }) {
             />
           </label>
           <label class="generated-filter-field generated-filter-date">
-            <span class="material-symbols-outlined">calendar_month</span>
+            <span class="material-symbols-outlined">${IconeSvg('calendar_month')}</span>
             <input
               class="form-control"
               type="date"
@@ -2719,7 +2716,7 @@ export function TelaProvasResultados({ controlador }) {
             />
           </label>
           <button type="button" class="btn btn-outline-secondary generated-clear-filters" onClick=${limparFiltros}>
-            <span class="material-symbols-outlined">filter_alt_off</span>
+            <span class="material-symbols-outlined">${IconeSvg('filter_alt_off')}</span>
             Limpar filtros
           </button>
         </div>
@@ -2783,9 +2780,7 @@ export function TelaProvasResultados({ controlador }) {
                             class=${`generated-alert-badge ${alertas.length ? 'is-warning' : 'is-empty'}`}
                             onClick=${() => abrirDetalhe(prova.id_prova)}
                           >
-                            <span class="material-symbols-outlined">
-                              ${alertas.length ? 'warning' : 'check_circle'}
-                            </span>
+                            <span class="material-symbols-outlined">${IconeSvg(alertas.length ? 'warning' : 'check_circle')}</span>
                             ${alertas.length ? `${alertas.length} alerta${alertas.length > 1 ? 's' : ''}` : 'Sem alertas'}
                           </button>
                         </td>
@@ -2817,7 +2812,7 @@ export function TelaProvasResultados({ controlador }) {
                       onClick=${() => setPagina(provasPaginadas.paginaAtual - 1)}
                       aria-label="Página anterior"
                     >
-                      <span class="material-symbols-outlined">chevron_left</span>
+                      <span class="material-symbols-outlined">${IconeSvg('chevron_left')}</span>
                     </button>
                     <button type="button" class="btn btn-primary btn-sm" disabled>
                       ${provasPaginadas.paginaAtual}
@@ -2829,7 +2824,7 @@ export function TelaProvasResultados({ controlador }) {
                       onClick=${() => setPagina(provasPaginadas.paginaAtual + 1)}
                       aria-label="Próxima página"
                     >
-                      <span class="material-symbols-outlined">chevron_right</span>
+                      <span class="material-symbols-outlined">${IconeSvg('chevron_right')}</span>
                     </button>
                   </div>
                 </div>

@@ -12,7 +12,7 @@ export {
   SectionCard,
   Tabs,
   TabPanel,
-} from './components/layout.js?v=20260902-perfil-drive-nav';
+} from './components/layout.js?v=20260904-identidade-conecta';
 export {
   ModalConfirmacaoAcao,
   ModalDetalhesProva,

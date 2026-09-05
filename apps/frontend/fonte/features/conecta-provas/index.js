@@ -1,3 +1,5 @@
+import { IconeSvg } from '../../ui/icone.js';
+
 ﻿import { html, useEffect, useMemo, useRef, useState } from '../../infraestrutura-react.js';
 import {
   acessarProvaPorCodigo,
@@ -635,7 +637,7 @@ function TelaAcesso({
   return html`
     <section class="conecta-provas-card">
       <div class="conecta-provas-brand">
-        <span class="material-symbols-outlined">assignment</span>
+        <span class="material-symbols-outlined">${IconeSvg('assignment')}</span>
         <strong>Conecta Provas</strong>
       </div>
       <h1>Acesse sua prova</h1>
@@ -1031,7 +1033,7 @@ function TelaEtapasProva({
       <${ToastHost} />
       <header class="exam-steps-header">
         <button type="button" class="exam-steps-back" aria-label="Voltar" onClick=${onVoltar}>
-          <span class="material-symbols-outlined">arrow_back</span>
+          <span class="material-symbols-outlined">${IconeSvg('arrow_back')}</span>
         </button>
         <div>
           <h1>Etapas da prova</h1>
@@ -1042,7 +1044,7 @@ function TelaEtapasProva({
       ${erro ? html`<div class="alert alert-warning exam-steps-alert">${erro}</div>` : null}
       ${confirmacao ? html`
         <div class=${`exam-steps-notice ${todasConcluidas ? 'is-complete' : 'is-pending'}`}>
-          <span class="material-symbols-outlined">${todasConcluidas ? 'check_circle' : 'info'}</span>
+          <span class="material-symbols-outlined">${IconeSvg(todasConcluidas ? 'check_circle' : 'info')}</span>
           <div><strong>${todasConcluidas ? 'Todas as etapas foram concluídas' : `Ainda ${pendentes.length === 1 ? 'falta' : 'faltam'} ${pendentes.length} etapa(s)`}</strong><span>${todasConcluidas ? 'Revise o resumo e finalize o envio quando estiver pronto.' : 'Continue pelas etapas pendentes antes de finalizar o envio.'}</span></div>
         </div>
       ` : null}
@@ -1060,20 +1062,20 @@ function TelaEtapasProva({
                 <div class="exam-step-timeline" aria-hidden="true">
                   <span>${indice + 1}</span>${indice < etapas.length - 1 ? html`<i></i>` : null}
                 </div>
-                <span class="exam-step-icon"><i class="material-symbols-outlined">${etapa.icon}</i></span>
+                <span class="exam-step-icon"><i class="material-symbols-outlined">${IconeSvg(etapa.icon)}</i></span>
                 <div class="exam-step-copy">
                   <small>Etapa ${indice + 1}${etapa.obrigatoria ? ' · Obrigatório' : ''}</small>
                   <h2>${etapa.label}</h2>
                   <p>${etapa.description}</p>
                   ${confirmacao && !somenteCadastro ? html`<span class=${`exam-step-state is-${etapa.status}`}>${indisponivel ? 'Realizada' : concluida ? 'Concluída' : emAndamento ? 'Em andamento' : 'Não iniciada'}</span>` : null}
-                  ${bloqueada && !indisponivel ? html`<span class="exam-step-state is-locked"><i class="material-symbols-outlined">lock</i>Conclua o Cadastro para desbloquear</span>` : null}
+                  ${bloqueada && !indisponivel ? html`<span class="exam-step-state is-locked"><i class="material-symbols-outlined">${IconeSvg('lock')}</i>Conclua o Cadastro para desbloquear</span>` : null}
                 </div>
                 <div class="exam-step-action">
                   ${somenteCadastro
         ? cadastroConcluido
-          ? html`<span class="exam-step-complete-tag"><i class="material-symbols-outlined">check</i>Etapa concluída</span>`
+          ? html`<span class="exam-step-complete-tag"><i class="material-symbols-outlined">${IconeSvg('check')}</i>Etapa concluída</span>`
           : html`<button type="button" class="btn btn-primary" disabled=${carregando} onClick=${onCadastro}>Começar</button>`
-        : html`<button type="button" class=${concluida ? 'btn btn-outline-primary' : 'btn btn-primary'} disabled=${carregando || bloqueada} onClick=${() => !bloqueada && onIniciar(etapa)}><span class="material-symbols-outlined">${indisponivel ? 'block' : bloqueada ? 'lock' : concluida ? 'check_circle' : 'play_arrow'}</span>${indisponivel ? 'Indisponível' : bloqueada ? 'Bloqueada' : concluida ? 'Revisar' : emAndamento ? 'Continuar' : 'Iniciar prova'}</button>`}
+        : html`<button type="button" class=${concluida ? 'btn btn-outline-primary' : 'btn btn-primary'} disabled=${carregando || bloqueada} onClick=${() => !bloqueada && onIniciar(etapa)}><span class="material-symbols-outlined">${IconeSvg(indisponivel ? 'block' : bloqueada ? 'lock' : concluida ? 'check_circle' : 'play_arrow')}</span>${indisponivel ? 'Indisponível' : bloqueada ? 'Bloqueada' : concluida ? 'Revisar' : emAndamento ? 'Continuar' : 'Iniciar prova'}</button>`}
                 </div>
               </article>
             `;
@@ -1083,14 +1085,14 @@ function TelaEtapasProva({
         <aside class="exam-summary-column">
           <section class="exam-summary-panel">
             <h2>Resumo</h2>
-            <div class="exam-summary-total"><span class="material-symbols-outlined">checklist</span><strong>${etapas.length} etapas</strong></div>
+            <div class="exam-summary-total"><span class="material-symbols-outlined">${IconeSvg('checklist')}</span><strong>${etapas.length} etapas</strong></div>
             <p><span>•</span>${etapasAvaliativas.length} ${etapasAvaliativas.length === 1 ? 'avaliação' : 'avaliações'}</p>
             <div class="exam-summary-progress"><div><span>Progresso</span><strong>${progresso}%</strong></div><i><b style=${{ width: `${progresso}%` }}></b></i><small>${concluidas} de ${etapas.length} etapas concluídas</small></div>
             <span class=${`exam-summary-status ${todasConcluidas ? 'is-complete' : 'is-progress'}`}>${todasConcluidas ? 'Pronta para envio' : 'Em andamento'}</span>
           </section>
           <section class="exam-info-panel">
-            <span class="exam-info-icon material-symbols-outlined">sentiment_satisfied</span>
-            <div><h2>Seu processo está pronto</h2><p>Conclua as etapas na ordem indicada. Cada prova poderá ser iniciada individualmente e seu progresso será salvo.</p><a href="#entenda-etapas" onClick=${(event) => { event.preventDefault(); showToast('Inicie uma etapa por vez. Suas respostas são salvas ao concluir cada bloco e você poderá continuar as etapas pendentes antes do envio final.', 'info'); }}><span class="material-symbols-outlined">open_in_new</span>Entenda mais</a></div>
+            <span class="exam-info-icon material-symbols-outlined">${IconeSvg('sentiment_satisfied')}</span>
+            <div><h2>Seu processo está pronto</h2><p>Conclua as etapas na ordem indicada. Cada prova poderá ser iniciada individualmente e seu progresso será salvo.</p><a href="#entenda-etapas" onClick=${(event) => { event.preventDefault(); showToast('Inicie uma etapa por vez. Suas respostas são salvas ao concluir cada bloco e você poderá continuar as etapas pendentes antes do envio final.', 'info'); }}><span class="material-symbols-outlined">${IconeSvg('open_in_new')}</span>Entenda mais</a></div>
           </section>
           ${confirmacao && todasConcluidas ? html`<button type="button" class="btn btn-primary exam-final-submit" disabled=${carregando} onClick=${onFinalizar}>${carregando ? 'Finalizando...' : 'Finalizar envio'}</button>` : null}
         </aside>
@@ -1447,7 +1449,7 @@ function AvisoPendenciasFinalizacao({
         aria-labelledby="conecta-provas-pendencias-title"
       >
         <div class="conecta-provas-modal-head">
-          <span class="material-symbols-outlined">warning</span>
+          <span class="material-symbols-outlined">${IconeSvg('warning')}</span>
           <h2 id="conecta-provas-pendencias-title">Existem pendências na sua prova</h2>
         </div>
         <p>Você deseja finalizar mesmo assim ou voltar para revisar?</p>
@@ -1511,7 +1513,7 @@ function ModalConfirmarEnvioProva({
         aria-labelledby="conecta-provas-confirmar-titulo"
       >
         <div class="conecta-provas-modal-head">
-          <span class="material-symbols-outlined">task_alt</span>
+          <span class="material-symbols-outlined">${IconeSvg('task_alt')}</span>
           <h2 id="conecta-provas-confirmar-titulo">Confirmar envio da prova</h2>
         </div>
         <p>
@@ -2238,7 +2240,7 @@ export function TelaConectaProvas({ modoPreview = false, sessaoInicial = null, o
       ${modoPreview
       ? html`
             <div class="conecta-provas-preview-banner">
-              <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+              <span class="material-symbols-outlined" aria-hidden="true">${IconeSvg('visibility')}</span>
               <span>Modo pré-visualização (RH) — nenhuma resposta é salva.</span>
               ${onFecharPreview
           ? html`

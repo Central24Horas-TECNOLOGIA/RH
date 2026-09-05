@@ -4,6 +4,7 @@ import {
   useMemo,
   useState,
 } from '../infraestrutura-react.js';
+import { IconeSvg } from './icone.js';
 
 const CARD_WIDTH = 320;
 const CARD_HEIGHT_ESTIMATE = 220;
@@ -103,7 +104,7 @@ export function BotaoAjudaTour({
       class=${`btn btn-outline-secondary rh-tour-help-btn ${compact ? 'is-compact' : ''}`.trim()}
       onClick=${onClick}
     >
-      <span class="material-symbols-outlined">help</span>
+      <span class="material-symbols-outlined">${IconeSvg('help')}</span>
       <span>${label}</span>
     </button>
   `;

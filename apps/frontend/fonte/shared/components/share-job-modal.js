@@ -2,6 +2,7 @@ import { html, useState } from '../../infraestrutura-react.js';
 import { copiarTexto, montarUrlPublicaCandidatura, obterBasePublicaCandidatura } from '../browser-utils.js';
 import { ModalPadrao } from '../../ui/componentes-compartilhados.js';
 import { quebrarListaTexto } from '../../shared/validacoes.js';
+import { IconeSvg } from '../../ui/icone.js';
 
 const URL_CARREIRAS_PADRAO = 'https://central24horas.com.br/trabalhe-conosco';
 
@@ -171,11 +172,11 @@ export function ModalCompartilharVaga({
           ${requisitosVisiveis.length
             ? html`
                 <section class="process-share-list-card">
-                  <h3><span class="material-symbols-outlined">verified</span>Requisitos da vaga</h3>
+                  <h3><span class="material-symbols-outlined">${IconeSvg('verified')}</span>Requisitos da vaga</h3>
                   <ul>
                     ${requisitosVisiveis.map((item, indice) => html`
                       <li key=${`req-${indice}`}>
-                        <span class="material-symbols-outlined">check_circle</span>
+                        <span class="material-symbols-outlined">${IconeSvg('check_circle')}</span>
                         ${item}
                       </li>
                     `)}
@@ -186,11 +187,11 @@ export function ModalCompartilharVaga({
           ${responsabilidadesVisiveis.length
             ? html`
                 <section class="process-share-list-card">
-                  <h3><span class="material-symbols-outlined">assignment_turned_in</span>Responsabilidades</h3>
+                  <h3><span class="material-symbols-outlined">${IconeSvg('assignment_turned_in')}</span>Responsabilidades</h3>
                   <ul>
                     ${responsabilidadesVisiveis.map((item, indice) => html`
                       <li key=${`resp-${indice}`}>
-                        <span class="material-symbols-outlined">arrow_right_alt</span>
+                        <span class="material-symbols-outlined">${IconeSvg('arrow_right_alt')}</span>
                         ${item}
                       </li>
                     `)}
@@ -219,7 +220,7 @@ export function ModalCompartilharVaga({
                     title=${rede.desativado ? 'Em breve' : `Compartilhar no ${rede.label}`}
                     onClick=${() => compartilharRede(rede.chave)}
                   >
-                    <span class="material-symbols-outlined">${rede.icone}</span>
+                    <span class="material-symbols-outlined">${IconeSvg(rede.icone)}</span>
                     ${rede.label}
                   </button>
                 `,
@@ -233,7 +234,7 @@ export function ModalCompartilharVaga({
           Fechar
         </button>
         <button type="button" class="btn btn-primary" onClick=${copiar}>
-          <span class="material-symbols-outlined">content_copy</span>Copiar texto da vaga
+          <span class="material-symbols-outlined">${IconeSvg('content_copy')}</span>Copiar texto da vaga
         </button>
       </footer>
     </${ModalPadrao}>
