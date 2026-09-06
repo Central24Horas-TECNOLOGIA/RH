@@ -544,6 +544,17 @@ margin-bottom: 0.28rem;
   color: var(--color-success);
 }
 
+.rh-chip.is-eliminado,
+.rh-chip.is-critico {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.rh-chip.is-alerta {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
 .rh-link-inline {
   color: var(--color-primary);
   font-weight: 700;

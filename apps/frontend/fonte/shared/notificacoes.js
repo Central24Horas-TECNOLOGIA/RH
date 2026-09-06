@@ -5,6 +5,7 @@ import {
   lerCandidatosProcessos,
   listarSolicitacoesAlteracaoEmailApi,
 } from '../app/controlador-aplicacao.js';
+import { listarNotificacoes } from '../services/api/notifications.js';
 
 export const CATEGORIAS_NOTIFICACAO = [
   {
@@ -36,6 +37,12 @@ export const CATEGORIAS_NOTIFICACAO = [
     label: 'Administração',
     cor: '#65176c',
     descricao: 'Avisos administrativos do sistema, como alterações de configuração e auditoria.',
+  },
+  {
+    id: 'treinamentos',
+    label: 'Central de Treinamentos',
+    cor: '#0f8a5f',
+    descricao: 'Treinamento aplicado, concluído, com chamada pendente ou encerrado sem chamada.',
   },
 ];
 
@@ -140,6 +147,16 @@ function montarItensAdministracao(solicitacoesEmail) {
     }));
 }
 
+function montarItensTreinamentos(notificacoesTreinamento) {
+  return (Array.isArray(notificacoesTreinamento) ? notificacoesTreinamento : [])
+    .slice(0, LIMITE_ITENS_POR_CATEGORIA)
+    .map((item) => ({
+      id: `treinamento-${item.id_notificacao}`,
+      categoria: 'treinamentos',
+      texto: item.titulo && item.mensagem ? `${item.titulo}: ${item.mensagem}` : item.titulo || item.mensagem || 'Notificação da Central de Treinamentos',
+    }));
+}
+
 export function useResumoNotificacoes(controlador) {
   const [itens, setItens] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -157,14 +174,17 @@ export function useResumoNotificacoes(controlador) {
     setCarregando(true);
     const podeVerSolicitacoesEmail = Boolean(controlador?.possuiPermissao?.('usuarios.alterar_email'));
 
+    const podeVerNotificacoesTreinamento = Boolean(controlador?.possuiPermissao?.('notificacoes.visualizar'));
+
     const carregar = async () => {
-      const [processos, entrevistas, candidatosProcessos, solicitacoesEmail] = await Promise.all([
+      const [processos, entrevistas, candidatosProcessos, solicitacoesEmail, notificacoesTreinamento] = await Promise.all([
         lerProcessos().catch(() => []),
         lerEntrevistas().catch(() => []),
         lerCandidatosProcessos().catch(() => []),
         podeVerSolicitacoesEmail
           ? listarSolicitacoesAlteracaoEmailApi().then((valor) => valor?.solicitacoes || []).catch(() => [])
           : Promise.resolve([]),
+        podeVerNotificacoesTreinamento ? listarNotificacoes(true).catch(() => []) : Promise.resolve([]),
       ]);
       if (!ativo) return;
 
@@ -174,6 +194,7 @@ export function useResumoNotificacoes(controlador) {
         ...montarItensProcessos(processos),
         ...montarItensProblemas(candidatosProcessos),
         ...montarItensAdministracao(solicitacoesEmail),
+        ...montarItensTreinamentos(notificacoesTreinamento),
       ].filter((item) => preferencias[item.categoria] !== false);
 
       setItens(resultado);

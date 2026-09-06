@@ -9,8 +9,11 @@ import {
   listarCandidatosLiberacaoTreinamento,
   listarTreinamentosProcesso,
   listarTrilhasOnboarding,
+  relatorioConclusaoOperacao,
+  relatorioPresencaColaborador,
+  relatorioTreinamentosStatus,
   salvarPresencaTreinamento,
-} from '../../servico-api.js?v=20260904-correcoes-txt3';
+} from '../../servico-api.js?v=20260906-central-treinamentos';
 import { listarOperacoes } from '../../services/api/operations.js';
 import {
   ModalPadrao,
@@ -37,13 +40,28 @@ const TIPOS_CONTEUDO = [
   { value: 'slide', label: 'Slide' },
   { value: 'link', label: 'Link (ex.: intranet/SharePoint)' },
 ];
-const STATUS_ATRIBUICAO = [
+// Editáveis manualmente no modal "Editar treinamento". "Pendente de chamada" e
+// "Encerrado sem chamada" (abaixo) são estados automáticos do job de
+// escalonamento (plano técnico §6) — não aparecem como opção manual.
+const STATUS_ATRIBUICAO_EDITAVEL = [
   { value: 'em_andamento', label: 'Em andamento' },
   { value: 'concluido', label: 'Concluído' },
   { value: 'cancelado', label: 'Cancelado' },
   { value: 'aplicado', label: 'Aplicado' },
 ];
-const STATUS_TOM = { em_andamento: '', concluido: 'is-indicacao', cancelado: 'is-eliminado', aplicado: 'is-indicacao' };
+const STATUS_ATRIBUICAO = [
+  ...STATUS_ATRIBUICAO_EDITAVEL,
+  { value: 'pendente_chamada', label: 'Pendente de chamada' },
+  { value: 'encerrado_sem_chamada', label: 'Encerrado sem chamada' },
+];
+const STATUS_TOM = {
+  em_andamento: '',
+  concluido: 'is-indicacao',
+  cancelado: 'is-eliminado',
+  aplicado: 'is-indicacao',
+  pendente_chamada: 'is-alerta',
+  encerrado_sem_chamada: 'is-critico',
+};
 
 const METODOS_LOGIN_TREINAMENTO = [
   { value: '', label: 'Não definido' },
@@ -117,8 +135,10 @@ function paraInputDatetimeLocal(valor) {
 }
 
 export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-trilhas' }) {
-  const abaAtiva = telaAtual === 'screen-training-assignments' ? 'atribuicoes' : 'trilhas';
+  const abaAtiva = telaAtual === 'screen-training-manage' ? 'gestao' : telaAtual === 'screen-training-assignments' ? 'atribuicoes' : 'trilhas';
   const podeEditar = controlador?.possuiPermissao?.('onboarding.editar');
+  const podeCriar = controlador?.possuiPermissao?.('onboarding.criar');
+  const podeGerenciar = controlador?.possuiPermissao?.('onboarding.gerenciar');
 
   const [trilhas, setTrilhas] = useState([]);
   const [operacoes, setOperacoes] = useState([]);
@@ -152,6 +172,11 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
   const [candidatosSelecionados, setCandidatosSelecionados] = useState([]);
   const [salvandoLiberacao, setSalvandoLiberacao] = useState(false);
   const [erroLiberacao, setErroLiberacao] = useState('');
+
+  const [relatorioStatus, setRelatorioStatus] = useState([]);
+  const [relatorioPresenca, setRelatorioPresenca] = useState([]);
+  const [relatorioConclusao, setRelatorioConclusao] = useState([]);
+  const [carregandoRelatorios, setCarregandoRelatorios] = useState(false);
 
   const carregarTrilhas = async () => {
     try {
@@ -200,12 +225,32 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
     carregarTudo();
   }, []);
 
+  useEffect(() => {
+    if (abaAtiva !== 'gestao') return;
+    setCarregandoRelatorios(true);
+    Promise.all([
+      relatorioTreinamentosStatus().catch(() => []),
+      relatorioPresencaColaborador().catch(() => []),
+      relatorioConclusaoOperacao().catch(() => []),
+    ])
+      .then(([status, presenca, conclusao]) => {
+        setRelatorioStatus(Array.isArray(status) ? status : []);
+        setRelatorioPresenca(Array.isArray(presenca) ? presenca : []);
+        setRelatorioConclusao(Array.isArray(conclusao) ? conclusao : []);
+      })
+      .finally(() => setCarregandoRelatorios(false));
+  }, [abaAtiva]);
+
   const nomeOperacao = (idOperacao) =>
     operacoes.find((operacao) => String(operacao.id_item) === String(idOperacao))?.nome || '';
 
   const irParaAba = (aba) => {
     controlador.irParaTelaProtegida(
-      aba === 'atribuicoes' ? 'screen-training-assignments' : 'screen-training-trilhas',
+      aba === 'atribuicoes'
+        ? 'screen-training-assignments'
+        : aba === 'gestao'
+          ? 'screen-training-manage'
+          : 'screen-training-trilhas',
     );
   };
 
@@ -728,14 +773,144 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
     </${SectionCard}>
   `;
 
+  const renderGestao = () => html`
+    <${SectionCard}
+      title="Relatórios de treinamentos aplicados x pendentes x encerrados sem chamada"
+      className="rh-section-card--flat mb-4"
+      description="Edição de treinamentos e histórico de presença ficam nas abas Trilhas/Atribuições acima."
+    >
+      <div class="table-responsive">
+        <table class="table align-middle rh-modern-history-table">
+          <thead>
+            <tr>
+              <th>Treinamento</th>
+              <th>Status</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${carregandoRelatorios
+      ? html`<${SkeletonTableRows} colunas=${3} linhas=${3} />`
+      : relatorioStatus.length
+        ? relatorioStatus.map(
+          (linha, index) => html`
+                    <tr key=${index}>
+                      <td>${linha.trilha_nome}</td>
+                      <td><span class=${`rh-chip ${STATUS_TOM[linha.status] || ''}`}>${STATUS_ATRIBUICAO.find((s) => s.value === linha.status)?.label || linha.status}</span></td>
+                      <td>${linha.total}</td>
+                    </tr>
+                  `,
+        )
+        : html`<${TabelaVazia} colunas=${3} texto="Sem dados ainda." icone="bar_chart" />`}
+          </tbody>
+        </table>
+      </div>
+    </${SectionCard}>
+
+    <${SectionCard} title="Presença/participação por colaborador" className="rh-section-card--flat mb-4">
+      <div class="table-responsive">
+        <table class="table align-middle rh-modern-history-table">
+          <thead>
+            <tr>
+              <th>Colaborador</th>
+              <th>Total de treinamentos</th>
+              <th>Presenças</th>
+              <th>Faltas</th>
+              <th>Pendências</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${carregandoRelatorios
+      ? html`<${SkeletonTableRows} colunas=${5} linhas=${3} />`
+      : relatorioPresenca.length
+        ? relatorioPresenca.map(
+          (linha) => html`
+                    <tr key=${linha.id_registro}>
+                      <td>${linha.nome_candidato}</td>
+                      <td>${linha.total_treinamentos}</td>
+                      <td>${linha.presencas}</td>
+                      <td>${linha.faltas}</td>
+                      <td>${linha.pendencias}</td>
+                    </tr>
+                  `,
+        )
+        : html`<${TabelaVazia} colunas=${5} texto="Sem dados ainda." icone="how_to_reg" />`}
+          </tbody>
+        </table>
+      </div>
+    </${SectionCard}>
+
+    <${SectionCard}
+      title="Taxa de conclusão por operação"
+      className="rh-section-card--flat mb-4"
+      description="Relatório extra (baixo custo, alto valor para o RH acompanhar por operação)."
+    >
+      <div class="table-responsive">
+        <table class="table align-middle rh-modern-history-table">
+          <thead>
+            <tr>
+              <th>Operação</th>
+              <th>Atribuições</th>
+              <th>Aplicadas</th>
+              <th>Encerradas sem chamada</th>
+              <th>Taxa de conclusão</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${carregandoRelatorios
+      ? html`<${SkeletonTableRows} colunas=${5} linhas=${3} />`
+      : relatorioConclusao.length
+        ? relatorioConclusao.map(
+          (linha) => html`
+                    <tr key=${linha.id_operacao}>
+                      <td>${linha.operacao_nome}</td>
+                      <td>${linha.total_atribuicoes}</td>
+                      <td>${linha.aplicadas}</td>
+                      <td>${linha.encerradas_sem_chamada}</td>
+                      <td>${linha.taxa_conclusao_pct}%</td>
+                    </tr>
+                  `,
+        )
+        : html`<${TabelaVazia} colunas=${5} texto="Sem dados ainda." icone="percent" />`}
+          </tbody>
+        </table>
+      </div>
+    </${SectionCard}>
+
+    ${controlador?.possuiPermissao?.('onboarding.configurar_acesso')
+      ? html`
+          <${SectionCard} title="Configuração de acesso" className="rh-section-card--flat">
+            <p class="rh-section-card-description mb-2">
+              Quem pode criar/gerenciar treinamentos é definido pelas permissões de papel, na mesma tela usada para o
+              resto do Conecta.
+            </p>
+            <button type="button" class="btn btn-outline-primary btn-sm" onClick=${() => controlador.irParaTelaProtegida('screen-settings-profiles')}>
+              <span class="material-symbols-outlined">${IconeSvg('admin_panel_settings')}</span>
+              Ir para Configurações → Segurança
+            </button>
+          </${SectionCard}>
+        `
+      : null}
+  `;
+
   return html`
     <${PainelRh}
       screenId="screen-training"
-      navAtiva=${telaAtual === 'screen-training-assignments' ? 'screen-training-assignments' : 'screen-training-trilhas'}
+      navAtiva=${telaAtual === 'screen-training-assignments' || telaAtual === 'screen-training-manage' ? telaAtual : 'screen-training-trilhas'}
       subtituloMarca="Treinamentos"
       placeholderBusca="Treinamentos"
       controlador=${controlador}
-      acoesTopo=${html`<${AcaoSair} controlador=${controlador} />`}
+      acoesTopo=${html`
+        ${podeCriar
+      ? html`
+              <button type="button" class="btn btn-primary rh-modern-primary-btn" onClick=${() => controlador.irParaTelaProtegida('screen-training-create')}>
+                <span class="material-symbols-outlined">${IconeSvg('add')}</span>
+                Criar Treinamento
+              </button>
+            `
+      : null}
+        <${AcaoSair} controlador=${controlador} />
+      `}
       acaoPrimaria=${abaAtiva === 'trilhas'
       ? { label: 'Nova trilha', icon: 'add', onClick: abrirNovaTrilha, permissao: 'onboarding.editar' }
       : null}
@@ -770,11 +945,21 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
           <span class="material-symbols-outlined">${IconeSvg('assignment_ind')}</span>
           Atribuições
         </button>
+        ${podeGerenciar
+      ? html`
+              <button type="button" class=${`c24-pill-tab ${abaAtiva === 'gestao' ? 'is-active' : ''}`} onClick=${() => irParaAba('gestao')}>
+                <span class="material-symbols-outlined">${IconeSvg('bar_chart')}</span>
+                Gestão de Treinamento
+              </button>
+            `
+      : null}
       </div>
 
       ${abaAtiva === 'trilhas'
       ? renderTrilhas()
-      : html`${renderAtribuicoes()}${renderTreinamentosProcesso()}`}
+      : abaAtiva === 'gestao'
+        ? renderGestao()
+        : html`${renderAtribuicoes()}${renderTreinamentosProcesso()}`}
 
       <${ModalPadrao}
         aberto=${modalTrilhaAberto}
@@ -1064,7 +1249,7 @@ export function TelaTreinamentos({ controlador, telaAtual = 'screen-training-tri
               value=${formEditarTreinamento.status}
               onChange=${(event) => setFormEditarTreinamento({ ...formEditarTreinamento, status: event.target.value })}
             >
-              ${STATUS_ATRIBUICAO.map((opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`)}
+              ${STATUS_ATRIBUICAO_EDITAVEL.map((opcao) => html`<option key=${opcao.value} value=${opcao.value}>${opcao.label}</option>`)}
             </select>
           </div>
 
