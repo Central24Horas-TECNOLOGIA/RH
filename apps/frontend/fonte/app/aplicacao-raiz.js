@@ -126,7 +126,7 @@ const TelaTemplatesDocumentos = carregarTela(
   'TelaTemplatesDocumentos',
 );
 const TelaTreinamentos = carregarTela(
-  () => import('../features/treinamentos/index.js?v=20260904-identidade-conecta'),
+  () => import('../features/treinamentos/index.js?v=20260906-central-treinamentos'),
   'TelaTreinamentos',
 );
 const TelaCriarTreinamento = carregarTela(

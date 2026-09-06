@@ -2952,7 +2952,7 @@ function normalizeBlueprintQuestions(questions) {
   });
 }
 
-function buildExamFromBlueprint(blueprint) {
+function buildExamFromBlueprint(blueprint, dificuldade = '') {
   const questions = [];
   const questionBankIds = new Set();
 
@@ -2987,6 +2987,7 @@ function buildExamFromBlueprint(blueprint) {
         stage,
         stageQuestions,
         questionBankIds,
+        dificuldade,
       );
       stageQuestions.forEach((question) => {
         if (question.questionBankId) questionBankIds.add(question.questionBankId);

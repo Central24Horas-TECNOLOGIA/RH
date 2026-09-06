@@ -86,7 +86,7 @@ import {
   RESPONSABILIDADES_PUBLICAS_PADRAO,
   montarItensPublicosPadrao,
   montarTextoCompartilhamentoVaga,
-} from '../../shared/components/share-job-modal.js?v=20260904-identidade-conecta';
+} from '../../shared/components/share-job-modal.js?v=20260906-central-treinamentos';
 import { TabelaVazia } from '../../shared/components/empty-table-row.js';
 import { SkeletonTableRows } from '../../shared/components/skeleton.js';
 import {
@@ -247,23 +247,29 @@ const ESCOLARIDADES_PROCESSO = [
 ];
 
 const EXPERIENCIAS_PREVIAS_PROCESSO = [
-  { value: 'nenhuma', label: 'Não exige experiência (Primeiro emprego)' },
+  { value: 'nenhuma', label: 'Sem Experiência Prévia' },
   { value: 'generica', label: 'Exige experiência genérica em Call Center (mínimo 6 meses)' },
-  { value: 'tecnica', label: 'Exige experiência em áreas técnicas ou correlatas (suporte técnico, provedor de internet, Help Desk ou atendimento de tecnologia)' },
+  { value: 'especificas', label: 'Experiências específicas' },
 ];
 
-const NIVEIS_IDIOMA_PROCESSO = [
-  { value: '', label: 'Não exigido' },
-  { value: 'intermediario', label: 'Intermediário' },
-  { value: 'avancado', label: 'Avançado/Fluente' },
-];
+const DIAS_SEMANA_JORNADA_PROCESSO = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
 const BENEFICIOS_PROCESSO_PADRAO = [
   'Vale Transporte',
   'Vale Refeição',
   'Vale Alimentação',
-  'Assistência Técnica',
+  'Plano de Saúde',
+  'Cartão Flash',
+  'Plano odontológico',
+  'Gympass',
 ];
+
+function mapearNivelDificuldadeProcesso(valor) {
+  const nivel = Number(valor) || 3;
+  if (nivel <= 2) return 'facil';
+  if (nivel === 3) return 'media';
+  return 'dificil';
+}
 
 const REDES_COMPARTILHAMENTO_PROCESSO = [
   { chave: 'linkedin', label: 'LinkedIn' },
@@ -481,6 +487,7 @@ function montarQuestoesEtapasPersonalizadasProcesso({
   questoesPadrao = [],
 }) {
   if (!formulario.personalizacaoInteligente) return questoesPadrao;
+  const dificuldade = mapearNivelDificuldadeProcesso(formulario.nivelDificuldade);
   const selecionadas = Array.isArray(formulario.etapasPersonalizadas)
     ? formulario.etapasPersonalizadas
     : [];
@@ -489,7 +496,7 @@ function montarQuestoesEtapasPersonalizadasProcesso({
       ? formulario.nivelProva
       : formulario.niveisEtapas?.[etapaKey];
     const blueprintEtapa = resolverBlueprintProva(formulario.vaga, nivelEtapa, trilhaBlueprint);
-    const questoesEtapa = blueprintEtapa ? montarProvaPorBlueprint(blueprintEtapa) : [];
+    const questoesEtapa = blueprintEtapa ? montarProvaPorBlueprint(blueprintEtapa, dificuldade) : [];
     return questoesEtapa.filter((questao) => obterChaveEtapaPersonalizadaQuestao(questao) === etapaKey);
   });
 }
@@ -2113,18 +2120,6 @@ export function TelaInicio({ controlador }) {
             <span class="material-symbols-outlined">${IconeSvg('refresh')}</span>
             Atualizar
           </button>
-          ${controlador.possuiPermissao('vagas.criar')
-      ? html`
-                <button
-                  type="button"
-                  class="btn btn-primary rh-action-btn"
-                  onClick=${() => controlador.irParaTelaProtegida('screen-process-create')}
-                >
-                  <span class="material-symbols-outlined">${IconeSvg('work')}</span>
-                  Nova vaga
-                </button>
-              `
-      : ''}
         `}
       />
 
@@ -2135,6 +2130,12 @@ export function TelaInicio({ controlador }) {
       >
         <div class="home-quick-grid">
           ${[
+      {
+        label: 'Nova vaga',
+        icon: 'work',
+        permissao: 'vagas.criar',
+        onClick: () => controlador.irParaTelaProtegida('screen-process-create'),
+      },
       /*
       {
         label: 'Adicionar candidato',
@@ -3161,9 +3162,9 @@ export function TelaCriarProcesso({ controlador }) {
     notaCorte: '',
     areaProva: '',
     nivelProva: '',
+    nivelDificuldade: 3,
     tempoTotal: 40,
     tipoProva: 'Processo seletivo',
-    observacoesInternas: '',
     personalizacaoInteligente: false,
     clientesPersonalizacao: [],
     clienteOutro: '',
@@ -3181,13 +3182,13 @@ export function TelaCriarProcesso({ controlador }) {
     modeloTrabalho: '',
     hibridoEscala: '',
     jornadaTrabalho: '',
-    jornadaTrabalhoOutro: '',
+    jornadaOutroDetalhe: { dias: [], horaInicio: '', horaFim: '' },
     trabalhoEscala: '',
     escolaridadeMinima: '',
     cursosSuperior: '',
     experienciaPrevia: '',
-    idiomaIngles: '',
-    idiomaEspanhol: '',
+    experienciasEspecificas: [],
+    idioma: '',
     skillsTags: '',
     salario: '',
     mostrarSalario: false,
@@ -3202,6 +3203,9 @@ export function TelaCriarProcesso({ controlador }) {
   const [modalCompartilharAberto, setModalCompartilharAberto] = useState(false);
   const [operacoesCadastradas, setOperacoesCadastradas] = useState([]);
   const [trilhasDisponiveis, setTrilhasDisponiveis] = useState([]);
+  const [modalJornadaOutroAberto, setModalJornadaOutroAberto] = useState(false);
+  const [modalTreinamentosAberto, setModalTreinamentosAberto] = useState(false);
+  const [novaExperienciaEspecifica, setNovaExperienciaEspecifica] = useState('');
 
   useEffect(() => {
     let cancelado = false;
@@ -3275,6 +3279,39 @@ export function TelaCriarProcesso({ controlador }) {
     setFormulario((anterior) => ({
       ...anterior,
       beneficios: anterior.beneficios.map((item) => (item.nome === nome ? { ...item, valor } : item)),
+    }));
+  };
+
+  const alternarDiaJornadaOutro = (dia) => {
+    setFormulario((anterior) => {
+      const dias = anterior.jornadaOutroDetalhe.dias.includes(dia)
+        ? anterior.jornadaOutroDetalhe.dias.filter((item) => item !== dia)
+        : [...anterior.jornadaOutroDetalhe.dias, dia];
+      return { ...anterior, jornadaOutroDetalhe: { ...anterior.jornadaOutroDetalhe, dias } };
+    });
+  };
+
+  const atualizarHorarioJornadaOutro = (campo, valor) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      jornadaOutroDetalhe: { ...anterior.jornadaOutroDetalhe, [campo]: valor },
+    }));
+  };
+
+  const adicionarExperienciaEspecifica = () => {
+    const valor = novaExperienciaEspecifica.trim();
+    if (!valor || formulario.experienciasEspecificas.includes(valor)) return;
+    setFormulario((anterior) => ({
+      ...anterior,
+      experienciasEspecificas: [...anterior.experienciasEspecificas, valor],
+    }));
+    setNovaExperienciaEspecifica('');
+  };
+
+  const removerExperienciaEspecifica = (valor) => {
+    setFormulario((anterior) => ({
+      ...anterior,
+      experienciasEspecificas: anterior.experienciasEspecificas.filter((item) => item !== valor),
     }));
   };
 
@@ -3361,9 +3398,10 @@ export function TelaCriarProcesso({ controlador }) {
     );
   }, [formulario.vaga, formulario.nivelProva, trilhaBlueprint]);
 
+  const dificuldadeProva = mapearNivelDificuldadeProcesso(formulario.nivelDificuldade);
   const questoes = useMemo(
-    () => (blueprint ? montarProvaPorBlueprint(blueprint) : []),
-    [blueprint],
+    () => (blueprint ? montarProvaPorBlueprint(blueprint, dificuldadeProva) : []),
+    [blueprint, dificuldadeProva],
   );
   const etapasProva = useMemo(
     () => montarEtapasBlueprintProcesso(blueprint),
@@ -3397,6 +3435,7 @@ export function TelaCriarProcesso({ controlador }) {
       formulario.niveisEtapas,
       formulario.vaga,
       formulario.nivelProva,
+      formulario.nivelDificuldade,
       trilhaBlueprint,
       questoes,
     ],
@@ -3700,7 +3739,8 @@ export function TelaCriarProcesso({ controlador }) {
       etapas: etapasConfiguradasProva,
       categorias: categoriasConfiguradasProva,
       questoes_snapshot: questoesSnapshot,
-      observacoes_internas_rh: formulario.observacoesInternas,
+      nivel_dificuldade_prova: formulario.nivelDificuldade,
+      dificuldade_mapeada: mapearNivelDificuldadeProcesso(formulario.nivelDificuldade),
       tom_prova: formulario.tomProva,
       situacao_pratica_operacao: formulario.personalizacaoInteligente ? '' : formulario.situacaoPraticaOperacao,
       personalizacao,
@@ -3760,7 +3800,7 @@ export function TelaCriarProcesso({ controlador }) {
       return;
     }
     setErro('');
-    setEtapaAtual((etapa) => Math.min(5, etapa + 1));
+    setEtapaAtual((etapa) => Math.min(7, etapa + 1));
   };
 
   const montarDetalhesVaga = () => ({
@@ -3768,17 +3808,17 @@ export function TelaCriarProcesso({ controlador }) {
     modelo_trabalho: formulario.modeloTrabalho,
     hibrido_escala: formulario.modeloTrabalho === 'hibrido' ? formulario.hibridoEscala : '',
     jornada_trabalho: formulario.jornadaTrabalho,
-    jornada_trabalho_outro: formulario.jornadaTrabalho === 'outro' ? formulario.jornadaTrabalhoOutro : '',
+    jornada_trabalho_outro: formulario.jornadaTrabalho === 'outro' ? formulario.jornadaOutroDetalhe : null,
     trabalho_escala: formulario.trabalhoEscala,
     escolaridade_minima: formulario.escolaridadeMinima,
     cursos_superior: formulario.escolaridadeMinima === 'superior'
       ? formulario.cursosSuperior.split(',').map((item) => item.trim()).filter(Boolean)
       : [],
     experiencia_previa: formulario.experienciaPrevia,
+    experiencias_especificas: formulario.experienciaPrevia === 'especificas' ? formulario.experienciasEspecificas : [],
     idiomas: {
       portugues: 'nativo',
-      ingles: formulario.idiomaIngles || null,
-      espanhol: formulario.idiomaEspanhol || null,
+      exigido: formulario.idioma || null,
     },
     skills_tags: formulario.skillsTags.split(',').map((item) => item.trim()).filter(Boolean),
     salario: formulario.salario ? Number(formulario.salario) : null,
@@ -3868,10 +3908,14 @@ export function TelaCriarProcesso({ controlador }) {
       : etapaAtual === 2
         ? 'Configuração da Prova'
         : etapaAtual === 3
-          ? 'Disponibilidade de Horários'
+          ? 'Disponibilidade de Horários para Entrevistas'
           : etapaAtual === 4
             ? 'Detalhes da Vaga'
-            : 'Publicação'
+            : etapaAtual === 5
+              ? 'Salário e Benefícios'
+              : etapaAtual === 6
+                ? 'Treinamentos'
+                : 'Publicação'
     }`}
         description="Cadastre a vaga e configure a prova vinculada ao processo seletivo."
       />
@@ -3881,9 +3925,11 @@ export function TelaCriarProcesso({ controlador }) {
           ${[
       ['1', 'Dados do Processo'],
       ['2', 'Configuração da Prova'],
-      ['3', 'Disponibilidade de Horários'],
+      ['3', 'Disponibilidade de Horários para Entrevistas'],
       ['4', 'Detalhes da Vaga'],
-      ['5', 'Publicação'],
+      ['5', 'Salário e Benefícios'],
+      ['6', 'Treinamentos'],
+      ['7', 'Publicação'],
     ].map(([numero, label], indice) => {
       const etapa = indice + 1;
       return html`
@@ -3942,18 +3988,18 @@ export function TelaCriarProcesso({ controlador }) {
                       </label>
                     </div>
                   </section>
-                  <section class="process-create-card">
+                  <section class="process-create-card c24-fade-in">
                     <div class="process-create-section-title">
                       <span class="material-symbols-outlined">${IconeSvg('bolt')}</span>
-                      <h2>Botão Expresso</h2>
+                      <h2>Botão Vaga Urgente</h2>
                     </div>
                     <div class="process-cutoff-panel">
-                      <label class="process-switch-row">
-                        <input type="checkbox" checked=${formulario.urgente} onChange=${(event) => atualizarCampo('urgente', event.target.checked)} />
+                      <label class="process-switch-row" title="Em breve">
+                        <input type="checkbox" checked=${formulario.urgente} disabled onChange=${(event) => atualizarCampo('urgente', event.target.checked)} />
                         <span class="process-switch-visual"></span>
                         <span>
-                          <strong>Urgente (Botão Expresso)</strong>
-                          <small>Use apenas para emergências reais. Existe um limite de vagas urgentes abertas ao mesmo tempo — se o limite for excedido, o sistema recusará a marcação.</small>
+                          <strong>Vaga Urgente</strong>
+                          <small>Em breve. Use apenas para emergências reais quando disponível — existe um limite de vagas urgentes abertas ao mesmo tempo.</small>
                         </span>
                       </label>
                     </div>
@@ -4019,9 +4065,10 @@ export function TelaCriarProcesso({ controlador }) {
                           <option>Avaliação operacional</option>
                         </select>
                       </label>
-                      <label class="process-create-field is-wide">
-                        <span>Observações internas</span>
-                        <textarea rows="3" value=${formulario.observacoesInternas} onInput=${(event) => atualizarCampo('observacoesInternas', event.target.value)}></textarea>
+                      <label class="process-create-field">
+                        <span>Nível de dificuldade da prova</span>
+                        <input type="range" min="1" max="5" step="1" value=${formulario.nivelDificuldade} onInput=${(event) => atualizarCampo('nivelDificuldade', Number(event.target.value))} />
+                        <small class="text-muted">${{ 1: 'Fácil', 2: 'Fácil', 3: 'Média', 4: 'Difícil', 5: 'Difícil' }[formulario.nivelDificuldade] || 'Média'}</small>
                       </label>
                     </div>
                     <div class="process-blueprint-preview">
@@ -4148,7 +4195,7 @@ export function TelaCriarProcesso({ controlador }) {
                   <section class="process-create-card">
                     <div class="process-create-section-title">
                       <span class="material-symbols-outlined">${IconeSvg('event_available')}</span>
-                      <h2>Disponibilidade de Horários</h2>
+                      <h2>Disponibilidade de Horários para Entrevistas</h2>
                     </div>
                     <p class="process-create-hint">
                       Defina dia(s) e faixa de horário para gerar os slots de entrevista deste processo.
@@ -4283,7 +4330,11 @@ export function TelaCriarProcesso({ controlador }) {
         : null}
                       <label>
                         <span>Jornada de trabalho</span>
-                        <select class="form-select" value=${formulario.jornadaTrabalho} onChange=${(event) => setFormulario({ ...formulario, jornadaTrabalho: event.target.value })}>
+                        <select class="form-select" value=${formulario.jornadaTrabalho} onChange=${(event) => {
+        const valor = event.target.value;
+        setFormulario({ ...formulario, jornadaTrabalho: valor });
+        if (valor === 'outro') setModalJornadaOutroAberto(true);
+      }}>
                           <option value="">Selecione</option>
                           ${JORNADAS_TRABALHO_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
                         </select>
@@ -4291,8 +4342,12 @@ export function TelaCriarProcesso({ controlador }) {
                       ${formulario.jornadaTrabalho === 'outro'
         ? html`
                             <label>
-                              <span>Descreva a jornada</span>
-                              <input class="form-control" value=${formulario.jornadaTrabalhoOutro} onInput=${(event) => setFormulario({ ...formulario, jornadaTrabalhoOutro: event.target.value })} />
+                              <span>Jornada personalizada</span>
+                              <button type="button" class="btn btn-outline-secondary btn-sm" onClick=${() => setModalJornadaOutroAberto(true)}>
+                                ${formulario.jornadaOutroDetalhe.dias.length
+            ? `${formulario.jornadaOutroDetalhe.dias.join(', ')} · ${formulario.jornadaOutroDetalhe.horaInicio || '--:--'} às ${formulario.jornadaOutroDetalhe.horaFim || '--:--'}`
+            : 'Configurar jornada'}
+                              </button>
                             </label>
                           `
         : null}
@@ -4326,45 +4381,136 @@ export function TelaCriarProcesso({ controlador }) {
                             </label>
                           `
         : null}
-                      <label class="is-wide">
+                      <label class="process-create-field is-wide">
                         <span>Experiência prévia exigida</span>
                         <select class="form-select" value=${formulario.experienciaPrevia} onChange=${(event) => setFormulario({ ...formulario, experienciaPrevia: event.target.value })}>
                           <option value="">Selecione</option>
                           ${EXPERIENCIAS_PREVIAS_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
                         </select>
                       </label>
-                      <label>
-                        <span>Inglês</span>
-                        <select class="form-select" value=${formulario.idiomaIngles} onChange=${(event) => setFormulario({ ...formulario, idiomaIngles: event.target.value })}>
-                          ${NIVEIS_IDIOMA_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
+                      ${formulario.experienciaPrevia === 'especificas'
+        ? html`
+                            <div class="process-create-field is-wide">
+                              <span>Quais experiências específicas?</span>
+                              <div class="d-flex gap-2 mt-2">
+                                <input
+                                  class="form-control"
+                                  value=${novaExperienciaEspecifica}
+                                  onInput=${(event) => setNovaExperienciaEspecifica(event.target.value)}
+                                  onKeyDown=${(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              adicionarExperienciaEspecifica();
+            }
+          }}
+                                />
+                                <button type="button" class="btn btn-outline-secondary" onClick=${adicionarExperienciaEspecifica}>Adicionar</button>
+                              </div>
+                              <div class="rh-chip-wrap mt-2">
+                                ${formulario.experienciasEspecificas.map(
+          (item) => html`
+                                      <span key=${item} class="rh-chip">
+                                        ${item}
+                                        <button type="button" class="btn-close btn-close-white ms-1" style=${{ width: '0.5em', height: '0.5em' }} onClick=${() => removerExperienciaEspecifica(item)} aria-label="Remover"></button>
+                                      </span>
+                                    `,
+        )}
+                                ${!formulario.experienciasEspecificas.length
+          ? html`<span class="text-muted small">Nenhuma experiência adicionada ainda.</span>`
+          : null}
+                              </div>
+                            </div>
+                          `
+        : null}
+                      <label class="process-create-field is-wide">
+                        <span>Idioma</span>
+                        <select class="form-select" value=${formulario.idioma} onChange=${(event) => setFormulario({ ...formulario, idioma: event.target.value })}>
+                          <option value="">Não exigido</option>
+                          <option value="Inglês">Inglês</option>
+                          <option value="Espanhol">Espanhol</option>
                         </select>
                       </label>
-                      <label>
-                        <span>Espanhol</span>
-                        <select class="form-select" value=${formulario.idiomaEspanhol} onChange=${(event) => setFormulario({ ...formulario, idiomaEspanhol: event.target.value })}>
-                          ${NIVEIS_IDIOMA_PROCESSO.map((item) => html`<option key=${item.value} value=${item.value}>${item.label}</option>`)}
-                        </select>
-                      </label>
-                      <label class="is-wide">
+                      <label class="process-create-field is-wide">
                         <span>Habilidades técnicas obrigatórias</span>
                         <input class="form-control" placeholder="Separadas por vírgula — viram tags na vaga" value=${formulario.skillsTags} onInput=${(event) => setFormulario({ ...formulario, skillsTags: event.target.value })} />
                       </label>
                     </div>
 
                     <div class="process-create-section-title">
+                      <span class="material-symbols-outlined">${IconeSvg('description')}</span>
+                      <h2>Descrição das atividades</h2>
+                    </div>
+                    <label class="is-wide">
+                      <span>Texto exibido na vaga</span>
+                      <textarea
+                        class="form-control"
+                        rows="4"
+                        placeholder="Como funciona a operação no dia a dia — nunca mencione o cliente diretamente"
+                        value=${formulario.descricaoAtividades}
+                        onInput=${(event) => setFormulario({ ...formulario, descricaoAtividades: event.target.value, descricaoAtividadesEditada: true })}
+                      ></textarea>
+                      <small class="text-muted">Pré-preenchido a partir da operação selecionada. Pode ajustar ou apagar livremente.</small>
+                    </label>
+                  </section>
+
+                  <${ModalPadrao}
+                    aberto=${modalJornadaOutroAberto}
+                    titulo="Jornada de trabalho personalizada"
+                    onClose=${() => setModalJornadaOutroAberto(false)}
+                  >
+                    <div class="d-flex flex-column gap-3">
+                      <div>
+                        <span style=${{ fontWeight: 600 }}>Dias da semana</span>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                          ${DIAS_SEMANA_JORNADA_PROCESSO.map(
+        (dia) => html`
+                                <label key=${dia} class="settings-toggle-line">
+                                  <input type="checkbox" checked=${formulario.jornadaOutroDetalhe.dias.includes(dia)} onChange=${() => alternarDiaJornadaOutro(dia)} />
+                                  <span>${dia}</span>
+                                </label>
+                              `,
+      )}
+                        </div>
+                      </div>
+                      <div class="process-create-form-grid">
+                        <label class="process-create-field">
+                          <span>Horário de entrada</span>
+                          <input type="time" value=${formulario.jornadaOutroDetalhe.horaInicio} onInput=${(event) => atualizarHorarioJornadaOutro('horaInicio', event.target.value)} />
+                        </label>
+                        <label class="process-create-field">
+                          <span>Horário de saída</span>
+                          <input type="time" value=${formulario.jornadaOutroDetalhe.horaFim} onInput=${(event) => atualizarHorarioJornadaOutro('horaFim', event.target.value)} />
+                        </label>
+                      </div>
+                    </div>
+                    <footer class="rh-modal-footer">
+                      <button type="button" class="btn btn-primary" onClick=${() => setModalJornadaOutroAberto(false)}>Salvar</button>
+                    </footer>
+                  </${ModalPadrao}>
+                `
+      : null}
+
+            ${etapaAtual === 5
+      ? html`
+                  <section class="process-create-card">
+                    <div class="process-create-section-title">
                       <span class="material-symbols-outlined">${IconeSvg('payments')}</span>
-                      <h2>Salário e benefícios</h2>
+                      <h2>Salário e Benefícios</h2>
                     </div>
                     <div class="process-create-form-grid">
-                      <label>
-                        <span>Salário</span>
-                        <input type="number" min="0" step="0.01" class="form-control" value=${formulario.salario} onInput=${(event) => setFormulario({ ...formulario, salario: event.target.value })} />
-                      </label>
-                      <label class="settings-toggle-line">
+                      <label class="process-create-field settings-toggle-line">
                         <input type="checkbox" checked=${formulario.mostrarSalario} onChange=${(event) => setFormulario({ ...formulario, mostrarSalario: event.target.checked })} />
                         <span>Informar o salário na descrição da vaga</span>
                       </label>
-                      <div class="is-wide">
+                      ${formulario.mostrarSalario
+        ? html`
+                            <label class="process-create-field">
+                              <span>Salário</span>
+                              <input type="number" min="0" step="0.01" value=${formulario.salario} onInput=${(event) => setFormulario({ ...formulario, salario: event.target.value })} />
+                            </label>
+                          `
+        : null}
+                      <div class="process-create-field is-wide">
                         <span>Benefícios</span>
                         <div class="d-flex flex-wrap gap-3 mt-2">
                           ${formulario.beneficios.map(
@@ -4391,23 +4537,13 @@ export function TelaCriarProcesso({ controlador }) {
                         </div>
                       </div>
                     </div>
+                  </section>
+                `
+      : null}
 
-                    <div class="process-create-section-title">
-                      <span class="material-symbols-outlined">${IconeSvg('description')}</span>
-                      <h2>Descrição das atividades</h2>
-                    </div>
-                    <label class="is-wide">
-                      <span>Texto exibido na vaga</span>
-                      <textarea
-                        class="form-control"
-                        rows="4"
-                        placeholder="Como funciona a operação no dia a dia — nunca mencione o cliente diretamente"
-                        value=${formulario.descricaoAtividades}
-                        onInput=${(event) => setFormulario({ ...formulario, descricaoAtividades: event.target.value, descricaoAtividadesEditada: true })}
-                      ></textarea>
-                      <small class="text-muted">Pré-preenchido a partir da operação selecionada. Pode ajustar ou apagar livremente.</small>
-                    </label>
-
+            ${etapaAtual === 6
+      ? html`
+                  <section class="process-create-card">
                     <div class="process-create-section-title">
                       <span class="material-symbols-outlined">${IconeSvg('school')}</span>
                       <h2>Treinamentos da trilha de aprovação</h2>
@@ -4415,26 +4551,45 @@ export function TelaCriarProcesso({ controlador }) {
                     <p class="text-muted small mb-2">
                       Selecionados por padrão os treinamentos de onboarding. Ao aprovar candidatos, eles entram na Central de Treinamentos com a tag "Aguardando processo" até o RH/Gestor liberar.
                     </p>
-                    <div class="d-flex flex-wrap gap-3">
-                      ${trilhasDisponiveis.length
-        ? trilhasDisponiveis.map(
-          (trilha) => html`
-                              <label key=${trilha.id_trilha} class="settings-toggle-line" style=${{ minWidth: '0' }}>
-                                <input
-                                  type="checkbox"
-                                  checked=${formulario.treinamentosSelecionados.includes(trilha.id_trilha)}
-                                  onChange=${() => alternarTreinamentoSelecionado(trilha.id_trilha)}
-                                />
-                                <span>${trilha.nome}</span>
-                              </label>
-                            `,
-        )
-        : html`<p class="text-muted small mb-0">Nenhuma trilha de treinamento cadastrada ainda.</p>`}
+                    <button type="button" class="btn btn-outline-secondary btn-sm mb-2" onClick=${() => setModalTreinamentosAberto(true)}>
+                      <span class="material-symbols-outlined">${IconeSvg('link')}</span>
+                      Atrelar treinamentos
+                    </button>
+                    <div class="rh-chip-wrap">
+                      ${trilhasDisponiveis
+        .filter((trilha) => formulario.treinamentosSelecionados.includes(trilha.id_trilha))
+        .map((trilha) => html`<span key=${trilha.id_trilha} class="rh-chip">${trilha.nome}</span>`)}
+                      ${!formulario.treinamentosSelecionados.length
+        ? html`<span class="text-muted small">Nenhum treinamento atrelado ainda.</span>`
+        : null}
                     </div>
                   </section>
+
+                  <${ModalPadrao}
+                    aberto=${modalTreinamentosAberto}
+                    titulo="Atrelar treinamentos"
+                    onClose=${() => setModalTreinamentosAberto(false)}
+                  >
+                    ${trilhasDisponiveis.length
+        ? html`
+                          <select multiple class="form-select" style=${{ minHeight: '220px' }}
+                            value=${formulario.treinamentosSelecionados}
+                            onChange=${(event) => {
+        const selecionados = Array.from(event.target.selectedOptions || []).map((opcao) => Number(opcao.value));
+        setFormulario({ ...formulario, treinamentosSelecionados: selecionados });
+      }}>
+                            ${trilhasDisponiveis.map((trilha) => html`<option key=${trilha.id_trilha} value=${trilha.id_trilha}>${trilha.nome}</option>`)}
+                          </select>
+                        `
+        : html`<p class="text-muted small mb-0">Nenhuma trilha de treinamento cadastrada ainda.</p>`}
+                    <footer class="rh-modal-footer">
+                      <button type="button" class="btn btn-primary" onClick=${() => setModalTreinamentosAberto(false)}>Concluído</button>
+                    </footer>
+                  </${ModalPadrao}>
                 `
       : null}
-            ${etapaAtual === 5
+
+            ${etapaAtual === 7
       ? html`
                   <section class="process-create-card">
                     <div class="process-create-section-title">
@@ -4448,7 +4603,7 @@ export function TelaCriarProcesso({ controlador }) {
           ['Encerramento', formatarDataResumoProcesso(formulario.dataEncerramento)],
           ['Operação', formulario.operacao || '-'],
           ['Área / Trilha', trilhaEfetiva || '-'],
-          ['Botão Expresso', formulario.urgente ? 'Urgente' : 'Não urgente'],
+          ['Botão Vaga Urgente', formulario.urgente ? 'Urgente' : 'Não urgente'],
           ['Nota de corte', formulario.usaNotaCorte ? formulario.notaCorte || '-' : 'Não ativada'],
           ['Prova', blueprint?.label || '-'],
           ['Tempo', `${formulario.tempoTotal || 0} min`],
@@ -4516,7 +4671,7 @@ export function TelaCriarProcesso({ controlador }) {
             >
               Cancelar
             </button>
-            ${etapaAtual < 5
+            ${etapaAtual < 7
       ? html`
                   <button type="button" class="btn btn-primary" disabled=${salvando} onClick=${avancar}>
                     Próximo passo

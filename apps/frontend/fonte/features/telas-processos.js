@@ -4,4 +4,4 @@ export {
   TelaProcessosDecisoesPendentes,
   TelaProcessosEncerrados,
   TelaProcessos,
-} from './processos/index.js?v=20260904-identidade-conecta';
+} from './processos/index.js?v=20260906-central-treinamentos';

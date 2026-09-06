@@ -6,4 +6,4 @@ export {
   TelaHistorico,
   TelaInicio,
   TelaLogin,
-} from './gestao/index.js?v=20260904-identidade-conecta';
+} from './gestao/index.js?v=20260906-central-treinamentos';
