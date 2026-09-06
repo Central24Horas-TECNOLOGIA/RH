@@ -181,6 +181,10 @@ class Settings:
     public_cv_upload_dir: str
     doc_converter: str
     libreoffice_path: str
+    training_upload_dir: str
+    training_upload_max_pptx_mb: int
+    training_upload_max_video_mb: int
+    training_upload_max_document_mb: int
     email_inbox_enabled: bool
     email_inbox_mode: str
     email_inbox_path: str
@@ -368,6 +372,18 @@ def get_settings() -> Settings:
         ),
         doc_converter=_env("DOC_CONVERTER", "RH_CV_DOC_CONVERTER", default="auto"),
         libreoffice_path=_env("LIBREOFFICE_PATH", "RH_LIBREOFFICE_PATH"),
+        training_upload_dir=_resolve_project_path(
+            _env("RH_TRAINING_UPLOAD_DIR"), "data/private/training-uploads"
+        ),
+        training_upload_max_pptx_mb=_read_int_env(
+            "RH_TRAINING_UPLOAD_MAX_PPTX_MB", default=50, minimum=1, maximum=500
+        ),
+        training_upload_max_video_mb=_read_int_env(
+            "RH_TRAINING_UPLOAD_MAX_VIDEO_MB", default=200, minimum=1, maximum=2000
+        ),
+        training_upload_max_document_mb=_read_int_env(
+            "RH_TRAINING_UPLOAD_MAX_DOCUMENT_MB", default=10, minimum=1, maximum=200
+        ),
         email_inbox_enabled=_read_bool_env("RH_EMAIL_INBOX_ENABLED", default=False),
         email_inbox_mode=_env("RH_EMAIL_INBOX_MODE", default=email_inbox_protocol),
         email_inbox_path=_env("RH_EMAIL_INBOX_PATH"),

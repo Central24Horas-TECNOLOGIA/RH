@@ -2,18 +2,66 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 from .common import BaseSchema
 
 
+DEFAULT_TEXTO_ENCERRAMENTO = (
+    "Chegamos ao final deste treinamento. Agradecemos sua participação e atenção — o conteúdo "
+    "apresentado é parte importante do seu desenvolvimento e do trabalho realizado no dia a dia. "
+    "Em caso de dúvidas sobre o que foi tratado, procure seu supervisor ou o RH."
+)
+
+TIPOS_SAIBA_MAIS = ("dica", "link")
+
+
+class SaibaMaisItemInput(BaseSchema):
+    """Item da lista "Saiba +" (nível módulo ou treinamento): uma dica de texto OU um link externo."""
+
+    tipo: str = "dica"
+    texto: str = ""
+    url: str = ""
+
+    @field_validator("tipo")
+    @classmethod
+    def validate_tipo(cls, value: str) -> str:
+        safe_value = str(value or "dica").strip().lower()
+        if safe_value not in TIPOS_SAIBA_MAIS:
+            raise ValueError(f"Tipo de item \"Saiba +\" inválido: {safe_value}.")
+        return safe_value
+
+
+class TabelaModuloInput(BaseSchema):
+    colunas: list[str] = []
+    linhas: list[list[str]] = []
+
+
+class LinkExternoInput(BaseSchema):
+    titulo: str = ""
+    url: str = ""
+
+
+class SaibaMaisTreinamentoInput(BaseSchema):
+    texto_breve: str = ""
+    links: list[LinkExternoInput] = []
+
+
 class OnboardingTrilhaItemInput(BaseSchema):
+    id_item: int | None = None
     titulo: str = ""
     descricao: str = ""
     ordem: int = 0
     obrigatorio: bool = True
     tipo_conteudo: str = ""
     conteudo_url: str = ""
+    # Prompt.txt (rodada 06/set/2026): campos ricos do módulo — ver
+    # docs/central-treinamentos/01-plano-tecnico.md §1.2.
+    subtitulo: str = ""
+    texto_principal: str = ""
+    tabela: TabelaModuloInput | None = None
+    dica_texto: str = ""
+    saiba_mais: list[SaibaMaisItemInput] = []
 
     @field_validator("titulo")
     @classmethod
@@ -26,6 +74,29 @@ class OnboardingTrilhaItemInput(BaseSchema):
         return safe_value
 
 
+class ModuloImportSchema(OnboardingTrilhaItemInput):
+    """Schema do JSON de módulo importável (botão "Baixar modelo JSON" / upload).
+
+    Mesmos campos de `OnboardingTrilhaItemInput` — documentado separadamente em
+    docs/central-treinamentos/schema-modulo.json para o usuário final."""
+
+
+class OcorrenciaTreinamentoInput(BaseSchema):
+    """Uma data/horário programado do treinamento (recorrência simples: N ocorrências
+    explícitas, sem motor de RRULE — ver plano técnico §1.4)."""
+
+    data_prevista: datetime | None = None
+    sem_horario_definido: bool = False
+    local: str = ""
+    ministrante: str = ""
+
+    @model_validator(mode="after")
+    def validate_data_ou_sem_horario(self) -> "OcorrenciaTreinamentoInput":
+        if not self.data_prevista and not self.sem_horario_definido:
+            raise ValueError("Informe a data/horário da ocorrência ou marque \"sem horário definido\".")
+        return self
+
+
 class OnboardingTrilhaCreateRequest(BaseSchema):
     nome: str = ""
     descricao: str = ""
@@ -36,6 +107,9 @@ class OnboardingTrilhaCreateRequest(BaseSchema):
     local_padrao: str = ""
     conteudo_json: str | None = None
     itens: list[OnboardingTrilhaItemInput] = []
+    texto_encerramento: str = ""
+    saiba_mais_treinamento: SaibaMaisTreinamentoInput | None = None
+    tipo_obrigatorio: bool = False
 
     @field_validator("nome")
     @classmethod
@@ -57,9 +131,47 @@ class OnboardingTrilhaCreateRequest(BaseSchema):
             raise ValueError("O conteúdo do treinamento é muito longo.")
         return safe_value
 
+    @field_validator("texto_encerramento")
+    @classmethod
+    def validate_texto_encerramento(cls, value: str) -> str:
+        safe_value = str(value or "").strip()
+        return safe_value or DEFAULT_TEXTO_ENCERRAMENTO
+
 
 class OnboardingTrilhaUpdateRequest(OnboardingTrilhaCreateRequest):
     pass
+
+
+class TreinamentoWizardCreateRequest(OnboardingTrilhaCreateRequest):
+    """Publicação final do wizard de criação de treinamento (todas as etapas).
+
+    Cria a trilha + módulos e, para cada (ocorrência × participante), uma linha
+    de atribuição (`onboarding_candidatos`) — ver plano técnico §1.4."""
+
+    ocorrencias: list[OcorrenciaTreinamentoInput] = []
+    participantes: list[int] = []
+
+    @field_validator("ocorrencias")
+    @classmethod
+    def validate_ocorrencias(cls, value: list[OcorrenciaTreinamentoInput]) -> list[OcorrenciaTreinamentoInput]:
+        if not value:
+            raise ValueError("Informe ao menos uma data/ocorrência programada para o treinamento.")
+        return value
+
+    @field_validator("participantes")
+    @classmethod
+    def validate_participantes(cls, value: list[int]) -> list[int]:
+        safe_ids = [int(item) for item in (value or []) if item]
+        # Sem tabela de "sessão" própria (plano técnico §1.4), a ocorrência só
+        # fica persistida através das linhas onboarding_candidatos por
+        # participante — publicar sem nenhum participante perderia a agenda
+        # cadastrada silenciosamente. Adicione ao menos 1 participante (dá
+        # para ajustar a lista de presença depois pela aba Atribuições).
+        if not safe_ids:
+            raise ValueError("Selecione ao menos um participante esperado para o treinamento.")
+        if len(safe_ids) > 500:
+            raise ValueError("Limite de 500 participantes por treinamento.")
+        return safe_ids
 
 
 class OnboardingStartRequest(BaseSchema):
@@ -111,3 +223,25 @@ class ProcessTrainingReleaseRequest(BaseSchema):
         if len(safe_ids) > 200:
             raise ValueError("Limite de 200 candidatos por liberação.")
         return safe_ids
+
+
+TERMO_LGPD_ANEXO_TREINAMENTO_VERSAO = "1.0-2026-09"
+TERMO_LGPD_ANEXO_TREINAMENTO_TEXTO = (
+    "Ao liberar este documento para download pelos alunos do treinamento, declaro que: (1) o "
+    "arquivo não contém dados sensíveis, pessoais ou confidenciais da empresa em desacordo com a "
+    "LGPD; (2) sou responsável pelo conteúdo publicado; (3) esta ação será registrada, com meu "
+    "usuário e o horário, para fins de auditoria."
+)
+
+
+class AnexoDownloadToggleRequest(BaseSchema):
+    permite_download: bool = False
+    termo_aceito: bool = False
+
+    @model_validator(mode="after")
+    def validate_aceite(self) -> "AnexoDownloadToggleRequest":
+        if self.permite_download and not self.termo_aceito:
+            raise ValueError(
+                "É necessário aceitar o termo de responsabilidade para liberar o download deste documento."
+            )
+        return self
