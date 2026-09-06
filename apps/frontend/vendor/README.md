@@ -13,6 +13,12 @@ Cada arquivo é o build ESM oficial (código de produção minificado do própri
 | `react-dom-client@18.3.1.mjs` | `react-dom@18.3.1/client` | MIT (Meta/Facebook) |
 | `scheduler@0.23.2.mjs` | `scheduler@0.23.2` (dependência interna do react-dom) | MIT (Meta/Facebook) |
 | `htm@3.1.1.mjs` | `htm@3.1.1` | Apache-2.0 (developit) |
+| `pdfjs-dist@4.7.76.mjs` | `pdfjs-dist@4.7.76` (`es2022/pdfjs-dist.mjs`) | Apache-2.0 (Mozilla) |
+| `pdfjs-dist-worker@4.7.76.mjs` | `pdfjs-dist@4.7.76` (`es2022/build/pdf.worker.mjs`) | Apache-2.0 (Mozilla) |
+| `node-process.mjs` | `esm.sh` Node `process` polyfill (dependência interna do pdfjs-dist) | MIT (esm.sh) |
+| `node-buffer.mjs` | `esm.sh` Node `Buffer` polyfill (dependência interna do pdfjs-dist) | MIT (esm.sh) |
+
+`pdfjs-dist` foi adicionado em 06/set/2026 para o visualizador de apresentação da Central de Treinamentos (`docs/central-treinamentos/`): o slide `.pptx` enviado no cadastro do treinamento é convertido para PDF no backend (LibreOffice headless, mesmo mecanismo já usado para currículos `.doc`, ver `apps/backend/rh_api/services/office_conversion.py`) e o PDF resultante é renderizado no navegador com `pdfjs-dist`, página a página, em modo apresentação. Ao contrário de React/htm, o pdfjs-dist importa dois polyfills Node (`process`/`Buffer`, usados internamente por partes do parser que ainda testam `typeof process`) — vendorizados também, sem modificação além do mesmo tipo de reescrita de import relativo.
 
 Cada arquivo mantém o comentário de proveniência original (`/* esm.sh - pacote@versão */`) na primeira linha — não remova, é o registro de origem.
 

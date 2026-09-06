@@ -1811,6 +1811,17 @@ def ensure_onboarding_tables(cursor) -> None:
         # Correcoes.txt (rodada 03/set/2026): conteudo do treinamento (slides +
         # script) que o Conecta "transcreve" na tela de Comecar Treinamento.
         ("conteudo_json", "NVARCHAR(MAX)"),
+        # Prompt.txt (rodada 06/set/2026): texto de encerramento editavel, slide
+        # .pptx real (upload + PDF convertido) e aba "Saiba +" do treinamento.
+        # Ver docs/central-treinamentos/01-plano-tecnico.md.
+        ("texto_encerramento", "NVARCHAR(MAX)"),
+        ("pptx_path", "NVARCHAR(500)"),
+        ("pptx_nome_original", "NVARCHAR(255)"),
+        ("pptx_pdf_path", "NVARCHAR(500)"),
+        ("saiba_mais_treinamento_json", "NVARCHAR(MAX)"),
+        # prompt.txt §3.1: "Tipo: Obrigatório/Não obrigatório" do treinamento
+        # (distinto do "obrigatorio" por módulo, já existente).
+        ("tipo_obrigatorio", "BIT"),
     ):
         cursor.execute(
             f"""
@@ -1823,6 +1834,7 @@ def ensure_onboarding_tables(cursor) -> None:
         )
     cursor.execute("UPDATE dbo.trilhas_onboarding SET ativo = 1 WHERE ativo IS NULL")
     cursor.execute("UPDATE dbo.trilhas_onboarding SET categoria = 'Onboarding' WHERE categoria IS NULL")
+    cursor.execute("UPDATE dbo.trilhas_onboarding SET tipo_obrigatorio = 0 WHERE tipo_obrigatorio IS NULL")
     cursor.execute("UPDATE dbo.trilhas_onboarding SET criado_em = GETDATE() WHERE criado_em IS NULL")
     cursor.execute("UPDATE dbo.trilhas_onboarding SET atualizado_em = criado_em WHERE atualizado_em IS NULL")
 
@@ -1853,6 +1865,15 @@ def ensure_onboarding_tables(cursor) -> None:
         # não só um checklist — ver extensão "Central de Treinamentos" acima.
         ("tipo_conteudo", "NVARCHAR(20)"),
         ("conteudo_url", "NVARCHAR(500)"),
+        # Prompt.txt (rodada 06/set/2026): campos ricos do modulo (subtitulo,
+        # texto principal, video proprio, tabela, dica, lista "Saiba +").
+        ("subtitulo", "NVARCHAR(255)"),
+        ("texto_principal", "NVARCHAR(MAX)"),
+        ("video_path", "NVARCHAR(500)"),
+        ("video_nome_original", "NVARCHAR(255)"),
+        ("tabela_json", "NVARCHAR(MAX)"),
+        ("dica_texto", "NVARCHAR(MAX)"),
+        ("saiba_mais_itens_json", "NVARCHAR(MAX)"),
     ):
         cursor.execute(
             f"""
@@ -1897,6 +1918,10 @@ def ensure_onboarding_tables(cursor) -> None:
         ("acesso_plataforma", "BIT"),
         ("metodo_login", "NVARCHAR(20)"),
         ("presenca", "NVARCHAR(20)"),
+        # Prompt.txt (rodada 06/set/2026): marca idempotente do job de
+        # escalonamento de chamada pendente (3/5 dias) - evita notificar o RH
+        # mais de uma vez pela mesma pendencia.
+        ("notificado_pendente_em", "DATETIME"),
     ):
         cursor.execute(
             f"""
@@ -1965,6 +1990,47 @@ def ensure_onboarding_tables(cursor) -> None:
     cursor.execute("UPDATE dbo.onboarding_candidatos_itens SET ordem = 0 WHERE ordem IS NULL")
     cursor.execute("UPDATE dbo.onboarding_candidatos_itens SET obrigatorio = 1 WHERE obrigatorio IS NULL")
     cursor.execute("UPDATE dbo.onboarding_candidatos_itens SET concluido = 0 WHERE concluido IS NULL")
+
+    # Prompt.txt (rodada 06/set/2026): documentos da aba "Saiba +" (nivel
+    # treinamento ou modulo, via trilha_item_id opcional), com o toggle de
+    # download LGPD persistido na propria linha (mesmo padrao coluna-a-coluna
+    # do consentimento LGPD de candidatos, migration V019).
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.trilhas_onboarding_anexos', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.trilhas_onboarding_anexos (
+                id_anexo INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                trilha_id INT NOT NULL,
+                trilha_item_id INT NULL,
+                nome_arquivo_original NVARCHAR(255) NOT NULL,
+                nome_arquivo_armazenado NVARCHAR(255) NOT NULL,
+                tipo_arquivo NVARCHAR(120) NULL,
+                caminho_arquivo NVARCHAR(500) NOT NULL,
+                tamanho_bytes INT NOT NULL CONSTRAINT DF_trilhas_onboarding_anexos_tamanho DEFAULT 0,
+                permite_download BIT NOT NULL CONSTRAINT DF_trilhas_onboarding_anexos_permite_download DEFAULT 0,
+                termo_aceito_em DATETIME NULL,
+                termo_aceito_por NVARCHAR(180) NULL,
+                termo_versao NVARCHAR(40) NULL,
+                criado_por NVARCHAR(180) NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes
+            WHERE name = 'IX_trilhas_onboarding_anexos_trilha_id'
+              AND object_id = OBJECT_ID('dbo.trilhas_onboarding_anexos')
+        )
+        BEGIN
+            CREATE INDEX IX_trilhas_onboarding_anexos_trilha_id
+            ON dbo.trilhas_onboarding_anexos(trilha_id)
+        END
+        """
+    )
 
     cursor.execute("SELECT COUNT(1) FROM dbo.trilhas_onboarding")
     row = cursor.fetchone()
@@ -2036,6 +2102,51 @@ def ensure_process_trainings_table(cursor) -> None:
         BEGIN
             CREATE INDEX IX_processos_treinamentos_id_processo
             ON dbo.processos_treinamentos(id_processo)
+        END
+        """
+    )
+
+
+def ensure_notifications_table(cursor) -> None:
+    """Central de notificações in-app (Prompt.txt, rodada 06/set/2026).
+
+    Não existia nenhuma persistência de notificação antes desta rodada — o
+    sino no header era 100% client-side (derivava "notificações" filtrando
+    listas já carregadas). Escopo inicial: eventos da Central de
+    Treinamentos, mas a tabela é genérica o bastante para outros módulos.
+
+    Aditivo e idempotente: nenhuma tabela ou coluna existente é alterada/removida.
+    """
+    cursor.execute(
+        """
+        IF OBJECT_ID('dbo.notificacoes', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.notificacoes (
+                id_notificacao INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                destinatario_papel NVARCHAR(30) NULL,
+                destinatario_usuario NVARCHAR(180) NULL,
+                titulo NVARCHAR(255) NOT NULL,
+                mensagem NVARCHAR(MAX) NULL,
+                categoria NVARCHAR(60) NOT NULL,
+                entidade NVARCHAR(60) NULL,
+                entidade_id NVARCHAR(80) NULL,
+                lida BIT NOT NULL CONSTRAINT DF_notificacoes_lida DEFAULT 0,
+                lida_em DATETIME NULL,
+                criado_em DATETIME NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+    )
+    cursor.execute(
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes
+            WHERE name = 'IX_notificacoes_papel_lida'
+              AND object_id = OBJECT_ID('dbo.notificacoes')
+        )
+        BEGIN
+            CREATE INDEX IX_notificacoes_papel_lida
+            ON dbo.notificacoes(destinatario_papel, lida)
         END
         """
     )
