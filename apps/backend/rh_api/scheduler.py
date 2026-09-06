@@ -27,6 +27,21 @@ def _run_inactivity_reminder_job(settings: Settings) -> None:
         logger.exception("Falha ao executar o job agendado de lembretes de inatividade.")
 
 
+def _run_training_call_escalation_job(settings: Settings) -> None:
+    """Escalonamento por chamada pendente da Central de Treinamentos (Prompt.txt,
+    rodada 06/set/2026 — ver docs/central-treinamentos/01-plano-tecnico.md §6):
+    3 dias sem chamada salva notifica RH/Gestor/ADM, 5 dias encerra a sessão
+    automaticamente. Mesmo padrão defensivo do job de lembretes acima."""
+    try:
+        from .repositories import DatabaseRepository
+
+        repository = DatabaseRepository(settings)
+        resultado = repository.run_training_call_escalation()
+        logger.info("Job agendado de escalonamento de chamada de treinamento executado: %s", resultado)
+    except Exception:  # pragma: no cover - blindagem defensiva do job agendado
+        logger.exception("Falha ao executar o job agendado de escalonamento de chamada de treinamento.")
+
+
 def start_scheduler(settings: Settings):
     """Inicia um `BackgroundScheduler` (APScheduler) com o job periódico de
     lembretes/alertas automáticos, se a biblioteca estiver disponível e a
@@ -63,6 +78,16 @@ def start_scheduler(settings: Settings):
             hours=interval_hours,
             args=(settings,),
             id="lembretes_inatividade_processos",
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
+        scheduler.add_job(
+            _run_training_call_escalation_job,
+            trigger="interval",
+            hours=1,
+            args=(settings,),
+            id="escalonamento_chamada_treinamento",
             replace_existing=True,
             coalesce=True,
             max_instances=1,

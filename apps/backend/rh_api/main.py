@@ -39,6 +39,7 @@ from .routers.history import router as history_router
 from .routers.interviews import router as interviews_router
 from .routers.onboarding import router as onboarding_router
 from .routers.onedrive_files import router as onedrive_files_router
+from .routers.notifications import router as notifications_router
 from .routers.operations import router as operations_router
 from .routers.pipeline import router as pipeline_router
 from .routers.policies import router as policies_router
@@ -373,6 +374,7 @@ def create_app() -> FastAPI:
     app.include_router(calendar_router)
     app.include_router(calendar_events_router)
     app.include_router(onboarding_router)
+    app.include_router(notifications_router)
     app.include_router(document_templates_router)
     app.include_router(disc_router)
     app.include_router(disc_public_router)

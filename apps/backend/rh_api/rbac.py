@@ -226,6 +226,24 @@ PERMISSION_DEFINITIONS: dict[str, PermissionDefinition] = {
             "Cadastrar/editar trilhas de onboarding, iniciar onboarding e marcar itens do checklist.",
             critical=True,
         ),
+        _permission(
+            "onboarding.criar",
+            "Onboarding",
+            "Criar treinamentos novos pelo assistente da Central de Treinamentos.",
+            critical=True,
+        ),
+        _permission(
+            "onboarding.gerenciar",
+            "Onboarding",
+            "Acessar a área de Gestão de Treinamento (editar existentes, histórico de presença, relatórios).",
+            critical=True,
+        ),
+        _permission(
+            "onboarding.configurar_acesso",
+            "Onboarding",
+            "Configurar quem pode criar/gerenciar treinamentos na Central de Treinamentos.",
+            critical=True,
+        ),
         _permission("documentos_templates.visualizar", "Templates de Documentos", "Visualizar templates e gerar documentos a partir deles."),
         _permission(
             "documentos_templates.editar",
@@ -334,6 +352,12 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "lgpd.visualizar",
         "onedrive.visualizar",
         "operacoes.visualizar",
+        # Prompt.txt (rodada 06/set/2026): Gestor precisa ver e criar
+        # treinamentos na Central de Treinamentos — faltava por completo
+        # (achado da auditoria em docs/central-treinamentos/00-auditoria-inicial.md §3).
+        "onboarding.visualizar",
+        "onboarding.criar",
+        "onboarding.gerenciar",
     },
     ROLE_RH: set(OPERATIONAL_SELECTION_PERMISSIONS)
     | {
@@ -351,6 +375,8 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "calendario.editar",
         "onboarding.visualizar",
         "onboarding.editar",
+        "onboarding.criar",
+        "onboarding.gerenciar",
         "documentos_templates.visualizar",
         "documentos_templates.editar",
         "fit_cultural.visualizar",
@@ -410,6 +436,8 @@ SCREEN_PERMISSIONS: dict[str, str] = {
     "screen-training": "onboarding.visualizar",
     "screen-training-trilhas": "onboarding.visualizar",
     "screen-training-assignments": "onboarding.visualizar",
+    "screen-training-create": "onboarding.criar",
+    "screen-training-manage": "onboarding.gerenciar",
     "screen-onedrive-files": "onedrive.visualizar",
     "screen-settings": "configuracoes.visualizar",
     "screen-settings-users": "usuarios.visualizar",
