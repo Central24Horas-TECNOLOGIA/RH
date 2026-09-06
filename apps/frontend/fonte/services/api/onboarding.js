@@ -1,4 +1,4 @@
-import { invalidarCacheApi, requisitar } from './core.js';
+import { invalidarCacheApi, requisitar, requisitarArquivo } from './core.js';
 
 function montarQuery(params = {}) {
   const query = new URLSearchParams();
@@ -116,4 +116,109 @@ export async function liberarVagasTreinamento(idProcessoTreinamento, candidatos)
   );
   invalidarCacheApi('onboarding-progresso');
   return resultado;
+}
+
+// ---------------------------------------------------------------------------
+// Wizard de criação de treinamento (Prompt.txt, rodada 06/set/2026) — ver
+// docs/central-treinamentos/01-plano-tecnico.md.
+// ---------------------------------------------------------------------------
+
+export async function criarTreinamentoWizard(payload) {
+  const resultado = await requisitar('/onboarding/treinamentos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  invalidarCacheApi('onboarding-trilhas', 'onboarding-progresso');
+  return resultado;
+}
+
+export async function buscarCandidatosTreinamento(busca = '') {
+  return requisitar(`/onboarding/candidatos-elegiveis${montarQuery({ busca })}`, { method: 'GET' });
+}
+
+export async function uploadSlideTreinamento(idTrilha, arquivo) {
+  const formData = new FormData();
+  formData.append('arquivo', arquivo);
+  const resultado = await requisitar(`/onboarding/trilhas/${encodeURIComponent(idTrilha)}/pptx`, {
+    method: 'POST',
+    body: formData,
+  });
+  invalidarCacheApi('onboarding-trilhas');
+  return resultado;
+}
+
+export async function uploadVideoModulo(idItem, arquivo) {
+  const formData = new FormData();
+  formData.append('arquivo', arquivo);
+  const resultado = await requisitar(`/onboarding/itens/${encodeURIComponent(idItem)}/video`, {
+    method: 'POST',
+    body: formData,
+  });
+  invalidarCacheApi('onboarding-trilhas');
+  return resultado;
+}
+
+export async function uploadAnexoTreinamento(idTrilha, arquivo, trilhaItemId = 0) {
+  const formData = new FormData();
+  formData.append('arquivo', arquivo);
+  formData.append('trilha_item_id', String(trilhaItemId || 0));
+  const resultado = await requisitar(`/onboarding/trilhas/${encodeURIComponent(idTrilha)}/anexos`, {
+    method: 'POST',
+    body: formData,
+  });
+  invalidarCacheApi('onboarding-trilhas');
+  return resultado;
+}
+
+export async function alternarDownloadAnexo(idAnexo, payload) {
+  const resultado = await requisitar(`/onboarding/anexos/${encodeURIComponent(idAnexo)}/download`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  invalidarCacheApi('onboarding-trilhas');
+  return resultado;
+}
+
+export async function excluirAnexoTreinamento(idAnexo) {
+  const resultado = await requisitar(`/onboarding/anexos/${encodeURIComponent(idAnexo)}`, { method: 'DELETE' });
+  invalidarCacheApi('onboarding-trilhas');
+  return resultado;
+}
+
+export async function baixarAnexoTreinamento(idAnexo) {
+  return requisitarArquivo(`/onboarding/anexos/${encodeURIComponent(idAnexo)}/arquivo`, { method: 'GET' });
+}
+
+export async function baixarPdfSlideTreinamento(idTrilha) {
+  return requisitarArquivo(`/onboarding/trilhas/${encodeURIComponent(idTrilha)}/pptx-pdf`, { method: 'GET' });
+}
+
+export async function obterSchemaModulo() {
+  return requisitar('/onboarding/modulos/schema', { method: 'GET' });
+}
+
+export async function baixarModeloModulo() {
+  return requisitarArquivo('/onboarding/modulos/modelo', { method: 'GET' });
+}
+
+export async function validarModuloJson(modulo) {
+  return requisitar('/onboarding/modulos/validar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(modulo || {}),
+  });
+}
+
+export async function relatorioTreinamentosStatus(filtros = {}) {
+  return requisitar(`/onboarding/relatorios/status${montarQuery(filtros)}`, { method: 'GET' });
+}
+
+export async function relatorioPresencaColaborador() {
+  return requisitar('/onboarding/relatorios/presenca', { method: 'GET' });
+}
+
+export async function relatorioConclusaoOperacao() {
+  return requisitar('/onboarding/relatorios/conclusao-operacao', { method: 'GET' });
 }

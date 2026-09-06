@@ -34,6 +34,7 @@ export const ROTAS_POR_TELA = {
   'screen-training': 'processos/treinamentos',
   'screen-training-trilhas': 'processos/treinamentos/trilhas',
   'screen-training-assignments': 'processos/treinamentos/atribuicoes',
+  'screen-training-create': 'processos/treinamentos/criar',
   'screen-config': 'configuracao',
   'screen-candidate': 'candidato',
   'screen-exam': 'prova',

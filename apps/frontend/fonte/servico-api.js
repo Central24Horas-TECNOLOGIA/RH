@@ -262,7 +262,14 @@ export {
 export {
   atualizarAgendaTreinamento,
   atualizarTrilhaOnboarding,
+  alternarDownloadAnexo,
+  baixarAnexoTreinamento,
+  baixarModeloModulo,
+  baixarPdfSlideTreinamento,
+  buscarCandidatosTreinamento,
   criarTrilhaOnboarding,
+  criarTreinamentoWizard,
+  excluirAnexoTreinamento,
   excluirAtribuicaoTreinamento,
   iniciarOnboardingCandidato,
   lerProgressoOnboardingCandidato,
@@ -273,8 +280,21 @@ export {
   listarTreinamentosProcesso,
   listarTrilhasOnboarding,
   marcarItemOnboarding,
+  obterSchemaModulo,
+  relatorioConclusaoOperacao,
+  relatorioPresencaColaborador,
+  relatorioTreinamentosStatus,
   salvarPresencaTreinamento,
-} from './services/api/onboarding.js?v=20260904-correcoes-txt3';
+  uploadAnexoTreinamento,
+  uploadSlideTreinamento,
+  uploadVideoModulo,
+  validarModuloJson,
+} from './services/api/onboarding.js?v=20260906-central-treinamentos';
+export {
+  listarNotificacoes,
+  marcarNotificacaoLida,
+  marcarTodasNotificacoesLidas,
+} from './services/api/notifications.js?v=20260906-central-treinamentos';
 export {
   atualizarTemplateDocumento,
   criarTemplateDocumento,

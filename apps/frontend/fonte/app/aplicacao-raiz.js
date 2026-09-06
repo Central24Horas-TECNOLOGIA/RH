@@ -129,6 +129,10 @@ const TelaTreinamentos = carregarTela(
   () => import('../features/treinamentos/index.js?v=20260904-identidade-conecta'),
   'TelaTreinamentos',
 );
+const TelaCriarTreinamento = carregarTela(
+  () => import('../features/treinamentos/wizard.js?v=20260906-central-treinamentos'),
+  'TelaCriarTreinamento',
+);
 const TelaProvasConfiguracao = carregarTela(
   () => import('../features/conecta-provas-configuracao/index.js?v=20260904-identidade-conecta'),
   'TelaProvasConfiguracao',
@@ -467,6 +471,10 @@ function ConteudoAplicacao({ controlador, telaAtual, telaResolvida }) {
         telaAtual=${telaResolvida}
       />
     `;
+  }
+
+  if (telaResolvida === 'screen-training-create') {
+    return html`<${TelaCriarTreinamento} controlador=${controlador} />`;
   }
 
   if (telaResolvida === 'screen-forbidden') {
